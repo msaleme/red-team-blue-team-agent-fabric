@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Test outputs
+red_team_report_*.json
+red_team_tests.log
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Credentials
+*.env
+.env.local
+credentials.json
+secrets.yaml
+
+# Temporary files
+*.tmp
+*.bak
+november-meeting-extracted.txt

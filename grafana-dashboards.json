@@ -1,0 +1,871 @@
+{
+  "dashboards": [
+    {
+      "name": "Agent Fabric Security & Safety Dashboard (Executive View)",
+      "uid": "agent-fabric-exec",
+      "description": "CISO/CIO executive dashboard for Agent Fabric security posture",
+      "tags": ["security", "executive", "agent-fabric"],
+      "panels": [
+        {
+          "id": 1,
+          "title": "Overall System Health",
+          "type": "stat",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "up{job='agent-fabric-broker'}",
+              "legendFormat": "System Status"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"value": 0, "color": "red"},
+                  {"value": 1, "color": "green"}
+                ]
+              },
+              "mappings": [
+                {"value": 0, "text": "❌ DOWN"},
+                {"value": 1, "text": "✅ OPERATIONAL"}
+              ]
+            }
+          }
+        },
+        {
+          "id": 2,
+          "title": "Active Agents",
+          "type": "stat",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "count(agent_status{status='active'})",
+              "legendFormat": "Active / Total"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "steps": [
+                  {"value": 0, "color": "red"},
+                  {"value": 10, "color": "yellow"},
+                  {"value": 13, "color": "green"}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 3,
+          "title": "Kill-Switch Status",
+          "type": "stat",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "kill_switch_armed",
+              "legendFormat": "Kill-Switch"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                {"value": 0, "text": "⚠️ DISARMED"},
+                {"value": 1, "text": "✅ ARMED"}
+              ],
+              "thresholds": {
+                "steps": [
+                  {"value": 0, "color": "red"},
+                  {"value": 1, "color": "green"}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 4,
+          "title": "Security Violations (Last 24h)",
+          "type": "graph",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "event_type:SECURITY_VIOLATION",
+              "timeField": "@timestamp",
+              "metrics": [{"type": "count"}]
+            }
+          ],
+          "yaxes": [
+            {"label": "Violations", "format": "short"}
+          ],
+          "alert": {
+            "conditions": [
+              {
+                "evaluator": {"type": "gt", "params": [0]},
+                "query": {"params": ["A", "5m", "now"]}
+              }
+            ],
+            "frequency": "1m",
+            "handler": 1,
+            "name": "Security Violations Detected",
+            "message": "Security violations detected in Agent Fabric",
+            "notifications": [{"uid": "pagerduty-ciso"}]
+          }
+        },
+        {
+          "id": 5,
+          "title": "Safety Violations (Last 24h)",
+          "type": "graph",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "event_type:SAFETY_VIOLATION AND severity:P0",
+              "timeField": "@timestamp",
+              "metrics": [{"type": "count"}]
+            }
+          ],
+          "alert": {
+            "conditions": [
+              {
+                "evaluator": {"type": "gt", "params": [0]},
+                "query": {"params": ["A", "1m", "now"]}
+              }
+            ],
+            "frequency": "30s",
+            "handler": 1,
+            "name": "CRITICAL: Safety Violation",
+            "message": "P0 Safety Violation - Immediate action required",
+            "notifications": [
+              {"uid": "pagerduty-ciso"},
+              {"uid": "sms-safety-manager"}
+            ]
+          }
+        },
+        {
+          "id": 6,
+          "title": "Human Approvals Required (Last 24h)",
+          "type": "stat",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "event_type:human_decision_required",
+              "timeField": "@timestamp",
+              "metrics": [{"type": "count"}]
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "title": "Human Approval Outcomes",
+          "type": "piechart",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "event_type:human_decision_required",
+              "bucketAggs": [
+                {"type": "terms", "field": "decision.keyword"}
+              ]
+            }
+          ],
+          "legend": {"values": true, "percentage": true}
+        },
+        {
+          "id": 8,
+          "title": "Performance Metrics",
+          "type": "table",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, rate(detection_latency_seconds_bucket[5m]))",
+              "legendFormat": "Average TTD (95th percentile)",
+              "format": "table"
+            },
+            {
+              "expr": "sum(rate(attacks_blocked_total[5m])) / sum(rate(attacks_total[5m]))",
+              "legendFormat": "Block Accuracy",
+              "format": "table"
+            },
+            {
+              "expr": "sum(rate(false_positives_total[5m])) / sum(rate(total_requests[5m]))",
+              "legendFormat": "False Positive Rate",
+              "format": "table"
+            },
+            {
+              "expr": "sum(a2a_chains_with_lineage) / sum(a2a_chains_total)",
+              "legendFormat": "Lineage Traceability",
+              "format": "table"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "renameByName": {
+                  "Value": "Current",
+                  "Metric": "KPI"
+                }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "overrides": [
+              {
+                "matcher": {"id": "byName", "options": "Average TTD"},
+                "properties": [
+                  {"id": "unit", "value": "s"},
+                  {"id": "thresholds", "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {"value": 0, "color": "green"},
+                      {"value": 3, "color": "yellow"},
+                      {"value": 5, "color": "red"}
+                    ]
+                  }}
+                ]
+              },
+              {
+                "matcher": {"id": "byName", "options": "Block Accuracy"},
+                "properties": [
+                  {"id": "unit", "value": "percentunit"},
+                  {"id": "thresholds", "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {"value": 0, "color": "red"},
+                      {"value": 0.95, "color": "yellow"},
+                      {"value": 0.99, "color": "green"}
+                    ]
+                  }}
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 9,
+          "title": "InfraGard Threat Intelligence",
+          "type": "table",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "source:infragard AND threat_level:critical",
+              "timeField": "@timestamp",
+              "bucketAggs": [
+                {"type": "date_histogram", "field": "@timestamp", "interval": "1d"}
+              ]
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {},
+                "renameByName": {
+                  "threat_type": "Threat Type",
+                  "actor": "Threat Actor",
+                  "indicators": "IOCs"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Process Safety Management Dashboard (Operations View)",
+      "uid": "agent-fabric-safety",
+      "description": "Safety-critical metrics for OT/Operations teams",
+      "tags": ["safety", "operations", "ot"],
+      "panels": [
+        {
+          "id": 1,
+          "title": "SCADA Integration Status",
+          "type": "stat",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "scada_connection_status",
+              "legendFormat": "SCADA Connection"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                {"value": 0, "text": "❌ DISCONNECTED"},
+                {"value": 1, "text": "✅ CONNECTED"}
+              ],
+              "thresholds": {
+                "steps": [
+                  {"value": 0, "color": "red"},
+                  {"value": 1, "color": "green"}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 2,
+          "title": "Safety-Critical Agents Status",
+          "type": "table",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "agent_status{safety_critical='true'}",
+              "format": "table"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "renameByName": {
+                  "agent_name": "Agent",
+                  "status": "Status",
+                  "last_health_check": "Last Check"
+                }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "overrides": [
+              {
+                "matcher": {"id": "byName", "options": "Status"},
+                "properties": [
+                  {"id": "mappings", "value": [
+                    {"value": "operational", "text": "✅ OPERATIONAL"},
+                    {"value": "degraded", "text": "⚠️ DEGRADED"},
+                    {"value": "down", "text": "❌ DOWN"}
+                  ]}
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 3,
+          "title": "AI Recommendations vs Unsafe Blocks (Last 30 Days)",
+          "type": "graph",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "event_type:ai_recommendation",
+              "timeField": "@timestamp",
+              "metrics": [{"type": "count", "field": "recommendation_id"}],
+              "alias": "Total Recommendations"
+            },
+            {
+              "query": "event_type:ai_recommendation AND unsafe:true AND blocked:true",
+              "timeField": "@timestamp",
+              "metrics": [{"type": "count"}],
+              "alias": "Unsafe Recommendations Blocked"
+            }
+          ],
+          "yaxes": [
+            {"label": "Count", "format": "short"}
+          ]
+        },
+        {
+          "id": 4,
+          "title": "Human Safety Reviews (Last 30 Days)",
+          "type": "stat",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "event_type:human_decision_required AND decision_type:safety*",
+              "timeField": "@timestamp",
+              "metrics": [{"type": "count"}]
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "title": "Emergency Shutdowns Triggered",
+          "type": "stat",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "event_type:emergency_shutdown",
+              "timeField": "@timestamp",
+              "metrics": [{"type": "count"}]
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "steps": [
+                  {"value": 0, "color": "green"},
+                  {"value": 1, "color": "red"}
+                ]
+              }
+            }
+          },
+          "alert": {
+            "conditions": [
+              {"evaluator": {"type": "gt", "params": [0]}}
+            ],
+            "frequency": "10s",
+            "handler": 1,
+            "name": "Emergency Shutdown Triggered",
+            "message": "CRITICAL: Emergency shutdown has been triggered",
+            "notifications": [
+              {"uid": "pagerduty-all"},
+              {"uid": "sms-safety-manager"},
+              {"uid": "email-ciso"}
+            ]
+          }
+        },
+        {
+          "id": 6,
+          "title": "MCP Safety Validation",
+          "type": "table",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "mcp_server:safety AND validation_result:*",
+              "timeField": "@timestamp",
+              "bucketAggs": [
+                {"type": "terms", "field": "validation_result.keyword"}
+              ]
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "title": "Hallucination Attempts Detected",
+          "type": "graph",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "event_type:llm_hallucination_detected",
+              "timeField": "@timestamp",
+              "metrics": [{"type": "count"}]
+            }
+          ],
+          "alert": {
+            "conditions": [
+              {"evaluator": {"type": "gt", "params": [5]}}
+            ],
+            "frequency": "5m",
+            "handler": 1,
+            "name": "High LLM Hallucination Rate",
+            "message": "Multiple LLM hallucination attempts detected",
+            "notifications": [{"uid": "slack-ai-governance"}]
+          }
+        },
+        {
+          "id": 8,
+          "title": "Data Poisoning Attempts",
+          "type": "stat",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "event_type:data_poisoning_attempt",
+              "timeField": "@timestamp",
+              "metrics": [{"type": "count"}]
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "steps": [
+                  {"value": 0, "color": "green"},
+                  {"value": 1, "color": "orange"},
+                  {"value": 5, "color": "red"}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 9,
+          "title": "Normalization of Deviance Monitor",
+          "type": "graph",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "abs((baseline_pressure - current_pressure) / baseline_pressure) * 100",
+              "legendFormat": "Baseline Drift %"
+            }
+          ],
+          "yaxes": [
+            {"label": "Drift %", "format": "percent"}
+          ],
+          "thresholds": [
+            {
+              "value": 5,
+              "colorMode": "critical",
+              "op": "gt",
+              "fill": true,
+              "line": true
+            }
+          ],
+          "alert": {
+            "conditions": [
+              {"evaluator": {"type": "gt", "params": [5]}}
+            ],
+            "frequency": "1m",
+            "handler": 1,
+            "name": "Baseline Drift Detected",
+            "message": "Agent recommendations drifting from engineering baseline (>5%)",
+            "notifications": [
+              {"uid": "slack-operations"},
+              {"uid": "email-safety-manager"}
+            ]
+          }
+        },
+        {
+          "id": 10,
+          "title": "Next Baseline Reset Scheduled",
+          "type": "text",
+          "datasource": "-- Dashboard --",
+          "options": {
+            "content": "**Next Scheduled Reset**: 2025-11-20 00:00 UTC\n\n**Last Reset**: 2025-10-20 00:00 UTC\n\n**Drift Status**: ⚠️ 2 agents showing drift\n\n**Action Required**: Review drift alerts before reset"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Red Team Testing Dashboard",
+      "uid": "red-team-testing",
+      "description": "Real-time Red Team test execution metrics",
+      "tags": ["security", "testing", "red-team"],
+      "panels": [
+        {
+          "id": 1,
+          "title": "Test Execution Progress",
+          "type": "stat",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "red_team_tests_completed / 27 * 100",
+              "legendFormat": "Tests Complete %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "steps": [
+                  {"value": 0, "color": "red"},
+                  {"value": 50, "color": "yellow"},
+                  {"value": 100, "color": "green"}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 2,
+          "title": "Pass/Fail Rate",
+          "type": "piechart",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "test_result:*",
+              "bucketAggs": [
+                {"type": "terms", "field": "test_result.keyword"}
+              ]
+            }
+          ],
+          "legend": {"values": true, "percentage": true}
+        },
+        {
+          "id": 3,
+          "title": "Tests by Threat Category (STRIDE)",
+          "type": "bargauge",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "threat_category:*",
+              "bucketAggs": [
+                {"type": "terms", "field": "threat_category.keyword"}
+              ],
+              "metrics": [
+                {"type": "count", "field": "test_result"}
+              ]
+            }
+          ],
+          "orientation": "horizontal",
+          "displayMode": "gradient"
+        },
+        {
+          "id": 4,
+          "title": "Time to Detect (TTD) Distribution",
+          "type": "histogram",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "ttd:*",
+              "metrics": [
+                {"type": "avg", "field": "ttd"}
+              ]
+            }
+          ],
+          "xAxis": {"mode": "histogram", "bucketSize": 0.5},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            }
+          }
+        },
+        {
+          "id": 5,
+          "title": "Average TTD by Test Scenario",
+          "type": "table",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "test_id:RT-*",
+              "bucketAggs": [
+                {"type": "terms", "field": "test_id.keyword"}
+              ],
+              "metrics": [
+                {"type": "avg", "field": "ttd"}
+              ]
+            }
+          ],
+          "transformations": [
+            {"id": "organize", "options": {"renameByName": {"ttd": "Avg TTD (s)"}}}
+          ],
+          "fieldConfig": {
+            "overrides": [
+              {
+                "matcher": {"id": "byName", "options": "Avg TTD (s)"},
+                "properties": [
+                  {"id": "thresholds", "value": {
+                    "steps": [
+                      {"value": 0, "color": "green"},
+                      {"value": 3, "color": "yellow"},
+                      {"value": 5, "color": "red"}
+                    ]
+                  }}
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 6,
+          "title": "InfraGard-Derived Tests Performance",
+          "type": "table",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "test_id:(RT-021 OR RT-022 OR RT-023 OR RT-024 OR RT-025 OR RT-026 OR RT-027)",
+              "bucketAggs": [
+                {"type": "terms", "field": "test_id.keyword"}
+              ],
+              "metrics": [
+                {"type": "count"},
+                {"type": "avg", "field": "ttd"}
+              ]
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "title": "OWASP LLM Top 10 Coverage",
+          "type": "table",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "owasp_llm:LLM*",
+              "bucketAggs": [
+                {"type": "terms", "field": "owasp_llm.keyword"}
+              ],
+              "metrics": [
+                {"type": "count"}
+              ]
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "title": "Polymorphic Attack Test (RT-021)",
+          "type": "stat",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "test_id:RT-021",
+              "metrics": [
+                {"type": "avg", "field": "payload.blocked_count"}
+              ]
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "mappings": [{"type": "range", "options": {"from": 9, "to": 10, "text": "✅ PASS (≥90% blocked)"}}],
+              "thresholds": {
+                "steps": [
+                  {"value": 0, "color": "red"},
+                  {"value": 7, "color": "yellow"},
+                  {"value": 9, "color": "green"}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 9,
+          "title": "Normalization of Deviance Test (RT-024)",
+          "type": "graph",
+          "datasource": "Elasticsearch",
+          "targets": [
+            {
+              "query": "test_id:RT-024",
+              "bucketAggs": [
+                {"type": "date_histogram", "field": "@timestamp", "interval": "1d"}
+              ],
+              "metrics": [
+                {"type": "avg", "field": "payload.final_drift"}
+              ]
+            }
+          ],
+          "yaxes": [
+            {"label": "Drift %", "format": "percent"}
+          ]
+        }
+      ]
+    }
+  ],
+  "prometheus_queries": {
+    "detection_latency": "histogram_quantile(0.95, rate(security_detection_seconds_bucket[5m]))",
+    "block_accuracy": "sum(rate(attacks_blocked_total[5m])) / sum(rate(attacks_total[5m]))",
+    "false_positive_rate": "sum(rate(false_positives_total[5m])) / sum(rate(total_requests[5m]))",
+    "lineage_traceability": "sum(a2a_chains_with_lineage) / sum(a2a_chains_total)",
+    "agent_health": "up{job='agent-fabric', agent_name!=''}",
+    "kill_switch_status": "kill_switch_armed",
+    "baseline_drift": "abs((baseline_value - current_value) / baseline_value) * 100"
+  },
+  "elasticsearch_queries": {
+    "security_violations": "event_type:SECURITY_VIOLATION AND severity:(P0 OR P1)",
+    "safety_violations": "event_type:SAFETY_VIOLATION",
+    "human_approvals": "event_type:human_decision_required",
+    "llm_hallucinations": "event_type:llm_hallucination_detected",
+    "data_poisoning": "event_type:data_poisoning_attempt",
+    "prompt_injection": "attack_type:prompt_injection",
+    "infragard_threats": "source:infragard AND threat_level:critical"
+  },
+  "alerting_rules": [
+    {
+      "name": "Critical Safety Violation",
+      "query": "event_type:SAFETY_VIOLATION AND severity:P0",
+      "frequency": "30s",
+      "threshold": "> 0",
+      "notifications": ["pagerduty-all", "sms-safety-manager", "email-ciso"]
+    },
+    {
+      "name": "Kill-Switch Activation",
+      "query": "event_type:kill_switch_activated",
+      "frequency": "10s",
+      "threshold": "> 0",
+      "notifications": ["pagerduty-all", "sms-ciso", "sms-cio", "sms-safety-manager"]
+    },
+    {
+      "name": "High Detection Latency",
+      "query": "detection_latency_seconds > 3",
+      "frequency": "1m",
+      "threshold": "> 10 occurrences in 5m",
+      "notifications": ["slack-security", "email-security-manager"]
+    },
+    {
+      "name": "Block Accuracy Below Target",
+      "query": "block_accuracy < 0.99",
+      "frequency": "5m",
+      "threshold": "< 99%",
+      "notifications": ["slack-security", "email-security-director"]
+    },
+    {
+      "name": "Baseline Drift Detected",
+      "query": "baseline_drift_percentage > 5",
+      "frequency": "1m",
+      "threshold": "> 5%",
+      "notifications": ["slack-operations", "email-safety-manager"]
+    },
+    {
+      "name": "Multiple LLM Hallucinations",
+      "query": "event_type:llm_hallucination_detected",
+      "frequency": "5m",
+      "threshold": "> 5 in 5m",
+      "notifications": ["slack-ai-governance", "email-ai-lead"]
+    },
+    {
+      "name": "Data Poisoning Attempt",
+      "query": "event_type:data_poisoning_attempt",
+      "frequency": "1m",
+      "threshold": "> 0",
+      "notifications": ["slack-security", "email-ciso"]
+    },
+    {
+      "name": "Superman Effect Detected",
+      "query": "alert_type:SUPERMAN_EFFECT_DETECTED",
+      "frequency": "30s",
+      "threshold": "> 0",
+      "notifications": ["pagerduty-security", "email-ciso"]
+    }
+  ],
+  "notification_channels": [
+    {
+      "uid": "pagerduty-ciso",
+      "type": "pagerduty",
+      "settings": {
+        "integrationKey": "${PAGERDUTY_INTEGRATION_KEY_CISO}",
+        "severity": "critical"
+      }
+    },
+    {
+      "uid": "pagerduty-all",
+      "type": "pagerduty",
+      "settings": {
+        "integrationKey": "${PAGERDUTY_INTEGRATION_KEY_ALL}",
+        "severity": "critical"
+      }
+    },
+    {
+      "uid": "slack-security",
+      "type": "slack",
+      "settings": {
+        "url": "${SLACK_WEBHOOK_SECURITY}",
+        "channel": "#security-alerts"
+      }
+    },
+    {
+      "uid": "slack-operations",
+      "type": "slack",
+      "settings": {
+        "url": "${SLACK_WEBHOOK_OPERATIONS}",
+        "channel": "#operations-alerts"
+      }
+    },
+    {
+      "uid": "slack-ai-governance",
+      "type": "slack",
+      "settings": {
+        "url": "${SLACK_WEBHOOK_AI_GOVERNANCE}",
+        "channel": "#ai-governance"
+      }
+    },
+    {
+      "uid": "email-ciso",
+      "type": "email",
+      "settings": {
+        "addresses": "ciso@company.com"
+      }
+    },
+    {
+      "uid": "email-safety-manager",
+      "type": "email",
+      "settings": {
+        "addresses": "safety-manager@company.com"
+      }
+    },
+    {
+      "uid": "sms-safety-manager",
+      "type": "webhook",
+      "settings": {
+        "url": "${SMS_WEBHOOK_SAFETY_MANAGER}",
+        "method": "POST"
+      }
+    }
+  ]
+}
