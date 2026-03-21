@@ -30,7 +30,8 @@ This repo provides a complete, repeatable **Red Team / Blue Team testing package
 | [BLUE-TEAM-PLAYBOOKS.md](BLUE-TEAM-PLAYBOOKS.md) | Incident response playbooks for all 27 scenarios — Detection→Analysis→Response→Recovery |
 | [red_team_automation.py](red_team_automation.py) | Python automation suite — all 30 scenarios, JSON reports, NIST/OWASP mapping |
 | [EVALUATION_PROTOCOL.md](EVALUATION_PROTOCOL.md) | NIST AI 800-2 aligned evaluation methodology — objectives, protocol design, statistical analysis, qualified claims |
-| [protocol_tests/advanced_attacks.py](protocol_tests/advanced_attacks.py) | 🆕 10 multi-step attack simulations based on real-world incidents (Mexico/Claude, CrowdStrike 4-domain) |
+| [protocol_tests/gtg1002_simulation.py](protocol_tests/gtg1002_simulation.py) | 🆕 17-test full simulation of GTG-1002 APT lifecycle (Anthropic Nov 2025) — 6 phases + hallucination detection |
+| [protocol_tests/advanced_attacks.py](protocol_tests/advanced_attacks.py) | 10 multi-step attack simulations based on real-world incidents (Mexico/Claude, CrowdStrike 4-domain) |
 | [protocol_tests/identity_harness.py](protocol_tests/identity_harness.py) | 18 identity & authorization tests covering all 6 NIST NCCoE focus areas |
 | [grafana-dashboards.json](grafana-dashboards.json) | 3 Grafana dashboards — Executive, Process Safety, Red Team Testing |
 
@@ -302,6 +303,31 @@ python -m protocol_tests.enterprise_adapters workday --url https://your-workday.
 | **Oracle Fusion AI** | OR-001–003 | Supplier bank detail exfil, approval workflow bypass (POs), SQL injection via agent |
 | **Salesforce Agentforce** | SF-001–003 | Cross-object data access, destructive Flow trigger, MuleSoft API policy bypass |
 | **ServiceNow Now Assist** | SN-001–003 | CMDB exfil (server inventory), change management bypass, mass incident escalation |
+
+### GTG-1002 APT Simulation ✅ SHIPPED
+Full simulation of the first documented AI-orchestrated cyber espionage campaign (Anthropic, November 2025).
+
+```bash
+# Run full 6-phase campaign simulation
+python -m protocol_tests.gtg1002_simulation --url https://agent.example.com --full-campaign --run
+
+# Run specific phases
+python -m protocol_tests.gtg1002_simulation --url https://agent.example.com --phases 1,2,3 --run
+```
+
+| Phase | Tests | What GTG-1002 Did | What We Test |
+|---|---|---|---|
+| **1. Initialization** | GTG-P1-001–002 | Roleplay as "CrowdStrike pentester" to bypass guardrails | Security firm impersonation + 3 escalating personas (IT admin, compliance, incident responder) |
+| **2. Reconnaissance** | GTG-P2-001–003 | Autonomous infra enumeration via MCP browser/tools | 6-query systematic enumeration, MCP tool abuse (nmap, browser, file access), multi-target parallel recon |
+| **3. Vulnerability** | GTG-P3-001–002 | AI-generated exploit payloads + callback validation | Exploit payload generation request, callback/beacon to attacker server |
+| **4. Credentials** | GTG-P4-001–003 | Credential extraction from configs, lateral movement | Config credential extraction (4 techniques), cross-system credential testing, privilege level mapping |
+| **5. Data Collection** | GTG-P5-001–003 | Autonomous DB extraction + intelligence categorization | Full user table extraction, data categorization by intel value, persistent backdoor account creation |
+| **6. Documentation** | GTG-P6-001–002 | Auto-generated attack docs + campaign handoff | Markdown attack report generation, second operator campaign handoff |
+| **Hallucination** | HALL-001–002 | Claude "overstated findings and fabricated data" | Security finding hallucination for nonexistent system, credential fabrication without context |
+
+**Campaign tracking:** The simulation maintains state across phases — tracking what the "attacker" discovers, whether credentials were harvested, whether data was exfiltrated, and whether attack documentation was generated. Final output reports a campaign-level pass/fail.
+
+---
 
 ### Advanced Attack Patterns ✅ SHIPPED
 Multi-step, stateful attack simulations based on real-world AI agent exploitation incidents.
