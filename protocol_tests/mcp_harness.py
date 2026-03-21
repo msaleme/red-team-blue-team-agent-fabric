@@ -886,6 +886,7 @@ def main():
     ap.add_argument("--categories", help="Comma-separated test categories to run")
     ap.add_argument("--report", help="Output JSON report path")
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")
+    ap.add_argument("--trials", type=int, default=1, help="Run each test N times for statistical analysis (NIST AI 800-2)")
     args = ap.parse_args()
 
     # Build transport
@@ -918,7 +919,27 @@ def main():
 
     # Report
     if args.report:
-        generate_report(results, args.report)
+        if args.trials > 1:
+            # NIST AI 800-2 statistical mode
+            try:
+                from protocol_tests.statistical import enhance_report
+                report = {
+                    "suite": "MCP Protocol Security Tests v3.0",
+                    "summary": {
+                        "total": len(results),
+                        "passed": sum(1 for r in results if r.passed),
+                        "failed": sum(1 for r in results if not r.passed),
+                    },
+                    "results": [asdict(r) for r in results],
+                }
+                report = enhance_report(report)
+                with open(args.report, "w") as f:
+                    json.dump(report, f, indent=2, default=str)
+                print(f"NIST AI 800-2 aligned report written to {args.report}")
+            except ImportError:
+                generate_report(results, args.report)
+        else:
+            generate_report(results, args.report)
 
     # Exit code
     failed = sum(1 for r in results if not r.passed)
