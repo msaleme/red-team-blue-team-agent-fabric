@@ -251,16 +251,28 @@ python -m protocol_tests.a2a_harness --url https://agent.example.com
 | A2A-011 | Undocumented Method Enumeration | ASI03 | ✅ Done |
 | A2A-012 | Cross-Context Data Leakage | ASI06 | ✅ Done |
 
-### Framework Adapters
-Pre-configured test profiles for common agent frameworks:
+### Framework Adapters ✅ SHIPPED
+Pre-configured test profiles for 5 agent frameworks:
 
-| Framework | Adapter | Status |
+```bash
+# List adapters
+python -m protocol_tests.framework_adapters --list
+
+# Run tests against your framework
+python -m protocol_tests.framework_adapters langchain --url http://localhost:8000 --run
+python -m protocol_tests.framework_adapters crewai --url http://localhost:8080 --run
+python -m protocol_tests.framework_adapters autogen --url http://localhost:5000 --run
+python -m protocol_tests.framework_adapters openai-agents --url http://localhost:8000 --run
+python -m protocol_tests.framework_adapters bedrock --url http://localhost:8080 --run
+```
+
+| Framework | Tests | Key Scenarios |
 |---|---|---|
-| **LangChain / LangGraph** | LangServe endpoint testing, tool call validation, chain-of-thought injection | 🔲 Planned |
-| **CrewAI** | Delegation security, inter-crew communication, tool boundary testing | 🔲 Planned |
-| **AutoGen / Semantic Kernel** | Conversation protocol validation, code execution sandbox testing | 🔲 Planned |
-| **OpenAI Agents SDK** | Handoff security, guardrail bypass testing, tool schema validation | 🔲 Planned |
-| **Amazon Bedrock Agents** | Action group boundary testing, knowledge base poisoning, session hijacking | 🔲 Planned |
+| **LangChain / LangGraph** | LC-001 to LC-005 | Prompt injection via /invoke, schema disclosure, batch injection, tool boundary override, system prompt extraction |
+| **CrewAI** | CA-001 to CA-004 | Crew kickoff injection, crew member injection, tool boundary, delegation hijack |
+| **AutoGen / Semantic Kernel** | AG-001 to AG-004 | Chat injection, sandbox escape via /execute, conversation history injection, group chat participant injection |
+| **OpenAI Agents SDK** | OA-001 to OA-004 | Agent run injection, unauthorized handoff, code interpreter bypass, tool schema injection |
+| **Amazon Bedrock Agents** | BR-001 to BR-004 | Text injection, knowledge base poisoning, action group escape, session hijacking |
 
 ### How to contribute to v3.0
 
