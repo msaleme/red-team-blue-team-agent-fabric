@@ -29,7 +29,8 @@ This repo provides a complete, repeatable **Red Team / Blue Team testing package
 | [EXECUTIVE-PRESENTATION.md](EXECUTIVE-PRESENTATION.md) | 24-slide executive briefing — ROI analysis, GO/NO-GO framework |
 | [BLUE-TEAM-PLAYBOOKS.md](BLUE-TEAM-PLAYBOOKS.md) | Incident response playbooks for all 27 scenarios — Detection→Analysis→Response→Recovery |
 | [red_team_automation.py](red_team_automation.py) | Python automation suite — all 30 scenarios, JSON reports, NIST/OWASP mapping |
-| [EVALUATION_PROTOCOL.md](EVALUATION_PROTOCOL.md) | 🆕 NIST AI 800-2 aligned evaluation methodology — objectives, protocol design, statistical analysis, qualified claims |
+| [EVALUATION_PROTOCOL.md](EVALUATION_PROTOCOL.md) | NIST AI 800-2 aligned evaluation methodology — objectives, protocol design, statistical analysis, qualified claims |
+| [protocol_tests/identity_harness.py](protocol_tests/identity_harness.py) | 🆕 18 identity & authorization tests covering all 6 NIST NCCoE focus areas |
 | [grafana-dashboards.json](grafana-dashboards.json) | 3 Grafana dashboards — Executive, Process Safety, Red Team Testing |
 
 ---
@@ -72,6 +73,7 @@ This framework provides **complete mapping** to all 10 categories of the OWASP A
 - ✅ **OWASP LLM Top 10** — LLM01 (Prompt Injection), LLM02, LLM03, LLM04, LLM06, LLM08
 - ✅ **NIST AI RMF** — GOVERN, MAP, MEASURE, MANAGE functions covered
 - ✅ **NIST AI 800-2: Benchmark Evaluation Practices (Jan 2026)** — Evaluation protocol follows all 9 practices (see [EVALUATION_PROTOCOL.md](EVALUATION_PROTOCOL.md))
+- ✅ **NIST NCCoE: AI Agent Identity & Authorization (Feb 2026)** — Dedicated test harness covering all 6 focus areas (see [identity_harness.py](protocol_tests/identity_harness.py)). Comment deadline: April 2, 2026.
 - ✅ **NIST AI Agent Standards Initiative (Feb 2026)** — Aligned with agent security, identity, and interoperability pillars
 - ✅ **NIST Cyber AI Profile (IR 8596, Dec 2025)** — Maps to Secure, Detect, Respond functions
 - ✅ **ISA/IEC 62443** — Security Levels 1-4, air-gapped fallback for safety-critical agents
@@ -192,6 +194,7 @@ This specification integrates guidance from:
 - **NIST AI Agent Standards Initiative (Feb 2026)** — [nist.gov](https://www.nist.gov/news-events/news/2026/02/announcing-ai-agent-standards-initiative-interoperable-and-secure) — Security, identity, and interoperability for autonomous AI
 - **NIST Cyber AI Profile (IR 8596, Dec 2025)** — [csrc.nist.gov](https://csrc.nist.gov/pubs/ir/8596/iprd) — CSF 2.0 profile for AI systems
 - **NIST AI 800-2: Practices for Automated Benchmark Evaluations (Jan 2026)** — [doi.org/10.6028/NIST.AI.800-2.ipd](https://doi.org/10.6028/NIST.AI.800-2.ipd) — Our [Evaluation Protocol](EVALUATION_PROTOCOL.md) follows the three-stage structure defined in this document
+- **NIST NCCoE: AI Agent Identity & Authorization (Feb 2026)** — [nccoe.nist.gov](https://www.nccoe.nist.gov/projects/software-and-ai-agent-identity-and-authorization) — Dedicated test harness for all 6 focus areas (comment deadline: April 2, 2026)
 - **NIST AI Risk Management Framework** — [nist.gov/ai-rmf](https://www.nist.gov/itl/ai-risk-management-framework)
 - **ISA/IEC 62443** — Industrial automation and control systems security
 
@@ -298,6 +301,25 @@ python -m protocol_tests.enterprise_adapters workday --url https://your-workday.
 | **Oracle Fusion AI** | OR-001–003 | Supplier bank detail exfil, approval workflow bypass (POs), SQL injection via agent |
 | **Salesforce Agentforce** | SF-001–003 | Cross-object data access, destructive Flow trigger, MuleSoft API policy bypass |
 | **ServiceNow Now Assist** | SN-001–003 | CMDB exfil (server inventory), change management bypass, mass incident escalation |
+
+### Agent Identity & Authorization Harness ✅ SHIPPED
+Aligned to NIST NCCoE Concept Paper (February 2026). Covers all 6 focus areas.
+
+```bash
+python -m protocol_tests.identity_harness --url https://agent.example.com --run
+python -m protocol_tests.identity_harness --url https://agent.example.com --categories authorization,authentication --run
+```
+
+| NIST Focus Area | Tests | Key Scenarios |
+|---|---|---|
+| **1. Identification** | ID-001–003 | Identity metadata validation, spoofing resistance, ephemeral identity isolation |
+| **2. Authentication** | AUTH-001–003 | Unauthenticated access, expired/revoked credential rejection, OAuth token scope escalation |
+| **3. Authorization** | AUTHZ-001–004 | Least privilege enforcement, delegation chain forgery ("on behalf of"), human-in-the-loop approval forgery, zero-trust re-authorization on context change |
+| **4. Auditing** | AUDIT-001–002 | Action audit trail availability, non-repudiation (attribution in response) |
+| **5. Data Flow** | DATA-001–003 | Cross-source aggregation sensitivity, prompt provenance injection, output data classification |
+| **6. Standards** | STD-001–003 | OAuth 2.1/OIDC discovery, SPIFFE workload identity, SCIM lifecycle management |
+
+---
 
 ### Extended Enterprise Platform Adapters ✅ SHIPPED
 Additional 11 enterprise platforms — asset management, data platforms, low-code, ITSM, CRM:
