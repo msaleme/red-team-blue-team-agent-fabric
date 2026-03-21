@@ -29,6 +29,7 @@ This repo provides a complete, repeatable **Red Team / Blue Team testing package
 | [EXECUTIVE-PRESENTATION.md](EXECUTIVE-PRESENTATION.md) | 24-slide executive briefing — ROI analysis, GO/NO-GO framework |
 | [BLUE-TEAM-PLAYBOOKS.md](BLUE-TEAM-PLAYBOOKS.md) | Incident response playbooks for all 27 scenarios — Detection→Analysis→Response→Recovery |
 | [red_team_automation.py](red_team_automation.py) | Python automation suite — all 30 scenarios, JSON reports, NIST/OWASP mapping |
+| [EVALUATION_PROTOCOL.md](EVALUATION_PROTOCOL.md) | 🆕 NIST AI 800-2 aligned evaluation methodology — objectives, protocol design, statistical analysis, qualified claims |
 | [grafana-dashboards.json](grafana-dashboards.json) | 3 Grafana dashboards — Executive, Process Safety, Red Team Testing |
 
 ---
@@ -70,6 +71,7 @@ This framework provides **complete mapping** to all 10 categories of the OWASP A
 - ✅ **OWASP Top 10 for Agentic Applications (2026)** — Complete ASI01–ASI10 coverage
 - ✅ **OWASP LLM Top 10** — LLM01 (Prompt Injection), LLM02, LLM03, LLM04, LLM06, LLM08
 - ✅ **NIST AI RMF** — GOVERN, MAP, MEASURE, MANAGE functions covered
+- ✅ **NIST AI 800-2: Benchmark Evaluation Practices (Jan 2026)** — Evaluation protocol follows all 9 practices (see [EVALUATION_PROTOCOL.md](EVALUATION_PROTOCOL.md))
 - ✅ **NIST AI Agent Standards Initiative (Feb 2026)** — Aligned with agent security, identity, and interoperability pillars
 - ✅ **NIST Cyber AI Profile (IR 8596, Dec 2025)** — Maps to Secure, Detect, Respond functions
 - ✅ **ISA/IEC 62443** — Security Levels 1-4, air-gapped fallback for safety-critical agents
@@ -189,6 +191,7 @@ This specification integrates guidance from:
 - **OWASP LLM Top 10** — [owasp.org/llm-top-10](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 - **NIST AI Agent Standards Initiative (Feb 2026)** — [nist.gov](https://www.nist.gov/news-events/news/2026/02/announcing-ai-agent-standards-initiative-interoperable-and-secure) — Security, identity, and interoperability for autonomous AI
 - **NIST Cyber AI Profile (IR 8596, Dec 2025)** — [csrc.nist.gov](https://csrc.nist.gov/pubs/ir/8596/iprd) — CSF 2.0 profile for AI systems
+- **NIST AI 800-2: Practices for Automated Benchmark Evaluations (Jan 2026)** — [doi.org/10.6028/NIST.AI.800-2.ipd](https://doi.org/10.6028/NIST.AI.800-2.ipd) — Our [Evaluation Protocol](EVALUATION_PROTOCOL.md) follows the three-stage structure defined in this document
 - **NIST AI Risk Management Framework** — [nist.gov/ai-rmf](https://www.nist.gov/itl/ai-risk-management-framework)
 - **ISA/IEC 62443** — Industrial automation and control systems security
 

@@ -853,6 +853,7 @@ def main():
     ap.add_argument("--categories", help="Comma-separated test categories")
     ap.add_argument("--report", help="Output JSON report path")
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")
+    ap.add_argument("--trials", type=int, default=1, help="Run each test N times for statistical analysis (NIST AI 800-2)")
     args = ap.parse_args()
 
     headers = {}
