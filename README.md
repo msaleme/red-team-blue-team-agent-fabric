@@ -198,30 +198,58 @@ This specification integrates guidance from:
 
 The current test suite validates security at the application/HTTP layer. v3.0 will add **wire-protocol testing** for the two dominant agent communication standards, plus framework-specific adapters.
 
-### MCP (Model Context Protocol) Test Harness
+### MCP (Model Context Protocol) Test Harness ✅ SHIPPED
 Target: Anthropic's MCP — JSON-RPC 2.0 over stdio/SSE/Streamable HTTP
 
+```bash
+# HTTP transport
+python -m protocol_tests.mcp_harness --transport http --url http://localhost:8080/mcp
+
+# stdio transport (launches server process)
+python -m protocol_tests.mcp_harness --transport stdio --command "node my-mcp-server.js"
+```
+
+| Test ID | Test | OWASP ASI | Status |
+|---|---|---|---|
+| MCP-001 | Tool List Integrity Check | ASI04 | ✅ Done |
+| MCP-002 | Tool Registration via Call Injection | ASI04 | ✅ Done |
+| MCP-003 | Capability Escalation via Initialize | ASI03 | ✅ Done |
+| MCP-004 | Protocol Version Downgrade Attack | ASI03 | ✅ Done |
+| MCP-005 | Resource URI Path Traversal | ASI04 | ✅ Done |
+| MCP-006 | Prompt Template Injection via Get | ASI01 | ✅ Done |
+| MCP-007 | Sampling Request Context Exfiltration | ASI02 | ✅ Done |
+| MCP-008 | Malformed JSON-RPC Handling | ASI08 | ✅ Done |
+| MCP-009 | Batch Request DoS | ASI08 | ✅ Done |
+| MCP-010 | Tool Call Argument Injection | ASI02 | ✅ Done |
+
+**Planned additions:**
+
 | Test Category | What It Validates | Status |
 |---|---|---|
-| **Tool discovery poisoning** | Malicious tool descriptions injected during `tools/list` | 🔲 Planned |
-| **Capability negotiation tampering** | Manipulated `initialize` handshake to escalate permissions | 🔲 Planned |
 | **OAuth 2.1 flow attacks** | Token theft, scope escalation, authorization code interception (per MCP 2025-03-26 spec) | 🔲 Planned |
 | **Transport-layer security** | stdio injection, SSE event spoofing, Streamable HTTP request smuggling | 🔲 Planned |
-| **Resource URI traversal** | Path traversal via `resources/read` to access unauthorized files/data | 🔲 Planned |
-| **Prompt template injection** | Poisoned `prompts/get` responses that carry hidden instructions | 🔲 Planned |
-| **Sampling request manipulation** | Hijacking `sampling/createMessage` to exfiltrate context or redirect completions | 🔲 Planned |
 
-### Google A2A (Agent-to-Agent) Test Harness
-Target: Google's A2A protocol — Agent Cards, Tasks, SSE streaming
+### Google A2A (Agent-to-Agent) Test Harness ✅ SHIPPED
+Target: Google's A2A protocol v1.0 — Agent Cards, Tasks, Push Notifications
 
-| Test Category | What It Validates | Status |
-|---|---|---|
-| **Agent Card spoofing** | Fake `/.well-known/agent.json` with malicious capabilities/endpoints | 🔲 Planned |
-| **Task lifecycle attacks** | Unauthorized `send`/`cancel`/`get` on other agents' tasks | 🔲 Planned |
-| **SSE stream injection** | Injecting malicious events into `tasks/sendSubscribe` streams | 🔲 Planned |
-| **Push notification hijacking** | Redirecting task completion webhooks to attacker-controlled endpoints | 🔲 Planned |
-| **Capability negotiation abuse** | Claiming capabilities the agent doesn't have to join orchestrations | 🔲 Planned |
-| **Cross-agent artifact poisoning** | Injecting malicious content into multi-part task artifacts | 🔲 Planned |
+```bash
+python -m protocol_tests.a2a_harness --url https://agent.example.com
+```
+
+| Test ID | Test | OWASP ASI | Status |
+|---|---|---|---|
+| A2A-001 | Agent Card Discovery & Integrity | ASI03 | ✅ Done |
+| A2A-002 | Agent Card Spoofing via Message Metadata | ASI03 | ✅ Done |
+| A2A-003 | Agent Card Path Traversal | ASI04 | ✅ Done |
+| A2A-004 | Unauthorized Task Access/Cancel | ASI03 | ✅ Done |
+| A2A-005 | Task Message Injection (Prompt + Data + File) | ASI01 | ✅ Done |
+| A2A-006 | Task State Manipulation | ASI02 | ✅ Done |
+| A2A-007 | Push Notification URL Redirect | ASI07 | ✅ Done |
+| A2A-008 | Unauthorized Skill Request | ASI02 | ✅ Done |
+| A2A-009 | Artifact Content Type Abuse | ASI06 | ✅ Done |
+| A2A-010 | Malformed Request Handling | ASI08 | ✅ Done |
+| A2A-011 | Undocumented Method Enumeration | ASI03 | ✅ Done |
+| A2A-012 | Cross-Context Data Leakage | ASI06 | ✅ Done |
 
 ### Framework Adapters
 Pre-configured test profiles for common agent frameworks:
