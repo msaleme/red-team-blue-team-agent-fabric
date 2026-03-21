@@ -30,7 +30,8 @@ This repo provides a complete, repeatable **Red Team / Blue Team testing package
 | [BLUE-TEAM-PLAYBOOKS.md](BLUE-TEAM-PLAYBOOKS.md) | Incident response playbooks for all 27 scenarios — Detection→Analysis→Response→Recovery |
 | [red_team_automation.py](red_team_automation.py) | Python automation suite — all 30 scenarios, JSON reports, NIST/OWASP mapping |
 | [EVALUATION_PROTOCOL.md](EVALUATION_PROTOCOL.md) | NIST AI 800-2 aligned evaluation methodology — objectives, protocol design, statistical analysis, qualified claims |
-| [protocol_tests/identity_harness.py](protocol_tests/identity_harness.py) | 🆕 18 identity & authorization tests covering all 6 NIST NCCoE focus areas |
+| [protocol_tests/advanced_attacks.py](protocol_tests/advanced_attacks.py) | 🆕 10 multi-step attack simulations based on real-world incidents (Mexico/Claude, CrowdStrike 4-domain) |
+| [protocol_tests/identity_harness.py](protocol_tests/identity_harness.py) | 18 identity & authorization tests covering all 6 NIST NCCoE focus areas |
 | [grafana-dashboards.json](grafana-dashboards.json) | 3 Grafana dashboards — Executive, Process Safety, Red Team Testing |
 
 ---
@@ -301,6 +302,24 @@ python -m protocol_tests.enterprise_adapters workday --url https://your-workday.
 | **Oracle Fusion AI** | OR-001–003 | Supplier bank detail exfil, approval workflow bypass (POs), SQL injection via agent |
 | **Salesforce Agentforce** | SF-001–003 | Cross-object data access, destructive Flow trigger, MuleSoft API policy bypass |
 | **ServiceNow Now Assist** | SN-001–003 | CMDB exfil (server inventory), change management bypass, mass incident escalation |
+
+### Advanced Attack Patterns ✅ SHIPPED
+Multi-step, stateful attack simulations based on real-world AI agent exploitation incidents.
+
+```bash
+python -m protocol_tests.advanced_attacks --url https://agent.example.com --run
+python -m protocol_tests.advanced_attacks --url https://agent.example.com --categories stateful,jailbreak --run
+```
+
+| Pattern | Tests | Real-World Reference |
+|---|---|---|
+| **Polymorphic** | POLY-001–002 | Chinese Claude Code campaign — unique payloads per target, encoding evasion (homoglyphs, zero-width chars, ROT13) |
+| **Stateful Escalation** | STATE-001–003 | Mexico/Claude breach — trust-building then exploit, playbook injection bypass, 8-step guardrail erosion |
+| **Multi-Domain Chain** | CHAIN-001–002 | CrowdStrike 4-domain model — Credential→Identity→Cloud pivot, SaaS lateral movement (Doc→Email→Finance) |
+| **Reconnaissance** | RECON-001 | Chinese campaign — agent maps its own attack surface (tools, databases, permissions, vulnerabilities) |
+| **Jailbreak** | JAIL-001–002 | Mexico breach — DAN-style persistence + cross-session leak, roleplay escalation (pentester, sysadmin, CISO, DR specialist) |
+
+---
 
 ### Agent Identity & Authorization Harness ✅ SHIPPED
 Aligned to NIST NCCoE Concept Paper (February 2026). Covers all 6 focus areas.
