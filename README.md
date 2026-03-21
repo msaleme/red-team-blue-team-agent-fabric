@@ -94,7 +94,7 @@ cp .env.example .env
 # Install dependencies
 pip install requests geopy
 
-# Execute all 27 scenarios
+# Execute all 30 scenarios
 python red_team_automation.py
 ```
 
@@ -123,16 +123,45 @@ pandoc EXECUTIVE-PRESENTATION.md -o executive-presentation.pptx
 
 ---
 
-## Adapting to Your Environment
+## Scope & Limitations
 
-This framework was developed against MuleSoft Agent Fabric but the **methodology is platform-agnostic**. The threat model, test scenarios, and blue team playbooks apply to any multi-agent orchestration system:
+Transparency matters. Here's exactly what this framework does and doesn't cover.
 
-- **LangChain / LangGraph** agent deployments
-- **CrewAI / AutoGen** multi-agent systems
-- **Custom A2A implementations** (Google A2A protocol, etc.)
-- **Any MCP-based tool orchestration**
+### What this framework IS
 
-To adapt: replace the endpoint URLs in `.env` and update the payload structures in `red_team_automation.py` to match your agent API contracts. The STRIDE mapping, metrics, and playbooks transfer directly.
+- ✅ **A methodology and threat model** — 30 scenarios with STRIDE mapping, OWASP Agentic Top 10 alignment, blue team playbooks, and executive materials. The threat model, attack patterns, and response procedures are platform-agnostic and transfer to any multi-agent system.
+- ✅ **An application-layer test suite** — The Python automation sends HTTP requests to REST API endpoints and validates responses (status codes, content filtering, rate limiting). This tests the *application and governance layer* that sits on top of agent protocols.
+- ✅ **A reference implementation** — Built and validated against MuleSoft Agent Fabric (CloudHub). Demonstrates how to operationalize the methodology against a real deployment.
+
+### What this framework is NOT (yet)
+
+- ❌ **Not a protocol-level MCP test harness** — The test scripts send HTTP POST requests, not MCP JSON-RPC 2.0 messages. We don't test MCP tool discovery flows, capability negotiation, OAuth 2.1 authentication, or transport-layer security (stdio/SSE/Streamable HTTP). Scenarios like RT-020 (replay) and RT-026 (supply chain) *describe* MCP-level attacks but test them at the application layer.
+- ❌ **Not a Google A2A protocol validator** — We don't test A2A Agent Card verification (`/.well-known/agent.json`), task lifecycle security (send/sendSubscribe/get/cancel), SSE streaming interception, or push notification webhook integrity.
+- ❌ **Not a framework-specific scanner** — The suite doesn't test LangChain tool calling internals, CrewAI delegation patterns, AutoGen conversation protocols, or any framework's built-in guardrails. It tests what these frameworks expose at the HTTP/API boundary.
+- ❌ **Not a compliance certification tool** — Passing these tests doesn't certify EU AI Act compliance or satisfy NIST requirements. The framework helps *demonstrate governance rigor* and *identify gaps*, but compliance requires organizational processes beyond automated testing.
+
+### The honest summary
+
+**The threat model and methodology are strong and framework-agnostic.** The STRIDE mapping, OWASP alignment, blue team playbooks, and phased deployment approach transfer directly to any multi-agent system. Security architects can use the 30 scenarios to structure testing regardless of their agent platform.
+
+**The test automation is a proof-of-concept against one platform.** To test your specific deployment, you'll need to adapt the endpoint URLs and payload structures to match your agent API contracts. Protocol-level testing (MCP wire format, A2A message flows) is on the [v3.0 roadmap](#v30-roadmap--protocol-level-testing).
+
+### Adapting to your environment
+
+The methodology applies to any multi-agent system. To adapt the test automation:
+
+1. Update `.env` with your endpoint URLs
+2. Modify payload structures in `red_team_automation.py` to match your agent API contracts
+3. Adjust expected status codes based on how your system signals rejection vs. acceptance
+
+Works with any system that exposes HTTP/REST APIs:
+- **MuleSoft Agent Fabric** — tested and validated (this repo)
+- **LangChain / LangGraph** — via LangServe or custom API endpoints
+- **CrewAI** — via FastAPI/Flask deployment endpoints
+- **AutoGen / Semantic Kernel** — via Azure API Management or custom endpoints
+- **Custom A2A / MCP implementations** — via whatever REST layer fronts your agents
+
+For protocol-level MCP and A2A testing, see the [v3.0 roadmap](#v30-roadmap--protocol-level-testing) below.
 
 ---
 
@@ -162,6 +191,52 @@ This specification integrates guidance from:
 - **NIST Cyber AI Profile (IR 8596, Dec 2025)** — [csrc.nist.gov](https://csrc.nist.gov/pubs/ir/8596/iprd) — CSF 2.0 profile for AI systems
 - **NIST AI Risk Management Framework** — [nist.gov/ai-rmf](https://www.nist.gov/itl/ai-risk-management-framework)
 - **ISA/IEC 62443** — Industrial automation and control systems security
+
+---
+
+## v3.0 Roadmap — Protocol-Level Testing
+
+The current test suite validates security at the application/HTTP layer. v3.0 will add **wire-protocol testing** for the two dominant agent communication standards, plus framework-specific adapters.
+
+### MCP (Model Context Protocol) Test Harness
+Target: Anthropic's MCP — JSON-RPC 2.0 over stdio/SSE/Streamable HTTP
+
+| Test Category | What It Validates | Status |
+|---|---|---|
+| **Tool discovery poisoning** | Malicious tool descriptions injected during `tools/list` | 🔲 Planned |
+| **Capability negotiation tampering** | Manipulated `initialize` handshake to escalate permissions | 🔲 Planned |
+| **OAuth 2.1 flow attacks** | Token theft, scope escalation, authorization code interception (per MCP 2025-03-26 spec) | 🔲 Planned |
+| **Transport-layer security** | stdio injection, SSE event spoofing, Streamable HTTP request smuggling | 🔲 Planned |
+| **Resource URI traversal** | Path traversal via `resources/read` to access unauthorized files/data | 🔲 Planned |
+| **Prompt template injection** | Poisoned `prompts/get` responses that carry hidden instructions | 🔲 Planned |
+| **Sampling request manipulation** | Hijacking `sampling/createMessage` to exfiltrate context or redirect completions | 🔲 Planned |
+
+### Google A2A (Agent-to-Agent) Test Harness
+Target: Google's A2A protocol — Agent Cards, Tasks, SSE streaming
+
+| Test Category | What It Validates | Status |
+|---|---|---|
+| **Agent Card spoofing** | Fake `/.well-known/agent.json` with malicious capabilities/endpoints | 🔲 Planned |
+| **Task lifecycle attacks** | Unauthorized `send`/`cancel`/`get` on other agents' tasks | 🔲 Planned |
+| **SSE stream injection** | Injecting malicious events into `tasks/sendSubscribe` streams | 🔲 Planned |
+| **Push notification hijacking** | Redirecting task completion webhooks to attacker-controlled endpoints | 🔲 Planned |
+| **Capability negotiation abuse** | Claiming capabilities the agent doesn't have to join orchestrations | 🔲 Planned |
+| **Cross-agent artifact poisoning** | Injecting malicious content into multi-part task artifacts | 🔲 Planned |
+
+### Framework Adapters
+Pre-configured test profiles for common agent frameworks:
+
+| Framework | Adapter | Status |
+|---|---|---|
+| **LangChain / LangGraph** | LangServe endpoint testing, tool call validation, chain-of-thought injection | 🔲 Planned |
+| **CrewAI** | Delegation security, inter-crew communication, tool boundary testing | 🔲 Planned |
+| **AutoGen / Semantic Kernel** | Conversation protocol validation, code execution sandbox testing | 🔲 Planned |
+| **OpenAI Agents SDK** | Handoff security, guardrail bypass testing, tool schema validation | 🔲 Planned |
+| **Amazon Bedrock Agents** | Action group boundary testing, knowledge base poisoning, session hijacking | 🔲 Planned |
+
+### How to contribute to v3.0
+
+If you have expertise in MCP internals, A2A implementation, or any of the listed frameworks, contributions are welcome. Start with an issue describing the test category you want to tackle. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ---
 
