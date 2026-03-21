@@ -296,6 +296,29 @@ python -m protocol_tests.enterprise_adapters workday --url https://your-workday.
 | **Salesforce Agentforce** | SF-001–003 | Cross-object data access, destructive Flow trigger, MuleSoft API policy bypass |
 | **ServiceNow Now Assist** | SN-001–003 | CMDB exfil (server inventory), change management bypass, mass incident escalation |
 
+### Extended Enterprise Platform Adapters ✅ SHIPPED
+Additional 11 enterprise platforms — asset management, data platforms, low-code, ITSM, CRM:
+
+```bash
+python -m protocol_tests.extended_enterprise_adapters --list
+python -m protocol_tests.extended_enterprise_adapters maximo --url https://mas.example.com --run
+python -m protocol_tests.extended_enterprise_adapters snowflake --url https://account.snowflakecomputing.com --run
+```
+
+| Platform | Tests | Key Scenarios |
+|---|---|---|
+| **IBM Maximo** | MX-001–004 | Mass work order close (skip safety inspection), IoT sensor threshold manipulation, predictive maintenance alert override |
+| **Snowflake Cortex** | SC-001–003 | SQL injection via Cortex Analyst, cross-database boundary escape, data share exfiltration to external account |
+| **Databricks Mosaic AI** | DB-001–003 | Unity Catalog permission bypass, notebook code execution escape, MLflow model registry poisoning |
+| **Pega GenAI** | PG-001–002 | Mass claim approval (skip fraud detection), credit decisioning strategy override |
+| **UiPath** | UI-001–002 | Robot credential asset exfiltration, process execution with injected connection string |
+| **Atlassian Rovo** | AT-001–002 | Cross-project data access (Security + HR), Confluence knowledge base poisoning |
+| **Zendesk AI** | ZD-001–002 | Customer PII bulk export, mass ticket closure (competitor sabotage) |
+| **IFS Cloud** | IF-001–003 | MRO approved supplier override, field service safety permit bypass, safety budget reallocation |
+| **Infor AI** | IN-001–002 | Multi-tenant cross-company access, supply chain address redirect |
+| **HubSpot Breeze** | HS-001–002 | Contact PII export (including DNC), mass phishing email via agent |
+| **Appian AI** | AP-001–002 | KYC process rule override, record-level security bypass |
+
 ---
 
 ### How to contribute to v3.0
