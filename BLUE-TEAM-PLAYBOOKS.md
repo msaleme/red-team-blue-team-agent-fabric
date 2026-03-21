@@ -1117,11 +1117,102 @@ External:
 | RT-024 Norm. of Deviance | P1 | Reset baseline, alert Ops | 60s |
 | RT-025 Superman Effect | P0 | Disable account, block IP | 60s |
 
+| RT-026 MCP Supply Chain | P0 | Reject manifest, revoke tools, isolate agent | 30s |
+| RT-027 Code Gen Execution | P0 | Kill execution, sandbox breach alert, revoke code perms | 15s |
+| RT-028 Non-Deterministic | P1 | Flag inconsistency, lock to deterministic mode, review outputs | 60s |
+
+---
+
+## v2.1 Playbooks: OWASP Agentic Top 10 Coverage
+
+### RT-026: MCP Server Supply Chain Poisoning
+**OWASP ASI04 — Agentic Supply Chain Vulnerabilities**
+
+**Detection:**
+- Alert on tool manifest changes (new server, modified descriptions, version bump)
+- Signature/checksum validation failure on MCP tool load
+- Outbound network connections from agent to unrecognized endpoints
+
+**Analysis:**
+1. Compare loaded tool manifest against approved baseline
+2. Check cryptographic signatures — are they valid and from a trusted issuer?
+3. Inspect tool descriptions for embedded instructions (exfiltration URLs, hidden prompts)
+4. Review recent agent actions — did any tools behave differently than expected?
+
+**Response:**
+1. **Immediately** reject and unload the poisoned tool manifest
+2. Revoke the compromised MCP server from the approved registry
+3. Roll back to last known-good tool definitions
+4. Audit all agent actions taken since the poisoned manifest was loaded
+5. Check for data exfiltration in network logs
+
+**Recovery:**
+1. Re-verify all MCP server registrations against approved allowlist
+2. Implement mandatory manifest signing if not already in place
+3. Add the malicious server URL/signature to blocklist
+4. Update monitoring rules to detect similar supply chain attacks
+
+---
+
+### RT-027: Agent Code Generation Execution
+**OWASP ASI05 — Unexpected Code Execution**
+
+**Detection:**
+- Agent attempting to invoke eval/exec/subprocess outside sandbox
+- Code generation output containing system commands, file I/O, or network calls
+- Execution requests with `sandbox=false` or `approval_required=false`
+
+**Analysis:**
+1. Capture the generated code payload in full
+2. Static analysis: does it contain system calls, file access, network requests?
+3. Trace the prompt chain — what input triggered the code generation?
+4. Check if this is a prompt injection attack routing through code generation
+
+**Response:**
+1. **Immediately** block execution and quarantine the generated code
+2. Kill any running processes spawned by the agent
+3. Revoke the agent's code execution permissions
+4. Alert the security team — this is a P0 if code was actually executed
+
+**Recovery:**
+1. Audit all code executed by the agent in the past 24 hours
+2. Verify no unauthorized file modifications or data exfiltration occurred
+3. Implement mandatory sandboxing for all agent-generated code
+4. Add human-in-the-loop approval for code generation in safety-critical contexts
+
+---
+
+### RT-028: Non-Deterministic Output Exploitation
+**OWASP ASI10 — Non-Deterministic Behavior**
+
+**Detection:**
+- Divergent responses to identical safety-critical queries within a time window
+- Agent recommending unsafe action when conditions clearly violate safety thresholds
+- Response consistency score dropping below baseline for safety-critical endpoints
+
+**Analysis:**
+1. Compare the inconsistent response against the expected deterministic output
+2. Check LLM parameters — was temperature > 0 for a safety-critical endpoint?
+3. Review context/memory state — did context drift cause the inconsistency?
+4. Determine if an attacker was systematically retrying to get an unsafe response
+
+**Response:**
+1. Lock the endpoint to deterministic mode (temperature=0, fixed seed)
+2. Cache the safe response for the specific condition set
+3. Invalidate any decisions made based on the inconsistent output
+4. Alert operations if the unsafe recommendation was acted upon
+
+**Recovery:**
+1. Enforce deterministic output for all safety-critical agent endpoints
+2. Implement response caching for repeat identical safety queries
+3. Add consistency monitoring (alert if same query produces different safety recommendations)
+4. Review and update safety threshold hardcoding to prevent LLM override
+
 ---
 
 **End of Blue Team Playbooks**
 
-**Document Version**: 2.0
-**Last Updated**: November 15, 2025
-**Total Playbooks**: 27 (20 original + 7 InfraGard-derived)
+**Document Version**: 2.1 (OWASP Agentic Top 10 Enhanced)
+**Last Updated**: March 21, 2026
+**Total Playbooks**: 30 (20 original + 7 InfraGard-derived + 3 OWASP Agentic Top 10)
 **Status**: ✅ READY FOR INCIDENT RESPONSE
