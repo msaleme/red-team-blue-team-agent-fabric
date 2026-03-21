@@ -274,6 +274,30 @@ python -m protocol_tests.framework_adapters bedrock --url http://localhost:8080 
 | **OpenAI Agents SDK** | OA-001 to OA-004 | Agent run injection, unauthorized handoff, code interpreter bypass, tool schema injection |
 | **Amazon Bedrock Agents** | BR-001 to BR-004 | Text injection, knowledge base poisoning, action group escape, session hijacking |
 
+### Enterprise Platform Adapters ✅ SHIPPED
+Pre-configured tests for 9 enterprise AI agent platforms:
+
+```bash
+python -m protocol_tests.enterprise_adapters --list
+python -m protocol_tests.enterprise_adapters sap --url https://your-sap.com --run
+python -m protocol_tests.enterprise_adapters salesforce --url https://your-org.salesforce.com --run
+python -m protocol_tests.enterprise_adapters workday --url https://your-workday.com --run
+```
+
+| Platform | Tests | Key Scenarios |
+|---|---|---|
+| **OpenClaw** | OC-001–004 | Session injection, cross-session access, elevated tool exec, cron job injection |
+| **Microsoft Copilot/Azure AI** | MS-001–004 | Dataverse exfil + Power Automate trigger, plugin escape, cross-tenant access, Graph API scope escalation |
+| **Google Vertex AI/Agentspace** | GC-001–003 | BigQuery + Drive injection, data store grounding poisoning, Workspace email exfil |
+| **Amazon Q** | AQ-001–003 | S3 + Confluence boundary escape, IAM role escalation, destructive Lambda execution |
+| **Workday** | WD-001–004 | PII exfil (SSN/bank), payroll modification, cross-employee access (CEO comp), mass benefits manipulation |
+| **SAP Joule** | SAP-001–004 | Vendor invoice fraud, safety procedure override (plant maintenance), cross-company code access, SCADA setpoint manipulation |
+| **Oracle Fusion AI** | OR-001–003 | Supplier bank detail exfil, approval workflow bypass (POs), SQL injection via agent |
+| **Salesforce Agentforce** | SF-001–003 | Cross-object data access, destructive Flow trigger, MuleSoft API policy bypass |
+| **ServiceNow Now Assist** | SN-001–003 | CMDB exfil (server inventory), change management bypass, mass incident escalation |
+
+---
+
 ### How to contribute to v3.0
 
 If you have expertise in MCP internals, A2A implementation, or any of the listed frameworks, contributions are welcome. Start with an issue describing the test category you want to tackle. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
