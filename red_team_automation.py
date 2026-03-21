@@ -13,6 +13,7 @@ Author: Red Team / Blue Team Working Group
 Date: November 15, 2025
 """
 
+import os
 import requests
 import json
 import time
@@ -110,15 +111,16 @@ class RedTeamTestSuite:
     """Complete Red Team Test Suite for MuleSoft Agent Fabric"""
 
     def __init__(self):
-        # CloudHub endpoints
+        # CloudHub endpoints — configure via .env or environment variables
+        # See .env.example for setup instructions
         self.base_urls = {
-            'app1': 'https://agentic-orchestration-mule-r74p4f.5sc6y6-2.usa-e2.cloudhub.io',
-            'app2': 'https://turnaround-management-agents-r74p4f-r74p4f.ndwth8.usa-e2.cloudhub.io',
-            'app3': 'https://order-to-cash-agents-r74p4f-r74p4f.ndwth8.usa-e2.cloudhub.io',
-            'broker': 'https://agentic-broker-runtime-r74p4f.5sc6y6-2.usa-e2.cloudhub.io',
-            'mcp_safety': 'https://oil-gas-safety-mcp-server-r74p4f.ndwth8.usa-e2.cloudhub.io',
-            'mcp_context': 'https://oil-gas-context-mcp-server-r74p4f.ndwth8.usa-e2.cloudhub.io',
-            'mcp_document': 'https://document-mcp-server-r74p4f.ndwth8.usa-e2.cloudhub.io'
+            'app1': os.environ.get('RTBT_APP1_URL', 'http://localhost:8081'),
+            'app2': os.environ.get('RTBT_APP2_URL', 'http://localhost:8082'),
+            'app3': os.environ.get('RTBT_APP3_URL', 'http://localhost:8083'),
+            'broker': os.environ.get('RTBT_BROKER_URL', 'http://localhost:8084'),
+            'mcp_safety': os.environ.get('RTBT_MCP_SAFETY_URL', 'http://localhost:8085'),
+            'mcp_context': os.environ.get('RTBT_MCP_CONTEXT_URL', 'http://localhost:8086'),
+            'mcp_document': os.environ.get('RTBT_MCP_DOCUMENT_URL', 'http://localhost:8087'),
         }
 
         self.results: List[TestResult] = []
