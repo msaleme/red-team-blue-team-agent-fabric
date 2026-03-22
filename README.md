@@ -4,7 +4,7 @@
 
 AI agents are being deployed into enterprise systems — SAP, SCADA, ServiceNow, financial platforms — with the ability to make decisions, invoke tools, and chain actions across systems. The attack surface is fundamentally different from traditional software: agent-to-agent escalation, context poisoning, prompt injection through operational data, and normalization of deviance in safety-critical environments.
 
-This repo provides a complete, repeatable **Red Team / Blue Team testing package** with 30 scenarios mapped to STRIDE, NIST AI RMF, OWASP Top 10 for Agentic Applications (2026), OWASP LLM Top 10, and ISA/IEC 62443.
+This repo provides **189 security tests** across application-layer scenarios, wire-protocol harnesses (MCP, A2A, L402), enterprise platform adapters (20 platforms), and APT simulations. Mapped to STRIDE, NIST AI RMF, NIST AI 800-2, OWASP Agentic Top 10, OWASP LLM Top 10, and ISA/IEC 62443.
 
 > Built from real InfraGard Houston AI-CSC guidance and 20+ years of enterprise integration experience in Oil & Gas.
 
@@ -17,6 +17,29 @@ This repo provides a complete, repeatable **Red Team / Blue Team testing package
 - **OWASP Top 10 for Agentic Applications (Dec 2025)** — The benchmark for agentic AI security is now published. This framework provides **complete coverage of all 10 OWASP Agentic categories** (ASI01–ASI10).
 - **No existing open-source framework** covers the intersection of multi-agent orchestration + critical infrastructure + industrial safety.
 - Enterprises are deploying agentic AI faster than they can secure it. This closes the gap.
+
+---
+
+## How This Differs From Other Projects
+
+Most AI security tools test **models** (prompt injection, jailbreaks, output filtering) or enforce **permissions** (identity, access control, sandboxing). This framework tests **agent systems** at the protocol, orchestration, and decision layer.
+
+| Capability | [NVIDIA Garak](https://github.com/NVIDIA/garak) (7K+ stars) | [MS Agent Governance](https://github.com/microsoft/agent-governance-toolkit) (300+ stars) | [SlowMist MCP Checklist](https://github.com/slowmist/MCP-Security-Checklist) (800+ stars) | [agent-audit](https://github.com/HeadyZhang/agent-audit) (100+ stars) | **This framework** |
+|---|---|---|---|---|---|
+| **What it tests** | LLM model vulnerabilities | Policy enforcement + sandboxing | MCP configuration (checklist) | Static code analysis | Agent protocols + orchestration + decisions |
+| **MCP wire-protocol tests** | - | - | - | - | 10 tests (JSON-RPC 2.0) |
+| **A2A wire-protocol tests** | - | - | - | - | 12 tests (Agent Cards, tasks, push notifications) |
+| **L402 payment flow tests** | - | - | - | - | 14 tests (macaroons, invoices, caveats) |
+| **Enterprise platform adapters** | - | - | - | - | 20 platforms (SAP, Salesforce, Workday, Oracle, ServiceNow, IBM, Snowflake, Databricks, etc.) |
+| **APT simulation (GTG-1002)** | - | - | - | - | 17 tests (full campaign lifecycle) |
+| **NIST AI 800-2 evaluation protocol** | - | - | - | - | Statistical confidence intervals, qualified claims |
+| **Published research backing** | - | - | - | - | 2 DOI-citable papers + 3 NIST submissions |
+| **Executable tests** | Yes (model-layer) | Yes (policy-layer) | No (docs only) | Yes (static analysis) | Yes (189 tests, protocol + app layer) |
+| **Governance layer** | WHO (model safety) | WHO (identity, access) | WHO (config) | WHO (code scanning) | **HOW (decision governance)** |
+
+**The WHO vs. HOW gap:** Current tools govern *who* agents are and *what* they can access. This framework tests whether agents make correct *decisions* under adversarial conditions. Identity governance tells you the agent is authorized. Decision governance tells you the agent is right. Both are necessary. Most projects only address the first.
+
+For the research behind this distinction, see [Constitutional Self-Governance for Autonomous AI Agents](https://doi.org/10.5281/zenodo.19162104) (77 days of production data, 56 agents).
 
 ---
 
