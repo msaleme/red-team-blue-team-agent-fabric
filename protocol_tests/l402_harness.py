@@ -315,8 +315,8 @@ class L402SecurityTests:
         rejected = 0
         tested = 0
         for label, invoice in malformed_invoices:
-            # Construct an Authorization header with the malformed invoice as if we had a preimage
-            fake_preimage = _fake_preimage()
+            # Construct an Authorization header using the malformed invoice as the preimage component
+            fake_preimage = invoice  # Use the malformed invoice data as the presented "preimage"
             mac = challenge.macaroon if challenge else base64.b64encode(b"fake").decode()
             auth_header = f"L402 {mac}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
@@ -1162,6 +1162,7 @@ def _run_statistical(
     ]
     for category, method_names in L402SecurityTests.ALL_TESTS.items():
         if categories and category not in categories:
+            id_idx += len(method_names)  # Advance past excluded tests
             continue
         for method_name in method_names:
             all_tests_flat.append((category, method_name, test_id_order[id_idx]))
