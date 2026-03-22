@@ -397,12 +397,25 @@ If you have expertise in MCP internals, A2A implementation, or any of the listed
 
 ---
 
+## Related Research
+
+This security testing framework is part of a broader research program on autonomous AI agent governance:
+
+| Publication | DOI | Description |
+|---|---|---|
+| **Constitutional Self-Governance for Autonomous AI Agents** | [10.5281/zenodo.19162104](https://doi.org/10.5281/zenodo.19162104) | Framework for governing agent *decisions*, not just permissions. 12 mechanisms observed in 77 days of production with 56 agents. Maps to EU AI Act, NIST AI Agent Standards Initiative, and Singapore's agentic AI framework. |
+| **Decision Load Index (DLI)** | [10.5281/zenodo.18217577](https://doi.org/10.5281/zenodo.18217577) | Measuring the cognitive burden of AI agent oversight on human operators. Connects agent governance architecture to measurable human outcomes. |
+
+**The WHO vs. HOW gap:** Current AI agent governance platforms govern *who* agents are (identity, access, audit). This repo tests for security failures at the WHO layer. The CSG paper addresses the complementary HOW layer - governing the *decisions* that access-controlled agents make.
+
+---
+
 ## Contributing
 
-Issues and PRs welcome. If you've adapted this framework for a different platform, open a discussion — I'll link notable forks here.
+Issues and PRs welcome. If you've adapted this framework for a different platform, open a discussion - I'll link notable forks here.
 
 ---
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+Apache License 2.0 - see [LICENSE](LICENSE).
