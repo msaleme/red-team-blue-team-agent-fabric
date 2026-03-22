@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-security-harness"
+version = "3.1.0"
+description = "189 security tests for AI agent systems - MCP, A2A, L402 wire-protocol testing, 20 enterprise platform adapters, GTG-1002 APT simulation"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Michael K. Saleme", email = "research@cognitivethoughtengine.com"},
+]
+keywords = [
+    "ai-security",
+    "mcp",
+    "a2a",
+    "l402",
+    "agent-security",
+    "red-team",
+    "owasp",
+    "nist",
+    "agentic-ai",
+    "protocol-testing",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Software Development :: Testing",
+]
+
+[project.urls]
+Homepage = "https://github.com/msaleme/red-team-blue-team-agent-fabric"
+Documentation = "https://github.com/msaleme/red-team-blue-team-agent-fabric#readme"
+Repository = "https://github.com/msaleme/red-team-blue-team-agent-fabric"
+Issues = "https://github.com/msaleme/red-team-blue-team-agent-fabric/issues"
+Research = "https://doi.org/10.5281/zenodo.19162104"
+
+[project.scripts]
+agent-security = "protocol_tests.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["protocol_tests*"]
