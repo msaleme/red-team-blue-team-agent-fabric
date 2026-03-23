@@ -3,13 +3,13 @@
 [![PyPI version](https://badge.fury.io/py/agent-security-harness.svg)](https://pypi.org/project/agent-security-harness/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/security%20tests-189-green.svg)](#test-inventory)
+[![Tests](https://img.shields.io/badge/security%20tests-209-green.svg)](#test-inventory)
 
 **The first open-source security testing framework purpose-built for multi-agent AI deployments in critical infrastructure.**
 
 AI agents are being deployed into enterprise systems (SAP, SCADA, ServiceNow, financial platforms) with the ability to make decisions, invoke tools, and chain actions across systems. The attack surface is fundamentally different from traditional software: agent-to-agent escalation, context poisoning, prompt injection through operational data, and normalization of deviance in safety-critical environments.
 
-This framework provides **189 security tests** across application-layer scenarios, wire-protocol harnesses (MCP, A2A, L402), enterprise platform adapters (20 platforms), and APT simulations. Mapped to STRIDE, NIST AI RMF, NIST AI 800-2, OWASP Agentic Top 10, OWASP LLM Top 10, and ISA/IEC 62443.
+This framework provides **209 security tests** across application-layer scenarios, wire-protocol harnesses (MCP, A2A, L402), enterprise platform adapters (20 platforms), and APT simulations. Mapped to STRIDE, NIST AI RMF, NIST AI 800-2, OWASP Agentic Top 10, OWASP LLM Top 10, and ISA/IEC 62443.
 
 > Built from real InfraGard Houston AI-CSC guidance and 20+ years of enterprise integration experience in Oil & Gas.
 
@@ -73,7 +73,7 @@ Results: 8/10 passed (80% pass rate) - see report.json
 | **Advanced Attacks** | 10 | Multi-step | Polymorphic, stateful, multi-domain attack chains |
 | **Identity & Authorization** | 18 | NIST NCCoE | All 6 focus areas from NIST agent identity standards |
 
-**Total: 189 security tests**
+**Total: 209 security tests**
 
 ### Key Capabilities
 
@@ -101,7 +101,7 @@ Most AI security tools test **models** (prompt injection, jailbreaks, output fil
 | **APT simulation (GTG-1002)** | - | - | - | - | 17 tests (full campaign lifecycle) |
 | **NIST AI 800-2 evaluation protocol** | - | - | - | - | Statistical confidence intervals, qualified claims |
 | **Published research backing** | - | - | - | - | 2 DOI-citable papers + 3 NIST submissions |
-| **Executable tests** | Yes (model-layer) | Yes (policy-layer) | No (docs only) | Yes (static analysis) | Yes (189 tests, protocol + app layer) |
+| **Executable tests** | Yes (model-layer) | Yes (policy-layer) | No (docs only) | Yes (static analysis) | Yes (209 tests, protocol + app layer) |
 | **Governance layer** | WHO (model safety) | WHO (identity, access) | WHO (config) | WHO (code scanning) | **HOW (decision governance)** |
 
 ### The WHO vs. HOW Gap
