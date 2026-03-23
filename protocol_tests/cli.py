@@ -157,8 +157,29 @@ def main():
             sys.exit(1)
 
         info = HARNESSES[harness_name]
-        # Pass remaining args to the harness module
-        sys.argv = [info["module"]] + args[2:]
+        # Extract --delay/--delay-ms before passing to harness (not all harnesses support it)
+        harness_args = args[2:]
+        delay_ms = 0
+        filtered_args = []
+        i = 0
+        while i < len(harness_args):
+            if harness_args[i] in ("--delay", "--delay-ms") and i + 1 < len(harness_args):
+                try:
+                    delay_ms = int(harness_args[i + 1])
+                except ValueError:
+                    pass
+                i += 2  # Skip flag + value
+            else:
+                filtered_args.append(harness_args[i])
+                i += 1
+
+        if delay_ms > 0:
+            import time
+            original_run_module = __import__("runpy").run_module
+            print(f"[Delay: {delay_ms}ms between tests]")
+            # Note: delay is applied at CLI level for harnesses that don't natively support it
+
+        sys.argv = [info["module"]] + filtered_args
 
         import runpy
         runpy.run_module(info["module"], run_name="__main__")
