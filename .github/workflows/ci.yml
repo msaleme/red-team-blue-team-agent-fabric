@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package
+        run: pip install -e .
+
+      - name: Verify CLI
+        run: |
+          agent-security --help
+          agent-security version
+          agent-security list
+
+      - name: Verify all modules import
+        run: |
+          python -c "
+          import protocol_tests.mcp_harness
+          import protocol_tests.a2a_harness
+          import protocol_tests.l402_harness
+          import protocol_tests.x402_harness
+          import protocol_tests.enterprise_adapters
+          import protocol_tests.extended_enterprise_adapters
+          import protocol_tests.framework_adapters
+          import protocol_tests.identity_harness
+          import protocol_tests.gtg1002_simulation
+          import protocol_tests.advanced_attacks
+          import protocol_tests.statistical
+          import protocol_tests.cli
+          print('All 12 modules import successfully')
+          "
+
+      - name: Verify all harness --list commands
+        run: |
+          agent-security list mcp
+          agent-security list a2a
+          agent-security list l402
+          agent-security list x402
+          agent-security list enterprise
+          agent-security list framework
+          agent-security list identity
+          agent-security list gtg1002
+          agent-security list advanced
+
+      - name: Run self-tests
+        if: hashFiles('testing/') != ''
+        run: |
+          pip install pytest
+          python -m pytest testing/ -v --tb=short
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Syntax check all modules
+        run: |
+          python -m py_compile protocol_tests/cli.py
+          python -m py_compile protocol_tests/mcp_harness.py
+          python -m py_compile protocol_tests/a2a_harness.py
+          python -m py_compile protocol_tests/l402_harness.py
+          python -m py_compile protocol_tests/x402_harness.py
+          python -m py_compile protocol_tests/enterprise_adapters.py
+          python -m py_compile protocol_tests/extended_enterprise_adapters.py
+          python -m py_compile protocol_tests/framework_adapters.py
+          python -m py_compile protocol_tests/identity_harness.py
+          python -m py_compile protocol_tests/gtg1002_simulation.py
+          python -m py_compile protocol_tests/advanced_attacks.py
+          python -m py_compile protocol_tests/statistical.py
+          echo "All modules pass syntax check"
+
+      - name: Check for unique test IDs
+        run: |
+          python -c "
+          import re, sys
+          from pathlib import Path
+          # Only check protocol_tests/ source files (not testing/ which references IDs in assertions)
+          ids = []
+          for f in Path('protocol_tests').glob('*.py'):
+              content = f.read_text()
+              # Find IDs used as test_id assignments (the canonical definition)
+              found = re.findall(r'test_id=[\"\\']([A-Z][A-Z0-9]*-\d{3})[\"\\']', content)
+              ids.extend(found)
+          dupes = [x for x in set(ids) if ids.count(x) > 1]
+          if dupes:
+              print(f'DUPLICATE TEST IDS: {dupes}')
+              sys.exit(1)
+          print(f'All {len(set(ids))} test IDs are unique')
+          "
