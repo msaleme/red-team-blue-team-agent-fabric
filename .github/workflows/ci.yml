@@ -99,12 +99,14 @@ jobs:
           python -c "
           import re, sys
           from pathlib import Path
+          # Only check protocol_tests/ source files (not testing/ which references IDs in assertions)
           ids = []
           for f in Path('protocol_tests').glob('*.py'):
               content = f.read_text()
-              found = re.findall(r'[\"\\']([A-Z][A-Z0-9]*-\d{3})[\"\\']', content)
+              # Find IDs used as test_id assignments (the canonical definition)
+              found = re.findall(r'test_id=[\"\\']([A-Z][A-Z0-9]*-\d{3})[\"\\']', content)
               ids.extend(found)
-          dupes = [x for x in set(ids) if ids.count(x) > 2]
+          dupes = [x for x in set(ids) if ids.count(x) > 1]
           if dupes:
               print(f'DUPLICATE TEST IDS: {dupes}')
               sys.exit(1)
