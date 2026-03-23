@@ -754,7 +754,7 @@ class X402SecurityTests:
                     else "No sensitive data patterns detected in response",
             http_method="GET",
             csg_mapping="Harm Test: responses must not leak sensitive operational data",
-            estimated_impact="information_leak",
+            estimated_impact="info_leak",
             estimated_severity="medium",
             request_sent={"path": "/"},
             response_received={"leaks_found": leaks_found, "n_decoded_blobs": len(decoded_blobs)},
@@ -1096,7 +1096,7 @@ class X402SecurityTests:
             details=f"Info leaks found: {leaks}" if leaks else "No sensitive information leaked in 402 response",
             http_method="GET",
             csg_mapping="Harm Test: 402 responses must not expose internal infrastructure details",
-            estimated_impact="information_leak",
+            estimated_impact="info_leak",
             estimated_severity="medium",
             request_sent={"path": "/"},
             response_received={"leaks": leaks},
@@ -1143,7 +1143,7 @@ class X402SecurityTests:
                     else "Error responses do not leak sensitive details",
             http_method="GET",
             csg_mapping="HC-11: Error responses must not expose internal details",
-            estimated_impact="information_leak",
+            estimated_impact="info_leak",
             estimated_severity="medium",
             request_sent={"n_payloads": len(error_payloads)},
             elapsed_s=round(elapsed, 3),
@@ -1247,12 +1247,14 @@ class X402SecurityTests:
         0   = safe for autonomous operation
         """
         signals = self._autonomy_signals
+        # Default all untested signals to False (assume risky).
+        # This ensures the risk score is conservative: untested = risky.
         risk_components = {
             "challenge_invalid": 20 if not signals.get("challenge_valid", False) else 0,
-            "inconsistent_recipient": 25 if not signals.get("consistent_recipient", True) else 0,
+            "inconsistent_recipient": 25 if not signals.get("consistent_recipient", False) else 0,
             "accepts_invalid_addresses": 15 if not signals.get("rejects_invalid_addresses", False) else 0,
             "accepts_fake_sessions": 10 if not signals.get("rejects_fake_sessions", False) else 0,
-            "leaks_information": 10 if not signals.get("no_info_leak", True) else 0,
+            "leaks_information": 10 if not signals.get("no_info_leak", False) else 0,
             "no_facilitator_validation": 15 if not signals.get("validates_facilitator", False) else 0,
             "accepts_underpayment": 5 if not signals.get("rejects_underpayment", False) else 0,
         }
@@ -1533,6 +1535,8 @@ def _run_statistical(
     trial_results: list[TrialResult] = []
     all_results: list[X402TestResult] = []
 
+    aggregated_autonomy_signals: dict[str, bool] = {}
+
     for category, method_name, test_id in all_tests_flat:
         passes = 0
         elapsed_times: list[float] = []
@@ -1549,6 +1553,9 @@ def _run_statistical(
                     elapsed_times.append(result.elapsed_s)
                     if trial == 0:
                         all_results.append(result)
+                # Merge autonomy signals (use first trial's signals as baseline)
+                if trial == 0:
+                    aggregated_autonomy_signals.update(suite._autonomy_signals)
             except Exception:
                 elapsed_times.append(0.0)
 
@@ -1570,9 +1577,10 @@ def _run_statistical(
         print(f"  {test_id}: {passes}/{n_trials} passed  CI95=[{ci[0]:.3f}, {ci[1]:.3f}]  "
               f"avg={mean_elapsed:.2f}s")
 
-    # Compute autonomy risk from last suite run
+    # Compute autonomy risk using aggregated signals from all trial runs
     last_suite = X402SecurityTests(transport)
     last_suite.results = all_results
+    last_suite._autonomy_signals = aggregated_autonomy_signals
     autonomy_risk = last_suite.compute_autonomy_risk_score()
 
     print(f"\n{'='*60}")
