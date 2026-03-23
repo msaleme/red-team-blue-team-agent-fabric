@@ -22,17 +22,34 @@ class MockMCPHandler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         """Handle POST requests for MCP JSON-RPC calls"""
         try:
-            content_length = int(self.headers['Content-Length'])
+            content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length)
-            request = json.loads(post_data.decode('utf-8'))
-            
+            try:
+                request = json.loads(post_data.decode('utf-8'))
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                # MCP-008: Return proper JSON-RPC parse error instead of crashing
+                error_response = {
+                    "jsonrpc": "2.0",
+                    "error": {
+                        "code": -32700,
+                        "message": "Parse error",
+                        "data": str(e)
+                    },
+                    "id": None
+                }
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(error_response).encode('utf-8'))
+                return
+
             response = self._handle_jsonrpc_request(request)
-            
+
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps(response).encode('utf-8'))
-            
+
         except Exception as e:
             error_response = {
                 "jsonrpc": "2.0",
@@ -43,7 +60,7 @@ class MockMCPHandler(http.server.BaseHTTPRequestHandler):
                 },
                 "id": None
             }
-            self.send_response(500)
+            self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps(error_response).encode('utf-8'))
@@ -55,6 +72,19 @@ class MockMCPHandler(http.server.BaseHTTPRequestHandler):
         request_id = request.get("id")
         
         if method == "initialize":
+            # MCP-004: Validate protocol version — reject downgrade attempts
+            SUPPORTED_VERSIONS = ["2024-11-05", "2025-03-26"]
+            requested_version = params.get("protocolVersion", "")
+            if requested_version and requested_version not in SUPPORTED_VERSIONS:
+                return {
+                    "jsonrpc": "2.0",
+                    "error": {
+                        "code": -32600,
+                        "message": f"Unsupported protocol version: {requested_version}. "
+                                   f"Supported: {', '.join(SUPPORTED_VERSIONS)}"
+                    },
+                    "id": request_id
+                }
             return {
                 "jsonrpc": "2.0",
                 "result": {
@@ -163,6 +193,26 @@ class MockMCPHandler(http.server.BaseHTTPRequestHandler):
         
         elif method == "resources/read":
             uri = params.get("uri", "")
+            # MCP-005: Reject path traversal attempts
+            if "../" in uri or "..%2F" in uri or "..%2f" in uri:
+                return {
+                    "jsonrpc": "2.0",
+                    "error": {
+                        "code": -32602,
+                        "message": "Invalid URI: path traversal not permitted"
+                    },
+                    "id": request_id
+                }
+            # Reject absolute filesystem paths
+            if uri.startswith("/") or uri.startswith("file://"):
+                return {
+                    "jsonrpc": "2.0",
+                    "error": {
+                        "code": -32602,
+                        "message": "Invalid URI: absolute paths not permitted"
+                    },
+                    "id": request_id
+                }
             return {
                 "jsonrpc": "2.0",
                 "result": {

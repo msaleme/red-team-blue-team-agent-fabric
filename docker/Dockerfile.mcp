@@ -1,0 +1,7 @@
+FROM python:3.12-slim
+WORKDIR /app
+COPY mock_mcp_server.py .
+# Patch to bind 0.0.0.0 instead of localhost for Docker networking
+RUN sed -i 's/("localhost", port)/("0.0.0.0", port)/' mock_mcp_server.py
+EXPOSE 8402
+CMD ["python", "mock_mcp_server.py"]

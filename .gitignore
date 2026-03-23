@@ -37,3 +37,8 @@ secrets.yaml
 *.tmp
 *.bak
 november-meeting-extracted.txt
+
+# Test run artifacts
+*.json
+!package.json
+!pyproject.json
