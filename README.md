@@ -282,7 +282,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 
 ## AIUC-1 Crosswalk: Pre-Certification Testing
 
-[AIUC-1](https://www.aiuc-1.com) is the first AI agent certification standard, requiring **quarterly independent adversarial testing** to validate agent security, safety, and reliability. Built with MITRE, Cisco, Stanford, MIT, and Google Cloud. This framework provides the technical testing that AIUC-1 certification demands.
+[AIUC-1](https://www.aiuc-1.com) (v2026-Q1, last reviewed March 2026) is the first AI agent certification standard, requiring **quarterly independent adversarial testing** to validate agent security, safety, and reliability. Built with MITRE, Cisco, Stanford, MIT, and Google Cloud. This framework provides the technical testing that AIUC-1 certification demands.
 
 <details>
 <summary><strong>Full AIUC-1 Requirement Mapping (15 of 20 testable requirements covered)</strong></summary>
@@ -345,6 +345,10 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 | A. Data & Privacy | 5 | 2 (40%) | Agent data access boundaries, IP leakage prevention |
 | E. Accountability | 7 | 3 (43%) | Vendor due diligence, audit evidence, CSG governance framework |
 | F. Society | 2 | 1 (50%) | GTG-1002 APT simulation |
+
+**Not yet covered (5 requirements):** A001 (input data policy - process requirement), A002 (output data policy - process requirement), A007 (prevent IP violations in outputs), E005 (cloud vs on-prem assessment - infrastructure decision), F002 (CBRN prevention - [tracked in #34](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/34)). See also: [#33](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/33) (C003/C004 harmful output testing) and [#35](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/35) (E001-E003 incident response validation).
+
+> **Note:** "100% coverage" on Security and Reliability means this framework maps to every requirement in those principles. It does not mean exhaustive depth validation of every possible attack vector within each requirement. Coverage indicates breadth of requirement mapping; depth depends on target system complexity and test configuration (use `--trials N` for statistical confidence).
 
 > **Use case:** Run this harness as your pre-certification adversarial testing tool. AIUC-1 requires quarterly third-party testing (B001, C010, D004). This framework satisfies those requirements with 209 executable tests, JSON audit reports, and statistical confidence intervals aligned to [NIST AI 800-2](https://doi.org/10.6028/NIST.AI.800-2).
 
