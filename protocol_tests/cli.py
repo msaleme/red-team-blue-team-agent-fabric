@@ -8,6 +8,7 @@ Usage:
     agent-security test mcp --transport stdio --command "node my-server.js"
     agent-security test mcp --url http://localhost:8080 --categories tool_poisoning,capability_escalation
     agent-security test mcp --url http://localhost:8080 --trials 5
+    agent-security test mcp --url http://localhost:8080 --delay 1000
 
     agent-security list                     # List all available harnesses
     agent-security list mcp                 # List MCP test cases
@@ -88,6 +89,7 @@ def print_usage():
     print("  agent-security test l402 --url https://dispatches.mystere.me")
     print("  agent-security test mcp --transport stdio --command 'node server.js'")
     print("  agent-security test mcp --url http://localhost:8080 --trials 5")
+    print("  agent-security test mcp --url http://localhost:8080 --delay 1000")
     print()
     print("Research: https://doi.org/10.5281/zenodo.19162104")
     print("Repo:     https://github.com/msaleme/red-team-blue-team-agent-fabric")

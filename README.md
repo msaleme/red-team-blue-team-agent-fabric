@@ -34,6 +34,32 @@ agent-security test mcp --url http://localhost:8080/mcp
 agent-security version
 ```
 
+### Try It Without a Server (Mock MCP Server)
+
+A bundled mock MCP server lets you validate the harness works without setting up your own target:
+
+```bash
+# Terminal 1: Start the mock server (has one deliberately vulnerable tool)
+python -m testing.mock_mcp_server
+
+# Terminal 2: Run the harness against it
+agent-security test mcp --transport http --url http://localhost:8402/mcp
+```
+
+The mock server includes a poisoned tool description (exfil URL) that the `tool_discovery_poisoning` test should catch.
+
+### Rate Limiting
+
+When testing production endpoints, add a delay between tests to avoid triggering WAF blocks:
+
+```bash
+# 500ms delay between each test
+agent-security test mcp --url http://localhost:8080/mcp --delay 500
+
+# 2 second delay for sensitive production endpoints
+agent-security test a2a --url https://agent.example.com --delay 2000
+```
+
 ### Example Output
 ```bash
 $ agent-security test mcp --url http://localhost:8080/mcp
