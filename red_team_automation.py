@@ -24,12 +24,12 @@ import hashlib
 import random
 import string
 import sys
-from datetime import datetime, timedelta
+import re
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
 from enum import Enum
 import logging
-from geopy.distance import geodesic
 
 # Configure logging
 logging.basicConfig(
@@ -98,7 +98,7 @@ class InfraGardThreatIntel:
             "198.51.100.200",  # Test attacker IP 2
             "203.0.113.50"  # Test attacker IP 3
         ]
-        self.last_updated = datetime.utcnow()
+        self.last_updated = datetime.now(timezone.utc)
 
     def get_latest_threats(self) -> Dict:
         """Fetch latest threat intelligence"""
@@ -113,8 +113,8 @@ class InfraGardThreatIntel:
 class RedTeamTestSuite:
     """Complete Red Team Test Suite for MuleSoft Agent Fabric"""
 
-    def __init__(self):
-        # CloudHub endpoints — configure via .env or environment variables
+    def __init__(self, delay_ms: int = 0):
+        # CloudHub endpoints - configure via .env or environment variables
         # See .env.example for setup instructions
         self.base_urls = {
             'app1': os.environ.get('RTBT_APP1_URL', 'http://localhost:8081'),
@@ -131,6 +131,121 @@ class RedTeamTestSuite:
         self.ttd_target = 3.0  # 3 seconds
         self.block_accuracy_target = 0.99  # 99%
         self.false_positive_target = 0.03  # < 3%
+        self.delay_ms = delay_ms  # Delay between tests in milliseconds
+
+    def _check_response_body_for_leaks(self, response_body: str) -> List[str]:
+        """
+        Check response body for sensitive data patterns.
+        Returns a list of detected leak patterns.
+        """
+        if not response_body:
+            return []
+
+        findings = []
+        response_lower = response_body.lower()
+
+        # API key patterns
+        api_key_patterns = [
+            r'sk-[a-zA-Z0-9]{20,}',  # OpenAI style
+            r'pk_[a-zA-Z0-9]{20,}',  # Stripe style  
+            r'["\']?api[_-]?key["\']?\s*[:=]\s*["\']?[a-zA-Z0-9]{20,}["\']?',
+            r'["\']?access[_-]?token["\']?\s*[:=]\s*["\']?[a-zA-Z0-9]{20,}["\']?'
+        ]
+
+        for pattern in api_key_patterns:
+            if re.search(pattern, response_body, re.IGNORECASE):
+                findings.append("API key detected")
+                break
+
+        # Bearer tokens
+        if re.search(r'bearer\s+[a-zA-Z0-9\-_.]+', response_lower):
+            findings.append("Bearer token detected")
+
+        # Passwords
+        password_patterns = [
+            r'["\']?password["\']?\s*[:=]\s*["\']?[^"\'\s]{3,}["\']?',
+            r'["\']?passwd["\']?\s*[:=]\s*["\']?[^"\'\s]{3,}["\']?',
+            r'["\']?pwd["\']?\s*[:=]\s*["\']?[^"\'\s]{3,}["\']?'
+        ]
+
+        for pattern in password_patterns:
+            if re.search(pattern, response_body, re.IGNORECASE):
+                findings.append("Password detected")
+                break
+
+        # SSNs (US format)
+        if re.search(r'\b\d{3}-\d{2}-\d{4}\b', response_body):
+            findings.append("SSN detected")
+
+        # Credit card numbers (basic pattern)
+        if re.search(r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b', response_body):
+            findings.append("Credit card number detected")
+
+        # Internal file paths
+        path_patterns = [
+            r'/etc/passwd',
+            r'/etc/shadow',
+            r'C:\\Windows\\System32',
+            r'/var/log/',
+            r'/home/[a-zA-Z0-9_-]+',
+            r'C:\\Users\\[a-zA-Z0-9_-]+',
+            r'/opt/[a-zA-Z0-9_-]+'
+        ]
+
+        for pattern in path_patterns:
+            if re.search(pattern, response_body, re.IGNORECASE):
+                findings.append("Internal file path detected")
+                break
+
+        # Stack traces
+        stack_trace_patterns = [
+            r'at [a-zA-Z0-9_.]+\([a-zA-Z0-9_.]+:[0-9]+\)',
+            r'File "[^"]+", line \d+',
+            r'Traceback \(most recent call last\)',
+            r'Exception in thread',
+            r'NullPointerException',
+            r'StackOverflowError'
+        ]
+
+        for pattern in stack_trace_patterns:
+            if re.search(pattern, response_body, re.IGNORECASE):
+                findings.append("Stack trace detected")
+                break
+
+        # SQL queries or database errors
+        sql_patterns = [
+            r'SELECT\s+.+\s+FROM\s+',
+            r'INSERT\s+INTO\s+',
+            r'UPDATE\s+.+\s+SET\s+',
+            r'DELETE\s+FROM\s+',
+            r'ORA-\d+',
+            r'SQL Server Error',
+            r'MySQL Error',
+            r'PostgreSQL Error'
+        ]
+
+        for pattern in sql_patterns:
+            if re.search(pattern, response_body, re.IGNORECASE):
+                findings.append("SQL query/error detected")
+                break
+
+        # Database connection strings
+        if re.search(r'(server|host|database)\s*=.*password\s*=', response_lower):
+            findings.append("Database connection string detected")
+
+        # AWS/Cloud credentials
+        cloud_patterns = [
+            r'AKIA[0-9A-Z]{16}',  # AWS Access Key ID
+            r'["\']?aws[_-]?secret[_-]?access[_-]?key["\']?',
+            r'["\']?azure[_-]?client[_-]?secret["\']?'
+        ]
+
+        for pattern in cloud_patterns:
+            if re.search(pattern, response_body, re.IGNORECASE):
+                findings.append("Cloud credentials detected")
+                break
+
+        return findings
 
     def _execute_test(
         self,
@@ -151,6 +266,11 @@ class RedTeamTestSuite:
 
         logger.info(f"Executing {test_id}: {name}")
 
+        # Apply delay if configured
+        if self.delay_ms > 0:
+            logger.debug(f"Applying {self.delay_ms}ms delay before test")
+            time.sleep(self.delay_ms / 1000.0)
+
         start_time = time.time()
 
         try:
@@ -168,8 +288,17 @@ class RedTeamTestSuite:
 
             ttd = time.time() - start_time
 
+            # Check for data leaks in response body
+            leak_findings = self._check_response_body_for_leaks(response.text)
+
             # Determine if test passed
-            passed = response.status_code in expected_status and ttd < self.ttd_target
+            # CRITICAL FIX: Test fails if ANY leaks detected, regardless of status code
+            passed = response.status_code in expected_status and ttd < self.ttd_target and len(leak_findings) == 0
+
+            # Set error message if leaks detected
+            error_message = None
+            if leak_findings:
+                error_message = f"Data leaks detected: {', '.join(leak_findings)}"
 
             result = TestResult(
                 test_id=test_id,
@@ -182,8 +311,8 @@ class RedTeamTestSuite:
                 passed=passed,
                 ttd=round(ttd, 3),
                 status_code=response.status_code,
-                error_message=None,
-                timestamp=datetime.utcnow().isoformat(),
+                error_message=error_message,
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 url=url,
                 payload=payload,
                 response_snippet=response.text[:200] if response.text else ""
@@ -205,7 +334,7 @@ class RedTeamTestSuite:
                 ttd=round(ttd, 3),
                 status_code=0,
                 error_message=f"Timeout: {str(e)}",
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 url=url,
                 payload=payload,
                 response_snippet=""
@@ -226,7 +355,7 @@ class RedTeamTestSuite:
                 ttd=round(ttd, 3),
                 status_code=0,
                 error_message=str(e),
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 url=url,
                 payload=payload,
                 response_snippet=""
@@ -283,7 +412,7 @@ class RedTeamTestSuite:
         """RT-020: MCP request replay attack"""
         # Step 1: Capture a legitimate request (simulated)
         nonce = "abc123-captured-nonce"
-        old_timestamp = int((datetime.utcnow() - timedelta(hours=1)).timestamp())
+        old_timestamp = int((datetime.now(timezone.utc) - timedelta(hours=1)).timestamp())
 
         # Step 2: Replay with old timestamp
         return self._execute_test(
@@ -313,8 +442,18 @@ class RedTeamTestSuite:
 
         logger.info("RT-025: Simulating superman effect (Houston → Tokyo in 15 min)")
 
-        # Note: Actual implementation would require multi-stage test
-        # This simplified version tests if geo-location validation exists
+        # Calculate distance if geopy is available (lazy import)
+        houston_coords = (29.76, -95.37)
+        tokyo_coords = (35.68, 139.76)
+        time_diff_hours = 0.25  # 15 minutes
+        
+        try:
+            from geopy.distance import geodesic
+            distance_km = geodesic(houston_coords, tokyo_coords).kilometers
+            required_speed_kmh = distance_km / time_diff_hours
+            logger.info(f"RT-025: Distance {distance_km:.0f}km, required speed {required_speed_kmh:.0f} km/h")
+        except ImportError:
+            logger.warning("RT-025: geopy not available, skipping distance calculation")
 
         return self._execute_test(
             test_id="RT-025",
@@ -333,7 +472,7 @@ class RedTeamTestSuite:
                     "city": "Houston",
                     "lat": 29.76,
                     "lon": -95.37,
-                    "timestamp": (datetime.utcnow() - timedelta(minutes=15)).isoformat()
+                    "timestamp": (datetime.now(timezone.utc) - timedelta(minutes=15)).isoformat()
                 }
             },
             expected_status=[403],  # Should detect impossible velocity
@@ -560,7 +699,7 @@ class RedTeamTestSuite:
             ttd=0,  # N/A for iterative test
             status_code=200 if passed else 500,
             error_message=None if passed else f"Only {blocked_count}/10 blocked",
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             url=f"{self.base_urls['app1']}/work-order-optimizer-agent",
             payload={"iterations": 10, "blocked_count": blocked_count},
             response_snippet=f"{blocked_count}/10 attack variations blocked"
@@ -689,7 +828,7 @@ class RedTeamTestSuite:
             ttd=0,  # N/A for simulation
             status_code=200,
             error_message=None if passed else f"Drift not detected until {drift_percentage:.1f}%",
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             url=f"{self.base_urls['app1']}/azure-ml-agent",
             payload={"days_simulated": days_simulated, "final_drift": f"{drift_percentage:.1f}%"},
             response_snippet=f"Drift detection: {'YES' if drift_detected else 'NO'}, Final drift: {drift_percentage:.1f}%"
@@ -839,7 +978,7 @@ class RedTeamTestSuite:
             ttd=0,  # N/A for iterative test
             status_code=200,
             error_message=None if passed else f"{unsafe_count}/10 requests returned unsafe recommendations",
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             url=f"{self.base_urls['app1']}/azure-ml-agent",
             payload={"iterations": 10, "unsafe_count": unsafe_count, "safe_count": safe_count},
             response_snippet=f"Consistency: {safe_count}/10 safe, {unsafe_count}/10 unsafe"
@@ -916,7 +1055,7 @@ class RedTeamTestSuite:
             ttd=round(elapsed, 3),
             status_code=429 if throttled > 0 else 200,
             error_message=None if passed else "Rate limiting not effective",
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             url=f"{self.base_urls['broker']}/brokers/pipeline-anomaly-orchestrator",
             payload={"total_requests": 100, "successes": successes, "throttled": throttled},
             response_snippet=f"{throttled}/100 requests throttled"
@@ -1087,10 +1226,10 @@ class RedTeamTestSuite:
                 "frameworks": ["NIST AI RMF", "OWASP LLM Top 10", "ISA/IEC 62443"]
             },
             "threat_intelligence": self.threat_intel.get_latest_threats(),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
-        report_filename = f"red_team_report_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+        report_filename = f"red_team_report_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
         with open(report_filename, 'w') as f:
             json.dump(report_data, f, indent=2)
 
@@ -1176,7 +1315,19 @@ def main():
     ╚════════════════════════════════════════════════════════════════╝
     """)
 
-    suite = RedTeamTestSuite()
+    # Parse command line arguments for delay
+    delay_ms = 0
+    if len(sys.argv) > 1:
+        for i, arg in enumerate(sys.argv[1:], 1):
+            if arg in ['--delay', '--delay-ms'] and i < len(sys.argv) - 1:
+                try:
+                    delay_ms = int(sys.argv[i + 1])
+                    print(f"Using {delay_ms}ms delay between tests")
+                    break
+                except (ValueError, IndexError):
+                    print("Warning: Invalid delay value, using default (0ms)")
+
+    suite = RedTeamTestSuite(delay_ms=delay_ms)
     suite.run_all_tests()
 
     print("\n✅ Test execution complete. Review JSON report for details.\n")
