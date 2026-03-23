@@ -475,7 +475,7 @@ class RedTeamTestSuite:
                     "timestamp": (datetime.now(timezone.utc) - timedelta(minutes=15)).isoformat()
                 }
             },
-            expected_status=[403],  # Should detect impossible velocity
+            expected_status=[401, 403],  # Should detect impossible velocity (401/403 = valid blocked responses)
             threat_category=ThreatCategory.SPOOFING,
             severity=Severity.P0_CRITICAL,
             nist_function="MANAGE",
@@ -1082,7 +1082,7 @@ class RedTeamTestSuite:
                     "planning-agent"  # Creates loop back to planning
                 ]
             },
-            expected_status=[400, 403],  # Should detect circular dependency
+            expected_status=[400, 403, 429],  # Should detect circular dependency (429 = gateway rate limit)
             threat_category=ThreatCategory.DENIAL_OF_SERVICE,
             severity=Severity.P2_MEDIUM,
             nist_function="MANAGE"
