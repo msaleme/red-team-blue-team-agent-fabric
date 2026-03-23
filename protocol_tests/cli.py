@@ -23,7 +23,7 @@ import sys
 import importlib
 
 
-VERSION = "3.1.0"
+VERSION = "3.2.0"
 
 HARNESSES = {
     "mcp": {
@@ -37,6 +37,10 @@ HARNESSES = {
     "l402": {
         "module": "protocol_tests.l402_harness",
         "description": "L402 payment flow security tests (14 tests, macaroons + invoices)",
+    },
+    "x402": {
+        "module": "protocol_tests.x402_harness",
+        "description": "x402 payment protocol security tests (20 tests, Coinbase/Stripe agent payments)",
     },
     "enterprise": {
         "module": "protocol_tests.enterprise_adapters",
@@ -67,7 +71,7 @@ HARNESSES = {
 
 def print_usage():
     print(f"Agent Security Harness v{VERSION}")
-    print(f"189 security tests for AI agent systems")
+    print(f"209 security tests for AI agent systems")
     print()
     print("Usage:")
     print("  agent-security test <harness> [options]    Run a test harness")
@@ -98,7 +102,7 @@ def main():
 
     if args[0] == "version":
         print(f"agent-security-harness v{VERSION}")
-        print(f"Tests: 189 across {len(HARNESSES)} harness modules")
+        print(f"Tests: 209 across {len(HARNESSES)} harness modules")
         print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402")
         print(f"Platforms: 20 enterprise adapters")
         print(f"Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF")
