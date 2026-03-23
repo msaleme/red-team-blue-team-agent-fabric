@@ -3,13 +3,13 @@
 [![PyPI version](https://badge.fury.io/py/agent-security-harness.svg)](https://pypi.org/project/agent-security-harness/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/security%20tests-189-green.svg)](#test-inventory)
+[![Tests](https://img.shields.io/badge/security%20tests-209-green.svg)](#test-inventory)
 
 **The first open-source security testing framework purpose-built for multi-agent AI deployments in critical infrastructure.**
 
 AI agents are being deployed into enterprise systems (SAP, SCADA, ServiceNow, financial platforms) with the ability to make decisions, invoke tools, and chain actions across systems. The attack surface is fundamentally different from traditional software: agent-to-agent escalation, context poisoning, prompt injection through operational data, and normalization of deviance in safety-critical environments.
 
-This framework provides **189 security tests** across application-layer scenarios, wire-protocol harnesses (MCP, A2A, L402), enterprise platform adapters (20 platforms), and APT simulations. Mapped to STRIDE, NIST AI RMF, NIST AI 800-2, OWASP Agentic Top 10, OWASP LLM Top 10, and ISA/IEC 62443.
+This framework provides **209 security tests** across application-layer scenarios, wire-protocol harnesses (MCP, A2A, L402, x402), enterprise platform adapters (20 platforms), and APT simulations. Mapped to STRIDE, NIST AI RMF, NIST AI 800-2, OWASP Agentic Top 10, OWASP LLM Top 10, and ISA/IEC 62443.
 
 > Built from real InfraGard Houston AI-CSC guidance and 20+ years of enterprise integration experience in Oil & Gas.
 
@@ -75,9 +75,9 @@ Results: 8/10 passed (80% pass rate) - see report.json
 
 ## Why This Matters
 
-- **EU AI Act deadline: August 2, 2026** — high-risk AI systems require transparency, human oversight, and documented governance. This framework satisfies those requirements.
-- **NIST AI Agent Standards Initiative (Feb 2026)** — NIST launched a dedicated initiative for secure, interoperable AI agents. This framework aligns with the direction NIST is heading.
-- **OWASP Top 10 for Agentic Applications (Dec 2025)** — The benchmark for agentic AI security is now published. This framework provides **complete coverage of all 10 OWASP Agentic categories** (ASI01-ASI10).
+- **EU AI Act deadline: August 2, 2026** - high-risk AI systems require transparency, human oversight, and documented governance. This framework satisfies those requirements.
+- **NIST AI Agent Standards Initiative (Feb 2026)** - NIST launched a dedicated initiative for secure, interoperable AI agents. This framework aligns with the direction NIST is heading.
+- **OWASP Top 10 for Agentic Applications (Dec 2025)** - The benchmark for agentic AI security is now published. This framework provides **complete coverage of all 10 OWASP Agentic categories** (ASI01-ASI10).
 - **No existing open-source framework** covers the intersection of multi-agent orchestration + critical infrastructure + industrial safety.
 - Enterprises are deploying agentic AI faster than they can secure it. This closes the gap.
 
@@ -85,7 +85,7 @@ Results: 8/10 passed (80% pass rate) - see report.json
 
 ## Feature Overview
 
-### 9 Core Test Harness Modules
+### 10 Core Test Harness Modules
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|
@@ -93,23 +93,26 @@ Results: 8/10 passed (80% pass rate) - see report.json
 | **MCP Protocol** | 10 | JSON-RPC 2.0 | Anthropic MCP wire-protocol testing |
 | **A2A Protocol** | 12 | JSON-RPC/HTTP | Google Agent-to-Agent communication |
 | **L402 Payment** | 14 | HTTP/Lightning | Bitcoin/Lightning payment flow security |
+| **x402 Payment** | 20 | HTTP/Coinbase/Stripe | Extended payment protocol security |
 | **Framework Adapters** | 21 | Various APIs | LangChain, CrewAI, AutoGen, OpenAI, Bedrock |
 | **Enterprise Platforms** | 57 | Platform APIs | SAP, Salesforce, Workday, Oracle, ServiceNow, +15 more |
 | **GTG-1002 APT Simulation** | 17 | Full Campaign | First documented AI-orchestrated cyber espionage |
 | **Advanced Attacks** | 10 | Multi-step | Polymorphic, stateful, multi-domain attack chains |
 | **Identity & Authorization** | 18 | NIST NCCoE | All 6 focus areas from NIST agent identity standards |
 
-**Total: 189 security tests**
+**Total: 209 security tests**
 
 ### Key Capabilities
 
 - **Zero external dependencies** (core modules use Python stdlib only)
-- **3 wire protocols** supported: MCP (JSON-RPC 2.0), A2A, L402
+- **4 wire protocols** supported: MCP (JSON-RPC 2.0), A2A, L402, x402
 - **20 enterprise platform adapters** (SAP, Salesforce, Workday, etc.)
 - **Statistical evaluation** with confidence intervals (NIST AI 800-2 aligned)
 - **JSON reports** with full request/response transcripts
-- **CLI interface** with filtering, trials, and category selection
+- **CLI interface** with filtering, trials, category selection, and delay controls
 - **Protocol-level testing** (not just application-layer HTTP)
+- **Bundled mock MCP server** for zero-config validation
+- **Self-test suite** with 83 automated tests for framework validation
 
 ---
 
@@ -123,11 +126,12 @@ Most AI security tools test **models** (prompt injection, jailbreaks, output fil
 | **MCP wire-protocol tests** | - | - | - | - | 10 tests (JSON-RPC 2.0) |
 | **A2A wire-protocol tests** | - | - | - | - | 12 tests (Agent Cards, tasks, push notifications) |
 | **L402 payment flow tests** | - | - | - | - | 14 tests (macaroons, invoices, caveats) |
+| **x402 payment flow tests** | - | - | - | - | 20 tests (Coinbase/Stripe agent payments) |
 | **Enterprise platform adapters** | - | - | - | - | 20 platforms (SAP, Salesforce, Workday, Oracle, ServiceNow, IBM, Snowflake, Databricks, etc.) |
 | **APT simulation (GTG-1002)** | - | - | - | - | 17 tests (full campaign lifecycle) |
 | **NIST AI 800-2 evaluation protocol** | - | - | - | - | Statistical confidence intervals, qualified claims |
 | **Published research backing** | - | - | - | - | 2 DOI-citable papers + 3 NIST submissions |
-| **Executable tests** | Yes (model-layer) | Yes (policy-layer) | No (docs only) | Yes (static analysis) | Yes (189 tests, protocol + app layer) |
+| **Executable tests** | Yes (model-layer) | Yes (policy-layer) | No (docs only) | Yes (static analysis) | Yes (209 tests, protocol + app layer) |
 | **Governance layer** | WHO (model safety) | WHO (identity, access) | WHO (config) | WHO (code scanning) | **HOW (decision governance)** |
 
 ### The WHO vs. HOW Gap
@@ -205,6 +209,11 @@ agent-security test a2a --url https://agent.example.com
 ### L402 Payment Protocol - 14 tests
 ```bash
 agent-security test l402 --url https://l402.example.com
+```
+
+### x402 Payment Protocol - 20 tests
+```bash
+agent-security test x402 --url https://x402.example.com
 ```
 
 </details>
