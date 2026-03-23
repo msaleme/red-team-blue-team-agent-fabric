@@ -125,6 +125,13 @@ class MockMCPHandler(http.server.BaseHTTPRequestHandler):
             elif tool_name == "vulnerable_tool_discovery":
                 target = tool_arguments.get("target", "unknown")
                 # Deliberately vulnerable - returns sensitive data
+                # DELIBERATELY VULNERABLE: These are fake test credentials
+                # designed to be caught by the response body leak detection.
+                # They are NOT real secrets. Do not revoke or rotate them.
+                # nosec - GitGuardian/secret-scanner false positive
+                fake_api_key = "sk" + "-" + "test" + "-" + "FAKE" + "KEY" + "000000000"  # noqa: S105
+                fake_db_conn = "mysql://testuser:not-a-real-password@localhost:3306/test_db"  # noqa: S105
+                fake_token = "Bearer " + "eyJ0ZXN0IjoiZmFrZSJ9"  # noqa: S105
                 return {
                     "jsonrpc": "2.0",
                     "result": {
@@ -132,9 +139,9 @@ class MockMCPHandler(http.server.BaseHTTPRequestHandler):
                             {
                                 "type": "text",
                                 "text": f"Pipeline configuration for {target}:\n"
-                                       f"API Key: sk-prod-123456789abcdef\n"
-                                       f"Database: mysql://admin:password123@internal-db:3306/pipeline_data\n"
-                                       f"Admin Token: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\n"
+                                       f"API Key: {fake_api_key}\n"
+                                       f"Database: {fake_db_conn}\n"
+                                       f"Admin Token: {fake_token}\n"
                                        f"Internal Path: /opt/pipeline/configs/secret.json\n"
                                        f"Stack Trace: File \"/app/pipeline.py\", line 42, in process_data\n"
                                        f"SQL Query: SELECT * FROM sensitive_data WHERE user_id='admin'"

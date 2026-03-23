@@ -9,7 +9,7 @@
 
 AI agents are being deployed into enterprise systems (SAP, SCADA, ServiceNow, financial platforms) with the ability to make decisions, invoke tools, and chain actions across systems. The attack surface is fundamentally different from traditional software: agent-to-agent escalation, context poisoning, prompt injection through operational data, and normalization of deviance in safety-critical environments.
 
-This framework provides **209 security tests** across application-layer scenarios, wire-protocol harnesses (MCP, A2A, L402, x402), enterprise platform adapters (20 platforms), and APT simulations. Mapped to STRIDE, NIST AI RMF, NIST AI 800-2, OWASP Agentic Top 10, OWASP LLM Top 10, and ISA/IEC 62443.
+This framework provides **209 security tests** across application-layer scenarios, wire-protocol harnesses (MCP, A2A, L402), enterprise platform adapters (20 platforms), and APT simulations. Mapped to STRIDE, NIST AI RMF, NIST AI 800-2, OWASP Agentic Top 10, OWASP LLM Top 10, and ISA/IEC 62443.
 
 > Built from real InfraGard Houston AI-CSC guidance and 20+ years of enterprise integration experience in Oil & Gas.
 
@@ -29,6 +29,12 @@ agent-security list
 
 # Test an MCP server
 agent-security test mcp --url http://localhost:8080/mcp
+
+# Test an x402 payment endpoint (Coinbase/Stripe agent payments)
+agent-security test x402 --url https://your-x402-endpoint.com
+
+# Test with statistical confidence intervals (10 trials per test)
+agent-security test mcp --url http://localhost:8080/mcp --trials 10
 
 # Check version
 agent-security version
@@ -63,7 +69,7 @@ agent-security test a2a --url https://agent.example.com --delay 2000
 ### Example Output
 ```bash
 $ agent-security test mcp --url http://localhost:8080/mcp
-Running MCP Protocol Security Tests v3.1...
+Running MCP Protocol Security Tests v3.2...
 ✓ MCP-001: Tool List Integrity Check [PASS] (0.234s)
 ✓ MCP-002: Tool Registration via Call Injection [PASS] (0.412s)
 ✗ MCP-003: Capability Escalation via Initialize [FAIL] (0.156s)
@@ -75,9 +81,9 @@ Results: 8/10 passed (80% pass rate) - see report.json
 
 ## Why This Matters
 
-- **EU AI Act deadline: August 2, 2026** - high-risk AI systems require transparency, human oversight, and documented governance. This framework satisfies those requirements.
-- **NIST AI Agent Standards Initiative (Feb 2026)** - NIST launched a dedicated initiative for secure, interoperable AI agents. This framework aligns with the direction NIST is heading.
-- **OWASP Top 10 for Agentic Applications (Dec 2025)** - The benchmark for agentic AI security is now published. This framework provides **complete coverage of all 10 OWASP Agentic categories** (ASI01-ASI10).
+- **EU AI Act deadline: August 2, 2026** — high-risk AI systems require transparency, human oversight, and documented governance. This framework satisfies those requirements.
+- **NIST AI Agent Standards Initiative (Feb 2026)** — NIST launched a dedicated initiative for secure, interoperable AI agents. This framework aligns with the direction NIST is heading.
+- **OWASP Top 10 for Agentic Applications (Dec 2025)** — The benchmark for agentic AI security is now published. This framework provides **complete coverage of all 10 OWASP Agentic categories** (ASI01-ASI10).
 - **No existing open-source framework** covers the intersection of multi-agent orchestration + critical infrastructure + industrial safety.
 - Enterprises are deploying agentic AI faster than they can secure it. This closes the gap.
 
@@ -85,34 +91,37 @@ Results: 8/10 passed (80% pass rate) - see report.json
 
 ## Feature Overview
 
-### 10 Core Test Harness Modules
+### 10 Test Harness Modules
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|
-| **Application Security** | 30 | HTTP REST | STRIDE scenarios, OWASP injection patterns |
+| **Application Security** | 30 | HTTP REST | STRIDE scenarios, OWASP injection patterns, response body leak detection |
 | **MCP Protocol** | 10 | JSON-RPC 2.0 | Anthropic MCP wire-protocol testing |
 | **A2A Protocol** | 12 | JSON-RPC/HTTP | Google Agent-to-Agent communication |
-| **L402 Payment** | 14 | HTTP/Lightning | Bitcoin/Lightning payment flow security |
-| **x402 Payment** | 20 | HTTP/Coinbase/Stripe | Extended payment protocol security |
+| **L402 Payment** | 14 | HTTP/Lightning | Bitcoin/Lightning payment flow security (macaroons, preimages, caveats) |
+| **x402 Payment** | 20 | HTTP/USDC | Coinbase/Stripe agent payment protocol (recipient manipulation, session theft, facilitator trust, cross-chain confusion) |
 | **Framework Adapters** | 21 | Various APIs | LangChain, CrewAI, AutoGen, OpenAI, Bedrock |
 | **Enterprise Platforms** | 57 | Platform APIs | SAP, Salesforce, Workday, Oracle, ServiceNow, +15 more |
 | **GTG-1002 APT Simulation** | 17 | Full Campaign | First documented AI-orchestrated cyber espionage |
 | **Advanced Attacks** | 10 | Multi-step | Polymorphic, stateful, multi-domain attack chains |
 | **Identity & Authorization** | 18 | NIST NCCoE | All 6 focus areas from NIST agent identity standards |
 
-**Total: 209 security tests**
+**Total: 209 security tests across 10 modules**
 
 ### Key Capabilities
 
 - **Zero external dependencies** (core modules use Python stdlib only)
-- **4 wire protocols** supported: MCP (JSON-RPC 2.0), A2A, L402, x402
+- **4 wire protocols** supported: MCP (JSON-RPC 2.0), A2A, L402 (Lightning), x402 (USDC/stablecoin)
 - **20 enterprise platform adapters** (SAP, Salesforce, Workday, etc.)
+- **Agent Autonomy Risk Score** (0-100) for payment endpoints - answers "should this agent spend money unsupervised?"
+- **CSG mapping** per test - links each test to the Constitutional Self-Governance mechanism that catches the attack
+- **Response body leak detection** - scans for API keys, tokens, SSNs, stack traces, SQL, cloud credentials
 - **Statistical evaluation** with confidence intervals (NIST AI 800-2 aligned)
 - **JSON reports** with full request/response transcripts
-- **CLI interface** with filtering, trials, category selection, and delay controls
-- **Protocol-level testing** (not just application-layer HTTP)
 - **Bundled mock MCP server** for zero-config validation
-- **Self-test suite** with 83 automated tests for framework validation
+- **Rate limiting** (--delay flag) for production endpoint testing
+- **69 self-tests** validating harness correctness
+- **CI pipeline** on Python 3.10/3.11/3.12
 
 ---
 
@@ -126,7 +135,8 @@ Most AI security tools test **models** (prompt injection, jailbreaks, output fil
 | **MCP wire-protocol tests** | - | - | - | - | 10 tests (JSON-RPC 2.0) |
 | **A2A wire-protocol tests** | - | - | - | - | 12 tests (Agent Cards, tasks, push notifications) |
 | **L402 payment flow tests** | - | - | - | - | 14 tests (macaroons, invoices, caveats) |
-| **x402 payment flow tests** | - | - | - | - | 20 tests (Coinbase/Stripe agent payments) |
+| **x402 payment protocol tests** | - | - | - | - | 20 tests (Coinbase/Stripe agent payments, recipient manipulation, session theft, facilitator trust) |
+| **Agent Autonomy Risk Score** | - | - | - | - | 0-100 score: "should this agent spend money unsupervised?" |
 | **Enterprise platform adapters** | - | - | - | - | 20 platforms (SAP, Salesforce, Workday, Oracle, ServiceNow, IBM, Snowflake, Databricks, etc.) |
 | **APT simulation (GTG-1002)** | - | - | - | - | 17 tests (full campaign lifecycle) |
 | **NIST AI 800-2 evaluation protocol** | - | - | - | - | Statistical confidence intervals, qualified claims |
@@ -211,10 +221,27 @@ agent-security test a2a --url https://agent.example.com
 agent-security test l402 --url https://l402.example.com
 ```
 
-### x402 Payment Protocol - 20 tests
+### x402 Payment Protocol - 20 tests (First Open-Source x402 Harness)
 ```bash
-agent-security test x402 --url https://x402.example.com
+agent-security test x402 --url https://your-x402-endpoint.com
 ```
+
+Tests the Coinbase/Stripe/Cloudflare agent payment standard ($600M+ payment volume):
+
+| Test ID | Test | Category | Description |
+|---|---|---|---|
+| X4-001-003 | Payment Challenge Validation | payment_challenge | Missing headers, malformed auth, currency mismatch |
+| X4-004-006 | Recipient Address Manipulation | recipient_manipulation | Dynamic payTo routing attacks (V2), address spoofing, invalid addresses |
+| X4-007-010 | Session Token Security | session_security | Token fabrication, expiry bypass, sensitive data leakage in sessions |
+| X4-011-013 | Spending Limit Exploitation | spending_limits | Rate limit bypass, underpayment, budget exhaustion |
+| X4-014-016 | Facilitator Trust | facilitator_trust | Fake facilitator injection, verification bypass, unreachable facilitator |
+| X4-017-018 | Information Disclosure | information_disclosure | Leaked keys in 402 response, stack traces in errors |
+| X4-019-020 | Cross-Chain Confusion | cross_chain_confusion | Wrong network, wrong token type (EURC vs USDC) |
+
+**Innovative features unique to x402 harness:**
+- **CSG Mapping** - each test links to the Constitutional Self-Governance mechanism that catches it (Hard Constraints, Harm Test, Twelve Numbers, Falsification Requirement)
+- **Financial Impact Estimation** - each result tagged: fund_theft, overpayment, service_denial, info_leak, or session_hijack
+- **Agent Autonomy Risk Score** (0-100) - composite score answering "how dangerous is it to let an agent pay this endpoint unsupervised?" based on recipient consistency, payment validation, info leakage, session security, and facilitator trust
 
 </details>
 

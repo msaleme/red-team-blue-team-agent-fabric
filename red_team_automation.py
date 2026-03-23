@@ -146,7 +146,7 @@ class RedTeamTestSuite:
 
         # API key patterns
         api_key_patterns = [
-            r'sk-[a-zA-Z0-9]{20,}',  # OpenAI style
+            r'sk-[a-zA-Z0-9\-]{10,}',  # OpenAI style (sk-proj-, sk-prod-, sk-...)
             r'pk_[a-zA-Z0-9]{20,}',  # Stripe style  
             r'["\']?api[_-]?key["\']?\s*[:=]\s*["\']?[a-zA-Z0-9]{20,}["\']?',
             r'["\']?access[_-]?token["\']?\s*[:=]\s*["\']?[a-zA-Z0-9]{20,}["\']?'

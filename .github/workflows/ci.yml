@@ -99,16 +99,25 @@ jobs:
           python -c "
           import re, sys
           from pathlib import Path
-          # Only check protocol_tests/ source files (not testing/ which references IDs in assertions)
-          ids = []
+          # Check that each test ID is only defined in ONE test method across all harnesses.
+          # IDs can appear multiple times in the same method (error branch + success branch).
+          method_ids = {}  # {test_id: set of (file, method_name)}
           for f in Path('protocol_tests').glob('*.py'):
               content = f.read_text()
-              # Find IDs used as test_id assignments (the canonical definition)
-              found = re.findall(r'test_id=[\"\\']([A-Z][A-Z0-9]*-\d{3})[\"\\']', content)
-              ids.extend(found)
-          dupes = [x for x in set(ids) if ids.count(x) > 1]
+              # Split into methods and find test_id assignments per method
+              for match in re.finditer(r'def (test_\w+)\(self\)(.*?)(?=\n    def |\Z)', content, re.DOTALL):
+                  method_name = match.group(1)
+                  method_body = match.group(2)
+                  ids_in_method = set(re.findall(r'test_id=[\"\\']([A-Z][A-Z0-9]*-\d{3})[\"\\']', method_body))
+                  for tid in ids_in_method:
+                      if tid not in method_ids:
+                          method_ids[tid] = set()
+                      method_ids[tid].add((f.name, method_name))
+          dupes = {k: v for k, v in method_ids.items() if len(v) > 1}
           if dupes:
-              print(f'DUPLICATE TEST IDS: {dupes}')
+              print(f'DUPLICATE TEST IDS (used in multiple methods):')
+              for tid, locations in dupes.items():
+                  print(f'  {tid}: {locations}')
               sys.exit(1)
-          print(f'All {len(set(ids))} test IDs are unique')
+          print(f'All {len(method_ids)} test IDs are unique across methods')
           "
