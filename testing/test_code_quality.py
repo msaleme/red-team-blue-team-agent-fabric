@@ -25,6 +25,9 @@ class TestAllModulesImportable(unittest.TestCase):
         "protocol_tests.gtg1002_simulation", "protocol_tests.advanced_attacks",
         "protocol_tests.identity_harness",
         "protocol_tests.capability_profile_harness",
+        "protocol_tests.harmful_output_harness",
+        "protocol_tests.cbrn_harness",
+        "protocol_tests.incident_response_harness",
     ]
     def test_all(self):
         import importlib
