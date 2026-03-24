@@ -1,0 +1,63 @@
+{
+  "description": "OATR test fixtures for x402 identity verification (X4-021 through X4-025)",
+  "generated_at": "2026-03-24T13:21:30.386Z",
+  "source": "FransDevelopment (issue #51)",
+  "test_audience": "https://test-service.example.com",
+  "registered_issuer_id": "test-harness",
+  "registered_kid": "test-harness-2026-03",
+  "public_key_base64url": "dLkXRmTqvXiVGOb57JZ-5cdH0GXH_lWVB-5pKY3Cee4",
+  "tokens": {
+    "valid": {
+      "jwt": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtaGFybmVzcy0yMDI2LTAzIiwiaXNzIjoidGVzdC1oYXJuZXNzIiwidHlwIjoiYWdlbnQtYXR0ZXN0YXRpb24rand0In0.eyJzdWIiOiJhZ2VudC1pbnN0YW5jZS12YWxpZCIsImF1ZCI6Imh0dHBzOi8vdGVzdC1zZXJ2aWNlLmV4YW1wbGUuY29tIiwic2NvcGUiOlsicGF5bWVudDp0cmFuc2ZlciIsInRvb2w6d2ViX3NlYXJjaCJdLCJjb25zdHJhaW50cyI6eyJ0aW1lX2JvdW5kIjp0cnVlfSwidXNlcl9wc2V1ZG9ueW0iOiJwYWlyd2lzZS10ZXN0LXZhbGlkIiwicnVudGltZV92ZXJzaW9uIjoiMS4wLjAiLCJpYXQiOjE3NzQzNTg0OTAsImV4cCI6MTc3NDM2MjA5MH0.DmtSpo4XvMq17FMSsOpAGuNXD9OU23UFZWkSzO_hHOKkEN3ZmDYTX4y_-Z5-R8TyYLkuAn0ZPfAqejXwXNDTDg",
+      "expected": {"valid": true}
+    },
+    "expired": {
+      "jwt": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtaGFybmVzcy0yMDI2LTAzIiwiaXNzIjoidGVzdC1oYXJuZXNzIiwidHlwIjoiYWdlbnQtYXR0ZXN0YXRpb24rand0In0.eyJzdWIiOiJhZ2VudC1pbnN0YW5jZS1leHBpcmVkIiwiYXVkIjoiaHR0cHM6Ly90ZXN0LXNlcnZpY2UuZXhhbXBsZS5jb20iLCJzY29wZSI6WyJwYXltZW50OnRyYW5zZmVyIl0sImNvbnN0cmFpbnRzIjp7InRpbWVfYm91bmQiOnRydWV9LCJ1c2VyX3BzZXVkb255bSI6InBhaXJ3aXNlLXRlc3QtZXhwaXJlZCIsInJ1bnRpbWVfdmVyc2lvbiI6IjEuMC4wIiwiaWF0IjoxNzc0MzUxMjkwLCJleHAiOjE3NzQzNTQ4OTB9.m2aezqYvocIgjr-LzTH5j1MZfnytie3HKZh3_ZYpEhAJ93htChqpyA8tPh5hs1gXu7SQyELlY_2w-3gGteLjBA",
+      "expected": {"valid": false, "reason": "expired_attestation"}
+    },
+    "wrong_audience": {
+      "jwt": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtaGFybmVzcy0yMDI2LTAzIiwiaXNzIjoidGVzdC1oYXJuZXNzIiwidHlwIjoiYWdlbnQtYXR0ZXN0YXRpb24rand0In0.eyJzdWIiOiJhZ2VudC1pbnN0YW5jZS13cm9uZ2F1ZCIsImF1ZCI6Imh0dHBzOi8vd3Jvbmctc2VydmljZS5leGFtcGxlLmNvbSIsInNjb3BlIjpbInBheW1lbnQ6dHJhbnNmZXIiXSwiY29uc3RyYWludHMiOnsidGltZV9ib3VuZCI6dHJ1ZX0sInVzZXJfcHNldWRvbnltIjoicGFpcndpc2UtdGVzdC13cm9uZ2F1ZCIsInJ1bnRpbWVfdmVyc2lvbiI6IjEuMC4wIiwiaWF0IjoxNzc0MzU4NDkwLCJleHAiOjE3NzQzNjIwOTB9.HWha4XwzJQXEeXUkjU-fwMaqKp9GOLHB7F0Sd4YgLs2IEotu5UbmuPGQaa8sMLUbEHCZnDe9hK28NScHZhTxAw",
+      "expected": {"valid": false, "reason": "audience_mismatch"},
+      "note": "aud is https://wrong-service.example.com"
+    },
+    "forged_unknown_issuer": {
+      "jwt": "eyJhbGciOiJFZERTQSIsImtpZCI6ImZvcmdlZC1rZXktMjAyNi0wMyIsImlzcyI6InVua25vd24taXNzdWVyIiwidHlwIjoiYWdlbnQtYXR0ZXN0YXRpb24rand0In0.eyJzdWIiOiJhZ2VudC1pbnN0YW5jZS1mb3JnZWQiLCJhdWQiOiJodHRwczovL3Rlc3Qtc2VydmljZS5leGFtcGxlLmNvbSIsInNjb3BlIjpbInBheW1lbnQ6dHJhbnNmZXIiXSwiY29uc3RyYWludHMiOnsidGltZV9ib3VuZCI6dHJ1ZX0sInVzZXJfcHNldWRvbnltIjoicGFpcndpc2UtdGVzdC1mb3JnZWQiLCJydW50aW1lX3ZlcnNpb24iOiIxLjAuMCIsImlhdCI6MTc3NDM1ODQ5MCwiZXhwIjoxNzc0MzYyMDkwfQ._q8GHb80237UPtd5rphPocx-lZFHph9f8BkOhFxaM6UgxdmH-7xgGS3lw3vD8257fMjcRmWOnVJZvL_kKuLODw",
+      "expected": {"valid": false, "reason": "unknown_issuer"},
+      "note": "Signed with valid Ed25519 key NOT in manifest"
+    },
+    "tampered_signature": {
+      "jwt": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtaGFybmVzcy0yMDI2LTAzIiwiaXNzIjoidGVzdC1oYXJuZXNzIiwidHlwIjoiYWdlbnQtYXR0ZXN0YXRpb24rand0In0.eyJzdWIiOiJhZ2VudC1pbnN0YW5jZS12YWxpZCIsImF1ZCI6Imh0dHBzOi8vdGVzdC1zZXJ2aWNlLmV4YW1wbGUuY29tIiwic2NvcGUiOlsicGF5bWVudDp0cmFuc2ZlciIsInRvb2w6d2ViX3NlYXJjaCJdLCJjb25zdHJhaW50cyI6eyJ0aW1lX2JvdW5kIjp0cnVlfSwidXNlcl9wc2V1ZG9ueW0iOiJwYWlyd2lzZS10ZXN0LXZhbGlkIiwicnVudGltZV92ZXJzaW9uIjoiMS4wLjAiLCJpYXQiOjE3NzQzNTg0OTAsImV4cCI6MTc3NDM2MjA5MH0.DmtSpo4XvMq17FMSsOpAGuNXD9OU23UFZWkSzO_hHOKkEN3ZmDYTX4y_-Z5-R8TyYLkuAn0ZPfAqejXwXNXXXX",
+      "expected": {"valid": false, "reason": "invalid_signature"},
+      "note": "Valid header+payload, last 4 chars of signature corrupted"
+    }
+  },
+  "manifest": {
+    "schema_version": "1.0.0",
+    "registry_id": "open-trust-registry-test",
+    "generated_at": "2026-03-24T13:21:30.385Z",
+    "expires_at": "2026-03-25T13:21:30.385Z",
+    "total_issuers": 1,
+    "entries": [
+      {
+        "issuer_id": "test-harness",
+        "display_name": "Test Harness Issuer",
+        "status": "active",
+        "public_keys": [
+          {
+            "kid": "test-harness-2026-03",
+            "algorithm": "Ed25519",
+            "public_key": "dLkXRmTqvXiVGOb57JZ-5cdH0GXH_lWVB-5pKY3Cee4",
+            "status": "active"
+          }
+        ]
+      }
+    ]
+  },
+  "revocations": {
+    "schema_version": "1.0.0",
+    "generated_at": "2026-03-24T13:21:30.386Z",
+    "expires_at": "2026-03-24T13:26:30.386Z",
+    "revoked_keys": [],
+    "revoked_issuers": []
+  }
+}
