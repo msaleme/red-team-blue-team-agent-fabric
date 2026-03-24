@@ -24,7 +24,7 @@ import sys
 import importlib
 
 
-VERSION = "3.3.0"
+VERSION = "3.4.0"
 
 HARNESSES = {
     "mcp": {
@@ -79,12 +79,16 @@ HARNESSES = {
         "module": "protocol_tests.jailbreak_harness",
         "description": "Expanded jailbreak corpus (25 tests, DAN + smuggling + persistence)",
     },
+    "return-channel": {
+        "module": "protocol_tests.return_channel_harness",
+        "description": "Return channel poisoning tests (8 tests, output sanitization + context manipulation)",
+    },
 }
 
 
 def print_usage():
     print(f"Agent Security Harness v{VERSION}")
-    print(f"274 security tests for AI agent systems")
+    print(f"282 security tests for AI agent systems")
     print()
     print("Usage:")
     print("  agent-security test <harness> [options]    Run a test harness")
@@ -116,7 +120,7 @@ def main():
 
     if args[0] == "version":
         print(f"agent-security-harness v{VERSION}")
-        print(f"Tests: 274 across {len(HARNESSES)} harness modules")
+        print(f"Tests: 282 across {len(HARNESSES)} harness modules")
         print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402")
         print(f"Platforms: 20 enterprise adapters")
         print(f"Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF")
