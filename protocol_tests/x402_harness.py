@@ -1472,7 +1472,8 @@ class X402SecurityTests:
         t0 = time.monotonic()
 
         # Create a stale manifest (generated_at > 15 min ago = default CACHE_TTL_MS)
-        stale_timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        stale_time = datetime.now(timezone.utc) - __import__('datetime').timedelta(minutes=20)
+        stale_timestamp = stale_time.isoformat().replace("+00:00", "Z")
         stale_epoch_ms = int((time.time() - 1200) * 1000)  # 20 minutes ago (exceeds 15-min TTL)
         stale_manifest = json.dumps({
             "manifest_version": "1.0",
