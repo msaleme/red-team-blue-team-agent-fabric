@@ -1234,6 +1234,366 @@ class X402SecurityTests:
         ))
 
     # ------------------------------------------------------------------
+    # Category 8: OATR Identity Verification (X4-021 to X4-025)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _b64url_decode(s: str) -> bytes:
+        """Base64url decode without padding."""
+        s = s.replace("-", "+").replace("_", "/")
+        pad = 4 - len(s) % 4
+        if pad != 4:
+            s += "=" * pad
+        return base64.b64decode(s)
+
+    @staticmethod
+    def _b64url_encode(data: bytes) -> str:
+        """Base64url encode without padding."""
+        return base64.b64encode(data).decode().rstrip("=").replace("+", "-").replace("/", "_")
+
+    @staticmethod
+    def _parse_jwt_parts(token: str) -> tuple[dict | None, dict | None]:
+        """Minimally parse a JWT into (header, payload) dicts. Returns (None, None) on failure."""
+        parts = token.split(".")
+        if len(parts) != 3:
+            return None, None
+        try:
+            header = json.loads(X402SecurityTests._b64url_decode(parts[0]))
+            payload = json.loads(X402SecurityTests._b64url_decode(parts[1]))
+            return header, payload
+        except Exception:
+            return None, None
+
+    def _extract_attestation(self, resp: dict) -> str | None:
+        """Extract an operator attestation JWT from response headers or body."""
+        headers = resp.get("headers", {})
+        # Check common header locations
+        for key in ("x-operator-attestation", "x-agent-attestation", "x-oatr-attestation",
+                     "authorization", "x-attestation"):
+            val = headers.get(key, "")
+            if val:
+                # Strip "Bearer " prefix if present
+                token = val.split(" ", 1)[-1] if " " in val else val
+                parts = token.split(".")
+                if len(parts) == 3:
+                    return token
+        # Check response body for JWT-shaped tokens
+        body = resp.get("body", "")
+        if body:
+            try:
+                body_json = json.loads(body)
+                for field_name in ("attestation", "operator_attestation", "agent_attestation",
+                                   "oatr_token", "token"):
+                    if field_name in body_json and isinstance(body_json[field_name], str):
+                        parts = body_json[field_name].split(".")
+                        if len(parts) == 3:
+                            return body_json[field_name]
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return None
+
+    def test_x402_operator_attestation_presence(self):
+        """X4-021: Check if the x402 endpoint returns a verifiable operator attestation (OATR JWT)."""
+        t0 = time.monotonic()
+
+        resp = self.transport.get()
+        elapsed = time.monotonic() - t0
+
+        attestation = self._extract_attestation(resp)
+        issues = []
+
+        if not attestation:
+            issues.append("No operator attestation JWT found in response headers or body")
+        else:
+            header, payload = self._parse_jwt_parts(attestation)
+            if header is None or payload is None:
+                issues.append("Attestation present but not parseable as JWT (header.payload.signature)")
+            else:
+                # Verify expected type and algorithm
+                typ = header.get("typ", "")
+                alg = header.get("alg", "")
+                if typ != "agent-attestation+jwt":
+                    issues.append(f"JWT typ is '{typ}', expected 'agent-attestation+jwt'")
+                if alg != "EdDSA":
+                    issues.append(f"JWT alg is '{alg}', expected 'EdDSA'")
+                # Check required payload fields
+                for required_field in ("iss", "aud", "exp"):
+                    if required_field not in payload:
+                        issues.append(f"Missing required payload field: {required_field}")
+
+        passed = len(issues) == 0
+        self._autonomy_signals["has_operator_attestation"] = passed
+
+        self._record(X402TestResult(
+            test_id="X4-021",
+            name="Operator Attestation Presence (OATR)",
+            category="identity_verification",
+            owasp_asi="ASI04",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details="; ".join(issues) if issues else "Valid OATR operator attestation JWT present (EdDSA, agent-attestation+jwt)",
+            http_method="GET",
+            csg_mapping="HC-14: x402 endpoints must present verifiable operator identity via OATR attestation",
+            estimated_impact="fund_theft",
+            estimated_severity="high",
+            request_sent={"path": "/"},
+            response_received={"attestation_present": attestation is not None,
+                               "parseable": attestation is not None and self._parse_jwt_parts(attestation)[0] is not None},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_x402_attestation_domain_binding(self):
+        """X4-022: Verify attestation JWT audience matches the endpoint domain."""
+        t0 = time.monotonic()
+
+        resp = self.transport.get()
+        elapsed = time.monotonic() - t0
+
+        attestation = self._extract_attestation(resp)
+        issues = []
+
+        if not attestation:
+            issues.append("No attestation JWT found; cannot verify domain binding")
+        else:
+            header, payload = self._parse_jwt_parts(attestation)
+            if payload is None:
+                issues.append("Attestation not parseable; cannot check audience field")
+            else:
+                aud = payload.get("aud", "")
+                # Extract domain from the target URL
+                parsed_url = urllib.parse.urlparse(self.transport.base_url)
+                target_domain = parsed_url.hostname or parsed_url.netloc
+                # Extract domain from aud (may be a full URL or just a domain)
+                if aud.startswith("http"):
+                    aud_parsed = urllib.parse.urlparse(aud)
+                    aud_domain = aud_parsed.hostname or aud_parsed.netloc
+                else:
+                    aud_domain = aud
+
+                if not aud:
+                    issues.append("Attestation JWT missing 'aud' (audience) field")
+                elif aud_domain != target_domain:
+                    issues.append(f"Audience mismatch: attestation aud='{aud_domain}', endpoint domain='{target_domain}'")
+
+        passed = len(issues) == 0
+
+        self._record(X402TestResult(
+            test_id="X4-022",
+            name="Attestation-Domain Binding (OATR)",
+            category="identity_verification",
+            owasp_asi="ASI04",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details="; ".join(issues) if issues else "Attestation audience matches endpoint domain",
+            http_method="GET",
+            csg_mapping="HC-15: Attestation audience must bind to the serving domain to prevent replay",
+            estimated_impact="fund_theft",
+            estimated_severity="high",
+            request_sent={"path": "/", "target_url": self.transport.base_url},
+            response_received={"attestation_found": attestation is not None},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_x402_attestation_revocation_check(self):
+        """X4-023: Check if an OATR revocation mechanism exists and is functional."""
+        t0 = time.monotonic()
+
+        issues = []
+        revocation_functional = False
+
+        # Try well-known revocation endpoint
+        parsed_url = urllib.parse.urlparse(self.transport.base_url)
+        base_origin = f"{parsed_url.scheme}://{parsed_url.netloc}"
+        revocation_transport = X402Transport(base_origin)
+        rev_resp = revocation_transport.get("/.well-known/oatr-revocation.json", timeout=10.0)
+
+        if rev_resp.get("status") == 200:
+            body = rev_resp.get("body", "")
+            try:
+                rev_data = json.loads(body)
+                # Expect a list or object with revoked entries
+                if isinstance(rev_data, dict) and ("revoked" in rev_data or "entries" in rev_data
+                                                    or "issuers" in rev_data or "keys" in rev_data):
+                    revocation_functional = True
+                elif isinstance(rev_data, list):
+                    revocation_functional = True
+                else:
+                    issues.append("Revocation endpoint returned JSON but unrecognized schema")
+            except (json.JSONDecodeError, TypeError):
+                issues.append("Revocation endpoint returned non-JSON body")
+        else:
+            # Also check if attestation itself contains a revocation URL
+            resp = self.transport.get()
+            attestation = self._extract_attestation(resp)
+            if attestation:
+                _, payload = self._parse_jwt_parts(attestation)
+                if payload:
+                    rev_url = payload.get("revocation_url") or payload.get("rev") or payload.get("crl")
+                    if rev_url:
+                        # Try fetching the revocation URL from the attestation
+                        try:
+                            rev_transport = X402Transport(rev_url)
+                            rev_resp2 = rev_transport.get(timeout=10.0)
+                            if rev_resp2.get("status") == 200:
+                                revocation_functional = True
+                            else:
+                                issues.append(f"Attestation revocation URL returned {rev_resp2.get('status')}")
+                        except Exception as e:
+                            issues.append(f"Attestation revocation URL unreachable: {e}")
+                    else:
+                        issues.append("No revocation URL in attestation and /.well-known/oatr-revocation.json not found")
+                else:
+                    issues.append("Attestation not parseable; no revocation URL extractable")
+            else:
+                issues.append("No attestation and no /.well-known/oatr-revocation.json (no revocation mechanism)")
+
+        elapsed = time.monotonic() - t0
+        passed = revocation_functional
+
+        self._record(X402TestResult(
+            test_id="X4-023",
+            name="Attestation Revocation Check (OATR)",
+            category="identity_verification",
+            owasp_asi="ASI04",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details="; ".join(issues) if issues else "OATR revocation mechanism is functional",
+            http_method="GET",
+            csg_mapping="HC-16: Revocation checking must be available to reject compromised operator keys",
+            estimated_impact="fund_theft",
+            estimated_severity="high",
+            request_sent={"revocation_url": f"{base_origin}/.well-known/oatr-revocation.json"},
+            response_received={"revocation_functional": revocation_functional},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_x402_stale_manifest_acceptance(self):
+        """X4-024: Send a mock manifest with stale generated_at to test cache TTL enforcement."""
+        t0 = time.monotonic()
+
+        # Create a stale manifest (generated_at > 15 min ago = default CACHE_TTL_MS)
+        stale_timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        stale_epoch_ms = int((time.time() - 1200) * 1000)  # 20 minutes ago (exceeds 15-min TTL)
+        stale_manifest = json.dumps({
+            "manifest_version": "1.0",
+            "generated_at": stale_epoch_ms,
+            "generated_at_iso": stale_timestamp,
+            "issuers": [],
+            "signature": self._b64url_encode(os.urandom(64)),
+        })
+
+        # Send the stale manifest as a header and in body
+        resp = self.transport.post(
+            body=stale_manifest.encode(),
+            headers={
+                "Content-Type": "application/json",
+                "X-OATR-Manifest": base64.b64encode(stale_manifest.encode()).decode(),
+                "X-OATR-Manifest-Generated-At": str(stale_epoch_ms),
+            },
+        )
+        elapsed = time.monotonic() - t0
+
+        status = resp.get("status", 0)
+        body_lower = resp.get("body", "").lower()
+
+        # PASS if the server rejects the stale manifest (non-200, or body indicates staleness)
+        stale_rejected = (
+            status != 200
+            or "stale" in body_lower
+            or "expired" in body_lower
+            or "refresh" in body_lower
+            or "cache" in body_lower
+            or "ttl" in body_lower
+        )
+
+        passed = stale_rejected
+
+        self._record(X402TestResult(
+            test_id="X4-024",
+            name="Stale Manifest Acceptance (OATR)",
+            category="identity_verification",
+            owasp_asi="ASI04",
+            severity=Severity.MEDIUM.value,
+            passed=passed,
+            details=(f"Server returned {status} for manifest generated 20min ago (15min TTL)"
+                     + (" (rejected/re-fetched)" if passed else " (ACCEPTED stale manifest without validation)")),
+            http_method="POST",
+            csg_mapping="HC-17: Clients/servers must reject manifests older than CACHE_TTL_MS (default 15min)",
+            estimated_impact="fund_theft",
+            estimated_severity="medium",
+            request_sent={"stale_generated_at_ms": stale_epoch_ms, "ttl_exceeded_by_s": 300},
+            response_received={"status": status, "stale_rejected": stale_rejected},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_x402_forged_attestation_injection(self):
+        """X4-025: Inject a forged attestation JWT signed with a random key (not in any registry)."""
+        t0 = time.monotonic()
+
+        # Craft a forged OATR attestation JWT
+        forged_header = self._b64url_encode(json.dumps({
+            "alg": "EdDSA",
+            "typ": "agent-attestation+jwt",
+            "kid": "forged-key-" + uuid.uuid4().hex[:8],
+        }).encode())
+        forged_payload = self._b64url_encode(json.dumps({
+            "iss": "fake-issuer-" + uuid.uuid4().hex[:8],
+            "sub": "forged-agent",
+            "aud": self.transport.base_url,
+            "iat": int(time.time()),
+            "exp": 9999999999,
+            "scope": ["pay", "transfer"],
+            "runtime_version": "1.0.0-forged",
+        }).encode())
+        # Random 64-byte signature (not a real Ed25519 signature)
+        forged_sig = self._b64url_encode(os.urandom(64))
+        forged_jwt = f"{forged_header}.{forged_payload}.{forged_sig}"
+
+        # Send the forged attestation in multiple header locations
+        resp = self.transport.get(headers={
+            "X-Operator-Attestation": f"Bearer {forged_jwt}",
+            "X-Agent-Attestation": forged_jwt,
+            "X-OATR-Attestation": forged_jwt,
+        })
+        elapsed = time.monotonic() - t0
+
+        status = resp.get("status", 0)
+        body_lower = resp.get("body", "").lower()
+
+        # PASS if the forged attestation is rejected
+        rejection_indicators = (
+            status != 200
+            or "unknown_issuer" in body_lower
+            or "invalid_signature" in body_lower
+            or "invalid" in body_lower
+            or "unauthorized" in body_lower
+            or "forbidden" in body_lower
+            or "rejected" in body_lower
+            or "untrusted" in body_lower
+        )
+
+        passed = rejection_indicators
+        self._autonomy_signals["rejects_forged_attestation"] = passed
+
+        self._record(X402TestResult(
+            test_id="X4-025",
+            name="Forged Attestation Injection (OATR)",
+            category="identity_verification",
+            owasp_asi="ASI04",
+            severity=Severity.CRITICAL.value,
+            passed=passed,
+            details=(f"Server returned {status} for forged OATR attestation"
+                     + (" (rejected)" if passed else " (ACCEPTED forged attestation - identity spoofing possible)")),
+            http_method="GET",
+            csg_mapping="HC-18: Forged attestations with unknown issuers must be rejected",
+            estimated_impact="fund_theft",
+            estimated_severity="critical",
+            request_sent={"forged_jwt_iss": "fake-issuer", "forged_jwt_alg": "EdDSA"},
+            response_received={"status": status, "rejected": rejection_indicators},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
     # Agent Autonomy Risk Score
     # ------------------------------------------------------------------
 
@@ -1257,6 +1617,8 @@ class X402SecurityTests:
             "leaks_information": 10 if not signals.get("no_info_leak", False) else 0,
             "no_facilitator_validation": 15 if not signals.get("validates_facilitator", False) else 0,
             "accepts_underpayment": 5 if not signals.get("rejects_underpayment", False) else 0,
+            "accepts_forged_attestation": 10 if not signals.get("rejects_forged_attestation", False) else 0,
+            "no_operator_attestation": 5 if not signals.get("has_operator_attestation", False) else 0,
         }
 
         total_risk = sum(risk_components.values())
@@ -1321,6 +1683,13 @@ class X402SecurityTests:
         "cross_chain_confusion": [
             "test_x402_wrong_network",
             "test_x402_wrong_token_type",
+        ],
+        "identity_verification": [
+            "test_x402_operator_attestation_presence",
+            "test_x402_attestation_domain_binding",
+            "test_x402_attestation_revocation_check",
+            "test_x402_stale_manifest_acceptance",
+            "test_x402_forged_attestation_injection",
         ],
     }
 
@@ -1397,6 +1766,11 @@ _TEST_DESCRIPTIONS: dict[str, str] = {
     "X4-018": "Send malformed payloads and check error messages for info leaks",
     "X4-019": "Specify wrong blockchain network in payment",
     "X4-020": "Specify wrong token type (EURC, USDT when server expects USDC)",
+    "X4-021": "Verify operator attestation JWT presence (OATR agent-attestation+jwt, EdDSA)",
+    "X4-022": "Check attestation JWT audience matches endpoint domain (domain binding)",
+    "X4-023": "Test OATR revocation list availability and functionality",
+    "X4-024": "Send stale manifest (>15min) to test CACHE_TTL_MS enforcement",
+    "X4-025": "Inject forged attestation signed with random Ed25519 key (unknown issuer)",
 }
 
 
@@ -1414,6 +1788,7 @@ def list_tests():
         "facilitator_trust":      ["X4-014", "X4-015", "X4-016"],
         "information_disclosure": ["X4-017", "X4-018"],
         "cross_chain_confusion":  ["X4-019", "X4-020"],
+        "identity_verification": ["X4-021", "X4-022", "X4-023", "X4-024", "X4-025"],
     }
 
     for category, ids in test_id_map.items():
@@ -1517,7 +1892,7 @@ def _run_statistical(
     from protocol_tests.statistical import wilson_ci, enhance_report, TrialResult
 
     all_tests_flat: list[tuple[str, str, str]] = []
-    test_id_order = [f"X4-{i:03d}" for i in range(1, 21)]
+    test_id_order = [f"X4-{i:03d}" for i in range(1, 26)]
     id_idx = 0
     for category, method_names in X402SecurityTests.ALL_TESTS.items():
         if categories and category not in categories:

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-security-harness"
-version = "3.4.0"
-description = "282 security tests for AI agent systems - MCP, A2A, L402, x402 wire-protocol testing, 20 enterprise platform adapters, GTG-1002 APT simulation"
+version = "3.5.0"
+description = "287 security tests for AI agent systems - MCP, A2A, L402, x402 wire-protocol testing, 20 enterprise platform adapters, GTG-1002 APT simulation"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
