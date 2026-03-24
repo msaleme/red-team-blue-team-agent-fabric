@@ -67,12 +67,24 @@ HARNESSES = {
         "module": "protocol_tests.advanced_attacks",
         "description": "Advanced attack patterns (10 tests, polymorphic + stateful)",
     },
+    "over-refusal": {
+        "module": "protocol_tests.over_refusal_harness",
+        "description": "Over-refusal / false positive rate tests (25 tests, legitimate request validation)",
+    },
+    "provenance": {
+        "module": "protocol_tests.provenance_harness",
+        "description": "Provenance & tool attestation tests (15 tests, supply chain + attestation bypass)",
+    },
+    "jailbreak": {
+        "module": "protocol_tests.jailbreak_harness",
+        "description": "Expanded jailbreak corpus (25 tests, DAN + smuggling + persistence)",
+    },
 }
 
 
 def print_usage():
     print(f"Agent Security Harness v{VERSION}")
-    print(f"209 security tests for AI agent systems")
+    print(f"274 security tests for AI agent systems")
     print()
     print("Usage:")
     print("  agent-security test <harness> [options]    Run a test harness")
@@ -104,7 +116,7 @@ def main():
 
     if args[0] == "version":
         print(f"agent-security-harness v{VERSION}")
-        print(f"Tests: 209 across {len(HARNESSES)} harness modules")
+        print(f"Tests: 274 across {len(HARNESSES)} harness modules")
         print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402")
         print(f"Platforms: 20 enterprise adapters")
         print(f"Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF")
