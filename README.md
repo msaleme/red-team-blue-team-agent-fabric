@@ -104,6 +104,9 @@ Results: 8/10 passed (80% pass rate) - see report.json
 | **Enterprise Platforms** | 57 | Platform APIs | SAP, Salesforce, Workday, Oracle, ServiceNow, +15 more |
 | **GTG-1002 APT Simulation** | 17 | Full Campaign | First documented AI-orchestrated cyber espionage |
 | **Advanced Attacks** | 10 | Multi-step | Polymorphic, stateful, multi-domain attack chains |
+| **Over-Refusal** | 25 | All protocols | False positive rate testing: legitimate requests that should NOT be blocked |
+| **Provenance & Attestation** | 15 | Supply Chain | Fake provenance, spoofed attestation, marketplace integrity (CVE-2026-25253) |
+| **Jailbreak** | 25 | Model/Agent | DAN variants, token smuggling, authority impersonation, persistence |
 | **Identity & Authorization** | 18 | NIST NCCoE | All 6 focus areas from NIST agent identity standards |
 
 **Total: 274 security tests across 13 modules**
