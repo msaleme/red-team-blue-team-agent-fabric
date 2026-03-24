@@ -4,7 +4,7 @@ Thanks for your interest in improving the Red Team / Blue Team framework for age
 
 ## What we're looking for
 
-### High priority (v3.0 roadmap)
+### High priority (v4.0 roadmap)
 - **MCP protocol-level test harness** — JSON-RPC 2.0 message generation, tool discovery validation, OAuth 2.1 flow testing
 - **Google A2A test harness** — Agent Card validation, task lifecycle security, SSE stream testing
 - **Framework adapters** — Pre-configured test profiles for LangChain, CrewAI, AutoGen, OpenAI Agents SDK, Bedrock Agents

@@ -118,7 +118,7 @@ The RT-024 fix is particularly significant: it proves that normalization of devi
 
 - Gateway: Envoy Proxy with rate limiting (50 req/min) and payload size limits (100KB)
 - Backends: 8 mock containers with basic security controls (allowlists, keyword filters, auth)
-- Harness: agent-security-harness v3.2.0
+- Harness: agent-security-harness v3.6.0
 - Date: 2026-03-23
 
 ## Relevance to AIUC-1

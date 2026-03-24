@@ -132,10 +132,10 @@ Each test module generates a JSON report containing:
 
 ```json
 {
-  "suite": "MCP Protocol Security Tests v3.0",
+  "suite": "MCP Protocol Security Tests v3.6",
   "timestamp": "2026-03-21T12:00:00Z",
   "git_commit": "abc1234",
-  "protocol_version": "3.0.0",
+  "protocol_version": "3.6.0",
   "target": {
     "url": "http://localhost:8080/mcp",
     "server_info": {"name": "example-server", "version": "1.0"},
