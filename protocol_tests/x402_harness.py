@@ -126,9 +126,11 @@ def _fake_jwt() -> str:
 class X402Transport:
     """HTTP transport for x402-gated APIs."""
 
-    def __init__(self, base_url: str, headers: dict | None = None):
+    def __init__(self, base_url: str, headers: dict | None = None,
+                 paid_path: str = ""):
         self.base_url = base_url.rstrip("/")
         self.headers = headers or {}
+        self.paid_path = paid_path  # Path that returns 402 (e.g., /api/v1/tools/weather/call)
 
     def request(
         self,
@@ -147,7 +149,9 @@ class X402Transport:
             _error: bool (only on exception)
             _exception: str (only on exception)
         """
-        url = f"{self.base_url}{path}" if path else self.base_url
+        # Use paid_path as default when no explicit path given (for x402 payment tests)
+        effective_path = path if path else self.paid_path
+        url = f"{self.base_url}{effective_path}" if effective_path else self.base_url
         all_headers = {**self.headers, **(headers or {})}
         req = urllib.request.Request(url, data=body, headers=all_headers, method=method)
         try:
@@ -282,9 +286,15 @@ class X402SecurityTests:
         status = "PASS \u2705" if result.passed else "FAIL \u274c"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
+    @property
+    def _paid_path(self) -> str:
+        """Return the paid path for tests expecting 402 responses."""
+        return self.transport.paid_path
+
     def _get_challenge(self, path: str = "") -> X402Challenge | None:
         """Fetch a fresh x402 challenge from the server (expects 402)."""
-        resp = self.transport.get(path)
+        target = path or self._paid_path
+        resp = self.transport.get(target)
         if resp.get("status") == 402:
             return X402Challenge.from_response(resp)
         return None
@@ -1839,6 +1849,8 @@ def main():
             "Examples:\n"
             "  python -m protocol_tests.x402_harness --url https://x402-server.example.com\n"
             "  python -m protocol_tests.x402_harness --url https://x402-server.example.com "
+            "--paid-path /api/v1/tools/weather/call\n"
+            "  python -m protocol_tests.x402_harness --url https://x402-server.example.com "
             "--categories payment_challenge,facilitator_trust\n"
             "  python -m protocol_tests.x402_harness --url https://x402-server.example.com "
             "--trials 10 --report x402_report.json\n"
@@ -1846,6 +1858,9 @@ def main():
     )
     ap.add_argument("--url",
                     help="x402-gated server URL (required for testing)")
+    ap.add_argument("--paid-path", default="",
+                    help="Path that returns 402 (e.g., /api/v1/tools/weather/call). "
+                         "If omitted, tests hit the root URL.")
     ap.add_argument("--categories", help="Comma-separated test categories to run")
     ap.add_argument("--report", help="Output JSON report path")
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")
@@ -1866,7 +1881,7 @@ def main():
         k, v = h.split(":", 1)
         headers[k.strip()] = v.strip()
 
-    transport = X402Transport(args.url, headers=headers)
+    transport = X402Transport(args.url, headers=headers, paid_path=args.paid_path)
     categories = args.categories.split(",") if args.categories else None
 
     if args.trials > 1:
