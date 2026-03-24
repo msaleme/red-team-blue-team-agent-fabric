@@ -24,6 +24,7 @@ class TestAllModulesImportable(unittest.TestCase):
         "protocol_tests.extended_enterprise_adapters",
         "protocol_tests.gtg1002_simulation", "protocol_tests.advanced_attacks",
         "protocol_tests.identity_harness",
+        "protocol_tests.capability_profile_harness",
     ]
     def test_all(self):
         import importlib
@@ -52,9 +53,9 @@ class TestRegX402(unittest.TestCase):
     def test_registered(self):
         from protocol_tests.cli import HARNESSES
         self.assertIn("x402", HARNESSES)
-    def test_14_harnesses(self):
+    def test_15_harnesses(self):
         from protocol_tests.cli import HARNESSES
-        self.assertEqual(len(HARNESSES), 14)
+        self.assertEqual(len(HARNESSES), 18)
     def test_modules_exist(self):
         from protocol_tests.cli import HARNESSES
         for n, i in HARNESSES.items():

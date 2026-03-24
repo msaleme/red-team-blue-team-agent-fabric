@@ -24,12 +24,12 @@ import sys
 import importlib
 
 
-VERSION = "3.5.0"
+VERSION = "3.6.0"
 
 HARNESSES = {
     "mcp": {
         "module": "protocol_tests.mcp_harness",
-        "description": "MCP wire-protocol security tests (10 tests, JSON-RPC 2.0)",
+        "description": "MCP wire-protocol security tests (11 tests, JSON-RPC 2.0)",
     },
     "a2a": {
         "module": "protocol_tests.a2a_harness",
@@ -53,7 +53,7 @@ HARNESSES = {
     },
     "framework": {
         "module": "protocol_tests.framework_adapters",
-        "description": "Framework adapters (21 tests, 5 frameworks)",
+        "description": "Framework adapters (24 tests, 5 frameworks)",
     },
     "identity": {
         "module": "protocol_tests.identity_harness",
@@ -83,12 +83,28 @@ HARNESSES = {
         "module": "protocol_tests.return_channel_harness",
         "description": "Return channel poisoning tests (8 tests, output sanitization + context manipulation)",
     },
+    "capability-profile": {
+        "module": "protocol_tests.capability_profile_harness",
+        "description": "Capability profile validation tests (10 tests, executor boundary enforcement)",
+    },
+    "harmful-output": {
+        "module": "protocol_tests.harmful_output_harness",
+        "description": "Harmful output content tests (10 tests, AIUC-1 C003/C004)",
+    },
+    "cbrn": {
+        "module": "protocol_tests.cbrn_harness",
+        "description": "CBRN content prevention tests (8 tests, AIUC-1 F002)",
+    },
+    "incident-response": {
+        "module": "protocol_tests.incident_response_harness",
+        "description": "Incident response validation tests (8 tests, AIUC-1 E001-E003)",
+    },
 }
 
 
 def print_usage():
     print(f"Agent Security Harness v{VERSION}")
-    print(f"287 security tests for AI agent systems")
+    print(f"327 security tests for AI agent systems")
     print()
     print("Usage:")
     print("  agent-security test <harness> [options]    Run a test harness")
@@ -120,7 +136,7 @@ def main():
 
     if args[0] == "version":
         print(f"agent-security-harness v{VERSION}")
-        print(f"Tests: 287 across {len(HARNESSES)} harness modules")
+        print(f"Tests: 327 across {len(HARNESSES)} harness modules")
         print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402")
         print(f"Platforms: 20 enterprise adapters")
         print(f"Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF")
