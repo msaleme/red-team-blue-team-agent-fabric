@@ -69,7 +69,7 @@ agent-security test a2a --url https://agent.example.com --delay 2000
 ### Example Output
 ```bash
 $ agent-security test mcp --url http://localhost:8080/mcp
-Running MCP Protocol Security Tests v3.2...
+Running MCP Protocol Security Tests v3.3...
 ✓ MCP-001: Tool List Integrity Check [PASS] (0.234s)
 ✓ MCP-002: Tool Registration via Call Injection [PASS] (0.412s)
 ✗ MCP-003: Capability Escalation via Initialize [FAIL] (0.156s)
