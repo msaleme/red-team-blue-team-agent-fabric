@@ -24,7 +24,7 @@ import sys
 import importlib
 
 
-VERSION = "3.6.0"
+VERSION = "3.7.0"
 
 HARNESSES = {
     "mcp": {
@@ -99,12 +99,24 @@ HARNESSES = {
         "module": "protocol_tests.incident_response_harness",
         "description": "Incident response validation tests (8 tests, AIUC-1 E001-E003)",
     },
+    "cve-2026-25253": {
+        "module": "protocol_tests.cve_2026_25253_harness",
+        "description": "CVE-2026-25253 reproduction suite (8 tests, MCP supply chain poisoning)",
+    },
+    "aiuc1": {
+        "module": "protocol_tests.aiuc1_compliance_harness",
+        "description": "AIUC-1 compliance tests (12 tests, incident response + CBRN + harmful content)",
+    },
+    "cloud-agents": {
+        "module": "protocol_tests.cloud_agent_harness",
+        "description": "Cloud agent platform tests (25 tests, 5 platforms: Bedrock, Azure, Vertex, Agentforce, watsonx)",
+    },
 }
 
 
 def print_usage():
     print(f"Agent Security Harness v{VERSION}")
-    print(f"327 security tests for AI agent systems")
+    print(f"372 security tests for AI agent systems")
     print()
     print("Usage:")
     print("  agent-security test <harness> [options]    Run a test harness")
@@ -136,10 +148,10 @@ def main():
 
     if args[0] == "version":
         print(f"agent-security-harness v{VERSION}")
-        print(f"Tests: 327 across {len(HARNESSES)} harness modules")
-        print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402")
-        print(f"Platforms: 20 enterprise adapters")
-        print(f"Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF")
+        print(f"Tests: 372 across {len(HARNESSES)} harness modules")
+        print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402, x402")
+        print(f"Platforms: 25 cloud + 20 enterprise adapters")
+        print(f"Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF, AIUC-1")
         print(f"Research:  https://doi.org/10.5281/zenodo.19162104")
         sys.exit(0)
 

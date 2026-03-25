@@ -419,6 +419,13 @@ Multi-step, stateful attack simulations based on real-world AI agent exploitatio
 
 ---
 
+## External Validation
+
+- **NULL AI (Anhul / DrCookies84) — v3.6.0 (Mar 24, 2026):**
+  - Return channel 8/8 (100%), Capability profile 9/10 (90%), Jailbreak 25/25 (100%), Provenance 15/15 (100%), Advanced attacks 10/10 (100%), Incident response 8/8 (100%), Harmful output 6/10 (expected partial: closed network), CBRN 6/8 (expected partial: closed network)
+  - [Screen recording](https://youtu.be/4OUyoPSy244?si=fBTQVW6EGYVEj7cU)
+- **NULL AI (Anhul / DrCookies84) — v3.3.0 (Mar 21, 2026):** 65/65 perfect score on live infrastructure (video recorded)
+
 ## Success Metrics
 
 | Metric | Target |
