@@ -5,62 +5,70 @@
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/security%20tests-367-green.svg)](#test-inventory)
 
-**Can an autonomous agent be trusted to initiate, route, authorize, and complete a regulated value transfer under adversarial conditions?** This repository exists to answer that question before AI agents touch real money.
+The first open-source security testing framework purpose-built for multi-agent AI deployments in critical infrastructure and other high-impact enterprise environments.
 
-### Why now
-- **OCC GENIUS rulemaking (Feb 2026)** – proposes a federal application/registration path for permitted payment stablecoin issuers. Coinbase has a *pending* OCC National Trust Company application (filed Oct 3, 2025) as it positions for that oversight.
-- **Mastercard x BVNK (Mar 2026)** – $1.8B acquisition + Crypto Partner Program embeds on-chain settlement inside a tier-1 card network; Mastercard publicly states AI agents and tokenized currencies are reshaping commerce.
-- **SoFiUSD settlement (Mar 2026)** – first stablecoin issued by a nationally chartered, FDIC-insured bank used for Mastercard settlement, signaling bank-grade stablecoin operations.
+AI agents are being deployed into enterprise systems with the ability to make decisions, invoke tools, move across workflows, and trigger consequential actions. The attack surface is fundamentally different from traditional software: agent-to-agent escalation, context poisoning, protocol abuse, prompt injection through operational data, authority drift, and normalization of deviance in safety-critical environments.
 
-**Business value:** This framework lets enterprises test whether AI agents can safely move money, trigger payouts, or settle value *before* those agents are allowed to do it.
+This repository exists to test a harder question than access control alone can answer:
 
-**Our moat:** Most tools test model behavior or identity controls. We test autonomous value-transfer decisions across regulated payment rails (x402, L402, MCP, A2A) and the decision governance layer that determines whether an agent should spend at all.
+**Can an autonomous agent be trusted to take consequential action under adversarial conditions?**
 
----
+That includes payment flows, but it also includes tool execution, orchestration, platform actions, cross-system chaining, and decision behavior across MCP, A2A, L402, x402, cloud agent platforms, and enterprise systems.
 
-## Three Layers of Regulated Agentic Payments
+## Why This Matters Now
 
-| Layer | What it covers | Example tests |
-|---|---|---|
-| **Protocol Integrity** | Prevent spoofing, replay, downgrade, diversion at the MCP/A2A/x402/L402 layers | MCP-001..011, A2A-001..012, L402-001..015, x402-001..043 |
-| **Settlement Governance** | Tie payments to the right issuer, facilitator, chain, session, and policy state (OATR attestation, facilitator trust, chain/asset checks) | x402 facilitator trust + session security, OATR X4-021..027, Autonomy Risk Score inputs |
-| **Decision Governance** | Score and enforce whether an agent should spend at all under its authority/budget/confidence | Agent Autonomy Risk Score, return-channel poisoning, scope-creep & normalization-of-deviance tests |
+Enterprises are moving from isolated copilots to agents that can act. As that shift accelerates, the control problem changes:
 
----
+- identity governance tells you **who** the agent is
+- permissions tell you **what** it can access
+- security testing must also determine **how** it behaves when conditions are adversarial
 
-## Registration-Aware Threat Model
+That gap is where agent failures now emerge: not just unauthorized access, but authorized agents making unsafe, manipulated, or policy-inconsistent decisions.
 
-| Failure Mode | Description |
-|---|---|
-| **Issuer / Registrant Confusion** | Attacker routes agents to unregistered or spoofed issuers when GENIUS-era policies expect a specific registrant. |
-| **Facilitator Substitution** | Multi-hop routing swaps the regulated facilitator for an unregulated intermediary. |
-| **Chain / Asset Confusion** | Endpoint silently changes chain/token (USDC vs SoFiUSD, mainnet vs sidechain). |
-| **Session Hijack / Authority Drift** | Session authorized for regulated actions is replayed outside scope. |
-| **Rewards / Yield Incentive Abuse** | Agents exploit staking/reward programs to extract value outside merchant policy. |
-| **Merchant Recipient Manipulation** | Merchant payout details altered mid-flight. |
-| **Settlement Finality Assumptions** | Agents assume card-style finality while operating on chains with different reversal properties. |
-| **Policy-to-Protocol Drift** | Regulatory/policy updates (e.g., GENIUS changes) never reach agent control planes. |
-| **Regulated Endpoint, Ungoverned Agent** | Counterparty is compliant, but autonomous agent lacks budget/scope guardrails. |
-
----
-
-## Strategic Use Cases
-
-### Coinbase / x402-style Agent Payments (Merchant Checkout & Facilitator Trust)
-Focus: recipient integrity, facilitator substitution, session theft, spending limits, Agent Autonomy Risk Score.
-
-### Mastercard + BVNK On-Chain ↔️ Fiat Interoperability
-Focus: cross-border routing, payout orchestration, settlement integrity across card + stablecoin hops, programmable treasury risk.
-
-### Bank-Issued Stablecoin Settlement (e.g., SoFiUSD)
-Focus: regulated issuer assumptions, card-network bridging, finality guarantees, issuer attestation, authority boundaries.
-
----
+A fast-emerging example is **agentic payments and stablecoin settlement**, where protocols like x402 and L402 make machine-native transactions more practical. But payments are only one instance of the broader problem: autonomous systems taking real-world action without sufficient decision-layer validation.
 
 ## What This Repo Provides
-- **367 executable tests** across MCP, A2A, L402, x402, OATR, Autonomy Risk Scoring, CVE reproduction, AIUC-1 compliance, and 45 platform adapters.
-- **Market-aligned threat coverage** for regulated stablecoin rails, facilitator trust, issuer/registrant checks, and decision governance.
-- **Reference implementations & collaborators** (FransDevelopment OATR fixtures + reference server, whiteknightonhorse/APIbase, giskard09/Giskard) validating the harness on production endpoints.
+
+This framework provides **367 executable security tests across 21 modules**, including:
+
+- application-layer attack scenarios
+- MCP and A2A wire-protocol harnesses
+- L402 and x402 payment flow testing
+- CVE reproduction suites
+- AIUC-1 pre-certification testing
+- cloud agent platform adapters
+- enterprise platform adapters
+- APT simulations
+- decision-governance and autonomy-risk evaluation
+
+It is designed for teams that need to test not only whether an agent is reachable or compliant on paper, but whether it remains safe, bounded, and trustworthy in production-like conditions.
+
+## Three Layers of Agent Decision Security
+
+| Layer | What it covers | Example focus |
+|-------|----------------|---------------|
+| **Protocol Integrity** | Prevent spoofing, replay, downgrade, diversion, and malformed protocol behavior | MCP, A2A, L402, x402 wire-level tests |
+| **Operational Governance** | Validate session state, capability boundaries, platform actions, trust chains, and execution context | capability escalation, facilitator trust, provenance, session security |
+| **Decision Governance** | Test whether an agent should act at all under its authority, confidence, scope, and policy constraints | autonomy scoring, scope creep, return-channel poisoning, normalization-of-deviance |
+
+## Where Payments Fit
+
+One strategic use case in this repository is **regulated agentic payments**.
+
+As stablecoins, on-chain settlement, and machine-to-machine payment protocols mature, the question is no longer just whether an agent can pay. It is whether an agent can be trusted to initiate, route, and complete value transfer safely under adversarial conditions.
+
+This framework includes dedicated coverage for that emerging control surface through x402, L402, facilitator trust checks, autonomy risk scoring, and payment-specific threat scenarios.
+
+## The WHO vs. HOW Gap
+
+Most current tools govern **who** agents are and **what** they can access.
+
+This framework tests **how** agents behave when they are already authorized.
+
+Identity governance tells you the agent is allowed. 
+Decision governance tells you the agent is right.
+
+Both are necessary.
 
 ---
 ## Quick Start
