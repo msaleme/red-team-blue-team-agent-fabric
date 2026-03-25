@@ -99,24 +99,6 @@ def http_post(url: str, payload: dict, headers: dict | None = None,
         return {"_error": True, "_exception": str(e)}
 
 
-def http_get(url: str, headers: dict | None = None, timeout: int = 15) -> dict:
-    hdrs = {"Accept": "application/json", **(headers or {})}
-    req = urllib.request.Request(url, headers=hdrs, method="GET")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            body = resp.read().decode("utf-8")
-            return json.loads(body) if body else {}
-    except urllib.error.HTTPError as e:
-        body = ""
-        try:
-            body = e.read().decode("utf-8")[:500]
-        except Exception:
-            pass
-        return {"_error": True, "_status": e.code, "_body": body}
-    except Exception as e:
-        return {"_error": True, "_exception": str(e)}
-
-
 # ---------------------------------------------------------------------------
 # Base adapter
 # ---------------------------------------------------------------------------
