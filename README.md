@@ -5,16 +5,64 @@
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/security%20tests-367-green.svg)](#test-inventory)
 
-**The first open-source security testing framework purpose-built for multi-agent AI deployments in critical infrastructure.**
+**Can an autonomous agent be trusted to initiate, route, authorize, and complete a regulated value transfer under adversarial conditions?** This repository exists to answer that question before AI agents touch real money.
 
-AI agents are being deployed into enterprise systems (SAP, SCADA, ServiceNow, financial platforms) with the ability to make decisions, invoke tools, and chain actions across systems. The attack surface is fundamentally different from traditional software: agent-to-agent escalation, context poisoning, prompt injection through operational data, and normalization of deviance in safety-critical environments.
+### Why now
+- **OCC GENIUS rulemaking (Feb 2026)** – proposes a federal application/registration path for permitted payment stablecoin issuers. Coinbase has a *pending* OCC National Trust Company application (filed Oct 3, 2025) as it positions for that oversight.
+- **Mastercard x BVNK (Mar 2026)** – $1.8B acquisition + Crypto Partner Program embeds on-chain settlement inside a tier-1 card network; Mastercard publicly states AI agents and tokenized currencies are reshaping commerce.
+- **SoFiUSD settlement (Mar 2026)** – first stablecoin issued by a nationally chartered, FDIC-insured bank used for Mastercard settlement, signaling bank-grade stablecoin operations.
 
-This framework provides **367 security tests** across application-layer scenarios, wire-protocol harnesses (MCP, A2A, L402, x402), CVE reproduction suites, AIUC-1 compliance testing, cloud agent platform adapters (5 platforms), enterprise platform adapters (20 platforms), and APT simulations. Mapped to STRIDE, NIST AI RMF, NIST AI 800-2, OWASP Agentic Top 10, OWASP LLM Top 10, AIUC-1, and ISA/IEC 62443.
+**Business value:** This framework lets enterprises test whether AI agents can safely move money, trigger payouts, or settle value *before* those agents are allowed to do it.
 
-> Built from real InfraGard Houston AI-CSC guidance and 20+ years of enterprise integration experience in Oil & Gas.
+**Our moat:** Most tools test model behavior or identity controls. We test autonomous value-transfer decisions across regulated payment rails (x402, L402, MCP, A2A) and the decision governance layer that determines whether an agent should spend at all.
 
 ---
 
+## Three Layers of Regulated Agentic Payments
+
+| Layer | What it covers | Example tests |
+|---|---|---|
+| **Protocol Integrity** | Prevent spoofing, replay, downgrade, diversion at the MCP/A2A/x402/L402 layers | MCP-001..011, A2A-001..012, L402-001..015, x402-001..043 |
+| **Settlement Governance** | Tie payments to the right issuer, facilitator, chain, session, and policy state (OATR attestation, facilitator trust, chain/asset checks) | x402 facilitator trust + session security, OATR X4-021..027, Autonomy Risk Score inputs |
+| **Decision Governance** | Score and enforce whether an agent should spend at all under its authority/budget/confidence | Agent Autonomy Risk Score, return-channel poisoning, scope-creep & normalization-of-deviance tests |
+
+---
+
+## Registration-Aware Threat Model
+
+| Failure Mode | Description |
+|---|---|
+| **Issuer / Registrant Confusion** | Attacker routes agents to unregistered or spoofed issuers when GENIUS-era policies expect a specific registrant. |
+| **Facilitator Substitution** | Multi-hop routing swaps the regulated facilitator for an unregulated intermediary. |
+| **Chain / Asset Confusion** | Endpoint silently changes chain/token (USDC vs SoFiUSD, mainnet vs sidechain). |
+| **Session Hijack / Authority Drift** | Session authorized for regulated actions is replayed outside scope. |
+| **Rewards / Yield Incentive Abuse** | Agents exploit staking/reward programs to extract value outside merchant policy. |
+| **Merchant Recipient Manipulation** | Merchant payout details altered mid-flight. |
+| **Settlement Finality Assumptions** | Agents assume card-style finality while operating on chains with different reversal properties. |
+| **Policy-to-Protocol Drift** | Regulatory/policy updates (e.g., GENIUS changes) never reach agent control planes. |
+| **Regulated Endpoint, Ungoverned Agent** | Counterparty is compliant, but autonomous agent lacks budget/scope guardrails. |
+
+---
+
+## Strategic Use Cases
+
+### Coinbase / x402-style Agent Payments (Merchant Checkout & Facilitator Trust)
+Focus: recipient integrity, facilitator substitution, session theft, spending limits, Agent Autonomy Risk Score.
+
+### Mastercard + BVNK On-Chain ↔️ Fiat Interoperability
+Focus: cross-border routing, payout orchestration, settlement integrity across card + stablecoin hops, programmable treasury risk.
+
+### Bank-Issued Stablecoin Settlement (e.g., SoFiUSD)
+Focus: regulated issuer assumptions, card-network bridging, finality guarantees, issuer attestation, authority boundaries.
+
+---
+
+## What This Repo Provides
+- **367 executable tests** across MCP, A2A, L402, x402, OATR, Autonomy Risk Scoring, CVE reproduction, AIUC-1 compliance, and 45 platform adapters.
+- **Market-aligned threat coverage** for regulated stablecoin rails, facilitator trust, issuer/registrant checks, and decision governance.
+- **Reference implementations & collaborators** (FransDevelopment OATR fixtures + reference server, whiteknightonhorse/APIbase, giskard09/Giskard) validating the harness on production endpoints.
+
+---
 ## Quick Start
 
 ### Installation
