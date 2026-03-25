@@ -1,0 +1,98 @@
+version: "3.8"
+
+services:
+  # ── Envoy API Gateway (Flex Gateway's underlying engine) ──
+  envoy-gateway:
+    image: envoyproxy/envoy:v1.31-latest
+    volumes:
+      - ./envoy-config/envoy.yaml:/etc/envoy/envoy.yaml:ro
+    ports:
+      - "8081:8081"   # app1
+      - "8082:8082"   # app2
+      - "8083:8083"   # app3
+      - "8084:8084"   # broker
+      - "8085:8085"   # mcp-safety
+      - "8086:8086"   # mcp-context
+      - "8087:8087"   # mcp-document
+      - "8088:8088"   # mcp json-rpc (proxied)
+      - "9901:9901"   # envoy admin
+    depends_on:
+      - mock-app1
+      - mock-app2
+      - mock-app3
+      - mock-broker
+      - mock-mcp-safety
+      - mock-mcp-context
+      - mock-mcp-document
+      - mock-mcp-jsonrpc
+    networks:
+      - gw-internal
+
+  # ── Mock Backend Services ──
+  mock-app1:
+    build: ./mock-backends
+    environment:
+      SERVICE_NAME: app1
+      LISTEN_PORT: "9081"
+    networks:
+      - gw-internal
+
+  mock-app2:
+    build: ./mock-backends
+    environment:
+      SERVICE_NAME: app2
+      LISTEN_PORT: "9082"
+    networks:
+      - gw-internal
+
+  mock-app3:
+    build: ./mock-backends
+    environment:
+      SERVICE_NAME: app3
+      LISTEN_PORT: "9083"
+    networks:
+      - gw-internal
+
+  mock-broker:
+    build: ./mock-backends
+    environment:
+      SERVICE_NAME: broker
+      LISTEN_PORT: "9084"
+    networks:
+      - gw-internal
+
+  mock-mcp-safety:
+    build: ./mock-backends
+    environment:
+      SERVICE_NAME: mcp_safety
+      LISTEN_PORT: "9085"
+    networks:
+      - gw-internal
+
+  mock-mcp-context:
+    build: ./mock-backends
+    environment:
+      SERVICE_NAME: mcp_context
+      LISTEN_PORT: "9086"
+    networks:
+      - gw-internal
+
+  mock-mcp-document:
+    build: ./mock-backends
+    environment:
+      SERVICE_NAME: mcp_document
+      LISTEN_PORT: "9087"
+    networks:
+      - gw-internal
+
+  # ── MCP JSON-RPC Server (existing mock, containerized) ──
+  mock-mcp-jsonrpc:
+    build:
+      context: ../testing
+      dockerfile: ../docker/Dockerfile.mcp
+    networks:
+      - gw-internal
+
+networks:
+  gw-internal:
+    driver: bridge

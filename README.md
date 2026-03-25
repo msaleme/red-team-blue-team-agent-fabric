@@ -3,13 +3,13 @@
 [![PyPI version](https://badge.fury.io/py/agent-security-harness.svg)](https://pypi.org/project/agent-security-harness/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/security%20tests-209-green.svg)](#test-inventory)
+[![Tests](https://img.shields.io/badge/security%20tests-363-green.svg)](#test-inventory)
 
 **The first open-source security testing framework purpose-built for multi-agent AI deployments in critical infrastructure.**
 
 AI agents are being deployed into enterprise systems (SAP, SCADA, ServiceNow, financial platforms) with the ability to make decisions, invoke tools, and chain actions across systems. The attack surface is fundamentally different from traditional software: agent-to-agent escalation, context poisoning, prompt injection through operational data, and normalization of deviance in safety-critical environments.
 
-This framework provides **209 security tests** across application-layer scenarios, wire-protocol harnesses (MCP, A2A, L402), enterprise platform adapters (20 platforms), and APT simulations. Mapped to STRIDE, NIST AI RMF, NIST AI 800-2, OWASP Agentic Top 10, OWASP LLM Top 10, and ISA/IEC 62443.
+This framework provides **363 security tests** across application-layer scenarios, wire-protocol harnesses (MCP, A2A, L402), enterprise platform adapters (20 platforms), and APT simulations. Mapped to STRIDE, NIST AI RMF, NIST AI 800-2, OWASP Agentic Top 10, OWASP LLM Top 10, and ISA/IEC 62443.
 
 > Built from real InfraGard Houston AI-CSC guidance and 20+ years of enterprise integration experience in Oil & Gas.
 
@@ -69,7 +69,7 @@ agent-security test a2a --url https://agent.example.com --delay 2000
 ### Example Output
 ```bash
 $ agent-security test mcp --url http://localhost:8080/mcp
-Running MCP Protocol Security Tests v3.2...
+Running MCP Protocol Security Tests v3.6...
 ✓ MCP-001: Tool List Integrity Check [PASS] (0.234s)
 ✓ MCP-002: Tool Registration via Call Injection [PASS] (0.412s)
 ✗ MCP-003: Capability Escalation via Initialize [FAIL] (0.156s)
@@ -91,22 +91,30 @@ Results: 8/10 passed (80% pass rate) - see report.json
 
 ## Feature Overview
 
-### 10 Test Harness Modules
+### 18 Test Harness Modules
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|
 | **Application Security** | 30 | HTTP REST | STRIDE scenarios, OWASP injection patterns, response body leak detection |
-| **MCP Protocol** | 10 | JSON-RPC 2.0 | Anthropic MCP wire-protocol testing |
+| **MCP Protocol** | 11 | JSON-RPC 2.0 | Anthropic MCP wire-protocol testing |
 | **A2A Protocol** | 12 | JSON-RPC/HTTP | Google Agent-to-Agent communication |
-| **L402 Payment** | 14 | HTTP/Lightning | Bitcoin/Lightning payment flow security (macaroons, preimages, caveats) |
-| **x402 Payment** | 20 | HTTP/USDC | Coinbase/Stripe agent payment protocol (recipient manipulation, session theft, facilitator trust, cross-chain confusion) |
-| **Framework Adapters** | 21 | Various APIs | LangChain, CrewAI, AutoGen, OpenAI, Bedrock |
-| **Enterprise Platforms** | 57 | Platform APIs | SAP, Salesforce, Workday, Oracle, ServiceNow, +15 more |
-| **GTG-1002 APT Simulation** | 17 | Full Campaign | First documented AI-orchestrated cyber espionage |
+| **L402 Payment** | 15 | HTTP/Lightning | Bitcoin/Lightning payment flow security (macaroons, preimages, caveats) |
+| **x402 Payment** | 43 | HTTP/USDC | Coinbase/Stripe agent payment protocol (recipient manipulation, session theft, facilitator trust, cross-chain confusion) |
+| **Framework Adapters** | 24 | Various APIs | LangChain, CrewAI, AutoGen, OpenAI, Bedrock |
+| **Enterprise Platforms** | 68 | Platform APIs | SAP, Salesforce, Workday, Oracle, ServiceNow, +15 more |
+| **GTG-1002 APT Simulation** | 19 | Full Campaign | First documented AI-orchestrated cyber espionage |
 | **Advanced Attacks** | 10 | Multi-step | Polymorphic, stateful, multi-domain attack chains |
+| **Over-Refusal** | 25 | All protocols | False positive rate testing: legitimate requests that should NOT be blocked |
+| **Provenance & Attestation** | 19 | Supply Chain | Fake provenance, spoofed attestation, marketplace integrity (CVE-2026-25253) |
+| **Jailbreak** | 27 | Model/Agent | DAN variants, token smuggling, authority impersonation, persistence |
+| **Return Channel** | 8 | Output/Context | Return channel poisoning: output injection, ANSI escape, context overflow, encoded smuggling, structured data poisoning |
 | **Identity & Authorization** | 18 | NIST NCCoE | All 6 focus areas from NIST agent identity standards |
+| **Capability Profile** | 11 | A2A JSON-RPC | Executor capability boundary validation, profile escalation prevention |
+| **Harmful Output** | 11 | A2A JSON-RPC | Toxicity, bias, scope violations, deception (AIUC-1 C003/C004) |
+| **CBRN Prevention** | 9 | A2A JSON-RPC | Chemical/biological/radiological/nuclear content safeguards (AIUC-1 F002) |
+| **Incident Response** | 9 | A2A JSON-RPC | Alert triggering, kill switch, log completeness, recovery (AIUC-1 E001-E003) |
 
-**Total: 209 security tests across 10 modules**
+**Total: 363 security tests across 18 modules**
 
 ### Key Capabilities
 
@@ -135,13 +143,13 @@ Most AI security tools test **models** (prompt injection, jailbreaks, output fil
 | **MCP wire-protocol tests** | - | - | - | - | 10 tests (JSON-RPC 2.0) |
 | **A2A wire-protocol tests** | - | - | - | - | 12 tests (Agent Cards, tasks, push notifications) |
 | **L402 payment flow tests** | - | - | - | - | 14 tests (macaroons, invoices, caveats) |
-| **x402 payment protocol tests** | - | - | - | - | 20 tests (Coinbase/Stripe agent payments, recipient manipulation, session theft, facilitator trust) |
+| **x402 payment protocol tests** | - | - | - | - | 43 tests (Coinbase/Stripe agent payments, recipient manipulation, session theft, facilitator trust) |
 | **Agent Autonomy Risk Score** | - | - | - | - | 0-100 score: "should this agent spend money unsupervised?" |
 | **Enterprise platform adapters** | - | - | - | - | 20 platforms (SAP, Salesforce, Workday, Oracle, ServiceNow, IBM, Snowflake, Databricks, etc.) |
-| **APT simulation (GTG-1002)** | - | - | - | - | 17 tests (full campaign lifecycle) |
+| **APT simulation (GTG-1002)** | - | - | - | - | 19 tests (full campaign lifecycle) |
 | **NIST AI 800-2 evaluation protocol** | - | - | - | - | Statistical confidence intervals, qualified claims |
 | **Published research backing** | - | - | - | - | 2 DOI-citable papers + 3 NIST submissions |
-| **Executable tests** | Yes (model-layer) | Yes (policy-layer) | No (docs only) | Yes (static analysis) | Yes (209 tests, protocol + app layer) |
+| **Executable tests** | Yes (model-layer) | Yes (policy-layer) | No (docs only) | Yes (static analysis) | Yes (363 tests, protocol + app layer) |
 | **Governance layer** | WHO (model safety) | WHO (identity, access) | WHO (config) | WHO (code scanning) | **HOW (decision governance)** |
 
 ### The WHO vs. HOW Gap
@@ -193,7 +201,7 @@ This framework provides **complete mapping** to all 10 categories of the OWASP A
 <details>
 <summary><strong>Protocol-Level Test Harnesses</strong></summary>
 
-### MCP (Model Context Protocol) - 10 tests
+### MCP (Model Context Protocol) - 11 tests
 ```bash
 agent-security test mcp --url http://localhost:8080/mcp
 ```
@@ -210,18 +218,19 @@ agent-security test mcp --url http://localhost:8080/mcp
 | MCP-008 | Malformed JSON-RPC Handling | ASI08 | Tests protocol error handling |
 | MCP-009 | Batch Request DoS | ASI08 | Batch request flood testing |
 | MCP-010 | Tool Call Argument Injection | ASI02 | Malicious tool parameter injection |
+| MCP-011 | Tool Description Context Displacement | ASI08 | 50K+ char description DoS with hidden injection payload |
 
 ### A2A (Agent-to-Agent) - 12 tests  
 ```bash
 agent-security test a2a --url https://agent.example.com
 ```
 
-### L402 Payment Protocol - 14 tests
+### L402 Payment Protocol - 15 tests
 ```bash
 agent-security test l402 --url https://l402.example.com
 ```
 
-### x402 Payment Protocol - 20 tests (First Open-Source x402 Harness)
+### x402 Payment Protocol - 43 tests (First Open-Source x402 Harness)
 ```bash
 agent-security test x402 --url https://your-x402-endpoint.com
 ```
@@ -291,7 +300,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
-| **B001** | Third-party adversarial robustness testing | **209 tests** across 4 wire protocols, 10 modules. Prompt injection, jailbreaks, polymorphic attacks, multi-step chains. |
+| **B001** | Third-party adversarial robustness testing | **363 tests** across 4 wire protocols, 18 modules. Prompt injection, jailbreaks, polymorphic attacks, multi-step chains. |
 | **B002** | Detect adversarial input | MCP tool injection (MCP-001-010), A2A message spoofing (A2A-001-012), prompt injection via operational data (APP-001-030) |
 | **B005** | Real-time input filtering | Filter bypass via encoding tricks, nested injection, polymorphic payloads, context displacement (ADV-001-010) |
 | **B009** | Limit output over-exposure | Information leakage detection, output exfiltration tests, API key regex scanning |
@@ -301,13 +310,13 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
 | **D003** | Restrict unsafe tool calls | MCP capability escalation, unauthorized tool registration, A2A task hijacking, L402/x402 unauthorized payment execution |
-| **D004** | Third-party testing of tool calls | 56 wire-protocol tests (MCP + A2A + L402 + x402) + 57 enterprise platform adapter tests across 20 platforms |
+| **D004** | Third-party testing of tool calls | 81 wire-protocol tests (MCP + A2A + L402 + x402) + 68 enterprise platform adapter tests across 20 platforms |
 
 #### C. Safety (67% coverage)
 
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
-| **C001** | Define AI risk taxonomy | Framework provides STRIDE + OWASP Agentic + NIST AI 800-2 risk taxonomy with all 209 tests categorized |
+| **C001** | Define AI risk taxonomy | Framework provides STRIDE + OWASP Agentic + NIST AI 800-2 risk taxonomy with all 363 tests categorized |
 | **C002** | Conduct pre-deployment testing | Entire framework designed for pre-deployment. `pip install agent-security-harness` and run before shipping. |
 | **C010** | Third-party testing for harmful outputs | Adversarial test suite validates whether safety controls hold under attack |
 | **C011** | Third-party testing for out-of-scope outputs | Protocol-level scope violation tests (MCP-003 capability escalation, A2A unauthorized access) |
@@ -324,14 +333,14 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
 | **E004** | Assign accountability | [CSG paper](https://doi.org/10.5281/zenodo.19162104) defines 3-tier governance with explicit accountability. 12 mechanisms, 77 days production evidence. |
-| **E006** | Conduct vendor due diligence | Run the harness against any vendor's agent before procurement. 209 tests as vendor evaluation. |
+| **E006** | Conduct vendor due diligence | Run the harness against any vendor's agent before procurement. 363 tests as vendor evaluation. |
 | **E015** | Log model activity | JSON reports with full request/response transcripts serve as audit evidence |
 
 #### F. Society (50% coverage)
 
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
-| **F001** | Prevent AI cyber misuse | GTG-1002 APT simulation: 17 tests modeling AI-orchestrated cyber espionage (lateral movement, exfiltration, persistence) |
+| **F001** | Prevent AI cyber misuse | GTG-1002 APT simulation: 19 tests modeling AI-orchestrated cyber espionage (lateral movement, exfiltration, persistence) |
 
 </details>
 
@@ -350,7 +359,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 
 > **Note:** "100% coverage" on Security and Reliability means this framework maps to every requirement in those principles. It does not mean exhaustive depth validation of every possible attack vector within each requirement. Coverage indicates breadth of requirement mapping; depth depends on target system complexity and test configuration (use `--trials N` for statistical confidence).
 
-> **Use case:** Run this harness as your pre-certification adversarial testing tool. AIUC-1 requires quarterly third-party testing (B001, C010, D004). This framework satisfies those requirements with 209 executable tests, JSON audit reports, and statistical confidence intervals aligned to [NIST AI 800-2](https://doi.org/10.6028/NIST.AI.800-2).
+> **Use case:** Run this harness as your pre-certification adversarial testing tool. AIUC-1 requires quarterly third-party testing (B001, C010, D004). This framework satisfies those requirements with 363 executable tests, JSON audit reports, and statistical confidence intervals aligned to [NIST AI 800-2](https://doi.org/10.6028/NIST.AI.800-2).
 >
 > **Want an expert assessment?** [Book an AIUC-1 Readiness Assessment](https://msaleme.github.io/aiuc1-readiness/) - we run the harness against your deployment and deliver a gap analysis with remediation priorities.
 
@@ -436,6 +445,7 @@ This security testing framework is part of a broader research program on autonom
 
 | Publication | DOI | Description |
 |---|---|---|
+| **Detecting Normalization of Deviance in Multi-Agent Systems** | [10.5281/zenodo.19195516](https://doi.org/10.5281/zenodo.19195516) | First empirical demonstration that automated security harnesses can detect behavioral drift (normalization of deviance) in agent systems through stateful session tracking. Includes gateway transparency finding and production validation (19-day silent failure case). |
 | **Constitutional Self-Governance for Autonomous AI Agents** | [10.5281/zenodo.19162104](https://doi.org/10.5281/zenodo.19162104) | Framework for governing agent *decisions*, not just permissions. 12 mechanisms observed in 77 days of production with 56 agents. Maps to EU AI Act, NIST AI Agent Standards Initiative, and Singapore's agentic AI framework. |
 | **Decision Load Index (DLI)** | [10.5281/zenodo.18217577](https://doi.org/10.5281/zenodo.18217577) | Measuring the cognitive burden of AI agent oversight on human operators. Connects agent governance architecture to measurable human outcomes. |
 
