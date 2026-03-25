@@ -24,7 +24,7 @@ import sys
 import importlib
 
 
-VERSION = "3.2.0"
+VERSION = "3.7.0"
 
 HARNESSES = {
     "mcp": {
@@ -67,12 +67,24 @@ HARNESSES = {
         "module": "protocol_tests.advanced_attacks",
         "description": "Advanced attack patterns (10 tests, polymorphic + stateful)",
     },
+    "cve-2026-25253": {
+        "module": "protocol_tests.cve_2026_25253_harness",
+        "description": "CVE-2026-25253 reproduction suite (8 tests, MCP supply chain poisoning)",
+    },
+    "aiuc1": {
+        "module": "protocol_tests.aiuc1_compliance_harness",
+        "description": "AIUC-1 compliance tests (12 tests, incident response + CBRN + harmful content)",
+    },
+    "cloud-agents": {
+        "module": "protocol_tests.cloud_agent_harness",
+        "description": "Cloud agent platform tests (25 tests, 5 platforms: Bedrock, Azure, Vertex, Agentforce, watsonx)",
+    },
 }
 
 
 def print_usage():
     print(f"Agent Security Harness v{VERSION}")
-    print(f"209 security tests for AI agent systems")
+    print(f"372 security tests for AI agent systems")
     print()
     print("Usage:")
     print("  agent-security test <harness> [options]    Run a test harness")
