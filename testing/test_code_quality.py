@@ -58,7 +58,7 @@ class TestRegX402(unittest.TestCase):
         self.assertIn("x402", HARNESSES)
     def test_15_harnesses(self):
         from protocol_tests.cli import HARNESSES
-        self.assertEqual(len(HARNESSES), 18)
+        self.assertEqual(len(HARNESSES), 21)
     def test_modules_exist(self):
         from protocol_tests.cli import HARNESSES
         for n, i in HARNESSES.items():
