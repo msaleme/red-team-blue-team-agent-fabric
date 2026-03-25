@@ -44,9 +44,20 @@ jobs:
           import protocol_tests.identity_harness
           import protocol_tests.gtg1002_simulation
           import protocol_tests.advanced_attacks
+          import protocol_tests.over_refusal_harness
+          import protocol_tests.provenance_harness
+          import protocol_tests.jailbreak_harness
+          import protocol_tests.return_channel_harness
+          import protocol_tests.capability_profile_harness
+          import protocol_tests.harmful_output_harness
+          import protocol_tests.cbrn_harness
+          import protocol_tests.incident_response_harness
+          import protocol_tests.cve_2026_25253_harness
+          import protocol_tests.aiuc1_compliance_harness
+          import protocol_tests.cloud_agent_harness
           import protocol_tests.statistical
           import protocol_tests.cli
-          print('All 12 modules import successfully')
+          print('All 21 modules import successfully')
           "
 
       - name: Verify all harness --list commands
@@ -60,6 +71,9 @@ jobs:
           agent-security list identity
           agent-security list gtg1002
           agent-security list advanced
+          agent-security list cve-2026-25253
+          agent-security list aiuc1
+          agent-security list cloud-agents
 
       - name: Run self-tests
         if: hashFiles('testing/') != ''

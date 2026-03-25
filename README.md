@@ -3,13 +3,13 @@
 [![PyPI version](https://badge.fury.io/py/agent-security-harness.svg)](https://pypi.org/project/agent-security-harness/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/security%20tests-363-green.svg)](#test-inventory)
+[![Tests](https://img.shields.io/badge/security%20tests-367-green.svg)](#test-inventory)
 
 **The first open-source security testing framework purpose-built for multi-agent AI deployments in critical infrastructure.**
 
 AI agents are being deployed into enterprise systems (SAP, SCADA, ServiceNow, financial platforms) with the ability to make decisions, invoke tools, and chain actions across systems. The attack surface is fundamentally different from traditional software: agent-to-agent escalation, context poisoning, prompt injection through operational data, and normalization of deviance in safety-critical environments.
 
-This framework provides **363 security tests** across application-layer scenarios, wire-protocol harnesses (MCP, A2A, L402), enterprise platform adapters (20 platforms), and APT simulations. Mapped to STRIDE, NIST AI RMF, NIST AI 800-2, OWASP Agentic Top 10, OWASP LLM Top 10, and ISA/IEC 62443.
+This framework provides **367 security tests** across application-layer scenarios, wire-protocol harnesses (MCP, A2A, L402, x402), CVE reproduction suites, AIUC-1 compliance testing, cloud agent platform adapters (5 platforms), enterprise platform adapters (20 platforms), and APT simulations. Mapped to STRIDE, NIST AI RMF, NIST AI 800-2, OWASP Agentic Top 10, OWASP LLM Top 10, AIUC-1, and ISA/IEC 62443.
 
 > Built from real InfraGard Houston AI-CSC guidance and 20+ years of enterprise integration experience in Oil & Gas.
 
@@ -69,7 +69,7 @@ agent-security test a2a --url https://agent.example.com --delay 2000
 ### Example Output
 ```bash
 $ agent-security test mcp --url http://localhost:8080/mcp
-Running MCP Protocol Security Tests v3.6...
+Running MCP Protocol Security Tests v3.7...
 ✓ MCP-001: Tool List Integrity Check [PASS] (0.234s)
 ✓ MCP-002: Tool Registration via Call Injection [PASS] (0.412s)
 ✗ MCP-003: Capability Escalation via Initialize [FAIL] (0.156s)
@@ -91,7 +91,7 @@ Results: 8/10 passed (80% pass rate) - see report.json
 
 ## Feature Overview
 
-### 18 Test Harness Modules
+### 21 Test Harness Modules
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|
@@ -113,14 +113,17 @@ Results: 8/10 passed (80% pass rate) - see report.json
 | **Harmful Output** | 11 | A2A JSON-RPC | Toxicity, bias, scope violations, deception (AIUC-1 C003/C004) |
 | **CBRN Prevention** | 9 | A2A JSON-RPC | Chemical/biological/radiological/nuclear content safeguards (AIUC-1 F002) |
 | **Incident Response** | 9 | A2A JSON-RPC | Alert triggering, kill switch, log completeness, recovery (AIUC-1 E001-E003) |
+| **CVE-2026-25253 Reproduction** | 8 | MCP Supply Chain | Nested schema injection, fork fingerprinting, marketplace contamination, encoded payload detection |
+| **AIUC-1 Compliance** | 12 | Agent Safety | Incident response, CBRN prevention, harmful content, scope creep, authority impersonation |
+| **Cloud Agent Platforms** | 25 | Platform APIs | AWS Bedrock, Azure AI Agent Service, Google Vertex, Salesforce Agentforce, IBM watsonx |
 
-**Total: 363 security tests across 18 modules**
+**Total: 367 security tests across 21 modules**
 
 ### Key Capabilities
 
 - **Zero external dependencies** (core modules use Python stdlib only)
 - **4 wire protocols** supported: MCP (JSON-RPC 2.0), A2A, L402 (Lightning), x402 (USDC/stablecoin)
-- **20 enterprise platform adapters** (SAP, Salesforce, Workday, etc.)
+- **25 cloud agent platform + 20 enterprise platform adapters** (Bedrock, Azure, Vertex, Agentforce, watsonx, SAP, Workday, etc.)
 - **Agent Autonomy Risk Score** (0-100) for payment endpoints - answers "should this agent spend money unsupervised?"
 - **CSG mapping** per test - links each test to the Constitutional Self-Governance mechanism that catches the attack
 - **Response body leak detection** - scans for API keys, tokens, SSNs, stack traces, SQL, cloud credentials
@@ -145,11 +148,11 @@ Most AI security tools test **models** (prompt injection, jailbreaks, output fil
 | **L402 payment flow tests** | - | - | - | - | 14 tests (macaroons, invoices, caveats) |
 | **x402 payment protocol tests** | - | - | - | - | 43 tests (Coinbase/Stripe agent payments, recipient manipulation, session theft, facilitator trust) |
 | **Agent Autonomy Risk Score** | - | - | - | - | 0-100 score: "should this agent spend money unsupervised?" |
-| **Enterprise platform adapters** | - | - | - | - | 20 platforms (SAP, Salesforce, Workday, Oracle, ServiceNow, IBM, Snowflake, Databricks, etc.) |
+| **Enterprise platform adapters** | - | - | - | - | 25 cloud + 20 enterprise platforms (Bedrock, Azure, Vertex, Agentforce, watsonx, SAP, Salesforce, Workday, Oracle, ServiceNow, etc.) |
 | **APT simulation (GTG-1002)** | - | - | - | - | 19 tests (full campaign lifecycle) |
 | **NIST AI 800-2 evaluation protocol** | - | - | - | - | Statistical confidence intervals, qualified claims |
 | **Published research backing** | - | - | - | - | 2 DOI-citable papers + 3 NIST submissions |
-| **Executable tests** | Yes (model-layer) | Yes (policy-layer) | No (docs only) | Yes (static analysis) | Yes (363 tests, protocol + app layer) |
+| **Executable tests** | Yes (model-layer) | Yes (policy-layer) | No (docs only) | Yes (static analysis) | Yes (367 tests, protocol + app layer) |
 | **Governance layer** | WHO (model safety) | WHO (identity, access) | WHO (config) | WHO (code scanning) | **HOW (decision governance)** |
 
 ### The WHO vs. HOW Gap
@@ -300,7 +303,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
-| **B001** | Third-party adversarial robustness testing | **363 tests** across 4 wire protocols, 18 modules. Prompt injection, jailbreaks, polymorphic attacks, multi-step chains. |
+| **B001** | Third-party adversarial robustness testing | **367 tests** across 4 wire protocols, 21 modules. Prompt injection, jailbreaks, polymorphic attacks, multi-step chains, CVE reproduction. |
 | **B002** | Detect adversarial input | MCP tool injection (MCP-001-010), A2A message spoofing (A2A-001-012), prompt injection via operational data (APP-001-030) |
 | **B005** | Real-time input filtering | Filter bypass via encoding tricks, nested injection, polymorphic payloads, context displacement (ADV-001-010) |
 | **B009** | Limit output over-exposure | Information leakage detection, output exfiltration tests, API key regex scanning |
@@ -310,7 +313,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
 | **D003** | Restrict unsafe tool calls | MCP capability escalation, unauthorized tool registration, A2A task hijacking, L402/x402 unauthorized payment execution |
-| **D004** | Third-party testing of tool calls | 81 wire-protocol tests (MCP + A2A + L402 + x402) + 68 enterprise platform adapter tests across 20 platforms |
+| **D004** | Third-party testing of tool calls | 81 wire-protocol tests (MCP + A2A + L402 + x402) + 93 platform adapter tests across 25 cloud + 20 enterprise platforms |
 
 #### C. Safety (67% coverage)
 
@@ -333,7 +336,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
 | **E004** | Assign accountability | [CSG paper](https://doi.org/10.5281/zenodo.19162104) defines 3-tier governance with explicit accountability. 12 mechanisms, 77 days production evidence. |
-| **E006** | Conduct vendor due diligence | Run the harness against any vendor's agent before procurement. 363 tests as vendor evaluation. |
+| **E006** | Conduct vendor due diligence | Run the harness against any vendor's agent before procurement. 367 tests as vendor evaluation. |
 | **E015** | Log model activity | JSON reports with full request/response transcripts serve as audit evidence |
 
 #### F. Society (50% coverage)
@@ -349,17 +352,17 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 | Principle | Reqs | Covered | Key Strength |
 |---|---|---|---|
 | B. Security | 4 | **4 (100%)** | Adversarial robustness testing is our core capability |
-| D. Reliability | 2 | **2 (100%)** | Tool call testing across 4 wire protocols + 20 platforms |
-| C. Safety | 6 | 4 (67%) | Pre-deployment testing, risk taxonomy, third-party testing mechanism |
+| D. Reliability | 2 | **2 (100%)** | Tool call testing across 4 wire protocols + 45 platforms |
+| C. Safety | 6 | **6 (100%)** | CBRN prevention (F002), harmful output (C003/C004), pre-deployment testing, risk taxonomy |
 | A. Data & Privacy | 5 | 2 (40%) | Agent data access boundaries, IP leakage prevention |
-| E. Accountability | 7 | 3 (43%) | Vendor due diligence, audit evidence, CSG governance framework |
-| F. Society | 2 | 1 (50%) | GTG-1002 APT simulation |
+| E. Accountability | 7 | **5 (71%)** | Incident response (E001-E003), vendor due diligence, audit evidence, CSG governance framework |
+| F. Society | 2 | **2 (100%)** | GTG-1002 APT simulation + CBRN prevention |
 
-**Not yet covered (5 requirements):** A001 (input data policy - process requirement), A002 (output data policy - process requirement), A007 (prevent IP violations in outputs), E005 (cloud vs on-prem assessment - infrastructure decision), F002 (CBRN prevention - [tracked in #34](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/34)). See also: [#33](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/33) (C003/C004 harmful output testing) and [#35](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/35) (E001-E003 incident response validation).
+**Not yet covered (3 requirements):** A001 (input data policy - process requirement), A002 (output data policy - process requirement), E005 (cloud vs on-prem assessment - infrastructure decision). Previously tracked gaps now closed: F002 CBRN prevention ([#34](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/34) - resolved with `cbrn` + `aiuc1` harnesses), C003/C004 harmful output ([#33](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/33) - resolved with `harmful-output` + `aiuc1` harnesses), E001-E003 incident response ([#35](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/35) - resolved with `incident-response` + `aiuc1` harnesses).
 
 > **Note:** "100% coverage" on Security and Reliability means this framework maps to every requirement in those principles. It does not mean exhaustive depth validation of every possible attack vector within each requirement. Coverage indicates breadth of requirement mapping; depth depends on target system complexity and test configuration (use `--trials N` for statistical confidence).
 
-> **Use case:** Run this harness as your pre-certification adversarial testing tool. AIUC-1 requires quarterly third-party testing (B001, C010, D004). This framework satisfies those requirements with 363 executable tests, JSON audit reports, and statistical confidence intervals aligned to [NIST AI 800-2](https://doi.org/10.6028/NIST.AI.800-2).
+> **Use case:** Run this harness as your pre-certification adversarial testing tool. AIUC-1 requires quarterly third-party testing (B001, C010, D004). This framework satisfies those requirements with 367 executable tests, JSON audit reports, and statistical confidence intervals aligned to [NIST AI 800-2](https://doi.org/10.6028/NIST.AI.800-2).
 >
 > **Want an expert assessment?** [Book an AIUC-1 Readiness Assessment](https://msaleme.github.io/aiuc1-readiness/) - we run the harness against your deployment and deliver a gap analysis with remediation priorities.
 
