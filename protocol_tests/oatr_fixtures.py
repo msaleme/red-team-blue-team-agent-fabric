@@ -42,7 +42,7 @@ def load_revocation_fixture() -> Dict[str, Any]:
     return _read_json(_PATHS.revocation)
 
 
-def load_attestations_fixture() -> Dict[str, str]:
+def load_attestations_fixture() -> Dict[str, Dict[str, Any]]:
     """Return the JWT samples keyed by scenario name."""
     return _read_json(_PATHS.attestations)
 
