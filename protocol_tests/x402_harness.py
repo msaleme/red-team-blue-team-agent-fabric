@@ -201,7 +201,11 @@ class X402Transport:
         timeout: float = 15.0,
         body: bytes | None = None,
     ) -> dict:
-        if not path and self.default_method != "GET":
+        effective_path = path if path else self.paid_path
+        should_override = self.default_method != "GET" and (
+            not effective_path or effective_path == self.paid_path
+        )
+        if should_override:
             payload = body if body is not None else self.default_body
             return self.request(self.default_method, path, body=payload, headers=headers, timeout=timeout)
         return self.request("GET", path, body=body, headers=headers, timeout=timeout)
@@ -950,7 +954,7 @@ class X402SecurityTests:
             estimated_impact="overpayment",
             estimated_severity="medium",
             request_sent={"n_burst": n_burst, "n_workers": 10},
-            response_received={"n_402": n_402, "n_rate_limited": n_rate_limited, "n_errors": n_errors},
+            response_received={"n_402": n_402, "n_rate_limited": n_rate_limited, "n_auth_required": n_auth_required, "n_errors": n_errors},
             elapsed_s=round(elapsed, 3),
         ))
 

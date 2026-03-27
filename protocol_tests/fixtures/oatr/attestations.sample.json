@@ -1,7 +1,102 @@
 {
-  "valid": "eyJhbGciOiJFZERTQSIsInR5cCI6ImFnZW50LWF0dGVzdGF0aW9uK2p3dCIsImtpZCI6Im9hdHItc2FtcGxlLWxhYi0yMDI2LTAzIn0.eyJpc3MiOiJvYXRyLXNhbXBsZS1sYWIiLCJzdWIiOiJhZ2VudDovL3NpZ25hbC1sYWIvdGVzdHMiLCJhdWQiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUuY29tIiwic2NvcGUiOlsicGF5IiwidmVyaWZ5Il0sImNvbnN0cmFpbnRzIjp7Im1heF9hbW91bnQiOiIxMDAwMDAwIiwiY3VycmVuY3kiOiJVU0RDIn0sInVzZXJfcHNldWRvbnltIjoiYWdlbnQtc2FtcGxlIiwicnVudGltZV92ZXJzaW9uIjoiMS40LjIiLCJpYXQiOjE3NzQ1Njk2ODcsImV4cCI6MTc3NDU3MzI4N30.0-t042fnxyD30A5ES4UC4e9ZniFuRTHISN7JFBNOev8NSPkR-Qyb9Dm1XRQ0kszyQ4sP27hGP112INpFDQfzhg",
-  "wrong_audience": "eyJhbGciOiJFZERTQSIsInR5cCI6ImFnZW50LWF0dGVzdGF0aW9uK2p3dCIsImtpZCI6Im9hdHItc2FtcGxlLWxhYi0yMDI2LTAzIn0.eyJpc3MiOiJvYXRyLXNhbXBsZS1sYWIiLCJzdWIiOiJhZ2VudDovL3NpZ25hbC1sYWIvdGVzdHMiLCJhdWQiOiJodHRwczovL290aGVyLmV4YW1wbGUuY29tIiwic2NvcGUiOlsicGF5IiwidmVyaWZ5Il0sImNvbnN0cmFpbnRzIjp7Im1heF9hbW91bnQiOiIxMDAwMDAwIiwiY3VycmVuY3kiOiJVU0RDIn0sInVzZXJfcHNldWRvbnltIjoiYWdlbnQtc2FtcGxlIiwicnVudGltZV92ZXJzaW9uIjoiMS40LjIiLCJpYXQiOjE3NzQ1Njk2ODcsImV4cCI6MTc3NDU3MzI4N30.WyxdlQqdf6qn0K2Jl-UGv0VQKongXDh78sRhRRx2hde8e1IrsTdWPyJ8Js6cvZNcboIyqo8DlA4dQzoXAAMmKA",
-  "revoked_issuer": "eyJhbGciOiJFZERTQSIsInR5cCI6ImFnZW50LWF0dGVzdGF0aW9uK2p3dCIsImtpZCI6Im9hdHItc2FtcGxlLWxhYi0yMDI2LTAzIn0.eyJpc3MiOiJyZXZva2VkLWlzc3VlciIsInN1YiI6ImFnZW50Oi8vc2lnbmFsLWxhYi90ZXN0cyIsImF1ZCI6Imh0dHBzOi8vcGF5bWVudHMuZXhhbXBsZS5jb20iLCJzY29wZSI6WyJwYXkiLCJ2ZXJpZnkiXSwiY29uc3RyYWludHMiOnsibWF4X2Ftb3VudCI6IjEwMDAwMDAiLCJjdXJyZW5jeSI6IlVTREMifSwidXNlcl9wc2V1ZG9ueW0iOiJhZ2VudC1zYW1wbGUiLCJydW50aW1lX3ZlcnNpb24iOiIxLjQuMiIsImlhdCI6MTc3NDU2OTY4NywiZXhwIjoxNzc0NTczMjg3fQ.ZkGA6k0r-wg7VqKbh011QWCCUAtMVU_Bh4JxsHAzDLACtHG4UkA2uJt9u6_Jgo6Cn_lBADgSZOWrpS_neFNqbA",
-  "unknown_issuer": "eyJhbGciOiJFZERTQSIsInR5cCI6ImFnZW50LWF0dGVzdGF0aW9uK2p3dCIsImtpZCI6Im9hdHItc2FtcGxlLWxhYi0yMDI2LTAzIn0.eyJpc3MiOiJ1bmtub3duLWxhYiIsInN1YiI6ImFnZW50Oi8vc2lnbmFsLWxhYi90ZXN0cyIsImF1ZCI6Imh0dHBzOi8vcGF5bWVudHMuZXhhbXBsZS5jb20iLCJzY29wZSI6WyJwYXkiLCJ2ZXJpZnkiXSwiY29uc3RyYWludHMiOnsibWF4X2Ftb3VudCI6IjEwMDAwMDAiLCJjdXJyZW5jeSI6IlVTREMifSwidXNlcl9wc2V1ZG9ueW0iOiJhZ2VudC1zYW1wbGUiLCJydW50aW1lX3ZlcnNpb24iOiIxLjQuMiIsImlhdCI6MTc3NDU2OTY4NywiZXhwIjoxNzc0NTczMjg3fQ.jSUEYqLm3zevwiOaB7VTlrun0e5p1uBz_4TWzWKsne7NnHoxxvUtu6nqp-Dn_WNw2EugBlVMDbLcYm_yjP9tuA",
-  "invalid_signature": "eyJhbGciOiJFZERTQSIsInR5cCI6ImFnZW50LWF0dGVzdGF0aW9uK2p3dCIsImtpZCI6Im9hdHItc2FtcGxlLWxhYi0yMDI2LTAzIn0.eyJpc3MiOiJvYXRyLXNhbXBsZS1sYWIiLCJzdWIiOiJhZ2VudDovL3NpZ25hbC1sYWIvdGVzdHMiLCJhdWQiOiJodHRwczovL3BheW1lbnRzLmV4YW1wbGUuY29tIiwic2NvcGUiOlsicGF5IiwidmVyaWZ5Il0sImNvbnN0cmFpbnRzIjp7Im1heF9hbW91bnQiOiIxMDAwMDAwIiwiY3VycmVuY3kiOiJVU0RDIn0sInVzZXJfcHNldWRvbnltIjoiYWdlbnQtc2FtcGxlIiwicnVudGltZV92ZXJzaW9uIjoiMS40LjIiLCJpYXQiOjE3NzQ1Njk2ODcsImV4cCI6MTc3NDU3MzI4N30.VsiiRw0hOq4Hpe60EKMFfJ1YLVSJXs_V-MwCtGuAD_Tth6CGQGtYbLoIhfCpfsvVcqOW9yKS7TN3IYAAAA"
+  "valid": {
+    "note": "Fixture-only agent-attestation+jwt sample (non-functional).",
+    "header": {
+      "alg": "EdDSA",
+      "typ": "agent-attestation+jwt",
+      "kid": "oatr-sample-lab-2026-03"
+    },
+    "payload": {
+      "iss": "oatr-sample-lab",
+      "sub": "agent://signal-lab/tests",
+      "aud": "https://payments.example.com",
+      "scope": ["pay", "verify"],
+      "constraints": {"max_amount": "1000000", "currency": "USDC"},
+      "user_pseudonym": "agent-sample",
+      "runtime_version": "1.4.2",
+      "iat": "2026-03-26T18:00:00Z",
+      "exp": "2026-03-26T19:00:00Z"
+    },
+    "jwt_example": "HEADER.PAYLOAD.SIGNATURE"
+  },
+  "wrong_audience": {
+    "note": "Same structure as valid token but audience intentionally mismatched for domain-binding tests.",
+    "header": {
+      "alg": "EdDSA",
+      "typ": "agent-attestation+jwt",
+      "kid": "oatr-sample-lab-2026-03"
+    },
+    "payload": {
+      "iss": "oatr-sample-lab",
+      "sub": "agent://signal-lab/tests",
+      "aud": "https://other.example.com",
+      "scope": ["pay", "verify"],
+      "constraints": {"max_amount": "1000000", "currency": "USDC"},
+      "user_pseudonym": "agent-sample",
+      "runtime_version": "1.4.2",
+      "iat": "2026-03-26T18:00:00Z",
+      "exp": "2026-03-26T19:00:00Z"
+    },
+    "jwt_example": "HEADER.WRONG_AUDIENCE_PAYLOAD.SIGNATURE"
+  },
+  "revoked_issuer": {
+    "note": "Represents a token issued by a revoked operator (use with revocation list tests).",
+    "header": {
+      "alg": "EdDSA",
+      "typ": "agent-attestation+jwt",
+      "kid": "revoked-issuer-2026-02"
+    },
+    "payload": {
+      "iss": "revoked-issuer",
+      "sub": "agent://signal-lab/tests",
+      "aud": "https://payments.example.com",
+      "scope": ["pay", "verify"],
+      "constraints": {"max_amount": "1000000", "currency": "USDC"},
+      "user_pseudonym": "agent-sample",
+      "runtime_version": "1.4.2",
+      "iat": "2026-03-26T18:00:00Z",
+      "exp": "2026-03-26T19:00:00Z"
+    },
+    "jwt_example": "HEADER.REVOKED_ISSUER_PAYLOAD.SIGNATURE"
+  },
+  "unknown_issuer": {
+    "note": "Token signed by an issuer that is not present in the manifest (unknown issuer test).",
+    "header": {
+      "alg": "EdDSA",
+      "typ": "agent-attestation+jwt",
+      "kid": "unknown-lab-2026-03"
+    },
+    "payload": {
+      "iss": "unknown-lab",
+      "sub": "agent://signal-lab/tests",
+      "aud": "https://payments.example.com",
+      "scope": ["pay", "verify"],
+      "constraints": {"max_amount": "1000000", "currency": "USDC"},
+      "user_pseudonym": "agent-sample",
+      "runtime_version": "1.4.2",
+      "iat": "2026-03-26T18:00:00Z",
+      "exp": "2026-03-26T19:00:00Z"
+    },
+    "jwt_example": "HEADER.UNKNOWN_ISSUER_PAYLOAD.SIGNATURE"
+  },
+  "invalid_signature": {
+    "note": "Structure matches valid token but the signature label makes it explicit that this fixture never verifies.",
+    "header": {
+      "alg": "EdDSA",
+      "typ": "agent-attestation+jwt",
+      "kid": "oatr-sample-lab-2026-03"
+    },
+    "payload": {
+      "iss": "oatr-sample-lab",
+      "sub": "agent://signal-lab/tests",
+      "aud": "https://payments.example.com",
+      "scope": ["pay", "verify"],
+      "constraints": {"max_amount": "1000000", "currency": "USDC"},
+      "user_pseudonym": "agent-sample",
+      "runtime_version": "1.4.2",
+      "iat": "2026-03-26T18:00:00Z",
+      "exp": "2026-03-26T19:00:00Z"
+    },
+    "jwt_example": "HEADER.PAYLOAD.INVALID_SIGNATURE"
+  }
 }
