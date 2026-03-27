@@ -145,6 +145,7 @@ class X402Transport:
             raise ValueError("default_method must be GET, POST, or PUT")
         self.default_method = method
         self.default_body = default_body
+        self.last_method: str | None = None
 
     def request(
         self,
@@ -167,6 +168,7 @@ class X402Transport:
         effective_path = path if path else self.paid_path
         url = f"{self.base_url}{effective_path}" if effective_path else self.base_url
         all_headers = {**self.headers, **(headers or {})}
+        self.last_method = method
         req = urllib.request.Request(url, data=body, headers=all_headers, method=method)
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -395,7 +397,6 @@ class X402SecurityTests:
         self.did_resolver = did_resolver
         self.results: list[X402TestResult] = []
         self._cached_challenge: X402Challenge | None = None
-        self._last_trust_snapshot: dict[str, Any] | None = None
         # Track data for autonomy risk scoring
         self._autonomy_signals: dict[str, bool] = {}
 
@@ -422,6 +423,10 @@ class X402SecurityTests:
         if not self._cached_challenge:
             self._cached_challenge = self._get_challenge()
         return self._cached_challenge
+
+    def _current_method(self) -> str:
+        """Return the HTTP method used for the last transport request."""
+        return self.transport.last_method or "GET"
 
 
     def _extract_trust_snapshot(self, resp: dict | None) -> dict | None:
@@ -462,7 +467,6 @@ class X402SecurityTests:
                         if isinstance(trust_snapshot, dict):
                             snapshot = trust_snapshot
         if snapshot and isinstance(snapshot, dict):
-            self._last_trust_snapshot = snapshot
             return snapshot
         return None
 
@@ -535,7 +539,7 @@ class X402SecurityTests:
             severity=Severity.HIGH.value,
             passed=passed,
             details="; ".join(issues) if issues else "All required X-Payment-* headers present with valid values",
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-1: Payment protocol must return complete challenge",
             estimated_impact="service_denial",
             estimated_severity="high",
@@ -578,7 +582,7 @@ class X402SecurityTests:
             severity=Severity.HIGH.value,
             passed=passed,
             details=f"{rejected}/{tested} malformed authorizations rejected",
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-2: Server must validate payment authorization format",
             estimated_impact="fund_theft",
             estimated_severity="critical",
@@ -615,7 +619,7 @@ class X402SecurityTests:
             severity=Severity.MEDIUM.value,
             passed=passed,
             details=f"{rejected}/{len(unsupported_currencies)} unsupported currency claims rejected",
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-3: Server must validate payment currency matches requirement",
             estimated_impact="overpayment",
             estimated_severity="medium",
@@ -664,7 +668,7 @@ class X402SecurityTests:
             severity=Severity.CRITICAL.value,
             passed=passed,
             details=details,
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="Twelve Numbers: payTo address must be stable and verifiable",
             estimated_impact="fund_theft",
             estimated_severity="critical",
@@ -700,7 +704,7 @@ class X402SecurityTests:
             passed=passed,
             details=(f"Server returned {status} when payment targeted wrong address"
                      + (" (rejected)" if passed else " (ACCEPTED — fund theft possible)")),
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-4: Server must verify payment recipient matches its own address",
             estimated_impact="fund_theft",
             estimated_severity="critical",
@@ -736,7 +740,7 @@ class X402SecurityTests:
             severity=Severity.HIGH.value,
             passed=passed,
             details=f"{rejected}/{len(INVALID_ADDRESSES)} invalid addresses rejected",
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-5: Server must validate recipient address format",
             estimated_impact="fund_theft",
             estimated_severity="high",
@@ -796,7 +800,7 @@ class X402SecurityTests:
             severity=Severity.MEDIUM.value,
             passed=passed,
             details="; ".join(details_parts),
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="Harm Test: session tokens must not leak sensitive data",
             estimated_impact="session_hijack",
             estimated_severity="medium",
@@ -841,7 +845,7 @@ class X402SecurityTests:
             severity=Severity.HIGH.value,
             passed=passed,
             details=f"{rejected}/{len(fabricated_tokens)} fabricated session tokens rejected",
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-6: Server must cryptographically verify session tokens",
             estimated_impact="session_hijack",
             estimated_severity="high",
@@ -883,7 +887,7 @@ class X402SecurityTests:
             passed=passed,
             details=f"Server returned {status} for expired JWT" +
                     (" (rejected)" if passed else " (ACCEPTED — session expiry not enforced)"),
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-7: Server must enforce session token expiration",
             estimated_impact="session_hijack",
             estimated_severity="high",
@@ -943,7 +947,7 @@ class X402SecurityTests:
             passed=passed,
             details=f"Sensitive data patterns found: {leaks_found}" if leaks_found
                     else "No sensitive data patterns detected in response",
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="Harm Test: responses must not leak sensitive operational data",
             estimated_impact="info_leak",
             estimated_severity="medium",
@@ -1006,7 +1010,7 @@ class X402SecurityTests:
             severity=Severity.MEDIUM.value,
             passed=passed,
             details="; ".join(details_parts),
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="Twelve Numbers: rate limits prevent budget exhaustion attacks",
             estimated_impact="overpayment",
             estimated_severity="medium",
@@ -1057,7 +1061,7 @@ class X402SecurityTests:
             passed=passed,
             details=f"{rejected}/{len(underpay_amounts)} underpayment attempts rejected" +
                     (f" (server requires: {challenge.amount})" if challenge else ""),
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-8: Server must verify payment amount matches or exceeds requirement",
             estimated_impact="overpayment",
             estimated_severity="high",
@@ -1103,7 +1107,7 @@ class X402SecurityTests:
             passed=passed,
             details=(f"{n_burst} concurrent requests: {n_402} got 402, "
                      f"{n_rate_limited} rate-limited, {n_auth_required} got 401, {n_errors} server errors"),
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="Twelve Numbers: burst protection prevents agent budget exhaustion",
             estimated_impact="overpayment",
             estimated_severity="medium",
@@ -1150,7 +1154,7 @@ class X402SecurityTests:
             severity=Severity.CRITICAL.value,
             passed=passed,
             details=f"{rejected}/{len(fake_facilitators)} fake facilitator claims rejected",
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-9: Server must only trust pre-configured facilitator(s)",
             estimated_impact="fund_theft",
             estimated_severity="critical",
@@ -1188,7 +1192,7 @@ class X402SecurityTests:
             passed=passed,
             details=f"Server returned {status} for non-existent facilitator claim" +
                     (" (rejected)" if passed else " (ACCEPTED — facilitator not validated)"),
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="Falsification Requirement: facilitator identity must be independently verified",
             estimated_impact="fund_theft",
             estimated_severity="critical",
@@ -1229,7 +1233,7 @@ class X402SecurityTests:
             details=(f"Server returned {status}" +
                      (" with stack trace leak" if has_stack_trace else " without info leak") +
                      (" (graceful)" if passed else " (ISSUE)")),
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-10: Server must fail-closed when facilitator is unreachable",
             estimated_impact="service_denial",
             estimated_severity="high",
@@ -1290,7 +1294,7 @@ class X402SecurityTests:
             severity=Severity.MEDIUM.value,
             passed=passed,
             details=f"Info leaks found: {leaks}" if leaks else "No sensitive information leaked in 402 response",
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="Harm Test: 402 responses must not expose internal infrastructure details",
             estimated_impact="info_leak",
             estimated_severity="medium",
@@ -1337,7 +1341,7 @@ class X402SecurityTests:
             passed=passed,
             details=f"Sensitive info in error responses: {leaks_found}" if leaks_found
                     else "Error responses do not leak sensitive details",
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-11: Error responses must not expose internal details",
             estimated_impact="info_leak",
             estimated_severity="medium",
@@ -1381,7 +1385,7 @@ class X402SecurityTests:
             passed=passed,
             details=(f"{rejected}/{len(wrong_networks)} wrong-network payments rejected"
                      f" (server expects: {server_network})"),
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-12: Server must validate payment network matches requirement",
             estimated_impact="fund_theft",
             estimated_severity="high",
@@ -1421,7 +1425,7 @@ class X402SecurityTests:
             passed=passed,
             details=(f"{rejected}/{len(wrong_tokens)} wrong-token payments rejected"
                      f" (server expects: {server_currency})"),
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-13: Server must validate payment currency matches requirement",
             estimated_impact="fund_theft",
             estimated_severity="high",
@@ -1530,7 +1534,7 @@ class X402SecurityTests:
             severity=Severity.HIGH.value,
             passed=passed,
             details="; ".join(issues) if issues else "Valid OATR operator attestation JWT present (EdDSA, agent-attestation+jwt)",
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-14: x402 endpoints must present verifiable operator identity via OATR attestation",
             estimated_impact="fund_theft",
             estimated_severity="high",
@@ -1583,7 +1587,7 @@ class X402SecurityTests:
             severity=Severity.HIGH.value,
             passed=passed,
             details="; ".join(issues) if issues else "Attestation audience matches endpoint domain",
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-15: Attestation audience must bind to the serving domain to prevent replay",
             estimated_impact="fund_theft",
             estimated_severity="high",
@@ -1656,7 +1660,7 @@ class X402SecurityTests:
             severity=Severity.HIGH.value,
             passed=passed,
             details="; ".join(issues) if issues else "OATR revocation mechanism is functional",
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-16: Revocation checking must be available to reject compromised operator keys",
             estimated_impact="fund_theft",
             estimated_severity="high",
@@ -1716,7 +1720,7 @@ class X402SecurityTests:
             passed=passed,
             details=(f"Server returned {status} for manifest generated 20min ago (15min TTL)"
                      + (" (rejected/re-fetched)" if passed else " (ACCEPTED stale manifest without validation)")),
-            http_method="POST",
+            http_method=self._current_method(),
             csg_mapping="HC-17: Clients/servers must reject manifests older than CACHE_TTL_MS (default 15min)",
             estimated_impact="fund_theft",
             estimated_severity="medium",
@@ -1783,7 +1787,7 @@ class X402SecurityTests:
             passed=passed,
             details=(f"Server returned {status} for forged OATR attestation"
                      + (" (rejected)" if passed else " (ACCEPTED forged attestation - identity spoofing possible)")),
-            http_method="GET",
+            http_method=self._current_method(),
             csg_mapping="HC-18: Forged attestations with unknown issuers must be rejected",
             estimated_impact="fund_theft",
             estimated_severity="critical",
