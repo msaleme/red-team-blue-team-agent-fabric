@@ -215,6 +215,87 @@ class X402Transport:
 
 
 # ---------------------------------------------------------------------------
+# DID resolution utilities (used for trust snapshot validation)
+# ---------------------------------------------------------------------------
+
+
+class DIDResolver:
+    """Resolve DID documents via did:web, did:key, or a custom resolver endpoint."""
+
+    def __init__(self, endpoint: str | None = None, timeout: float = 10.0):
+        self.endpoint = endpoint.strip() if endpoint else None
+        self.timeout = timeout
+
+    def resolve(self, did: str) -> tuple[dict | None, str | None]:
+        did = (did or "").strip()
+        if not did:
+            return None, "empty DID"
+        if did.startswith("did:web:"):
+            return self._resolve_did_web(did)
+        if did.startswith("did:key:"):
+            return self._resolve_did_key(did)
+        if self.endpoint:
+            return self._resolve_via_endpoint(did)
+        return None, f"no resolver configured for method: {did.split(':', 2)[0]}"
+
+    # Internal helpers --------------------------------------------------
+
+    def _resolve_did_web(self, did: str) -> tuple[dict | None, str | None]:
+        method_specific = did[len("did:web:"):]
+        if not method_specific:
+            return None, "did:web missing domain"
+        parts = method_specific.split(":")
+        domain = parts[0]
+        path = "/".join(parts[1:])
+        if path:
+            url = f"https://{domain}/{path}/did.json"
+        else:
+            url = f"https://{domain}/.well-known/did.json"
+        return self._fetch_json(url)
+
+    def _resolve_did_key(self, did: str) -> tuple[dict | None, str | None]:
+        method_id = did[len("did:key:"):]
+        if not method_id:
+            return None, "did:key missing method-specific id"
+        doc = {
+            "@context": [
+                "https://www.w3.org/ns/did/v1",
+                "https://w3id.org/security/suites/ed25519-2020/v1",
+            ],
+            "id": did,
+            "verificationMethod": [
+                {
+                    "id": f"{did}#key-1",
+                    "type": "Ed25519VerificationKey2018",
+                    "controller": did,
+                    "publicKeyMultibase": method_id,
+                }
+            ],
+            "authentication": [f"{did}#key-1"],
+            "assertionMethod": [f"{did}#key-1"],
+        }
+        return doc, None
+
+    def _resolve_via_endpoint(self, did: str) -> tuple[dict | None, str | None]:
+        endpoint = self.endpoint or ""
+        quoted = urllib.parse.quote(did, safe=":")
+        if "{did}" in endpoint:
+            url = endpoint.replace("{did}", quoted)
+        else:
+            url = endpoint.rstrip("/") + "/" + quoted
+        return self._fetch_json(url)
+
+    def _fetch_json(self, url: str) -> tuple[dict | None, str | None]:
+        try:
+            req = urllib.request.Request(url, headers={"Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data, None
+        except Exception as exc:  # noqa: BLE001
+            return None, str(exc)
+
+
+# ---------------------------------------------------------------------------
 # x402 challenge parser
 # ---------------------------------------------------------------------------
 
@@ -301,10 +382,12 @@ class X402SecurityTests:
     The FIRST open-source x402 security test harness.
     """
 
-    def __init__(self, transport: X402Transport):
+    def __init__(self, transport: X402Transport, did_resolver: DIDResolver | None = None):
         self.transport = transport
+        self.did_resolver = did_resolver
         self.results: list[X402TestResult] = []
         self._cached_challenge: X402Challenge | None = None
+        self._last_trust_snapshot: dict[str, Any] | None = None
         # Track data for autonomy risk scoring
         self._autonomy_signals: dict[str, bool] = {}
 
@@ -331,6 +414,69 @@ class X402SecurityTests:
         if not self._cached_challenge:
             self._cached_challenge = self._get_challenge()
         return self._cached_challenge
+
+
+def _extract_trust_snapshot(self, resp: dict | None) -> dict | None:
+    """Extract a trust snapshot dict from headers or body if present."""
+    if not resp:
+        return None
+    snapshot: dict | None = None
+    headers = resp.get("headers") or {}
+    for header_name in ("x-trust-snapshot", "x-agent-trust", "x-payment-trust"):
+        raw = headers.get(header_name)
+        if raw:
+            try:
+                snapshot = json.loads(raw)
+                break
+            except json.JSONDecodeError:
+                continue
+    if snapshot is None:
+        agent_did_header = headers.get("x-agent-did") or headers.get("x-trust-agent-did")
+        if agent_did_header:
+            snapshot = {"agent_did": agent_did_header}
+    if snapshot is None:
+        body = resp.get("body")
+        if body:
+            try:
+                payload = json.loads(body)
+            except json.JSONDecodeError:
+                payload = None
+            if isinstance(payload, dict):
+                extensions = payload.get("extensions")
+                if isinstance(extensions, dict):
+                    for key in ("agent-trust", "agent_trust", "trust_snapshot"):
+                        val = extensions.get(key)
+                        if isinstance(val, dict):
+                            snapshot = val
+                            break
+                if snapshot is None:
+                    trust_snapshot = payload.get("trust_snapshot")
+                    if isinstance(trust_snapshot, dict):
+                        snapshot = trust_snapshot
+    if snapshot and isinstance(snapshot, dict):
+        self._last_trust_snapshot = snapshot
+        return snapshot
+    return None
+
+def _validate_trust_snapshot_agent(self, snapshot: dict | None, issues: list[str]):
+    """Validate agent DID in the trust snapshot via the configured resolver."""
+    if not snapshot:
+        return
+    agent_did = (
+        snapshot.get("agent_did")
+        or snapshot.get("agentDid")
+        or snapshot.get("did")
+    )
+    if not agent_did:
+        return
+    self._autonomy_signals["trust_snapshot_present"] = True
+    if not self.did_resolver:
+        return
+    doc, error = self.did_resolver.resolve(agent_did)
+    if doc:
+        self._autonomy_signals["agent_did_resolved"] = True
+    else:
+        issues.append(f"Agent DID {agent_did} could not be resolved: {error or 'resolver returned no data'}")
 
     # ------------------------------------------------------------------
     # Category 1: Payment Challenge Validation (X4-001 to X4-003)
@@ -1341,8 +1487,10 @@ class X402SecurityTests:
         resp = self.transport.get()
         elapsed = time.monotonic() - t0
 
+        trust_snapshot = self._extract_trust_snapshot(resp)
         attestation = self._extract_attestation(resp)
         issues = []
+        self._validate_trust_snapshot_agent(trust_snapshot, issues)
 
         if not attestation:
             issues.append("No operator attestation JWT found in response headers or body")
@@ -1900,6 +2048,8 @@ def main():
     ap.add_argument("--categories", help="Comma-separated test categories to run")
     ap.add_argument("--report", help="Output JSON report path")
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")
+    ap.add_argument("--did-resolver",
+                    help="Custom DID resolver endpoint or template (use {did}; did:web and did:key resolve automatically).")
     ap.add_argument("--trials", type=int, default=1,
                     help="Run each test N times for statistical analysis (Wilson score CIs)")
     ap.add_argument("--list", action="store_true", dest="list_tests", help="List available tests and exit")
@@ -1935,6 +2085,8 @@ def main():
 
     default_body = _load_body(args.body)
 
+    did_resolver = DIDResolver(args.did_resolver)
+
     transport = X402Transport(
         args.url,
         headers=headers,
@@ -1945,9 +2097,9 @@ def main():
     categories = args.categories.split(",") if args.categories else None
 
     if args.trials > 1:
-        _run_statistical(transport, categories, args.trials, args.report)
+        _run_statistical(transport, categories, args.trials, args.report, did_resolver=did_resolver)
     else:
-        suite = X402SecurityTests(transport)
+        suite = X402SecurityTests(transport, did_resolver=did_resolver)
         results = suite.run_all(categories=categories)
         autonomy_risk = suite.compute_autonomy_risk_score()
 
@@ -1963,6 +2115,8 @@ def _run_statistical(
     categories: list[str] | None,
     n_trials: int,
     report_path: str | None,
+    *,
+    did_resolver: DIDResolver | None = None,
 ):
     """Run tests multiple times and compute Wilson score confidence intervals."""
     from protocol_tests.statistical import wilson_ci, enhance_report, TrialResult
@@ -1993,7 +2147,7 @@ def _run_statistical(
         elapsed_times: list[float] = []
 
         for trial in range(n_trials):
-            suite = X402SecurityTests(transport)
+            suite = X402SecurityTests(transport, did_resolver=did_resolver)
             test_fn = getattr(suite, method_name)
             try:
                 test_fn()
@@ -2029,7 +2183,7 @@ def _run_statistical(
               f"avg={mean_elapsed:.2f}s")
 
     # Compute autonomy risk using aggregated signals from all trial runs
-    last_suite = X402SecurityTests(transport)
+    last_suite = X402SecurityTests(transport, did_resolver=did_resolver)
     last_suite.results = all_results
     last_suite._autonomy_signals = aggregated_autonomy_signals
     autonomy_risk = last_suite.compute_autonomy_risk_score()
