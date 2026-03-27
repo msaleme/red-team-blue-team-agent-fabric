@@ -416,67 +416,67 @@ class X402SecurityTests:
         return self._cached_challenge
 
 
-def _extract_trust_snapshot(self, resp: dict | None) -> dict | None:
-    """Extract a trust snapshot dict from headers or body if present."""
-    if not resp:
+    def _extract_trust_snapshot(self, resp: dict | None) -> dict | None:
+        """Extract a trust snapshot dict from headers or body if present."""
+        if not resp:
+            return None
+        snapshot: dict | None = None
+        headers = resp.get("headers") or {}
+        for header_name in ("x-trust-snapshot", "x-agent-trust", "x-payment-trust"):
+            raw = headers.get(header_name)
+            if raw:
+                try:
+                    snapshot = json.loads(raw)
+                    break
+                except json.JSONDecodeError:
+                    continue
+        if snapshot is None:
+            agent_did_header = headers.get("x-agent-did") or headers.get("x-trust-agent-did")
+            if agent_did_header:
+                snapshot = {"agent_did": agent_did_header}
+        if snapshot is None:
+            body = resp.get("body")
+            if body:
+                try:
+                    payload = json.loads(body)
+                except json.JSONDecodeError:
+                    payload = None
+                if isinstance(payload, dict):
+                    extensions = payload.get("extensions")
+                    if isinstance(extensions, dict):
+                        for key in ("agent-trust", "agent_trust", "trust_snapshot"):
+                            val = extensions.get(key)
+                            if isinstance(val, dict):
+                                snapshot = val
+                                break
+                    if snapshot is None:
+                        trust_snapshot = payload.get("trust_snapshot")
+                        if isinstance(trust_snapshot, dict):
+                            snapshot = trust_snapshot
+        if snapshot and isinstance(snapshot, dict):
+            self._last_trust_snapshot = snapshot
+            return snapshot
         return None
-    snapshot: dict | None = None
-    headers = resp.get("headers") or {}
-    for header_name in ("x-trust-snapshot", "x-agent-trust", "x-payment-trust"):
-        raw = headers.get(header_name)
-        if raw:
-            try:
-                snapshot = json.loads(raw)
-                break
-            except json.JSONDecodeError:
-                continue
-    if snapshot is None:
-        agent_did_header = headers.get("x-agent-did") or headers.get("x-trust-agent-did")
-        if agent_did_header:
-            snapshot = {"agent_did": agent_did_header}
-    if snapshot is None:
-        body = resp.get("body")
-        if body:
-            try:
-                payload = json.loads(body)
-            except json.JSONDecodeError:
-                payload = None
-            if isinstance(payload, dict):
-                extensions = payload.get("extensions")
-                if isinstance(extensions, dict):
-                    for key in ("agent-trust", "agent_trust", "trust_snapshot"):
-                        val = extensions.get(key)
-                        if isinstance(val, dict):
-                            snapshot = val
-                            break
-                if snapshot is None:
-                    trust_snapshot = payload.get("trust_snapshot")
-                    if isinstance(trust_snapshot, dict):
-                        snapshot = trust_snapshot
-    if snapshot and isinstance(snapshot, dict):
-        self._last_trust_snapshot = snapshot
-        return snapshot
-    return None
 
-def _validate_trust_snapshot_agent(self, snapshot: dict | None, issues: list[str]):
-    """Validate agent DID in the trust snapshot via the configured resolver."""
-    if not snapshot:
-        return
-    agent_did = (
-        snapshot.get("agent_did")
-        or snapshot.get("agentDid")
-        or snapshot.get("did")
-    )
-    if not agent_did:
-        return
-    self._autonomy_signals["trust_snapshot_present"] = True
-    if not self.did_resolver:
-        return
-    doc, error = self.did_resolver.resolve(agent_did)
-    if doc:
-        self._autonomy_signals["agent_did_resolved"] = True
-    else:
-        issues.append(f"Agent DID {agent_did} could not be resolved: {error or 'resolver returned no data'}")
+    def _validate_trust_snapshot_agent(self, snapshot: dict | None, issues: list[str]):
+        """Validate agent DID in the trust snapshot via the configured resolver."""
+        if not snapshot:
+            return
+        agent_did = (
+            snapshot.get("agent_did")
+            or snapshot.get("agentDid")
+            or snapshot.get("did")
+        )
+        if not agent_did:
+            return
+        self._autonomy_signals["trust_snapshot_present"] = True
+        if not self.did_resolver:
+            return
+        doc, error = self.did_resolver.resolve(agent_did)
+        if doc:
+            self._autonomy_signals["agent_did_resolved"] = True
+        else:
+            issues.append(f"Agent DID {agent_did} could not be resolved: {error or 'resolver returned no data'}")
 
     # ------------------------------------------------------------------
     # Category 1: Payment Challenge Validation (X4-001 to X4-003)
