@@ -1,0 +1,21 @@
+{
+  "generated_at": 1774558800000,
+  "generated_at_iso": "2026-03-26T18:00:00Z",
+  "issuers": [
+    {
+      "issuer_id": "revoked-issuer",
+      "revoked_at": "2026-03-20T12:00:00Z",
+      "reason": "compromise",
+      "evidence_url": "https://open-agent-trust.example.com/incidents/REV-2026-03"
+    }
+  ],
+  "keys": [
+    {
+      "issuer_id": "oatr-sample-lab",
+      "kid": "oatr-sample-lab-2025-12",
+      "revoked_at": "2026-03-01T14:35:00Z",
+      "reason": "rotated",
+      "replacement_kid": "oatr-sample-lab-2026-03"
+    }
+  ]
+}

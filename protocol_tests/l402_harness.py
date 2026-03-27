@@ -222,8 +222,38 @@ class L402SecurityTests:
     PATH_RESOURCE = "/api/dispatches/1"
     PATH_ASK = "/api/ask"
 
-    def __init__(self, transport: L402Transport):
+    RAIL_SKIP_METHODS = {
+        "bolt11": {
+            "test_l402_expired_token",
+            "test_l402_tampered_macaroon",
+            "test_l402_fake_preimage",
+            "test_l402_cross_session_preimage",
+            "test_l402_permission_escalation",
+            "test_l402_macaroon_only_no_preimage",
+            "test_l402_rapid_invoice_generation",
+        }
+    }
+
+    TEST_ID_LOOKUP = {
+        "test_l402_challenge_present": "L4-001",
+        "test_l402_malformed_invoice": "L4-002",
+        "test_l402_expired_token": "L4-003",
+        "test_l402_tampered_macaroon": "L4-004",
+        "test_l402_unauthorized_caveats": "L4-005",
+        "test_l402_stripped_signature": "L4-006",
+        "test_l402_fake_preimage": "L4-007",
+        "test_l402_cross_session_preimage": "L4-008",
+        "test_l402_scope_widening": "L4-009",
+        "test_l402_permission_escalation": "L4-010",
+        "test_l402_macaroon_only_no_preimage": "L4-011",
+        "test_l402_presettlement_race": "L4-012",
+        "test_l402_rapid_invoice_generation": "L4-013",
+        "test_l402_concurrent_invoice_uniqueness": "L4-014",
+    }
+
+    def __init__(self, transport: L402Transport, rail: str = "macaroon"):
         self.transport = transport
+        self.rail = rail
         self.results: list[L402TestResult] = []
         # Cache a challenge from the server for tests that need one
         self._cached_challenge: L402Challenge | None = None
@@ -996,9 +1026,23 @@ class L402SecurityTests:
 
         test_map: dict[str, list[str]]
         if categories:
-            test_map = {k: v for k, v in self.ALL_TESTS.items() if k in categories}
+            base = {k: list(v) for k, v in self.ALL_TESTS.items() if k in categories}
         else:
-            test_map = dict(self.ALL_TESTS)
+            base = {k: list(v) for k, v in self.ALL_TESTS.items()}
+
+        skip_methods = self.RAIL_SKIP_METHODS.get(self.rail, set())
+        test_map: dict[str, list[str]] = {}
+        skipped_methods: list[str] = []
+        for category, method_names in base.items():
+            filtered = [m for m in method_names if m not in skip_methods]
+            if filtered:
+                test_map[category] = filtered
+            removed = [m for m in method_names if m not in filtered]
+            skipped_methods.extend(removed)
+
+        if skipped_methods:
+            skipped_ids = [self.TEST_ID_LOOKUP.get(m, m) for m in skipped_methods]
+            print(f"\n[rail={self.rail}] Skipping macaroon-only tests: {', '.join(skipped_ids)}")
 
         print(f"\n{'='*60}")
         print("L402 PAYMENT FLOW SECURITY TEST SUITE v3.0")
@@ -1110,6 +1154,8 @@ def main():
     )
     ap.add_argument("--url", default="https://dispatches.mystere.me",
                     help="L402-gated server base URL (default: dispatches.mystere.me)")
+    ap.add_argument("--rail", choices=["macaroon", "bolt11"], default="macaroon",
+                    help="Payment rail to validate (bolt11 skips macaroon-specific tests)")
     ap.add_argument("--categories", help="Comma-separated test categories to run")
     ap.add_argument("--report", help="Output JSON report path")
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")
@@ -1129,12 +1175,13 @@ def main():
 
     transport = L402Transport(args.url, headers=headers)
     categories = args.categories.split(",") if args.categories else None
+    rail = args.rail
 
     if args.trials > 1:
         # Multi-trial statistical mode
-        _run_statistical(transport, categories, args.trials, args.report)
+        _run_statistical(transport, categories, args.trials, args.report, rail=rail)
     else:
-        suite = L402SecurityTests(transport)
+        suite = L402SecurityTests(transport, rail=rail)
         results = suite.run_all(categories=categories)
 
         if args.report:
@@ -1149,24 +1196,25 @@ def _run_statistical(
     categories: list[str] | None,
     n_trials: int,
     report_path: str | None,
+    rail: str = "macaroon",
 ):
     """Run tests multiple times and compute Wilson score confidence intervals."""
     from protocol_tests.statistical import wilson_ci, enhance_report, TrialResult
 
+    skip_methods = L402SecurityTests.RAIL_SKIP_METHODS.get(rail, set())
+    if skip_methods:
+        skipped_ids = [L402SecurityTests.TEST_ID_LOOKUP.get(m, m) for m in skip_methods]
+        print(f"\n[rail={rail}] Skipping macaroon-only tests: {', '.join(skipped_ids)}")
+
     all_tests_flat: list[tuple[str, str, str]] = []  # (category, method_name, test_id)
-    id_idx = 0
-    test_id_order = [
-        "L4-001", "L4-002", "L4-003", "L4-004", "L4-005", "L4-006",
-        "L4-007", "L4-008", "L4-009", "L4-010", "L4-011", "L4-012",
-        "L4-013", "L4-014",
-    ]
     for category, method_names in L402SecurityTests.ALL_TESTS.items():
         if categories and category not in categories:
-            id_idx += len(method_names)  # Advance past excluded tests
             continue
         for method_name in method_names:
-            all_tests_flat.append((category, method_name, test_id_order[id_idx]))
-            id_idx += 1
+            if method_name in skip_methods:
+                continue
+            test_id = L402SecurityTests.TEST_ID_LOOKUP.get(method_name, method_name)
+            all_tests_flat.append((category, method_name, test_id))
 
     print(f"\n{'='*60}")
     print(f"L402 STATISTICAL MODE — {n_trials} trials per test")
@@ -1181,7 +1229,7 @@ def _run_statistical(
         elapsed_times: list[float] = []
 
         for trial in range(n_trials):
-            suite = L402SecurityTests(transport)
+            suite = L402SecurityTests(transport, rail=rail)
             test_fn = getattr(suite, method_name)
             try:
                 test_fn()

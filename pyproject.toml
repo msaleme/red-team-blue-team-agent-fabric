@@ -49,3 +49,7 @@ agent-security = "protocol_tests.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["protocol_tests*"]
+
+[tool.setuptools.package-data]
+"protocol_tests.fixtures.oatr" = ["*.json", "*.md"]
+

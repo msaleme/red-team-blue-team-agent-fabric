@@ -287,12 +287,18 @@ agent-security test a2a --url https://agent.example.com
 ### L402 Payment Protocol - 15 tests
 ```bash
 agent-security test l402 --url https://l402.example.com
+agent-security test l402 --url https://bolt11.example.com --rail bolt11
 ```
+Bolt11 endpoints skip macaroon-specific tests (L4-003/004/007/008/010/011/013) so you can validate Lightning invoice flows without false negatives.
 
 ### x402 Payment Protocol - 43 tests (First Open-Source x402 Harness)
 ```bash
 agent-security test x402 --url https://your-x402-endpoint.com
+agent-security test x402 --url https://post-only.example.com \
+  --paid-path /api/v1/tools/weather/call --method POST --body '@/tmp/payload.json'
+agent-security test x402 --dump-oatr-fixtures
 ```
+`--method/--body` lets you hit POST/PUT-only payment challenges, and `--dump-oatr-fixtures` prints the bundled OATR manifest/revocation/attestation samples for identity tests X4-021 through X4-025.
 
 Tests the Coinbase/Stripe/Cloudflare agent payment standard ($600M+ payment volume):
 
@@ -310,6 +316,8 @@ Tests the Coinbase/Stripe/Cloudflare agent payment standard ($600M+ payment volu
 - **CSG Mapping** - each test links to the Constitutional Self-Governance mechanism that catches it (Hard Constraints, Harm Test, Twelve Numbers, Falsification Requirement)
 - **Financial Impact Estimation** - each result tagged: fund_theft, overpayment, service_denial, info_leak, or session_hijack
 - **Agent Autonomy Risk Score** (0-100) - composite score answering "how dangerous is it to let an agent pay this endpoint unsupervised?" based on recipient consistency, payment validation, info leakage, session security, and facilitator trust
+- **Paid-Path HTTP override** - `--method` + `--body` let you hit POST/PUT-only x402 challenges without patching the harness
+- **Bundled OATR fixtures** - ship-ready manifest/revocation/attestation samples plus `--dump-oatr-fixtures` so teams can stand up identity tests (X4-021–025) without external tooling
 
 </details>
 

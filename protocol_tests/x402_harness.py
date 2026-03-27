@@ -67,6 +67,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from pathlib import Path
 from typing import Any
 import http.client
 import urllib.parse
@@ -97,6 +98,8 @@ INVALID_ADDRESSES = [
     "",                        # empty
 ]
 
+ALLOWED_DEBUG_HEADERS = {"x-request-id", "x-trace-id", "x-correlation-id"}
+
 # Ethereum address pattern
 ETH_ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
@@ -126,11 +129,22 @@ def _fake_jwt() -> str:
 class X402Transport:
     """HTTP transport for x402-gated APIs."""
 
-    def __init__(self, base_url: str, headers: dict | None = None,
-                 paid_path: str = ""):
+    def __init__(
+        self,
+        base_url: str,
+        headers: dict | None = None,
+        paid_path: str = "",
+        default_method: str = "GET",
+        default_body: bytes | None = None,
+    ):
         self.base_url = base_url.rstrip("/")
         self.headers = headers or {}
         self.paid_path = paid_path  # Path that returns 402 (e.g., /api/v1/tools/weather/call)
+        method = (default_method or "GET").upper()
+        if method not in {"GET", "POST", "PUT"}:
+            raise ValueError("default_method must be GET, POST, or PUT")
+        self.default_method = method
+        self.default_body = default_body
 
     def request(
         self,
@@ -180,8 +194,17 @@ class X402Transport:
         except Exception as e:
             return {"status": 0, "headers": {}, "body": "", "_error": True, "_exception": str(e)}
 
-    def get(self, path: str = "", headers: dict | None = None, timeout: float = 15.0) -> dict:
-        return self.request("GET", path, headers=headers, timeout=timeout)
+    def get(
+        self,
+        path: str = "",
+        headers: dict | None = None,
+        timeout: float = 15.0,
+        body: bytes | None = None,
+    ) -> dict:
+        if not path and self.default_method != "GET":
+            payload = body if body is not None else self.default_body
+            return self.request(self.default_method, path, body=payload, headers=headers, timeout=timeout)
+        return self.request("GET", path, body=body, headers=headers, timeout=timeout)
 
     def post(self, path: str = "", body: bytes | None = None, headers: dict | None = None, timeout: float = 15.0) -> dict:
         return self.request("POST", path, body=body, headers=headers, timeout=timeout)
@@ -907,10 +930,11 @@ class X402SecurityTests:
 
         n_rate_limited = sum(1 for s in statuses if s == 429)
         n_402 = sum(1 for s in statuses if s == 402)
+        n_auth_required = sum(1 for s in statuses if s == 401)
         n_errors = sum(1 for s in statuses if s >= 500)
 
         # Pass if server either rate-limits or handles burst gracefully (no 500s)
-        passed = n_errors == 0 and (n_rate_limited > 0 or n_402 == len(statuses))
+        passed = n_errors == 0 and (n_rate_limited > 0 or (n_402 + n_auth_required) == len(statuses))
 
         self._record(X402TestResult(
             test_id="X4-013",
@@ -920,7 +944,7 @@ class X402SecurityTests:
             severity=Severity.MEDIUM.value,
             passed=passed,
             details=(f"{n_burst} concurrent requests: {n_402} got 402, "
-                     f"{n_rate_limited} rate-limited, {n_errors} server errors"),
+                     f"{n_rate_limited} rate-limited, {n_auth_required} got 401, {n_errors} server errors"),
             http_method="GET",
             csg_mapping="Twelve Numbers: burst protection prevents agent budget exhaustion",
             estimated_impact="overpayment",
@@ -1090,7 +1114,11 @@ class X402SecurityTests:
             leaks.append("Wallet balance exposed in response")
 
         # Check for debug/verbose headers
-        debug_headers = [k for k in headers if any(kw in k for kw in ["debug", "trace", "x-request-id"])]
+        debug_headers = [
+            k for k in headers
+            if any(kw in k.lower() for kw in ["debug", "trace", "x-request-id", "x-correlation"])
+            and k.lower() not in ALLOWED_DEBUG_HEADERS
+        ]
         if debug_headers:
             leaks.append(f"Debug headers present: {debug_headers}")
 
@@ -1861,13 +1889,25 @@ def main():
     ap.add_argument("--paid-path", default="",
                     help="Path that returns 402 (e.g., /api/v1/tools/weather/call). "
                          "If omitted, tests hit the root URL.")
+    ap.add_argument("--method", default="GET", choices=["GET", "POST", "PUT"],
+                    help="HTTP method to use when requesting the paid path (default: GET)")
+    ap.add_argument("--body",
+                    help="Optional body to send with the paid-path request. Prefix with @ to load from a file.")
     ap.add_argument("--categories", help="Comma-separated test categories to run")
     ap.add_argument("--report", help="Output JSON report path")
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")
     ap.add_argument("--trials", type=int, default=1,
                     help="Run each test N times for statistical analysis (Wilson score CIs)")
     ap.add_argument("--list", action="store_true", dest="list_tests", help="List available tests and exit")
+    ap.add_argument("--dump-oatr-fixtures", action="store_true",
+                    help="Print the bundled OATR manifest/revocation/attestation fixtures and exit")
     args = ap.parse_args()
+
+    if args.dump_oatr_fixtures:
+        from protocol_tests import oatr_fixtures
+
+        print(oatr_fixtures.dump_fixtures())
+        sys.exit(0)
 
     if args.list_tests:
         list_tests()
@@ -1881,7 +1921,23 @@ def main():
         k, v = h.split(":", 1)
         headers[k.strip()] = v.strip()
 
-    transport = X402Transport(args.url, headers=headers, paid_path=args.paid_path)
+    def _load_body(body_arg: str | None) -> bytes | None:
+        if not body_arg:
+            return None
+        if body_arg.startswith("@"):
+            body_path = Path(body_arg[1:]).expanduser()
+            return body_path.read_bytes()
+        return body_arg.encode("utf-8")
+
+    default_body = _load_body(args.body)
+
+    transport = X402Transport(
+        args.url,
+        headers=headers,
+        paid_path=args.paid_path,
+        default_method=args.method,
+        default_body=default_body,
+    )
     categories = args.categories.split(",") if args.categories else None
 
     if args.trials > 1:

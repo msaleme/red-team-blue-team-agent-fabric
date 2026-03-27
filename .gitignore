@@ -42,3 +42,5 @@ november-meeting-extracted.txt
 *.json
 !package.json
 !pyproject.json
+!protocol_tests/fixtures/oatr/*.json
+
