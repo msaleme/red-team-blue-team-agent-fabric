@@ -226,6 +226,8 @@ class L402SecurityTests:
         "bolt11": {
             "test_l402_expired_token",
             "test_l402_tampered_macaroon",
+            "test_l402_unauthorized_caveats",
+            "test_l402_stripped_signature",
             "test_l402_fake_preimage",
             "test_l402_cross_session_preimage",
             "test_l402_permission_escalation",

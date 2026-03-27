@@ -2091,7 +2091,7 @@ def main():
 
     default_body = _load_body(args.body)
 
-    did_resolver = DIDResolver(args.did_resolver)
+    did_resolver = DIDResolver(args.did_resolver) if args.did_resolver else None
 
     transport = X402Transport(
         args.url,
