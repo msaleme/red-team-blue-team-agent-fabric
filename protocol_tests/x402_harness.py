@@ -242,7 +242,9 @@ class DIDResolver:
             return self._resolve_did_key(did)
         if self.endpoint:
             return self._resolve_via_endpoint(did)
-        return None, f"no resolver configured for method: {did.split(':', 2)[0]}"
+        parts = did.split(':', 2)
+        method_name = parts[1] if len(parts) > 1 else did
+        return None, f"no resolver configured for method: {method_name}"
 
     # Internal helpers --------------------------------------------------
 
