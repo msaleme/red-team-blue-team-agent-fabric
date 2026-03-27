@@ -207,8 +207,14 @@ class X402Transport:
         )
         if should_override:
             payload = body if body is not None else self.default_body
-            return self.request(self.default_method, path, body=payload, headers=headers, timeout=timeout)
-        return self.request("GET", path, body=body, headers=headers, timeout=timeout)
+            return self.request(
+                self.default_method,
+                effective_path,
+                body=payload,
+                headers=headers,
+                timeout=timeout,
+            )
+        return self.request("GET", effective_path, body=body, headers=headers, timeout=timeout)
 
     def post(self, path: str = "", body: bytes | None = None, headers: dict | None = None, timeout: float = 15.0) -> dict:
         return self.request("POST", path, body=body, headers=headers, timeout=timeout)
