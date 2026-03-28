@@ -40,39 +40,45 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ inputs.python_version }}
 
       - name: Install agent-security-harness
         run: |
-          if [ -n "${{ inputs.harness_version }}" ]; then
-            pip install "agent-security-harness==${{ inputs.harness_version }}"
+          if [ -n "$HARNESS_VERSION" ]; then
+            pip install "agent-security-harness==${HARNESS_VERSION}"
           else
             pip install agent-security-harness
           fi
+        env:
+          HARNESS_VERSION: ${{ inputs.harness_version }}
 
       - name: Run security harness
         id: harness
         run: |
           REPORT_FILE="security-report.json"
-          CMD="python -m protocol_tests.mcp_harness --transport ${{ inputs.transport }} --url ${{ inputs.target_url }} --report ${REPORT_FILE}"
+          CMD="python -m protocol_tests.mcp_harness --transport ${INPUT_TRANSPORT} --url ${INPUT_TARGET_URL} --report ${REPORT_FILE}"
 
-          if [ -n "${{ inputs.categories }}" ]; then
-            CMD="${CMD} --categories ${{ inputs.categories }}"
+          if [ -n "$INPUT_CATEGORIES" ]; then
+            CMD="${CMD} --categories ${INPUT_CATEGORIES}"
           fi
 
           echo "Running: ${CMD}"
           ${CMD} || true
           echo "report_path=${REPORT_FILE}" >> "$GITHUB_OUTPUT"
+        env:
+          INPUT_TARGET_URL: ${{ inputs.target_url }}
+          INPUT_TRANSPORT: ${{ inputs.transport }}
+          INPUT_CATEGORIES: ${{ inputs.categories }}
 
       - name: Parse and summarize results
         id: results
         run: |
-          REPORT="${{ steps.harness.outputs.report_path }}"
+          REPORT="${REPORT_PATH}"
 
           if [ ! -f "${REPORT}" ]; then
             echo "::error::Security report not found"
@@ -82,7 +88,7 @@ jobs:
           python3 << 'PARSE_EOF'
           import json, os
 
-          with open("${{ steps.harness.outputs.report_path }}") as f:
+          with open(os.environ["REPORT_PATH"]) as f:
               report = json.load(f)
 
           results = report.get("results", [])
@@ -131,10 +137,12 @@ jobs:
               md.write("\n".join(lines))
 
           PARSE_EOF
+        env:
+          REPORT_PATH: ${{ steps.harness.outputs.report_path }}
 
       - name: Comment on PR (if applicable)
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const fs = require('fs');
@@ -168,7 +176,7 @@ jobs:
             }
 
       - name: Upload report artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: security-report
@@ -177,9 +185,9 @@ jobs:
 
       - name: Evaluate threshold
         run: |
-          FAIL_ON="${{ inputs.fail_on }}"
-          FAILED="${{ steps.results.outputs.failed }}"
-          CRITICAL="${{ steps.results.outputs.critical }}"
+          FAIL_ON="${INPUT_FAIL_ON}"
+          FAILED="${INPUT_FAILED}"
+          CRITICAL="${INPUT_CRITICAL}"
 
           if [ "${FAIL_ON}" = "any" ] && [ "${FAILED}" -gt 0 ]; then
             echo "::error::${FAILED} test(s) failed (fail_on=any)"
@@ -191,4 +199,8 @@ jobs:
             echo "Threshold set to 'none' - reporting only"
           fi
 
-          echo "✅ Security scan passed (fail_on=${FAIL_ON})"
+          echo "Security scan passed (fail_on=${FAIL_ON})"
+        env:
+          INPUT_FAIL_ON: ${{ inputs.fail_on }}
+          INPUT_FAILED: ${{ steps.results.outputs.failed }}
+          INPUT_CRITICAL: ${{ steps.results.outputs.critical }}
