@@ -116,7 +116,7 @@ HARNESSES = {
 
 def print_usage():
     print(f"Agent Security Harness v{VERSION}")
-    print(f"328 security tests for AI agent systems")
+    print(f"330 security tests for AI agent systems")
     print()
     print("Usage:")
     print("  agent-security test <harness> [options]    Run a test harness")
@@ -148,7 +148,7 @@ def main():
 
     if args[0] == "version":
         print(f"agent-security-harness v{VERSION}")
-        print(f"Tests: 328 across {len(HARNESSES)} harness modules")
+        print(f"Tests: 330 across {len(HARNESSES)} harness modules")
         print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402, x402")
         print(f"Platforms: 25 cloud + 20 enterprise adapters")
         print(f"Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF, AIUC-1")

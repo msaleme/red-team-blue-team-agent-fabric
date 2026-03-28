@@ -91,10 +91,8 @@ runs:
       id: parse-report
       shell: bash
       run: |
-        REPORT="${REPORT_PATH}"
-
-        if [ ! -f "${REPORT}" ]; then
-          echo "::error::Security report not found at ${REPORT}"
+        if [ ! -f "${REPORT_PATH}" ]; then
+          echo "::error::Security report not found at ${REPORT_PATH}"
           echo "total_tests=0" >> "$GITHUB_OUTPUT"
           echo "passed=0" >> "$GITHUB_OUTPUT"
           echo "failed=0" >> "$GITHUB_OUTPUT"
@@ -102,46 +100,54 @@ runs:
           exit 1
         fi
 
-        TOTAL=$(python3 -c "import json; r=json.load(open('${REPORT}')); print(r.get('summary',{}).get('total',len(r.get('results',[]))))")
-        PASSED=$(python3 -c "import json; r=json.load(open('${REPORT}')); print(r.get('summary',{}).get('passed',sum(1 for t in r.get('results',[]) if t.get('status')=='PASS')))")
-        FAILED=$(python3 -c "import json; r=json.load(open('${REPORT}')); print(r.get('summary',{}).get('failed',sum(1 for t in r.get('results',[]) if t.get('status')=='FAIL')))")
-        CRITICAL=$(python3 -c "
-        import json
-        r = json.load(open('${REPORT}'))
-        results = r.get('results', [])
-        critical = sum(1 for t in results if t.get('status') == 'FAIL' and t.get('severity', '').lower() == 'critical')
-        print(critical)
-        ")
+        python3 << 'PARSE_EOF'
+        import json, os
 
-        echo "total_tests=${TOTAL}" >> "$GITHUB_OUTPUT"
-        echo "passed=${PASSED}" >> "$GITHUB_OUTPUT"
-        echo "failed=${FAILED}" >> "$GITHUB_OUTPUT"
-        echo "critical_failures=${CRITICAL}" >> "$GITHUB_OUTPUT"
+        report_path = os.environ["REPORT_PATH"]
+        gh_output = os.environ["GITHUB_OUTPUT"]
+        gh_summary = os.environ["GITHUB_STEP_SUMMARY"]
 
-        echo "### Security Harness Results" >> "$GITHUB_STEP_SUMMARY"
-        echo "" >> "$GITHUB_STEP_SUMMARY"
-        echo "| Metric | Count |" >> "$GITHUB_STEP_SUMMARY"
-        echo "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
-        echo "| Total Tests | ${TOTAL} |" >> "$GITHUB_STEP_SUMMARY"
-        echo "| Passed | ${PASSED} |" >> "$GITHUB_STEP_SUMMARY"
-        echo "| Failed | ${FAILED} |" >> "$GITHUB_STEP_SUMMARY"
-        echo "| Critical Failures | ${CRITICAL} |" >> "$GITHUB_STEP_SUMMARY"
-        echo "" >> "$GITHUB_STEP_SUMMARY"
+        with open(report_path) as f:
+            r = json.load(f)
 
-        # List failed tests
-        python3 -c "
-        import json
-        r = json.load(open('${REPORT}'))
-        fails = [t for t in r.get('results', []) if t.get('status') == 'FAIL']
+        results = r.get("results", [])
+        summary = r.get("summary", {})
+
+        total = summary.get("total", len(results))
+        passed = summary.get("passed", sum(1 for t in results if t.get("status") == "PASS"))
+        failed = summary.get("failed", sum(1 for t in results if t.get("status") == "FAIL"))
+        critical = sum(1 for t in results if t.get("status") == "FAIL" and t.get("severity", "").lower() == "critical")
+
+        with open(gh_output, "a") as out:
+            out.write(f"total_tests={total}\n")
+            out.write(f"passed={passed}\n")
+            out.write(f"failed={failed}\n")
+            out.write(f"critical_failures={critical}\n")
+
+        lines = [
+            "### Security Harness Results\n",
+            "| Metric | Count |",
+            "|--------|-------|",
+            f"| Total Tests | {total} |",
+            f"| Passed | {passed} |",
+            f"| Failed | {failed} |",
+            f"| Critical Failures | {critical} |",
+            "",
+        ]
+
+        fails = [t for t in results if t.get("status") == "FAIL"]
         if fails:
-            print('| Test | Severity | Details |')
-            print('|------|----------|---------|')
+            lines.append("| Test | Severity | Details |")
+            lines.append("|------|----------|---------|")
             for t in fails:
-                name = t.get('test_id', t.get('name', 'unknown'))
-                sev = t.get('severity', 'unknown')
-                detail = t.get('detail', t.get('message', ''))[:80]
-                print(f'| {name} | {sev} | {detail} |')
-        " >> "$GITHUB_STEP_SUMMARY"
+                name = t.get("test_id", t.get("name", "unknown"))
+                sev = t.get("severity", "unknown")
+                detail = t.get("detail", t.get("message", ""))[:80]
+                lines.append(f"| {name} | {sev} | {detail} |")
+
+        with open(gh_summary, "a") as ss:
+            ss.write("\n".join(lines))
+        PARSE_EOF
       env:
         REPORT_PATH: ${{ steps.run-harness.outputs.report_path }}
 

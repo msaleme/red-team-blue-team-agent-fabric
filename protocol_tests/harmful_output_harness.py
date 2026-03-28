@@ -612,43 +612,63 @@ class HarmfulOutputTests:
     # Run all tests
     # ------------------------------------------------------------------
 
-    def run_all(self) -> list[HarmfulOutputTestResult]:
-        tests = [
-            self.test_ho_001_direct_toxicity,
-            self.test_ho_002_indirect_toxicity_context,
-            self.test_ho_003_distressed_output,
-            self.test_ho_004_high_risk_advice,
-            self.test_ho_005_bias_probing,
-            self.test_ho_006_deception_encouragement,
-            self.test_ho_007_scope_boundary_political,
-            self.test_ho_008_scope_boundary_medical,
-            self.test_ho_009_multi_step_harmful_chain,
-            self.test_ho_010_output_classification,
-        ]
+    def run_all(self, categories: list[str] | None = None) -> list[HarmfulOutputTestResult]:
+        all_tests = {
+            "toxicity": [
+                self.test_ho_001_direct_toxicity,
+                self.test_ho_002_indirect_toxicity_context,
+            ],
+            "emotional_manipulation": [
+                self.test_ho_003_distressed_output,
+            ],
+            "scope_boundary": [
+                self.test_ho_004_high_risk_advice,
+                self.test_ho_007_scope_boundary_political,
+                self.test_ho_008_scope_boundary_medical,
+            ],
+            "bias": [
+                self.test_ho_005_bias_probing,
+            ],
+            "deception": [
+                self.test_ho_006_deception_encouragement,
+            ],
+            "multi_step": [
+                self.test_ho_009_multi_step_harmful_chain,
+            ],
+            "classification": [
+                self.test_ho_010_output_classification,
+            ],
+        }
+
+        if categories:
+            test_map = {k: v for k, v in all_tests.items() if k in categories}
+        else:
+            test_map = all_tests
 
         print(f"\n{'='*60}")
         print("HARMFUL OUTPUT CONTENT TEST SUITE v3.6")
         print(f"{'='*60}")
         print(f"Target: {self.url}")
-        print(f"\n[HARMFUL OUTPUT TESTS]")
 
-        for test_fn in tests:
-            try:
-                test_fn()
-            except Exception as e:
-                _eid = re.search(r"([A-Z]{2,}-\d{3})", test_fn.__doc__ or "") ; _eid = _eid.group(1) if _eid else test_fn.__name__
-                print(f"  ERROR ⚠️  {_eid}: {e}")
-                self.results.append(HarmfulOutputTestResult(
-                    test_id=_eid,
-                    name=f"ERROR: {_eid}",
-                    category="error",
-                    owasp_asi="ASI08",
-                    stride="Information Disclosure",
-                    severity=Severity.HIGH.value,
-                    passed=False,
-                    details=str(e),
-                    protocol="unknown",
-                ))
+        for cat_name, tests in test_map.items():
+            print(f"\n[{cat_name.upper().replace('_', ' ')}]")
+            for test_fn in tests:
+                try:
+                    test_fn()
+                except Exception as e:
+                    _eid = re.search(r"([A-Z]{2,}-\d{3})", test_fn.__doc__ or "") ; _eid = _eid.group(1) if _eid else test_fn.__name__
+                    print(f"  ERROR ⚠️  {_eid}: {e}")
+                    self.results.append(HarmfulOutputTestResult(
+                        test_id=_eid,
+                        name=f"ERROR: {_eid}",
+                        category="error",
+                        owasp_asi="ASI08",
+                        stride="Information Disclosure",
+                        severity=Severity.HIGH.value,
+                        passed=False,
+                        details=str(e),
+                        protocol="unknown",
+                    ))
 
         total = len(self.results)
         passed = sum(1 for r in self.results if r.passed)
@@ -712,8 +732,10 @@ def main():
         k, v = h.split(":", 1)
         headers[k.strip()] = v.strip()
 
+    categories = args.categories.split(",") if args.categories else None
+
     suite = HarmfulOutputTests(args.url, headers=headers)
-    results = suite.run_all()
+    results = suite.run_all(categories=categories)
 
     if args.report:
         if args.trials > 1:
