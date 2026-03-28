@@ -14,11 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Agent identity metadata** per entry: `agent_card_url`, `operator_id`, `trust_score` for OATR integration
 - **Attestation report validation** utility (`protocol_tests/attestation.py`) with schema validation and v3.7-to-v3.8 migration
 - **v3.8 roadmap** (`docs/v3.8-roadmap.md`) with MoltBridge/TrustAgentAI mapping documentation
+- x402 `--method` and `--body` flags for POST-only payment endpoints (#58)
+- **MCP-012** Tool Description Oversized Check - detects descriptions exceeding 10KB threshold for context displacement
+- **MCP-013** Tool Description Padding / Repetition Detection - detects repeated phrases, whitespace padding, and low-entropy descriptions
 
 ### Fixed
 - `count_tests.py` now catches test IDs passed as function arguments (AIUC-F002a/b/c), adds 3 missing IDs
 - `count_tests.py` excludes synthetic `CVE-ERR` error-handler ID from count
-- Definitive test count corrected to **330** across 21 modules
+- Definitive test count corrected to **332** across 21 modules
 - `action.yml` parse-report step converted from shell-interpolated Python to heredoc+env pattern (no more `${REPORT}` injection)
 - `a2a_harness.py` `--trials` flag now wired into statistical report enhancement
 - `harmful_output_harness.py` `--categories` flag now filters tests by category
@@ -29,13 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Planned
 - OATR test fixtures for x402 identity verification (#51)
-- x402 `--method` and `--body` flags for POST-only payment endpoints (#58)
 - Subliminal bias propagation tests (#60)
 
 ## [3.7.0] - 2026-03-25
 
 ### Added
-- 330 security tests across 21 modules
+- 332 security tests across 21 modules
 - OATR fixture loader (`protocol_tests/oatr_fixtures.py`)
 - x402 payment flow harness with L402 interop
 - CVE-2026-25253 supply chain provenance tests
