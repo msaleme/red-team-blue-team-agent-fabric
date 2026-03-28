@@ -1,0 +1,194 @@
+name: Agent Security Scan
+
+on:
+  workflow_call:
+    inputs:
+      target_url:
+        description: 'MCP server URL to test'
+        required: true
+        type: string
+      transport:
+        description: 'Transport type: http or stdio'
+        required: false
+        type: string
+        default: 'http'
+      categories:
+        description: 'Comma-separated test categories (optional)'
+        required: false
+        type: string
+        default: ''
+      fail_on:
+        description: 'Fail threshold: any, critical, or none'
+        required: false
+        type: string
+        default: 'critical'
+      python_version:
+        description: 'Python version'
+        required: false
+        type: string
+        default: '3.12'
+      harness_version:
+        description: 'agent-security-harness PyPI version (empty for latest)'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  security-scan:
+    name: Agent Security Harness
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install agent-security-harness
+        run: |
+          if [ -n "${{ inputs.harness_version }}" ]; then
+            pip install "agent-security-harness==${{ inputs.harness_version }}"
+          else
+            pip install agent-security-harness
+          fi
+
+      - name: Run security harness
+        id: harness
+        run: |
+          REPORT_FILE="security-report.json"
+          CMD="python -m protocol_tests.mcp_harness --transport ${{ inputs.transport }} --url ${{ inputs.target_url }} --report ${REPORT_FILE}"
+
+          if [ -n "${{ inputs.categories }}" ]; then
+            CMD="${CMD} --categories ${{ inputs.categories }}"
+          fi
+
+          echo "Running: ${CMD}"
+          ${CMD} || true
+          echo "report_path=${REPORT_FILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Parse and summarize results
+        id: results
+        run: |
+          REPORT="${{ steps.harness.outputs.report_path }}"
+
+          if [ ! -f "${REPORT}" ]; then
+            echo "::error::Security report not found"
+            exit 1
+          fi
+
+          python3 << 'PARSE_EOF'
+          import json, os
+
+          with open("${{ steps.harness.outputs.report_path }}") as f:
+              report = json.load(f)
+
+          results = report.get("results", [])
+          summary = report.get("summary", {})
+
+          total = summary.get("total", len(results))
+          passed = summary.get("passed", sum(1 for t in results if t.get("status") == "PASS"))
+          failed = summary.get("failed", sum(1 for t in results if t.get("status") == "FAIL"))
+          critical = sum(1 for t in results if t.get("status") == "FAIL" and t.get("severity", "").lower() == "critical")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"total={total}\n")
+              out.write(f"passed={passed}\n")
+              out.write(f"failed={failed}\n")
+              out.write(f"critical={critical}\n")
+
+          # Build step summary
+          lines = [
+              "## 🛡️ Agent Security Harness Results\n",
+              f"| Metric | Count |",
+              f"|--------|-------|",
+              f"| Total Tests | {total} |",
+              f"| ✅ Passed | {passed} |",
+              f"| ❌ Failed | {failed} |",
+              f"| 🚨 Critical | {critical} |",
+              "",
+          ]
+
+          fails = [t for t in results if t.get("status") == "FAIL"]
+          if fails:
+              lines.append("### Failed Tests\n")
+              lines.append("| Test | Severity | Details |")
+              lines.append("|------|----------|---------|")
+              for t in fails:
+                  name = t.get("test_id", t.get("name", "unknown"))
+                  sev = t.get("severity", "unknown")
+                  detail = (t.get("detail", t.get("message", "")))[:80]
+                  lines.append(f"| `{name}` | {sev} | {detail} |")
+              lines.append("")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as ss:
+              ss.write("\n".join(lines))
+
+          # Also write a markdown file for PR comment use
+          with open("security-summary.md", "w") as md:
+              md.write("\n".join(lines))
+
+          PARSE_EOF
+
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('security-summary.md', 'utf8');
+            const body = summary + '\n\n---\n*Posted by [Agent Security Harness](https://github.com/msaleme/red-team-blue-team-agent-fabric)*';
+
+            // Find existing comment to update
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const marker = 'Posted by [Agent Security Harness]';
+            const existing = comments.find(c => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+            }
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-report
+          path: ${{ steps.harness.outputs.report_path }}
+          retention-days: 30
+
+      - name: Evaluate threshold
+        run: |
+          FAIL_ON="${{ inputs.fail_on }}"
+          FAILED="${{ steps.results.outputs.failed }}"
+          CRITICAL="${{ steps.results.outputs.critical }}"
+
+          if [ "${FAIL_ON}" = "any" ] && [ "${FAILED}" -gt 0 ]; then
+            echo "::error::${FAILED} test(s) failed (fail_on=any)"
+            exit 1
+          elif [ "${FAIL_ON}" = "critical" ] && [ "${CRITICAL}" -gt 0 ]; then
+            echo "::error::${CRITICAL} critical test(s) failed (fail_on=critical)"
+            exit 1
+          elif [ "${FAIL_ON}" = "none" ]; then
+            echo "Threshold set to 'none' - reporting only"
+          fi
+
+          echo "✅ Security scan passed (fail_on=${FAIL_ON})"

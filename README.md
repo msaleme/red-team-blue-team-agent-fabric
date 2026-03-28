@@ -510,6 +510,40 @@ This security testing framework is part of a broader research program on autonom
 
 ---
 
+## CI/CD Integration
+
+Use the Agent Security Harness as a GitHub Action to gate deployments on protocol-level security:
+
+```yaml
+# In your workflow
+- uses: msaleme/red-team-blue-team-agent-fabric@v3.8
+  with:
+    target_url: http://localhost:8080/mcp
+```
+
+Or call the reusable workflow:
+
+```yaml
+jobs:
+  security:
+    uses: msaleme/red-team-blue-team-agent-fabric/.github/workflows/security-scan.yml@v3.8
+    with:
+      target_url: http://localhost:8080/mcp
+      fail_on: critical  # any | critical | none
+```
+
+**Inputs:** `target_url` (required), `transport` (http/stdio), `categories` (filter), `fail_on` (threshold)
+
+**Features:**
+- Automatic PR comments with test results
+- Configurable fail thresholds (any/critical/none)
+- JSON report uploaded as workflow artifact
+- Step summary with pass/fail breakdown
+
+See [docs/github-action.md](docs/github-action.md) for full usage examples and configuration options.
+
+---
+
 ## Contributing
 
 We welcome contributions! Please see:
