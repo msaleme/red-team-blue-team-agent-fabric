@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/msaleme/red-team-blue-team-agent-fabric/schemas/attestation-report.json",
+  "title": "Agent Security Harness Attestation Report",
+  "description": "Machine-readable attestation report for agent security test results. Compatible with A2A OATR and consumable by MoltBridge, TrustAgentAI, and custom pipelines.",
+  "type": "object",
+  "required": ["schema_version", "harness_version", "suite", "timestamp", "summary", "entries"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Version of this attestation schema."
+    },
+    "harness_version": {
+      "type": "string",
+      "description": "Version of the agent-security-harness that generated this report.",
+      "examples": ["3.8.0"]
+    },
+    "suite": {
+      "type": "string",
+      "description": "Name of the test suite that was executed.",
+      "examples": ["MCP Protocol Security Tests v3.0"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of report generation."
+    },
+    "target": {
+      "type": "string",
+      "description": "URL or command of the system under test.",
+      "examples": ["http://localhost:8080/mcp"]
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total", "passed", "failed"],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of test entries."
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of entries with result 'pass'."
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of entries with result 'fail'."
+        },
+        "errored": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of entries with result 'error'."
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of entries with result 'skip'."
+        }
+      },
+      "additionalProperties": false
+    },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/attestation_entry" },
+      "description": "Individual test results with attestation metadata."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "attestation_entry": {
+      "type": "object",
+      "required": ["test_id", "category", "result", "severity", "scope", "timestamp"],
+      "properties": {
+        "test_id": {
+          "type": "string",
+          "description": "Unique test identifier.",
+          "examples": ["MCP-001", "A2A-005", "X4-021"]
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable test name.",
+          "examples": ["Tool List Integrity Check"]
+        },
+        "category": {
+          "type": "string",
+          "description": "Test category or grouping.",
+          "examples": ["tool_poisoning", "capability_escalation", "payment_flow"]
+        },
+        "result": {
+          "type": "string",
+          "enum": ["pass", "fail", "error", "skip"],
+          "description": "Test outcome."
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["P0-Critical", "P1-High", "P2-Medium", "P3-Low", "P4-Info"],
+          "description": "Severity classification of the finding."
+        },
+        "scope": {
+          "$ref": "#/$defs/scope",
+          "description": "Localization metadata - what was attacked and where."
+        },
+        "remediation": {
+          "$ref": "#/$defs/remediation",
+          "description": "Actionable fix information."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of this individual test execution."
+        },
+        "elapsed_s": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Wall-clock seconds for this test."
+        },
+        "agent_identity": {
+          "$ref": "#/$defs/agent_identity",
+          "description": "Identity metadata for the agent under test."
+        },
+        "protocol_version": {
+          "type": "string",
+          "description": "Wire protocol version tested.",
+          "examples": ["2024-11-05", "1.0"]
+        },
+        "owasp_asi": {
+          "type": "string",
+          "description": "OWASP Agentic Security Initiative mapping.",
+          "examples": ["ASI04", "ASI07"]
+        },
+        "statistical": {
+          "$ref": "#/$defs/statistical",
+          "description": "Statistical data when multiple trials were run."
+        },
+        "details": {
+          "description": "Free-form evidence or structured diagnostic data.",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "object" }
+          ]
+        },
+        "request_sent": {
+          "type": "object",
+          "description": "The request payload sent during the test (for evidence)."
+        },
+        "response_received": {
+          "type": "object",
+          "description": "The response payload received (for evidence)."
+        }
+      },
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "required": ["protocol", "layer"],
+      "properties": {
+        "protocol": {
+          "type": "string",
+          "enum": ["mcp", "a2a", "l402", "x402", "platform", "framework", "enterprise", "decision", "other"],
+          "description": "Which wire protocol or domain this test targets."
+        },
+        "layer": {
+          "type": "string",
+          "enum": ["protocol", "operational", "decision"],
+          "description": "Which of the three agent security layers this test covers."
+        },
+        "attack_type": {
+          "type": "string",
+          "description": "Human-readable attack classification.",
+          "examples": ["tool injection", "capability escalation", "receipt replay"]
+        },
+        "target_component": {
+          "type": "string",
+          "description": "Specific endpoint, method, or feature targeted.",
+          "examples": ["tools/call", "agent-card", "payment/verify"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "remediation": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Actionable remediation guidance in plain language."
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": "URLs to relevant specs, CVEs, OWASP entries, etc."
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["immediate", "next-release", "backlog"],
+          "description": "Triage priority hint."
+        }
+      },
+      "additionalProperties": false
+    },
+    "agent_identity": {
+      "type": "object",
+      "properties": {
+        "agent_card_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "A2A agent card URL for identity resolution."
+        },
+        "operator_id": {
+          "type": "string",
+          "description": "OATR operator identifier."
+        },
+        "trust_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Computed trust score (0-100)."
+        }
+      },
+      "additionalProperties": false
+    },
+    "statistical": {
+      "type": "object",
+      "properties": {
+        "trials": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of trial runs."
+        },
+        "pass_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Fraction of trials that passed (0.0-1.0)."
+        },
+        "confidence_interval": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "95% confidence interval [lower, upper]."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
