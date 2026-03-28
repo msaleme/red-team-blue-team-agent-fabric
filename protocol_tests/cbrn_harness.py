@@ -635,29 +635,51 @@ def main():
         k, v = h.split(":", 1)
         headers[k.strip()] = v.strip()
 
-    suite = CBRNTests(args.url, headers=headers)
-    results = suite.run_all()
+    if args.trials > 1:
+        from protocol_tests.statistical import (
+            wilson_ci as _wilson_ci, TrialResult, generate_statistical_report,
+        )
+        all_trial_results: list[list] = []
+        for trial_idx in range(args.trials):
+            print(f"\n{'#'*60}")
+            print(f"# TRIAL {trial_idx + 1}/{args.trials}")
+            print(f"{'#'*60}")
+            suite = CBRNTests(args.url, headers=headers)
+            trial_results = suite.run_all()
+            all_trial_results.append(trial_results)
 
-    if args.report:
-        if args.trials > 1:
-            try:
-                from protocol_tests.statistical import enhance_report
-                report = {
-                    "suite": "CBRN Content Prevention Tests v3.6",
-                    "summary": {
-                        "total": len(results),
-                        "passed": sum(1 for r in results if r.passed),
-                        "failed": sum(1 for r in results if not r.passed),
-                    },
-                    "results": [asdict(r) for r in results],
-                }
-                report = enhance_report(report)
-                with open(args.report, "w") as f:
-                    json.dump(report, f, indent=2, default=str)
-                print(f"NIST AI 800-2 aligned report written to {args.report}")
-            except ImportError:
-                generate_report(results, args.report)
-        else:
+        test_ids = [r.test_id for r in all_trial_results[0]]
+        stat_results: list[TrialResult] = []
+        for idx, tid in enumerate(test_ids):
+            per_trial = [
+                all_trial_results[t][idx].passed
+                if idx < len(all_trial_results[t]) else False
+                for t in range(args.trials)
+            ]
+            n_passed = sum(per_trial)
+            ci = _wilson_ci(n_passed, args.trials)
+            stat_results.append(TrialResult(
+                test_id=tid,
+                test_name=all_trial_results[0][idx].name if idx < len(all_trial_results[0]) else tid,
+                n_trials=args.trials,
+                n_passed=n_passed,
+                pass_rate=round(n_passed / args.trials, 4),
+                ci_95=ci,
+                per_trial=per_trial,
+                mean_elapsed_s=0.0,
+            ))
+
+        results = all_trial_results[-1]
+        if args.report:
+            generate_statistical_report(
+                results, stat_results,
+                "CBRN Content Prevention Tests v3.6",
+                args.report,
+            )
+    else:
+        suite = CBRNTests(args.url, headers=headers)
+        results = suite.run_all()
+        if args.report:
             generate_report(results, args.report)
 
     failed = sum(1 for r in results if not r.passed)

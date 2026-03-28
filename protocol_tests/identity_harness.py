@@ -91,12 +91,17 @@ def http_post(url, payload, headers=None, timeout=15):
 
 
 def http_get(url, headers=None, timeout=15):
-    hdrs = {"Accept": "application/json", **(headers or {})}
+    hdrs = {"Accept": "application/json"}
+    if headers:
+        for k, v in headers.items():
+            hdrs[k] = v
     req = urllib.request.Request(url, headers=hdrs, method="GET")
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = resp.read().decode("utf-8")
-            return {"_status": resp.status, **(json.loads(body) if body else {})}
+            result = json.loads(body) if body else {}
+            result["_status"] = resp.status
+            return result
     except urllib.error.HTTPError as e:
         body = ""
         try: body = e.read().decode("utf-8")[:500]
@@ -880,6 +885,8 @@ def main():
     ap.add_argument("--run", action="store_true", help="Run tests")
     ap.add_argument("--report", help="Output JSON report path")
     ap.add_argument("--header", action="append", default=[])
+    ap.add_argument("--trials", type=int, default=1,
+                    help="Run each test N times for statistical analysis (NIST AI 800-2)")
     args = ap.parse_args()
 
     headers = {}
@@ -889,12 +896,54 @@ def main():
 
     categories = args.categories.split(",") if args.categories else None
 
-    suite = IdentitySecurityTests(args.url, headers=headers)
-
     if args.run:
-        results = suite.run_all(categories=categories)
-        if args.report:
-            generate_report(results, args.report)
+        if args.trials > 1:
+            from protocol_tests.statistical import (
+                wilson_ci, TrialResult, generate_statistical_report,
+            )
+            all_trial_results: list[list] = []
+            for trial_idx in range(args.trials):
+                print(f"\n{'#'*60}")
+                print(f"# TRIAL {trial_idx + 1}/{args.trials}")
+                print(f"{'#'*60}")
+                suite = IdentitySecurityTests(args.url, headers=headers)
+                trial_results = suite.run_all(categories=categories)
+                all_trial_results.append(trial_results)
+
+            test_ids = [r.test_id for r in all_trial_results[0]]
+            stat_results: list[TrialResult] = []
+            for idx, tid in enumerate(test_ids):
+                per_trial = [
+                    all_trial_results[t][idx].passed
+                    if idx < len(all_trial_results[t]) else False
+                    for t in range(args.trials)
+                ]
+                n_passed = sum(per_trial)
+                ci = wilson_ci(n_passed, args.trials)
+                stat_results.append(TrialResult(
+                    test_id=tid,
+                    test_name=all_trial_results[0][idx].name if idx < len(all_trial_results[0]) else tid,
+                    n_trials=args.trials,
+                    n_passed=n_passed,
+                    pass_rate=round(n_passed / args.trials, 4),
+                    ci_95=ci,
+                    per_trial=per_trial,
+                    mean_elapsed_s=0.0,
+                ))
+
+            results = all_trial_results[-1]
+            if args.report:
+                generate_statistical_report(
+                    results, stat_results,
+                    "Agent Identity & Authorization Security Tests v3.0",
+                    args.report,
+                )
+        else:
+            suite = IdentitySecurityTests(args.url, headers=headers)
+            results = suite.run_all(categories=categories)
+            if args.report:
+                generate_report(results, args.report)
+
         failed = sum(1 for r in results if not r.passed)
         sys.exit(1 if failed > 0 else 0)
     else:

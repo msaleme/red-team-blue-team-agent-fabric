@@ -999,6 +999,17 @@ def main():
 
     categories = args.categories.split(",") if args.categories else None
 
+    def _make_transport():
+        """Create a fresh transport instance to avoid state bleed between trials."""
+        if args.transport == "http":
+            hdrs = {}
+            for h in args.header:
+                k, v = h.split(":", 1)
+                hdrs[k.strip()] = v.strip()
+            return StreamableHTTPTransport(args.url, headers=hdrs)
+        else:
+            return StdioTransport(args.command.split())
+
     if args.trials > 1:
         # Multi-trial statistical mode: run the full suite N times
         from protocol_tests.statistical import (
@@ -1010,13 +1021,14 @@ def main():
             print(f"\n{'#'*60}")
             print(f"# TRIAL {trial_idx + 1}/{args.trials}")
             print(f"{'#'*60}")
-            suite = MCPSecurityTests(transport)
+            # Fresh transport per trial to avoid session state bleed (#66)
+            trial_transport = _make_transport()
+            suite = MCPSecurityTests(trial_transport)
             try:
                 trial_results = suite.run_all(categories=categories)
             finally:
-                pass  # keep transport open for next trial
+                trial_transport.close()
             all_trial_results.append(trial_results)
-        transport.close()
 
         # Build per-test statistical aggregates
         # Use test_id from first trial as reference
