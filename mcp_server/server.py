@@ -12,8 +12,11 @@ Requires: pip install mcp>=1.0.0
 
 from __future__ import annotations
 
+import hmac
 import json
+import logging
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -24,6 +27,18 @@ from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
+
+# ---------------------------------------------------------------------------
+# Logging (server-side only, never exposed to clients)
+# ---------------------------------------------------------------------------
+
+_log = logging.getLogger("mcp_server")
+_log_handler = logging.FileHandler(
+    os.environ.get("MCP_SERVER_LOG", "/dev/null"), mode="a"
+)
+_log_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+_log.addHandler(_log_handler)
+_log.setLevel(logging.DEBUG)
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -39,15 +54,53 @@ sys.path.insert(0, str(REPO_ROOT))
 from scripts.free_scan import validate_url  # noqa: E402
 
 # ---------------------------------------------------------------------------
-# Rate limiter (per-client, for HTTP mode)
+# Auth helper (#98 - enforce API key auth)
 # ---------------------------------------------------------------------------
 
-_rate_limit_store: dict[str, float] = defaultdict(float)
+_api_key: str | None = None
+
+# Max payload size for report_json inputs (10 MB)
+_MAX_REPORT_SIZE = 10_000_000
+
+
+def _check_auth(ctx: dict) -> bool:
+    """Enforce API key authentication for protected tools.
+
+    Returns True if auth passes. Raises ValueError on failure.
+    If no API key is configured server-side, all requests are allowed.
+    """
+    if not _api_key:
+        return True  # No key configured, allow all
+
+    # Check for key in tool params or environment
+    provided_key = ctx.get("api_key", "") or os.environ.get(
+        "AGENT_SECURITY_CLIENT_KEY", ""
+    )
+    if not provided_key or not hmac.compare_digest(provided_key, _api_key):
+        raise ValueError("Invalid or missing API key")
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Rate limiter - per-client (#102)
+# ---------------------------------------------------------------------------
+
+_rate_limit_store: dict[str, float] = {}
 RATE_LIMIT_SECONDS = 60
+_RATE_LIMIT_TTL = 300  # Clean entries older than 5 minutes
+
+
+def _clean_rate_limits() -> None:
+    """Remove stale rate-limit entries older than TTL."""
+    now = time.time()
+    stale = [k for k, v in _rate_limit_store.items() if now - v > _RATE_LIMIT_TTL]
+    for k in stale:
+        del _rate_limit_store[k]
 
 
 def _check_rate_limit(client_id: str = "default") -> str | None:
     """Return an error message if rate-limited, else None."""
+    _clean_rate_limits()
     now = time.time()
     last = _rate_limit_store.get(client_id, 0.0)
     if now - last < RATE_LIMIT_SECONDS:
@@ -61,8 +114,18 @@ def _check_rate_limit(client_id: str = "default") -> str | None:
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _safe_error(e: Exception) -> str:
+    """Return error message without file paths (#106)."""
+    msg = str(e)
+    msg = re.sub(r"/[^\s:]+/", "<path>/", msg)
+    return msg
+
+
 def _run_subprocess(cmd: list[str], timeout: int = 300) -> tuple[int, str, str]:
-    """Run a subprocess rooted at REPO_ROOT and return (returncode, stdout, stderr)."""
+    """Run a subprocess rooted at REPO_ROOT and return (returncode, stdout, stderr).
+
+    stderr is captured but only logged server-side, never returned to clients (#100).
+    """
     result = subprocess.run(
         cmd,
         capture_output=True,
@@ -70,6 +133,8 @@ def _run_subprocess(cmd: list[str], timeout: int = 300) -> tuple[int, str, str]:
         timeout=timeout,
         cwd=str(REPO_ROOT),
     )
+    if result.stderr:
+        _log.warning("Subprocess stderr for %s: %s", cmd[0], result.stderr)
     return result.returncode, result.stdout, result.stderr
 
 
@@ -87,8 +152,6 @@ def _validate_url_input(url: str) -> dict | None:
 # Server factory
 # ---------------------------------------------------------------------------
 
-_api_key: str | None = None
-
 
 def create_server(api_key: str | None = None) -> FastMCP:
     """Create and configure the MCP server with all tools registered."""
@@ -105,7 +168,7 @@ def create_server(api_key: str | None = None) -> FastMCP:
     )
 
     # ------------------------------------------------------------------
-    # Tool 1: scan_mcp_server
+    # Tool 1: scan_mcp_server (unauthenticated - free tier)
     # ------------------------------------------------------------------
 
     @mcp.tool()
@@ -125,12 +188,12 @@ def create_server(api_key: str | None = None) -> FastMCP:
             dict with keys: grade, tests_passed, tests_run, results,
             recommendation, scan_time, target_url, timestamp.
         """
-        # Rate limit
+        # Rate limit (per-client)
         rate_err = _check_rate_limit("scan")
         if rate_err:
             return {"error": rate_err}
 
-        # Validate URL
+        # Validate URL (#99 - SSRF protection)
         url_err = _validate_url_input(url)
         if url_err:
             return url_err
@@ -142,14 +205,15 @@ def create_server(api_key: str | None = None) -> FastMCP:
             report["scan_time"] = round(time.time() - start, 2)
             return report
         except Exception as e:
+            _log.exception("scan_mcp_server failed")
             return {
-                "error": f"Scan failed: {str(e)}",
+                "error": "Scan failed. Check server logs for details.",
                 "target_url": url,
                 "scan_time": round(time.time() - start, 2),
             }
 
     # ------------------------------------------------------------------
-    # Tool 2: full_security_audit
+    # Tool 2: full_security_audit (requires auth)
     # ------------------------------------------------------------------
 
     @mcp.tool()
@@ -158,6 +222,8 @@ def create_server(api_key: str | None = None) -> FastMCP:
         protocol: str = "mcp",
         categories: str = "",
         trials: int = 1,
+        transport: str = "http",
+        api_key: str = "",
     ) -> dict:
         """Full security audit with attestation report.
 
@@ -171,22 +237,26 @@ def create_server(api_key: str | None = None) -> FastMCP:
                         Empty string runs all categories.
             trials: Number of test trials (default 1). Higher values improve
                     statistical confidence for flaky tests.
+            transport: Transport type - 'http' for Streamable HTTP (default),
+                       'stdio' for stdio-based servers.
+            api_key: API key for authentication (required when server is configured with --api-key).
 
         Returns:
             Full attestation report dict with summary, per-test entries,
             scope annotations, and remediation guidance.
         """
-        # Auth check
-        if _api_key:
-            # In HTTP mode the API key is checked; in stdio mode we skip
-            pass  # Auth is handled at transport level if needed
+        # Auth check (#98)
+        try:
+            _check_auth({"api_key": api_key})
+        except ValueError as e:
+            return {"error": str(e)}
 
-        # Rate limit
-        rate_err = _check_rate_limit("audit")
+        # Rate limit (per-client)
+        rate_err = _check_rate_limit(f"audit:{api_key or 'anon'}")
         if rate_err:
             return {"error": rate_err}
 
-        # Validate URL
+        # Validate URL (#99 - SSRF protection)
         url_err = _validate_url_input(url)
         if url_err:
             return url_err
@@ -198,9 +268,19 @@ def create_server(api_key: str | None = None) -> FastMCP:
         if trials < 1 or trials > 10:
             return {"error": "trials must be between 1 and 10."}
 
+        valid_transports = {"http", "stdio"}
+        if transport not in valid_transports:
+            return {"error": f"Invalid transport '{transport}'. Choose from: {', '.join(sorted(valid_transports))}"}
+
         start = time.time()
+        report_path = None
         try:
-            with tempfile.NamedTemporaryFile(suffix=".json", delete=False, dir=str(REPO_ROOT / "reports")) as tmp:
+            # Ensure reports/ directory exists (#104)
+            os.makedirs(str(REPO_ROOT / "reports"), exist_ok=True)
+
+            with tempfile.NamedTemporaryFile(
+                suffix=".json", delete=False, dir=str(REPO_ROOT / "reports")
+            ) as tmp:
                 report_path = tmp.name
 
             cmd = [
@@ -208,6 +288,7 @@ def create_server(api_key: str | None = None) -> FastMCP:
                 "test", protocol,
                 "--url", url,
                 "--report", report_path,
+                "--transport", transport,
             ]
             if categories:
                 cmd.extend(["--categories", categories])
@@ -216,30 +297,42 @@ def create_server(api_key: str | None = None) -> FastMCP:
 
             rc, stdout, stderr = _run_subprocess(cmd, timeout=300)
 
-            if os.path.exists(report_path):
+            if report_path and os.path.exists(report_path):
                 with open(report_path) as f:
                     report = json.load(f)
-                os.unlink(report_path)
                 report["scan_time"] = round(time.time() - start, 2)
                 return report
             else:
+                # (#100) Don't leak stderr to client
                 return {
-                    "error": "Audit completed but no report was generated.",
+                    "error": "Audit completed but no report was generated. Check server logs for details.",
                     "returncode": rc,
-                    "stderr": stderr[:500] if stderr else "",
                     "scan_time": round(time.time() - start, 2),
                 }
         except subprocess.TimeoutExpired:
             return {"error": "Audit timed out after 300s.", "target_url": url}
         except Exception as e:
-            return {"error": f"Audit failed: {str(e)}", "target_url": url}
+            _log.exception("full_security_audit failed")
+            return {
+                "error": "Audit failed. Check server logs for details.",
+                "target_url": url,
+            }
+        finally:
+            # (#103) Clean up temp file
+            if report_path:
+                try:
+                    os.unlink(report_path)
+                except OSError:
+                    pass
 
     # ------------------------------------------------------------------
-    # Tool 3: aiuc1_readiness
+    # Tool 3: aiuc1_readiness (requires auth)
     # ------------------------------------------------------------------
 
     @mcp.tool()
-    def aiuc1_readiness(url: str = "", report_json: str = "") -> dict:
+    def aiuc1_readiness(
+        url: str = "", report_json: str = "", api_key: str = ""
+    ) -> dict:
         """AIUC-1 certification readiness assessment.
 
         Evaluates readiness for AIUC-1 (AI Agent Certification) by mapping
@@ -251,16 +344,27 @@ def create_server(api_key: str | None = None) -> FastMCP:
                  OR report_json, not both.
             report_json: Pre-existing attestation report as a JSON string.
                          Useful for evaluating previously-generated reports.
+            api_key: API key for authentication (required when server is configured with --api-key).
 
         Returns:
             dict with readiness_score, per-requirement status, gap_analysis,
             grade, and recommendations.
         """
+        # Auth check (#98)
+        try:
+            _check_auth({"api_key": api_key})
+        except ValueError as e:
+            return {"error": str(e)}
+
         if not url and not report_json:
             return {"error": "Provide either 'url' (to scan) or 'report_json' (pre-existing report)."}
 
         if url and report_json:
             return {"error": "Provide either 'url' or 'report_json', not both."}
+
+        # (#101) Size limit on report_json
+        if report_json and len(report_json) > _MAX_REPORT_SIZE:
+            return {"error": "Report exceeds 10MB limit"}
 
         start = time.time()
 
@@ -279,17 +383,17 @@ def create_server(api_key: str | None = None) -> FastMCP:
                 try:
                     report_data = json.loads(report_json)
                 except json.JSONDecodeError as e:
-                    return {"error": f"Invalid JSON in report_json: {e}"}
+                    return {"error": f"Invalid JSON in report_json: {_safe_error(e)}"}
 
                 all_results = report_data.get("entries", report_data.get("results", []))
                 target = report_data.get("target", "pre-existing report")
             else:
-                # Validate URL and run harness
+                # Validate URL (#99 - SSRF protection)
                 url_err = _validate_url_input(url)
                 if url_err:
                     return url_err
 
-                rate_err = _check_rate_limit("aiuc1")
+                rate_err = _check_rate_limit(f"aiuc1:{api_key or 'anon'}")
                 if rate_err:
                     return {"error": rate_err}
 
@@ -363,10 +467,11 @@ def create_server(api_key: str | None = None) -> FastMCP:
             }
 
         except Exception as e:
-            return {"error": f"AIUC-1 readiness check failed: {str(e)}"}
+            _log.exception("aiuc1_readiness failed")
+            return {"error": "AIUC-1 readiness check failed. Check server logs for details."}
 
     # ------------------------------------------------------------------
-    # Tool 4: get_test_catalog
+    # Tool 4: get_test_catalog (unauthenticated - free tier)
     # ------------------------------------------------------------------
 
     @mcp.tool()
@@ -441,7 +546,8 @@ def create_server(api_key: str | None = None) -> FastMCP:
             }
 
         except Exception as e:
-            return {"error": f"Failed to load test catalog: {str(e)}"}
+            _log.exception("get_test_catalog failed")
+            return {"error": "Failed to load test catalog. Check server logs for details."}
 
     # ------------------------------------------------------------------
     # Tool 5: validate_attestation
@@ -461,12 +567,20 @@ def create_server(api_key: str | None = None) -> FastMCP:
             dict with 'valid' (bool), 'errors' (list of error strings),
             and 'schema_version'.
         """
+        # (#101) Size limit on report_json
+        if len(report_json) > _MAX_REPORT_SIZE:
+            return {
+                "valid": False,
+                "errors": ["Report exceeds 10MB limit"],
+                "schema_version": "1.0.0",
+            }
+
         try:
             report = json.loads(report_json)
         except json.JSONDecodeError as e:
             return {
                 "valid": False,
-                "errors": [f"Invalid JSON: {str(e)}"],
+                "errors": [f"Invalid JSON: {_safe_error(e)}"],
                 "schema_version": "1.0.0",
             }
 
@@ -479,9 +593,10 @@ def create_server(api_key: str | None = None) -> FastMCP:
                 "schema_version": SCHEMA_VERSION,
             }
         except Exception as e:
+            _log.exception("validate_attestation failed")
             return {
                 "valid": False,
-                "errors": [f"Validation failed: {str(e)}"],
+                "errors": ["Validation failed. Check server logs for details."],
                 "schema_version": "1.0.0",
             }
 
