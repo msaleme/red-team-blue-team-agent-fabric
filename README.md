@@ -29,7 +29,7 @@ A fast-emerging example is **agentic payments and stablecoin settlement**, where
 
 ## What This Repo Provides
 
-This framework provides **332 executable security tests across 21 modules**, including:
+This framework provides **332 executable security tests across 24 modules**, including:
 
 - application-layer attack scenarios
 - MCP and A2A wire-protocol harnesses
@@ -71,6 +71,19 @@ Decision governance tells you the agent is right.
 Both are necessary.
 
 ---
+
+## What's New in v3.8
+
+- **Attestation JSON Schema** (`schemas/attestation-report.json`) - machine-readable report format for CI/CD and compliance pipelines
+- **GitHub Action for CI/CD** - gate deployments on protocol-level security ([details below](#cicd-integration))
+- **Free MCP Security Scan** (`scripts/free_scan.py`) - quick 5-test scan with A-F grading
+- **Monthly Agent Security Report** (`scripts/monthly_security_report.py`) - automated trend tracking and executive summaries
+- **AIUC-1 Certification Prep** (`scripts/aiuc1_prep.py`) - maps test results to all 24 AIUC-1 requirements with gap analysis
+- **Discord Security Scan Bot** (`scripts/discord_scan_bot.py`) - run scans directly from Discord
+- **Shared `trial_runner`** - real multi-trial statistical testing across all harness modules
+
+---
+
 ## Quick Start
 
 ### Installation
@@ -125,7 +138,7 @@ agent-security test a2a --url https://agent.example.com --delay 2000
 ### Example Output
 ```bash
 $ agent-security test mcp --url http://localhost:8080/mcp
-Running MCP Protocol Security Tests v3.7...
+Running MCP Protocol Security Tests v3.8...
 ✓ MCP-001: Tool List Integrity Check [PASS] (0.234s)
 ✓ MCP-002: Tool Registration via Call Injection [PASS] (0.412s)
 ✗ MCP-003: Capability Escalation via Initialize [FAIL] (0.156s)
@@ -147,7 +160,7 @@ Results: 8/10 passed (80% pass rate) - see report.json
 
 ## Feature Overview
 
-### 21 Test Harness Modules
+### 24 Test Harness Modules
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|
@@ -172,7 +185,7 @@ Results: 8/10 passed (80% pass rate) - see report.json
 | **AIUC-1 Compliance** | 12 | Agent Safety | Incident response, CBRN prevention, harmful content, scope creep, authority impersonation |
 | **Cloud Agent Platforms** | 25 | Platform APIs | AWS Bedrock, Azure AI Agent Service, Google Vertex, Salesforce Agentforce, IBM watsonx |
 
-**Total: 332 security tests across 21 modules** (verified by `scripts/count_tests.py`)
+**Total: 332 security tests across 24 modules** (verified by `scripts/count_tests.py`)
 
 ### Key Capabilities
 
@@ -360,7 +373,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
-| **B001** | Third-party adversarial robustness testing | **332 tests** across 4 wire protocols, 21 modules. Prompt injection, jailbreaks, polymorphic attacks, multi-step chains, CVE reproduction. |
+| **B001** | Third-party adversarial robustness testing | **332 tests** across 4 wire protocols, 24 modules. Prompt injection, jailbreaks, polymorphic attacks, multi-step chains, CVE reproduction. |
 | **B002** | Detect adversarial input | MCP tool injection (MCP-001-010), A2A message spoofing (A2A-001-012), prompt injection via operational data (APP-001-030) |
 | **B005** | Real-time input filtering | Filter bypass via encoding tricks, nested injection, polymorphic payloads, context displacement (ADV-001-010) |
 | **B009** | Limit output over-exposure | Information leakage detection, output exfiltration tests, API key regex scanning |
@@ -544,6 +557,26 @@ jobs:
 - Step summary with pass/fail breakdown
 
 See [docs/github-action.md](docs/github-action.md) for full usage examples and configuration options.
+
+---
+
+## Free MCP Security Scan
+
+Quick 5-test scan with A-F grading:
+
+```bash
+python scripts/free_scan.py --url http://server:port/mcp --format markdown
+```
+
+---
+
+## AIUC-1 Certification Prep
+
+```bash
+python scripts/aiuc1_prep.py --url http://your-agent --simulate
+```
+
+Maps results to all 24 AIUC-1 requirements with gap analysis.
 
 ---
 
