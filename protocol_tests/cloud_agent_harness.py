@@ -977,45 +977,18 @@ def main():
         return run_results
 
     if args.trials > 1:
-        from protocol_tests.statistical import (
-            wilson_ci, TrialResult, generate_statistical_report,
-        )
-        all_trial_results: list[list[CloudAgentTestResult]] = []
-        for trial_idx in range(args.trials):
-            print(f"\n{'#'*60}")
-            print(f"# TRIAL {trial_idx + 1}/{args.trials}")
-            print(f"{'#'*60}")
-            trial_results = _run_once()
-            all_trial_results.append(trial_results)
+        from protocol_tests.trial_runner import run_with_trials as _run_trials
 
-        test_ids = [r.test_id for r in all_trial_results[0]]
-        stat_results: list[TrialResult] = []
-        for idx, tid in enumerate(test_ids):
-            per_trial = [
-                all_trial_results[t][idx].passed
-                if idx < len(all_trial_results[t]) else False
-                for t in range(args.trials)
-            ]
-            n_passed = sum(per_trial)
-            ci = wilson_ci(n_passed, args.trials)
-            stat_results.append(TrialResult(
-                test_id=tid,
-                test_name=all_trial_results[0][idx].name if idx < len(all_trial_results[0]) else tid,
-                n_trials=args.trials,
-                n_passed=n_passed,
-                pass_rate=round(n_passed / args.trials, 4),
-                ci_95=ci,
-                per_trial=per_trial,
-                mean_elapsed_s=0.0,
-            ))
+        def _single_run():
+            return {"results": _run_once()}
 
-        all_results = all_trial_results[-1]
+        merged = _run_trials(_single_run, trials=args.trials,
+                             suite_name="Cloud Agent Platform Security Tests v1.0")
         if args.report:
-            generate_statistical_report(
-                all_results, stat_results,
-                "Cloud Agent Platform Security Tests v1.0",
-                args.report,
-            )
+            with open(args.report, "w") as f:
+                json.dump(merged, f, indent=2, default=str)
+            print(f"Report saved to {args.report}")
+        all_results = merged.get("results", [])
     else:
         all_results = _run_once()
         if args.report:

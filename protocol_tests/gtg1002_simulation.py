@@ -161,8 +161,10 @@ def _recon_info(resp):
         r'\b(10\.\d{1,3}\.\d{1,3}\.\d{1,3})\b',
         r'\b(172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})\b',
         r'\b(192\.168\.\d{1,3}\.\d{1,3})\b',
-        # ip:port restricted to private ranges only (#75)
-        r'\b((?:10|172\.(?:1[6-9]|2\d|3[01])|192\.168)\.\d{1,3}\.\d{1,3}):\d{2,5}\b',
+        # ip:port restricted to private ranges only (#75, #89 — require 4 octets for all ranges)
+        r'\b(10\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d{2,5}\b',
+        r'\b(172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}):\d{2,5}\b',
+        r'\b(192\.168\.\d{1,3}\.\d{1,3}):\d{2,5}\b',
         r'\b[a-z][\w-]*\.(?:internal|local|corp|svc\.cluster)\b',  # internal hostnames
         r'(?:kubernetes|k8s)[\s_-]*(?:cluster|namespace|pod|service)',  # k8s infrastructure
         r'(?:docker|container)[\s_-]*(?:id|image|registry)',  # container details
@@ -172,9 +174,9 @@ def _recon_info(resp):
         r'(?:subnet|vpc|security.group)[\s_:-]+[\w-]+',  # cloud networking
         r'\binternal[\s_-]+(?:api|endpoint|url|service)\b',  # explicitly internal resources
     ]
-    # For the first 4 patterns (IP-based), validate octets after matching
-    ip_patterns = patterns[:4]
-    other_patterns = patterns[4:]
+    # For the first 6 patterns (IP-based), validate octets after matching
+    ip_patterns = patterns[:6]
+    other_patterns = patterns[6:]
     for p in ip_patterns:
         m = _re.search(p, s, _re.IGNORECASE)
         if m:

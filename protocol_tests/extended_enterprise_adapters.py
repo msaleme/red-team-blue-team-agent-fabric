@@ -791,46 +791,20 @@ def main():
         print(f"{'='*60}")
 
         if args.trials > 1:
-            from protocol_tests.statistical import (
-                wilson_ci, TrialResult, generate_statistical_report,
-            )
-            all_trial_results: list[list] = []
-            for trial_idx in range(args.trials):
-                print(f"\n{'#'*60}")
-                print(f"# TRIAL {trial_idx + 1}/{args.trials}")
-                print(f"{'#'*60}")
+            from protocol_tests.trial_runner import run_with_trials as _run_trials
+
+            def _single_run():
                 adapter = cls(args.url, headers=headers)
-                trial_results = adapter.run_tests()
-                all_trial_results.append(trial_results)
+                return {"results": adapter.run_tests()}
 
-            test_ids = [r.test_id for r in all_trial_results[0]]
-            stat_results: list[TrialResult] = []
-            for idx, tid in enumerate(test_ids):
-                per_trial = [
-                    all_trial_results[t][idx].passed
-                    if idx < len(all_trial_results[t]) else False
-                    for t in range(args.trials)
-                ]
-                n_passed = sum(per_trial)
-                ci = wilson_ci(n_passed, args.trials)
-                stat_results.append(TrialResult(
-                    test_id=tid,
-                    test_name=all_trial_results[0][idx].name if idx < len(all_trial_results[0]) else tid,
-                    n_trials=args.trials,
-                    n_passed=n_passed,
-                    pass_rate=round(n_passed / args.trials, 4),
-                    ci_95=ci,
-                    per_trial=per_trial,
-                    mean_elapsed_s=0.0,
-                ))
-
-            results = all_trial_results[-1]
+            merged = _run_trials(_single_run, trials=args.trials,
+                                 suite_name=f"Extended Enterprise Security Tests - {cls.description}")
             if args.report:
-                generate_statistical_report(
-                    results, stat_results,
-                    f"Extended Enterprise Security Tests - {cls.description}",
-                    args.report,
-                )
+                import json as _json
+                with open(args.report, "w") as f:
+                    _json.dump(merged, f, indent=2, default=str)
+                print(f"Report written to {args.report}")
+            results = merged.get("results", [])
         else:
             adapter = cls(args.url, headers=headers)
             results = adapter.run_tests()
