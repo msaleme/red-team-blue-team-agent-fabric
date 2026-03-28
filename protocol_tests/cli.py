@@ -20,6 +20,7 @@ Usage:
 
 from __future__ import annotations
 
+import os
 import sys
 import importlib
 
@@ -189,6 +190,30 @@ def main():
             print("Use 'agent-security list <harness>' to see individual tests.")
         sys.exit(0)
 
+    if args[0] == "config":
+        # Handle config subcommands (e.g. --no-telemetry)
+        if "--no-telemetry" in args:
+            from pathlib import Path
+            import json as _json
+            cfg_dir = Path.home() / ".agent-security"
+            cfg_dir.mkdir(parents=True, exist_ok=True)
+            cfg_file = cfg_dir / "telemetry.json"
+            cfg_file.write_text(_json.dumps({"enabled": False}, indent=2) + "\n")
+            print("Telemetry disabled. Config written to ~/.agent-security/telemetry.json")
+            sys.exit(0)
+        elif "--telemetry" in args:
+            from pathlib import Path
+            import json as _json
+            cfg_dir = Path.home() / ".agent-security"
+            cfg_dir.mkdir(parents=True, exist_ok=True)
+            cfg_file = cfg_dir / "telemetry.json"
+            cfg_file.write_text(_json.dumps({"enabled": True}, indent=2) + "\n")
+            print("Telemetry enabled.")
+            sys.exit(0)
+        else:
+            print("Usage: agent-security config [--no-telemetry | --telemetry]")
+            sys.exit(1)
+
     if args[0] == "test":
         if len(args) < 2:
             print("Error: specify a harness name. Use 'agent-security list' to see options.")
@@ -201,9 +226,10 @@ def main():
             sys.exit(1)
 
         info = HARNESSES[harness_name]
-        # Extract --delay/--delay-ms before passing to harness (not all harnesses support it)
+        # Extract --delay/--delay-ms and --no-telemetry before passing to harness
         harness_args = args[2:]
         delay_ms = 0
+        no_telemetry = False
         filtered_args = []
         i = 0
         while i < len(harness_args):
@@ -213,12 +239,18 @@ def main():
                 except ValueError:
                     pass
                 i += 2  # Skip flag + value
+            elif harness_args[i] == "--no-telemetry":
+                no_telemetry = True
+                i += 1
             else:
                 filtered_args.append(harness_args[i])
                 i += 1
 
+        # CLI --no-telemetry flag (path 3 for opt-out)
+        if no_telemetry:
+            os.environ["AGENT_SECURITY_TELEMETRY"] = "off"
+
         if delay_ms > 0:
-            import os
             os.environ["AGENT_SECURITY_DELAY_MS"] = str(delay_ms)
             print(f"[Delay: {delay_ms}ms between tests]")
 
@@ -226,6 +258,20 @@ def main():
 
         import runpy
         runpy.run_module(info["module"], run_name="__main__")
+
+        # Send anonymous telemetry after harness completes.
+        # NOTE: telemetry is imported HERE (not at module top) to keep it
+        # isolated from modules that handle URLs and payloads.
+        # Pass/fail counts aren't available from runpy, so we send module-level stats.
+        # The telemetry module handles opt-out checks internally.
+        try:
+            from protocol_tests.telemetry import send_telemetry_event
+            # runpy doesn't return results, so we report the run happened.
+            # Individual harnesses can call send_telemetry_event with exact counts.
+            send_telemetry_event(module=harness_name, tests=0, passed=0, failed=0)
+        except Exception:
+            pass  # Telemetry must never break the CLI
+
         sys.exit(0)
 
     print(f"Error: unknown command '{args[0]}'")

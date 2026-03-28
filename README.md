@@ -629,6 +629,21 @@ Maps results to all 24 AIUC-1 requirements with gap analysis.
 
 ---
 
+## Privacy & Telemetry
+
+This tool runs entirely on your machine. No test results, target URLs,
+or sensitive data are ever transmitted.
+
+Anonymous usage statistics (version, module names, pass/fail counts) help
+us improve the framework. No identifying information is included.
+
+**Opt out:** `export AGENT_SECURITY_TELEMETRY=off`
+
+**We built a security testing tool. We understand the trust that requires.**
+Full details: [docs/PRIVACY.md](docs/PRIVACY.md) | Attestation registry: [docs/attestation-registry.md](docs/attestation-registry.md)
+
+---
+
 ## Contributing
 
 We welcome contributions! Please see:
