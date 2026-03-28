@@ -41,11 +41,11 @@ HARNESSES = {
     },
     "x402": {
         "module": "protocol_tests.x402_harness",
-        "description": "x402 payment protocol security tests (20 tests, Coinbase/Stripe agent payments)",
+        "description": "x402 payment protocol security tests (25 tests, Coinbase/Stripe agent payments)",
     },
     "enterprise": {
         "module": "protocol_tests.enterprise_adapters",
-        "description": "Enterprise platform adapters (30 tests, 9 platforms)",
+        "description": "Enterprise platform adapters (31 tests, 9 platforms)",
     },
     "extended-enterprise": {
         "module": "protocol_tests.extended_enterprise_adapters",
@@ -116,7 +116,7 @@ HARNESSES = {
 
 def print_usage():
     print(f"Agent Security Harness v{VERSION}")
-    print(f"367 security tests for AI agent systems")
+    print(f"343 security tests for AI agent systems")
     print()
     print("Usage:")
     print("  agent-security test <harness> [options]    Run a test harness")
@@ -148,7 +148,7 @@ def main():
 
     if args[0] == "version":
         print(f"agent-security-harness v{VERSION}")
-        print(f"Tests: 367 across {len(HARNESSES)} harness modules")
+        print(f"Tests: 343 across {len(HARNESSES)} harness modules")
         print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402, x402")
         print(f"Platforms: 25 cloud + 20 enterprise adapters")
         print(f"Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF, AIUC-1")
@@ -218,10 +218,9 @@ def main():
                 i += 1
 
         if delay_ms > 0:
-            import time
-            original_run_module = __import__("runpy").run_module
+            import os
+            os.environ["AGENT_SECURITY_DELAY_MS"] = str(delay_ms)
             print(f"[Delay: {delay_ms}ms between tests]")
-            # Note: delay is applied at CLI level for harnesses that don't natively support it
 
         sys.argv = [info["module"]] + filtered_args
 

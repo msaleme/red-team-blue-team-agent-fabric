@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import math
 import sys
 import time
@@ -29,7 +30,6 @@ import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
-import urllib.parse
 import urllib.request
 
 
@@ -232,6 +232,7 @@ class CapabilityProfileTests:
                 "parts": [{"kind": "text", "text": text}],
             }
         })
+        self._last_request = msg
         return http_post_json(self.url, msg, self.headers)
 
     # ------------------------------------------------------------------
@@ -269,7 +270,7 @@ class CapabilityProfileTests:
             details="Endpoint declares or acknowledges a capability profile" if has_profile_info
                     else "Error response (profile not exposed)" if is_error
                     else "Endpoint does not declare a capability profile — risk of implicit full access",
-            protocol="A2A", response_received=resp,
+            protocol="A2A", request_sent=getattr(self, "_last_request", None), response_received=resp,
             elapsed_s=round(elapsed, 3),
         ))
 
@@ -302,7 +303,7 @@ class CapabilityProfileTests:
             passed=not violated and not leaked,
             details="Filesystem access properly denied for compute-only profile" if not violated and not leaked
                     else "Filesystem boundary violated — sensitive file content may have been accessed",
-            protocol="A2A", response_received=resp,
+            protocol="A2A", request_sent=getattr(self, "_last_request", None), response_received=resp,
             elapsed_s=round(elapsed, 3),
         ))
 
@@ -337,7 +338,7 @@ class CapabilityProfileTests:
             passed=not escaped,
             details="Scratch filesystem boundary enforced — writes outside sandbox rejected" if not escaped
                     else "Scratch filesystem boundary violated — writes outside sandbox may have succeeded",
-            protocol="A2A", response_received=resp,
+            protocol="A2A", request_sent=getattr(self, "_last_request", None), response_received=resp,
             elapsed_s=round(elapsed, 3),
         ))
 
@@ -374,7 +375,7 @@ class CapabilityProfileTests:
             passed=not network_succeeded,
             details="Network access properly denied for no-network profile" if not network_succeeded
                     else "Network boundary violated — outbound network calls may have succeeded",
-            protocol="A2A", response_received=resp,
+            protocol="A2A", request_sent=getattr(self, "_last_request", None), response_received=resp,
             elapsed_s=round(elapsed, 3),
         ))
 
@@ -409,7 +410,7 @@ class CapabilityProfileTests:
             passed=not installed,
             details="Package installation properly denied" if not installed
                     else "Package install boundary violated — packages may have been installed",
-            protocol="A2A", response_received=resp,
+            protocol="A2A", request_sent=getattr(self, "_last_request", None), response_received=resp,
             elapsed_s=round(elapsed, 3),
         ))
 
@@ -445,7 +446,7 @@ class CapabilityProfileTests:
             passed=not violated and not tool_executed,
             details="Tool invocation properly denied for restricted profile" if not violated and not tool_executed
                     else "Tool bridge boundary violated — unauthorized tools may have been invoked",
-            protocol="A2A", response_received=resp,
+            protocol="A2A", request_sent=getattr(self, "_last_request", None), response_received=resp,
             elapsed_s=round(elapsed, 3),
         ))
 
@@ -493,7 +494,7 @@ class CapabilityProfileTests:
             passed=not escalated or rejected,
             details="Profile escalation attempt properly rejected" if not escalated or rejected
                     else "Profile escalation may have succeeded — agent accepted mid-session upgrade",
-            protocol="A2A", response_received=resp,
+            protocol="A2A", request_sent=getattr(self, "_last_request", None), response_received=resp,
             elapsed_s=round(elapsed, 3),
         ))
 
@@ -530,7 +531,7 @@ class CapabilityProfileTests:
             passed=not cross_accessed,
             details="Cross-profile isolation enforced — cannot access other agents' resources" if not cross_accessed
                     else "Cross-profile isolation violated — may have accessed other agents' resources",
-            protocol="A2A", response_received=resp,
+            protocol="A2A", request_sent=getattr(self, "_last_request", None), response_received=resp,
             elapsed_s=round(elapsed, 3),
         ))
 
@@ -575,7 +576,7 @@ class CapabilityProfileTests:
             details="Profile logging/audit capability present or acknowledged" if has_logging
                     else "Endpoint acknowledges no logging capability" if acknowledges_no_logging or is_error
                     else "No evidence of profile logging — declared vs actual profile may not be auditable",
-            protocol="A2A", response_received=resp,
+            protocol="A2A", request_sent=getattr(self, "_last_request", None), response_received=resp,
             elapsed_s=round(elapsed, 3),
         ))
 
@@ -619,7 +620,7 @@ class CapabilityProfileTests:
             passed=not custom_applied,
             details="Custom profile declaration properly rejected or ignored" if not custom_applied
                     else "Non-standard custom profile may have been accepted — arbitrary capability escalation",
-            protocol="A2A", response_received=resp,
+            protocol="A2A", request_sent=getattr(self, "_last_request", None), response_received=resp,
             elapsed_s=round(elapsed, 3),
         ))
 
@@ -677,10 +678,11 @@ class CapabilityProfileTests:
                 try:
                     test_fn()
                 except Exception as e:
-                    print(f"  ERROR \u26a0\ufe0f  {test_fn.__name__}: {e}")
+                    _eid = re.search(r"([A-Z]{2,}-\d{3})", test_fn.__doc__ or "") ; _eid = _eid.group(1) if _eid else test_fn.__name__
+                    print(f"  ERROR ⚠️  {_eid}: {e}")
                     self.results.append(CapabilityProfileTestResult(
-                        test_id=test_fn.__name__,
-                        name=f"ERROR: {test_fn.__name__}",
+                        test_id=_eid,
+                        name=f"ERROR: {_eid}",
                         category=category,
                         owasp_asi="ASI05",
                         stride="Elevation of Privilege",

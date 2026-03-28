@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 import uuid
@@ -44,7 +45,6 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any
 import urllib.request
-import urllib.parse
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +82,7 @@ def http_post(url, payload, headers=None, timeout=15):
     except urllib.error.HTTPError as e:
         body = ""
         try: body = e.read().decode("utf-8")[:500]
-        except: pass
+        except Exception: pass
         return {"_error": True, "_status": e.code, "_body": body}
     except Exception as e:
         return {"_error": True, "_exception": str(e)}
@@ -98,7 +98,7 @@ def http_get(url, headers=None, timeout=15):
     except urllib.error.HTTPError as e:
         body = ""
         try: body = e.read().decode("utf-8")[:500]
-        except: pass
+        except Exception: pass
         return {"_error": True, "_status": e.code, "_body": body}
     except Exception as e:
         return {"_error": True, "_exception": str(e)}
@@ -822,9 +822,10 @@ class IdentitySecurityTests:
                 try:
                     fn()
                 except Exception as e:
-                    print(f"  ERROR ⚠️  {fn.__name__}: {e}")
+                    _eid = re.search(r"([A-Z]{2,}-\d{3})", fn.__doc__ or "") ; _eid = _eid.group(1) if _eid else fn.__name__
+                    print(f"  ERROR ⚠️  {_eid}: {e}")
                     self.results.append(IdentityTestResult(
-                        test_id=fn.__name__, name=f"ERROR: {fn.__name__}",
+                        test_id=_eid, name=f"ERROR: {_eid}",
                         nist_focus_area=nist_area, owasp_asi="", severity="P1-High",
                         passed=False, details=str(e), endpoint=self.base_url))
 

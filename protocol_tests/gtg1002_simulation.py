@@ -93,7 +93,7 @@ def http_post(url, payload, headers=None, timeout=15):
     except urllib.error.HTTPError as e:
         body = ""
         try: body = e.read().decode("utf-8")[:500]
-        except: pass
+        except Exception: pass
         return {"_error": True, "_status": e.code, "_body": body}
     except Exception as e:
         return {"_error": True, "_exception": str(e)}

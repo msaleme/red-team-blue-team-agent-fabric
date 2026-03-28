@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 import uuid
@@ -37,7 +38,6 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
-import urllib.parse
 import urllib.request
 
 
@@ -801,10 +801,11 @@ class A2ASecurityTests:
                 try:
                     test_fn()
                 except Exception as e:
-                    print(f"  ERROR ⚠️  {test_fn.__name__}: {e}")
+                    _eid = re.search(r"([A-Z]{2,}-\d{3})", test_fn.__doc__ or "") ; _eid = _eid.group(1) if _eid else test_fn.__name__
+                    print(f"  ERROR ⚠️  {_eid}: {e}")
                     self.results.append(A2ATestResult(
-                        test_id=test_fn.__name__,
-                        name=f"ERROR: {test_fn.__name__}",
+                        test_id=_eid,
+                        name=f"ERROR: {_eid}",
                         category=category,
                         owasp_asi="",
                         severity=Severity.HIGH.value,

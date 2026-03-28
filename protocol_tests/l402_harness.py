@@ -64,7 +64,6 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 import http.client
-import urllib.parse
 import urllib.request
 
 
