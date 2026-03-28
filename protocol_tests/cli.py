@@ -24,7 +24,7 @@ import sys
 import importlib
 
 
-VERSION = "3.7.0"
+VERSION = "3.8.0"
 
 HARNESSES = {
     "mcp": {
