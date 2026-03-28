@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.7.0] - 2026-03-25
 
 ### Added
-- 367 security tests across 21 modules
+- 328 security tests across 21 modules
 - OATR fixture loader (`protocol_tests/oatr_fixtures.py`)
 - x402 payment flow harness with L402 interop
 - CVE-2026-25253 supply chain provenance tests

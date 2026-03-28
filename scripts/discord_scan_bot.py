@@ -23,15 +23,19 @@ Requires: Python 3.10+, discord.py, python-dotenv
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 try:
     import discord
@@ -116,20 +120,81 @@ class RateLimiter:
 # Scanner
 # ---------------------------------------------------------------------------
 
+def validate_url(url: str) -> str | None:
+    """Validate URL for SSRF safety.
+
+    Returns None if valid, or an error message if blocked.
+    """
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return "Malformed URL"
+
+    # Only allow http and https schemes
+    if parsed.scheme not in ("http", "https"):
+        return f"Blocked scheme: {parsed.scheme} (only http/https allowed)"
+
+    hostname = parsed.hostname
+    if not hostname:
+        return "No hostname in URL"
+
+    # Resolve hostname to IP and check for internal addresses
+    try:
+        resolved_ips = socket.getaddrinfo(hostname, parsed.port or 443, proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        return f"Cannot resolve hostname: {hostname}"
+
+    for family, _type, _proto, _canonname, sockaddr in resolved_ips:
+        ip_str = sockaddr[0]
+        try:
+            addr = ipaddress.ip_address(ip_str)
+        except ValueError:
+            return f"Invalid resolved IP: {ip_str}"
+
+        # Block private, loopback, link-local, and reserved ranges
+        if addr.is_private:
+            return f"Blocked private/internal IP: {ip_str}"
+        if addr.is_loopback:
+            return f"Blocked loopback IP: {ip_str}"
+        if addr.is_link_local:
+            return f"Blocked link-local IP: {ip_str}"
+        if addr.is_reserved:
+            return f"Blocked reserved IP: {ip_str}"
+
+        # Explicit cloud metadata check (AWS/GCP/Azure)
+        if ip_str in ("169.254.169.254", "fd00:ec2::254"):
+            return f"Blocked cloud metadata IP: {ip_str}"
+
+    return None
+
+
 def run_quick_scan(url: str) -> list[dict]:
     """Run 5 quick MCP tests against the given URL.
 
     Returns a list of result dicts with keys: id, name, passed, details
     """
+    # SSRF validation
+    ssrf_error = validate_url(url)
+    if ssrf_error:
+        return [{
+            "id": "SSRF-BLOCK",
+            "name": "URL Validation",
+            "passed": False,
+            "details": ssrf_error,
+        }]
+
     results: list[dict] = []
 
-    # Try running the actual harness
+    # Use secure temporary file for report (avoids symlink attacks on /tmp)
+    report_fd, report_path = tempfile.mkstemp(suffix=".json", prefix="discord_scan_")
+    os.close(report_fd)
+
     try:
         cmd = [
             sys.executable, "-m", "protocol_tests.mcp_harness",
             "--transport", "http",
             "--url", url,
-            "--report", "/tmp/discord_scan_report.json",
+            "--report", report_path,
         ]
         proc = subprocess.run(
             cmd,
@@ -139,7 +204,6 @@ def run_quick_scan(url: str) -> list[dict]:
             cwd=str(PROJECT_ROOT),
         )
 
-        report_path = "/tmp/discord_scan_report.json"
         if os.path.exists(report_path):
             with open(report_path) as f:
                 report = json.load(f)
@@ -154,11 +218,18 @@ def run_quick_scan(url: str) -> list[dict]:
                         "details": r.get("details", "")[:100],
                     })
 
-            # If we got results from the harness, return them
             if results:
                 return results
-    except (subprocess.TimeoutExpired, Exception) as e:
-        pass  # Fall through to simulated results
+    except subprocess.TimeoutExpired:
+        pass  # Fall through to connection-error results
+    except Exception:
+        pass  # Fall through to connection-error results
+    finally:
+        # Clean up temporary report file
+        try:
+            os.unlink(report_path)
+        except OSError:
+            pass
 
     # If harness didn't produce results, indicate connection issue
     for test in QUICK_SCAN_TESTS:
