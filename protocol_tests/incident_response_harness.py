@@ -652,17 +652,24 @@ class IncidentResponseTests:
     # Run all tests
     # ------------------------------------------------------------------
 
-    def run_all(self) -> list[IncidentResponseTestResult]:
-        tests = [
-            self.test_ir_001_security_breach_alert,
-            self.test_ir_002_harmful_output_escalation,
-            self.test_ir_003_hallucination_detection,
-            self.test_ir_004_kill_switch,
-            self.test_ir_005_recovery_time,
-            self.test_ir_006_log_completeness,
-            self.test_ir_007_notification_timeline,
-            self.test_ir_008_cascading_failure_containment,
-        ]
+    def run_all(self, categories: list[str] | None = None) -> list[IncidentResponseTestResult]:
+        all_tests = {
+            "breach_detection": [self.test_ir_001_security_breach_alert],
+            "escalation": [self.test_ir_002_harmful_output_escalation],
+            "hallucination": [self.test_ir_003_hallucination_detection],
+            "kill_switch": [self.test_ir_004_kill_switch],
+            "recovery": [self.test_ir_005_recovery_time],
+            "logging": [self.test_ir_006_log_completeness],
+            "notification": [self.test_ir_007_notification_timeline],
+            "containment": [self.test_ir_008_cascading_failure_containment],
+        }
+
+        if categories:
+            test_map = {k: v for k, v in all_tests.items() if k in categories}
+        else:
+            test_map = all_tests
+
+        tests = [fn for fns in test_map.values() for fn in fns]
 
         print(f"\n{'='*60}")
         print("INCIDENT RESPONSE VALIDATION TEST SUITE v3.6")
@@ -750,50 +757,26 @@ def main():
         k, v = h.split(":", 1)
         headers[k.strip()] = v.strip()
 
+    categories = args.categories.split(",") if args.categories else None
+
     if args.trials > 1:
-        from protocol_tests.statistical import (
-            wilson_ci as _wilson_ci, TrialResult, generate_statistical_report,
-        )
-        all_trial_results: list[list] = []
-        for trial_idx in range(args.trials):
-            print(f"\n{'#'*60}")
-            print(f"# TRIAL {trial_idx + 1}/{args.trials}")
-            print(f"{'#'*60}")
+        from protocol_tests.trial_runner import run_with_trials as _run_trials
+
+        def _single_run():
             suite = IncidentResponseTests(args.url, headers=headers)
-            trial_results = suite.run_all()
-            all_trial_results.append(trial_results)
+            return {"results": suite.run_all(categories=categories)}
 
-        test_ids = [r.test_id for r in all_trial_results[0]]
-        stat_results: list[TrialResult] = []
-        for idx, tid in enumerate(test_ids):
-            per_trial = [
-                all_trial_results[t][idx].passed
-                if idx < len(all_trial_results[t]) else False
-                for t in range(args.trials)
-            ]
-            n_passed = sum(per_trial)
-            ci = _wilson_ci(n_passed, args.trials)
-            stat_results.append(TrialResult(
-                test_id=tid,
-                test_name=all_trial_results[0][idx].name if idx < len(all_trial_results[0]) else tid,
-                n_trials=args.trials,
-                n_passed=n_passed,
-                pass_rate=round(n_passed / args.trials, 4),
-                ci_95=ci,
-                per_trial=per_trial,
-                mean_elapsed_s=0.0,
-            ))
-
-        results = all_trial_results[-1]
+        merged = _run_trials(_single_run, trials=args.trials,
+                             suite_name="Incident Response Validation Tests v3.6")
         if args.report:
-            generate_statistical_report(
-                results, stat_results,
-                "Incident Response Validation Tests v3.6",
-                args.report,
-            )
+            import json as _json
+            with open(args.report, "w") as f:
+                _json.dump(merged, f, indent=2, default=str)
+            print(f"Report written to {args.report}")
+        results = merged.get("results", [])
     else:
         suite = IncidentResponseTests(args.url, headers=headers)
-        results = suite.run_all()
+        results = suite.run_all(categories=categories)
         if args.report:
             generate_report(results, args.report)
 

@@ -978,23 +978,12 @@ def main():
     ap.add_argument("--trials", type=int, default=1, help="Run each test N times for statistical analysis (NIST AI 800-2)")
     args = ap.parse_args()
 
-    # Build transport
-    if args.transport == "http":
-        if not args.url:
-            print("ERROR: --url required for http transport", file=sys.stderr)
-            sys.exit(1)
-        headers = {}
-        for h in args.header:
-            k, v = h.split(":", 1)
-            headers[k.strip()] = v.strip()
-        transport = StreamableHTTPTransport(args.url, headers=headers)
-    elif args.transport == "stdio":
-        if not args.command:
-            print("ERROR: --command required for stdio transport", file=sys.stderr)
-            sys.exit(1)
-        transport = StdioTransport(args.command.split())
-    else:
-        print(f"Unknown transport: {args.transport}", file=sys.stderr)
+    # Validate transport args early (before creating any transport)
+    if args.transport == "http" and not args.url:
+        print("ERROR: --url required for http transport", file=sys.stderr)
+        sys.exit(1)
+    if args.transport == "stdio" and not args.command:
+        print("ERROR: --command required for stdio transport", file=sys.stderr)
         sys.exit(1)
 
     categories = args.categories.split(",") if args.categories else None
@@ -1011,60 +1000,29 @@ def main():
             return StdioTransport(args.command.split())
 
     if args.trials > 1:
-        # Multi-trial statistical mode: run the full suite N times
-        from protocol_tests.statistical import (
-            wilson_ci, bootstrap_ci, TrialResult,
-            enhance_report, generate_statistical_report,
-        )
-        all_trial_results: list[list] = []  # list of per-trial result lists
-        for trial_idx in range(args.trials):
-            print(f"\n{'#'*60}")
-            print(f"# TRIAL {trial_idx + 1}/{args.trials}")
-            print(f"{'#'*60}")
-            # Fresh transport per trial to avoid session state bleed (#66)
-            trial_transport = _make_transport()
-            suite = MCPSecurityTests(trial_transport)
+        # Multi-trial statistical mode via shared trial runner
+        # NOTE: no initial transport is created here (#78) - each trial
+        # creates and closes its own transport via _single_run().
+        from protocol_tests.trial_runner import run_with_trials as _run_trials
+
+        def _single_run():
+            transport = _make_transport()
+            suite = MCPSecurityTests(transport)
             try:
-                trial_results = suite.run_all(categories=categories)
+                return {"results": suite.run_all(categories=categories)}
             finally:
-                trial_transport.close()
-            all_trial_results.append(trial_results)
+                transport.close()
 
-        # Build per-test statistical aggregates
-        # Use test_id from first trial as reference
-        test_ids = [r.test_id for r in all_trial_results[0]]
-        stat_results: list[TrialResult] = []
-        for idx, tid in enumerate(test_ids):
-            per_trial = [
-                all_trial_results[t][idx].passed
-                if idx < len(all_trial_results[t]) else False
-                for t in range(args.trials)
-            ]
-            n_passed = sum(per_trial)
-            pass_rate = n_passed / args.trials
-            ci = wilson_ci(n_passed, args.trials)
-            stat_results.append(TrialResult(
-                test_id=tid,
-                test_name=all_trial_results[0][idx].name if idx < len(all_trial_results[0]) else tid,
-                n_trials=args.trials,
-                n_passed=n_passed,
-                pass_rate=round(pass_rate, 4),
-                ci_95=ci,
-                per_trial=per_trial,
-                mean_elapsed_s=0.0,
-            ))
-
-        # Use last trial's results as the base single-run results
-        results = all_trial_results[-1]
-
+        merged = _run_trials(_single_run, trials=args.trials,
+                             suite_name="MCP Protocol Security Tests v3.0")
         if args.report:
-            generate_statistical_report(
-                results, stat_results,
-                "MCP Protocol Security Tests v3.0",
-                args.report,
-            )
+            with open(args.report, "w") as f:
+                json.dump(merged, f, indent=2, default=str)
+            print(f"Report written to {args.report}")
+        results = merged.get("results", [])
     else:
-        # Single run mode
+        # Single run mode - create transport only here
+        transport = _make_transport()
         suite = MCPSecurityTests(transport)
         try:
             results = suite.run_all(categories=categories)

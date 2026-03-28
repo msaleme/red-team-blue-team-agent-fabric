@@ -914,6 +914,7 @@ def main():
     ap.add_argument("--run", action="store_true", help="Run tests")
     ap.add_argument("--report", help="Output JSON report path")
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")
+    ap.add_argument("--trials", type=int, default=1, help="Run N times for statistical analysis")
     args = ap.parse_args()
 
     if args.list:
@@ -936,22 +937,37 @@ def main():
     adapter = adapter_cls(args.url, headers=headers)
 
     if args.run:
-        print(f"\n{'='*60}")
-        print(f"ENTERPRISE PLATFORM SECURITY TESTS v3.0")
-        print(f"Platform: {adapter_cls.description}")
-        print(f"Target: {args.url}")
-        print(f"{'='*60}")
+        if args.trials > 1:
+            from protocol_tests.trial_runner import run_with_trials as _run_trials
 
-        results = adapter.run_tests()
+            def _single_run():
+                a = adapter_cls(args.url, headers=headers)
+                return {"results": a.run_tests()}
 
-        total = len(results)
-        passed = sum(1 for r in results if r.passed)
-        print(f"\n{'='*60}")
-        print(f"RESULTS: {passed}/{total} passed ({passed/total*100:.0f}%)" if total else "No tests run")
-        print(f"{'='*60}")
+            merged = _run_trials(_single_run, trials=args.trials,
+                                 suite_name=f"Enterprise Platform Tests - {adapter_cls.description}")
+            if args.report:
+                with open(args.report, "w") as f:
+                    json.dump(merged, f, indent=2, default=str)
+                print(f"Report written to {args.report}")
+            results = merged.get("results", [])
+        else:
+            print(f"\n{'='*60}")
+            print(f"ENTERPRISE PLATFORM SECURITY TESTS v3.0")
+            print(f"Platform: {adapter_cls.description}")
+            print(f"Target: {args.url}")
+            print(f"{'='*60}")
 
-        if args.report:
-            generate_report(results, args.report)
+            results = adapter.run_tests()
+
+            total = len(results)
+            passed = sum(1 for r in results if r.passed)
+            print(f"\n{'='*60}")
+            print(f"RESULTS: {passed}/{total} passed ({passed/total*100:.0f}%)" if total else "No tests run")
+            print(f"{'='*60}")
+
+            if args.report:
+                generate_report(results, args.report)
 
         failed = sum(1 for r in results if not r.passed)
         sys.exit(1 if failed > 0 else 0)

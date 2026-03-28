@@ -37,23 +37,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-def _get_harness_version() -> str:
-    """Read version from pyproject.toml or fall back to importlib.metadata."""
-    try:
-        from importlib.metadata import version as pkg_version
-        return pkg_version("agent-security-harness")
-    except Exception:
-        pass
-    try:
-        _toml = Path(__file__).resolve().parent.parent / "pyproject.toml"
-        for line in _toml.read_text().splitlines():
-            if line.strip().startswith("version"):
-                return line.split("=", 1)[1].strip().strip('"').strip("'")
-    except Exception:
-        pass
-    return "unknown"
+from protocol_tests.version import get_harness_version
 
-HARNESS_VERSION = _get_harness_version()
+HARNESS_VERSION = get_harness_version()
 
 try:
     import discord
