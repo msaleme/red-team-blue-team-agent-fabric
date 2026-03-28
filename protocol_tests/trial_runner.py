@@ -21,7 +21,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Callable
 
-from protocol_tests.statistical import wilson_ci, bootstrap_ci, TrialResult, enhance_report
+from protocol_tests.statistical import wilson_ci, TrialResult, enhance_report
 
 
 def run_with_trials(
@@ -93,17 +93,21 @@ def run_with_trials(
             mean_elapsed_s=round(mean_elapsed, 3),
         ))
 
-    # Build final report
-    from dataclasses import asdict
+    # Build final report — summary aggregated across ALL trials (#85)
+    total_tests = len(stat_results)
+    passed_tests = sum(1 for sr in stat_results if sr.pass_rate >= 0.5)
+    failed_tests = total_tests - passed_tests
+
     report_out: dict[str, Any] = {
         "suite": suite_name,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "summary": {
-            "total": len(last_results),
-            "passed": sum(1 for r in last_results if (getattr(r, "passed", None) if not isinstance(r, dict) else r.get("passed", False))),
-            "failed": sum(1 for r in last_results if not (getattr(r, "passed", None) if not isinstance(r, dict) else r.get("passed", True))),
+            "total": total_tests,
+            "passed": passed_tests,
+            "failed": failed_tests,
         },
-        "results": [asdict(r) if hasattr(r, "__dataclass_fields__") else r for r in last_results],
+        # Return the original result objects so callers can use attribute access (#83)
+        "results": last_results,
     }
     report_out = enhance_report(report_out, stat_results)
     if trial_errors:
