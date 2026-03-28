@@ -42,3 +42,4 @@ november-meeting-extracted.txt
 *.json
 !package.json
 !pyproject.json
+!schemas/*.json

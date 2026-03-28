@@ -1,0 +1,157 @@
+name: 'Agent Security Harness'
+description: 'Run protocol-level security tests against MCP/A2A/L402/x402 agent endpoints as a CI/CD gate'
+author: 'msaleme'
+
+branding:
+  icon: 'shield'
+  color: 'red'
+
+inputs:
+  target_url:
+    description: 'MCP server URL to test (e.g. http://localhost:8080/mcp)'
+    required: true
+  transport:
+    description: 'Transport type: http or stdio'
+    required: false
+    default: 'http'
+  categories:
+    description: 'Comma-separated test categories to run (optional, runs all if omitted)'
+    required: false
+    default: ''
+  fail_on:
+    description: 'Fail threshold: any (fail on any test failure), critical (fail only on critical), none (never fail)'
+    required: false
+    default: 'critical'
+  python_version:
+    description: 'Python version to use'
+    required: false
+    default: '3.12'
+  harness_version:
+    description: 'agent-security-harness PyPI version (empty for latest)'
+    required: false
+    default: ''
+
+outputs:
+  report_path:
+    description: 'Path to the JSON report file'
+    value: ${{ steps.run-harness.outputs.report_path }}
+  total_tests:
+    description: 'Total number of tests executed'
+    value: ${{ steps.parse-report.outputs.total_tests }}
+  passed:
+    description: 'Number of passed tests'
+    value: ${{ steps.parse-report.outputs.passed }}
+  failed:
+    description: 'Number of failed tests'
+    value: ${{ steps.parse-report.outputs.failed }}
+  critical_failures:
+    description: 'Number of critical test failures'
+    value: ${{ steps.parse-report.outputs.critical_failures }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python_version }}
+
+    - name: Install agent-security-harness
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.harness_version }}" ]; then
+          pip install "agent-security-harness==${{ inputs.harness_version }}"
+        else
+          pip install agent-security-harness
+        fi
+
+    - name: Run security harness
+      id: run-harness
+      shell: bash
+      run: |
+        REPORT_FILE="security-report-$(date +%s).json"
+        CMD="python -m protocol_tests.mcp_harness --transport ${{ inputs.transport }} --url ${{ inputs.target_url }} --report ${REPORT_FILE}"
+
+        if [ -n "${{ inputs.categories }}" ]; then
+          CMD="${CMD} --categories ${{ inputs.categories }}"
+        fi
+
+        echo "Running: ${CMD}"
+        ${CMD} || true
+
+        echo "report_path=${REPORT_FILE}" >> "$GITHUB_OUTPUT"
+
+    - name: Parse report
+      id: parse-report
+      shell: bash
+      run: |
+        REPORT="${{ steps.run-harness.outputs.report_path }}"
+
+        if [ ! -f "${REPORT}" ]; then
+          echo "::error::Security report not found at ${REPORT}"
+          echo "total_tests=0" >> "$GITHUB_OUTPUT"
+          echo "passed=0" >> "$GITHUB_OUTPUT"
+          echo "failed=0" >> "$GITHUB_OUTPUT"
+          echo "critical_failures=0" >> "$GITHUB_OUTPUT"
+          exit 1
+        fi
+
+        TOTAL=$(python3 -c "import json; r=json.load(open('${REPORT}')); print(r.get('summary',{}).get('total',len(r.get('results',[]))))")
+        PASSED=$(python3 -c "import json; r=json.load(open('${REPORT}')); print(r.get('summary',{}).get('passed',sum(1 for t in r.get('results',[]) if t.get('status')=='PASS')))")
+        FAILED=$(python3 -c "import json; r=json.load(open('${REPORT}')); print(r.get('summary',{}).get('failed',sum(1 for t in r.get('results',[]) if t.get('status')=='FAIL')))")
+        CRITICAL=$(python3 -c "
+        import json
+        r = json.load(open('${REPORT}'))
+        results = r.get('results', [])
+        critical = sum(1 for t in results if t.get('status') == 'FAIL' and t.get('severity', '').lower() == 'critical')
+        print(critical)
+        ")
+
+        echo "total_tests=${TOTAL}" >> "$GITHUB_OUTPUT"
+        echo "passed=${PASSED}" >> "$GITHUB_OUTPUT"
+        echo "failed=${FAILED}" >> "$GITHUB_OUTPUT"
+        echo "critical_failures=${CRITICAL}" >> "$GITHUB_OUTPUT"
+
+        echo "### Security Harness Results" >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Metric | Count |" >> "$GITHUB_STEP_SUMMARY"
+        echo "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Total Tests | ${TOTAL} |" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Passed | ${PASSED} |" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Failed | ${FAILED} |" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Critical Failures | ${CRITICAL} |" >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+
+        # List failed tests
+        python3 -c "
+        import json
+        r = json.load(open('${REPORT}'))
+        fails = [t for t in r.get('results', []) if t.get('status') == 'FAIL']
+        if fails:
+            print('| Test | Severity | Details |')
+            print('|------|----------|---------|')
+            for t in fails:
+                name = t.get('test_id', t.get('name', 'unknown'))
+                sev = t.get('severity', 'unknown')
+                detail = t.get('detail', t.get('message', ''))[:80]
+                print(f'| {name} | {sev} | {detail} |')
+        " >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Evaluate threshold
+      shell: bash
+      run: |
+        FAIL_ON="${{ inputs.fail_on }}"
+        FAILED="${{ steps.parse-report.outputs.failed }}"
+        CRITICAL="${{ steps.parse-report.outputs.critical_failures }}"
+
+        if [ "${FAIL_ON}" = "any" ] && [ "${FAILED}" -gt 0 ]; then
+          echo "::error::${FAILED} test(s) failed (fail_on=any)"
+          exit 1
+        elif [ "${FAIL_ON}" = "critical" ] && [ "${CRITICAL}" -gt 0 ]; then
+          echo "::error::${CRITICAL} critical test(s) failed (fail_on=critical)"
+          exit 1
+        elif [ "${FAIL_ON}" = "none" ]; then
+          echo "Threshold set to 'none' - not failing regardless of results"
+        fi
+
+        echo "Security scan passed threshold (fail_on=${FAIL_ON})"

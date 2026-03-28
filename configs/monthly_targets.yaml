@@ -1,0 +1,17 @@
+# Monthly Agent Security Report - Target MCP Servers
+#
+# Each entry needs:
+#   - name: Human-readable label for the report
+#   - url:  Streamable HTTP endpoint for the MCP server
+#
+# Add/remove entries as your monitored fleet changes.
+
+targets:
+  - name: "Acme Internal MCP Gateway"
+    url: "https://mcp.acme-internal.example.com/mcp"
+
+  - name: "Partner API Bridge"
+    url: "https://partner-bridge.example.com:8443/mcp"
+
+  - name: "Staging Tool Server"
+    url: "http://staging-tools.example.local:8080/mcp"
