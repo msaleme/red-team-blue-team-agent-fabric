@@ -575,6 +575,40 @@ See [docs/github-action.md](docs/github-action.md) for full usage examples and c
 
 ---
 
+## MCP Server
+
+Use the harness as an MCP tool that any AI agent can call:
+
+```bash
+# Install with MCP support
+pip install agent-security-harness[mcp-server]
+
+# stdio mode (for Cursor, Claude Desktop, IDE integration)
+python -m mcp_server
+
+# HTTP mode (for remote/production use)
+python -m mcp_server --transport http --port 8400
+```
+
+**Add to Claude Desktop** (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "agent-security": {
+      "command": "python",
+      "args": ["-m", "mcp_server"],
+      "cwd": "/path/to/red-team-blue-team-agent-fabric"
+    }
+  }
+}
+```
+
+**Available tools:** `scan_mcp_server` (quick 5-test scan), `full_security_audit` (332 tests), `aiuc1_readiness` (certification prep), `get_test_catalog` (list tests), `validate_attestation` (schema validation).
+
+See [docs/mcp-server.md](docs/mcp-server.md) for full documentation.
+
+---
+
 ## Free MCP Security Scan
 
 Quick 5-test scan with A-F grading:
