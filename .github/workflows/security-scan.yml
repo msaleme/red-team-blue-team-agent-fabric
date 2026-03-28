@@ -33,6 +33,9 @@ on:
         type: string
         default: ''
 
+permissions:
+  contents: read
+
 jobs:
   security-scan:
     name: Agent Security Harness

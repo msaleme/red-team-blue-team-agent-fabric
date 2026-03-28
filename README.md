@@ -168,8 +168,8 @@ Results: 8/10 passed (80% pass rate) - see report.json
 | **Harmful Output** | 10 | A2A JSON-RPC | Toxicity, bias, scope violations, deception (AIUC-1 C003/C004) |
 | **CBRN Prevention** | 8 | A2A JSON-RPC | Chemical/biological/radiological/nuclear content safeguards (AIUC-1 F002) |
 | **Incident Response** | 8 | A2A JSON-RPC | Alert triggering, kill switch, log completeness, recovery (AIUC-1 E001-E003) |
-| **CVE-2026-25253 Reproduction** | 9 | MCP Supply Chain | Nested schema injection, fork fingerprinting, marketplace contamination, encoded payload detection |
-| **AIUC-1 Compliance** | 9 | Agent Safety | Incident response, CBRN prevention, harmful content, scope creep, authority impersonation |
+| **CVE-2026-25253 Reproduction** | 8 | MCP Supply Chain | Nested schema injection, fork fingerprinting, marketplace contamination, encoded payload detection |
+| **AIUC-1 Compliance** | 12 | Agent Safety | Incident response, CBRN prevention, harmful content, scope creep, authority impersonation |
 | **Cloud Agent Platforms** | 25 | Platform APIs | AWS Bedrock, Azure AI Agent Service, Google Vertex, Salesforce Agentforce, IBM watsonx |
 
 **Total: 330 security tests across 21 modules** (verified by `scripts/count_tests.py`)
@@ -201,10 +201,10 @@ Most AI security tools test **models** (prompt injection, jailbreaks, output fil
 | **MCP wire-protocol tests** | - | - | - | - | 10 tests (JSON-RPC 2.0) |
 | **A2A wire-protocol tests** | - | - | - | - | 12 tests (Agent Cards, tasks, push notifications) |
 | **L402 payment flow tests** | - | - | - | - | 14 tests (macaroons, invoices, caveats) |
-| **x402 payment protocol tests** | - | - | - | - | 43 tests (Coinbase/Stripe agent payments, recipient manipulation, session theft, facilitator trust) |
+| **x402 payment protocol tests** | - | - | - | - | 25 tests (Coinbase/Stripe agent payments, recipient manipulation, session theft, facilitator trust) |
 | **Agent Autonomy Risk Score** | - | - | - | - | 0-100 score: "should this agent spend money unsupervised?" |
 | **Enterprise platform adapters** | - | - | - | - | 25 cloud + 20 enterprise platforms (Bedrock, Azure, Vertex, Agentforce, watsonx, SAP, Salesforce, Workday, Oracle, ServiceNow, etc.) |
-| **APT simulation (GTG-1002)** | - | - | - | - | 19 tests (full campaign lifecycle) |
+| **APT simulation (GTG-1002)** | - | - | - | - | 17 tests (full campaign lifecycle) |
 | **NIST AI 800-2 evaluation protocol** | - | - | - | - | Statistical confidence intervals, qualified claims |
 | **Published research backing** | - | - | - | - | 2 DOI-citable papers + 3 NIST submissions |
 | **Executable tests** | Yes (model-layer) | Yes (policy-layer) | No (docs only) | Yes (static analysis) | Yes (330 tests, protocol + app layer) |
@@ -288,7 +288,7 @@ agent-security test a2a --url https://agent.example.com
 agent-security test l402 --url https://l402.example.com
 ```
 
-### x402 Payment Protocol - 43 tests (First Open-Source x402 Harness)
+### x402 Payment Protocol - 25 tests (First Open-Source x402 Harness)
 ```bash
 agent-security test x402 --url https://your-x402-endpoint.com
 ```
@@ -368,7 +368,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
 | **D003** | Restrict unsafe tool calls | MCP capability escalation, unauthorized tool registration, A2A task hijacking, L402/x402 unauthorized payment execution |
-| **D004** | Third-party testing of tool calls | 81 wire-protocol tests (MCP + A2A + L402 + x402) + 93 platform adapter tests across 25 cloud + 20 enterprise platforms |
+| **D004** | Third-party testing of tool calls | 62 wire-protocol tests (MCP + A2A + L402 + x402) + 83 platform adapter tests across 25 cloud + 20 enterprise platforms |
 
 #### C. Safety (67% coverage)
 
@@ -398,7 +398,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
-| **F001** | Prevent AI cyber misuse | GTG-1002 APT simulation: 19 tests modeling AI-orchestrated cyber espionage (lateral movement, exfiltration, persistence) |
+| **F001** | Prevent AI cyber misuse | GTG-1002 APT simulation: 17 tests modeling AI-orchestrated cyber espionage (lateral movement, exfiltration, persistence) |
 
 </details>
 
