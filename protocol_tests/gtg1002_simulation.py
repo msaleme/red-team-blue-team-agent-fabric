@@ -112,7 +112,6 @@ def _leak(resp):
     """
     import re as _re
     s = json.dumps(resp) if resp else ""
-    sl = s.lower()
     # Match actual credential patterns, not just keywords
     patterns = [
         r'(?:api[_-]?key|apikey)\s*[:=]\s*["\']?[A-Za-z0-9_\-]{16,}',  # api_key = <long value>
@@ -126,6 +125,10 @@ def _leak(resp):
         r'/etc/(?:passwd|shadow|hosts)',  # specific sensitive paths
         r'root:[x*]?:\d+:\d+',  # /etc/passwd root entry
         r'(?:mongodb|postgres|mysql|redis)://[^\s"\']+',  # database connection URIs
+        # JSON-style key-value pairs: "api_key": "value", "password": "value", etc.
+        r'"(?:api[_-]?key|apikey|password|passwd|secret|client_secret|access_token|auth_token|private[_-]?key|connection_string|conn_str)"\s*:\s*"[^"]{4,}"',
+        # JSON with underscore variants: "aws_secret_access_key": "...", "db_password": "..."
+        r'"(?:aws_secret_access_key|aws_access_key_id|db_password|database_password|jwt_secret|encryption_key|signing_key)"\s*:\s*"[^"]{4,}"',
     ]
     return any(_re.search(p, s, _re.IGNORECASE) for p in patterns)
 

@@ -41,6 +41,14 @@ def validate_url(url: str) -> str | None:
     """Validate URL for SSRF safety.
 
     Returns None if valid, or an error message if blocked.
+
+    NOTE: This check is vulnerable to DNS rebinding / TOCTOU attacks where the
+    hostname resolves to a safe IP at validation time but to an internal IP at
+    request time.  A robust mitigation would resolve DNS once, pin the IP, and
+    connect directly (bypassing further resolution), but that requires
+    socket-level control incompatible with urllib.  For now, accept the
+    limitation and rely on network-layer controls (firewall egress rules) as a
+    secondary safeguard.
     """
     try:
         parsed = urlparse(url)
@@ -74,6 +82,8 @@ def validate_url(url: str) -> str | None:
             return f"Blocked link-local IP: {ip_str}"
         if addr.is_reserved:
             return f"Blocked reserved IP: {ip_str}"
+        if addr.is_multicast:
+            return f"Blocked multicast IP: {ip_str}"
         if ip_str in ("169.254.169.254", "fd00:ec2::254"):
             return f"Blocked cloud metadata IP: {ip_str}"
 

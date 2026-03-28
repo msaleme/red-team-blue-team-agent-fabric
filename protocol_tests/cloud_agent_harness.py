@@ -960,26 +960,88 @@ def main():
     print(f"Mode: {mode}")
     print(f"Platforms: {', '.join(platforms_to_test)}")
 
-    all_results: list[CloudAgentTestResult] = []
+    def _run_once() -> list[CloudAgentTestResult]:
+        """Run all platform tests once and return results."""
+        run_results: list[CloudAgentTestResult] = []
+        for platform_name in platforms_to_test:
+            adapter_cls = PLATFORMS[platform_name]
+            adapter = adapter_cls(
+                base_url=args.url or "",
+                simulate=args.simulate,
+            )
+            try:
+                results = adapter.run_tests()
+                run_results.extend(results)
+            except Exception as e:
+                print(f"  ERROR: {platform_name} tests failed: {e}")
+        return run_results
 
-    for platform_name in platforms_to_test:
-        adapter_cls = PLATFORMS[platform_name]
-        adapter = adapter_cls(
-            base_url=args.url or "",
-            simulate=args.simulate,
+    if args.trials > 1:
+        from protocol_tests.statistical import (
+            wilson_ci, TrialResult, generate_statistical_report,
         )
-        try:
-            results = adapter.run_tests()
-            all_results.extend(results)
-        except Exception as e:
-            print(f"  ERROR: {platform_name} tests failed: {e}")
+        all_trial_results: list[list[CloudAgentTestResult]] = []
+        for trial_idx in range(args.trials):
+            print(f"\n{'#'*60}")
+            print(f"# TRIAL {trial_idx + 1}/{args.trials}")
+            print(f"{'#'*60}")
+            trial_results = _run_once()
+            all_trial_results.append(trial_results)
+
+        test_ids = [r.test_id for r in all_trial_results[0]]
+        stat_results: list[TrialResult] = []
+        for idx, tid in enumerate(test_ids):
+            per_trial = [
+                all_trial_results[t][idx].passed
+                if idx < len(all_trial_results[t]) else False
+                for t in range(args.trials)
+            ]
+            n_passed = sum(per_trial)
+            ci = wilson_ci(n_passed, args.trials)
+            stat_results.append(TrialResult(
+                test_id=tid,
+                test_name=all_trial_results[0][idx].name if idx < len(all_trial_results[0]) else tid,
+                n_trials=args.trials,
+                n_passed=n_passed,
+                pass_rate=round(n_passed / args.trials, 4),
+                ci_95=ci,
+                per_trial=per_trial,
+                mean_elapsed_s=0.0,
+            ))
+
+        all_results = all_trial_results[-1]
+        if args.report:
+            generate_statistical_report(
+                all_results, stat_results,
+                "Cloud Agent Platform Security Tests v1.0",
+                args.report,
+            )
+    else:
+        all_results = _run_once()
+        if args.report:
+            report = {
+                "harness": "Cloud Agent Platform Security Tests",
+                "version": "1.0.0",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "mode": "simulation" if args.simulate else "live",
+                "platforms": platforms_to_test,
+                "results": [asdict(r) for r in all_results],
+                "summary": {
+                    "total": len(all_results),
+                    "passed": sum(1 for r in all_results if r.passed),
+                    "failed": sum(1 for r in all_results if not r.passed),
+                },
+            }
+            with open(args.report, "w") as f:
+                json.dump(report, f, indent=2, default=str)
+            print(f"Report saved to {args.report}")
 
     # Summary
     passed = sum(1 for r in all_results if r.passed)
     failed = sum(1 for r in all_results if not r.passed)
     print(f"\n{'='*60}")
     print(f"Results: {passed} passed, {failed} failed, {len(all_results)} total")
-    by_platform = {}
+    by_platform: dict[str, dict[str, int]] = {}
     for r in all_results:
         by_platform.setdefault(r.platform, {"passed": 0, "failed": 0})
         if r.passed:
@@ -989,37 +1051,6 @@ def main():
     for pname, counts in by_platform.items():
         print(f"  {pname:15s} {counts['passed']} passed, {counts['failed']} failed")
     print(f"{'='*60}\n")
-
-    if args.report:
-        report = {
-            "harness": "Cloud Agent Platform Security Tests",
-            "version": "1.0.0",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "mode": "simulation" if args.simulate else "live",
-            "platforms": platforms_to_test,
-            "results": [asdict(r) for r in all_results],
-            "summary": {
-                "total": len(all_results),
-                "passed": passed,
-                "failed": failed,
-                "by_platform": by_platform,
-            },
-        }
-        if args.trials > 1:
-            try:
-                from protocol_tests.statistical import enhance_report
-                report = enhance_report(report)
-                with open(args.report, "w") as f:
-                    json.dump(report, f, indent=2, default=str)
-                print(f"NIST AI 800-2 aligned report written to {args.report}")
-            except ImportError:
-                with open(args.report, "w") as f:
-                    json.dump(report, f, indent=2)
-                print(f"Report saved to {args.report}")
-        else:
-            with open(args.report, "w") as f:
-                json.dump(report, f, indent=2)
-            print(f"Report saved to {args.report}")
 
 
 if __name__ == "__main__":

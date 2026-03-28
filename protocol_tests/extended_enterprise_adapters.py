@@ -762,6 +762,8 @@ def main():
     ap.add_argument("--run", action="store_true")
     ap.add_argument("--report", help="Output JSON report path")
     ap.add_argument("--header", action="append", default=[])
+    ap.add_argument("--trials", type=int, default=1,
+                    help="Run each test N times for statistical analysis (NIST AI 800-2)")
     args = ap.parse_args()
 
     if args.list:
@@ -781,21 +783,65 @@ def main():
         headers[k.strip()] = v.strip()
 
     cls = EXTENDED_ADAPTERS[args.platform]
-    adapter = cls(args.url, headers=headers)
 
     if args.run:
         print(f"\n{'='*60}")
         print(f"EXTENDED ENTERPRISE SECURITY TESTS v3.0")
         print(f"Platform: {cls.description}")
         print(f"{'='*60}")
-        results = adapter.run_tests()
+
+        if args.trials > 1:
+            from protocol_tests.statistical import (
+                wilson_ci, TrialResult, generate_statistical_report,
+            )
+            all_trial_results: list[list] = []
+            for trial_idx in range(args.trials):
+                print(f"\n{'#'*60}")
+                print(f"# TRIAL {trial_idx + 1}/{args.trials}")
+                print(f"{'#'*60}")
+                adapter = cls(args.url, headers=headers)
+                trial_results = adapter.run_tests()
+                all_trial_results.append(trial_results)
+
+            test_ids = [r.test_id for r in all_trial_results[0]]
+            stat_results: list[TrialResult] = []
+            for idx, tid in enumerate(test_ids):
+                per_trial = [
+                    all_trial_results[t][idx].passed
+                    if idx < len(all_trial_results[t]) else False
+                    for t in range(args.trials)
+                ]
+                n_passed = sum(per_trial)
+                ci = wilson_ci(n_passed, args.trials)
+                stat_results.append(TrialResult(
+                    test_id=tid,
+                    test_name=all_trial_results[0][idx].name if idx < len(all_trial_results[0]) else tid,
+                    n_trials=args.trials,
+                    n_passed=n_passed,
+                    pass_rate=round(n_passed / args.trials, 4),
+                    ci_95=ci,
+                    per_trial=per_trial,
+                    mean_elapsed_s=0.0,
+                ))
+
+            results = all_trial_results[-1]
+            if args.report:
+                generate_statistical_report(
+                    results, stat_results,
+                    f"Extended Enterprise Security Tests - {cls.description}",
+                    args.report,
+                )
+        else:
+            adapter = cls(args.url, headers=headers)
+            results = adapter.run_tests()
+            if args.report:
+                generate_report(results, args.report)
+
         total = len(results)
         passed = sum(1 for r in results if r.passed)
         print(f"\n{'='*60}")
         print(f"RESULTS: {passed}/{total} passed ({passed/total*100:.0f}%)" if total else "No tests run")
         print(f"{'='*60}")
-        if args.report:
-            generate_report(results, args.report)
         sys.exit(1 if any(not r.passed for r in results) else 0)
     else:
         print(f"\nAdapter configured for {cls.description} at {args.url}")
