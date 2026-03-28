@@ -37,6 +37,24 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+def _get_harness_version() -> str:
+    """Read version from pyproject.toml or fall back to importlib.metadata."""
+    try:
+        from importlib.metadata import version as pkg_version
+        return pkg_version("agent-security-harness")
+    except Exception:
+        pass
+    try:
+        _toml = Path(__file__).resolve().parent.parent / "pyproject.toml"
+        for line in _toml.read_text().splitlines():
+            if line.strip().startswith("version"):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except Exception:
+        pass
+    return "unknown"
+
+HARNESS_VERSION = _get_harness_version()
+
 try:
     import discord
     from discord.ext import commands
@@ -374,7 +392,7 @@ async def scan_command(ctx: commands.Context, url: str = ""):
 
     # Footer with repo link
     result_embed.set_footer(
-        text=f"Agent Security Harness v3.8 | Full suite: {REPO_URL}"
+        text=f"Agent Security Harness v{HARNESS_VERSION} | Full suite: {REPO_URL}"
     )
 
     # Add link to full harness
@@ -419,7 +437,7 @@ async def scan_help_command(ctx: commands.Context):
         value=f"1 scan per user per {RATE_LIMIT_SECONDS // 60} minutes",
         inline=False,
     )
-    embed.set_footer(text=f"Powered by Agent Security Harness v3.8 | {REPO_URL}")
+    embed.set_footer(text=f"Powered by Agent Security Harness v{HARNESS_VERSION} | {REPO_URL}")
     await ctx.send(embed=embed)
 
 

@@ -81,7 +81,12 @@ def http_post(url: str, payload: dict, headers: dict | None = None, timeout: int
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = resp.read().decode("utf-8")
-            return {"_status": resp.status, "_body": body[:2000], **json.loads(body)} if body else {"_status": resp.status}
+            if body:
+                result = json.loads(body)
+                result["_status"] = resp.status
+                result["_body"] = body[:2000]
+                return result
+            return {"_status": resp.status}
     except urllib.error.HTTPError as e:
         body = ""
         try:

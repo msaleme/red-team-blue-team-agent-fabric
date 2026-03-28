@@ -16,11 +16,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
+import socket
 import sys
 import os
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import urlparse
 
 # Ensure repo root is on path so protocol_tests is importable
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -31,6 +34,51 @@ from protocol_tests.mcp_harness import (
     MCPTestResult,
     StreamableHTTPTransport,
 )
+
+# ── SSRF Protection ────────────────────────────────────────────────────────
+
+def validate_url(url: str) -> str | None:
+    """Validate URL for SSRF safety.
+
+    Returns None if valid, or an error message if blocked.
+    """
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return "Malformed URL"
+
+    if parsed.scheme not in ("http", "https"):
+        return f"Blocked scheme: {parsed.scheme} (only http/https allowed)"
+
+    hostname = parsed.hostname
+    if not hostname:
+        return "No hostname in URL"
+
+    try:
+        resolved_ips = socket.getaddrinfo(hostname, parsed.port or 443, proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        return f"Cannot resolve hostname: {hostname}"
+
+    for family, _type, _proto, _canonname, sockaddr in resolved_ips:
+        ip_str = sockaddr[0]
+        try:
+            addr = ipaddress.ip_address(ip_str)
+        except ValueError:
+            return f"Invalid resolved IP: {ip_str}"
+
+        if addr.is_private:
+            return f"Blocked private/internal IP: {ip_str}"
+        if addr.is_loopback:
+            return f"Blocked loopback IP: {ip_str}"
+        if addr.is_link_local:
+            return f"Blocked link-local IP: {ip_str}"
+        if addr.is_reserved:
+            return f"Blocked reserved IP: {ip_str}"
+        if ip_str in ("169.254.169.254", "fd00:ec2::254"):
+            return f"Blocked cloud metadata IP: {ip_str}"
+
+    return None
+
 
 # ── The 5 free-scan tests ─────────────────────────────────────────────────
 FREE_SCAN_TESTS = [
@@ -242,6 +290,12 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Validate URL against SSRF before scanning
+    ssrf_err = validate_url(args.url)
+    if ssrf_err:
+        print(f"ERROR: URL validation failed: {ssrf_err}", file=sys.stderr)
+        sys.exit(2)
 
     # Run the scan
     report = run_free_scan(args.url)

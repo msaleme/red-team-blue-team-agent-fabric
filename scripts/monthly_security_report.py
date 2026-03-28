@@ -18,6 +18,24 @@ import json
 import os
 import sys
 from collections import Counter
+from pathlib import Path
+
+
+def _get_version() -> str:
+    """Read version from pyproject.toml or importlib.metadata."""
+    try:
+        from importlib.metadata import version as pkg_version
+        return pkg_version("agent-security-harness")
+    except Exception:
+        pass
+    try:
+        _toml = Path(__file__).resolve().parent.parent / "pyproject.toml"
+        for line in _toml.read_text().splitlines():
+            if line.strip().startswith("version"):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except Exception:
+        pass
+    return "unknown"
 from datetime import datetime, timezone
 from typing import Any
 
@@ -230,7 +248,7 @@ def generate_monthly_report(
         "downgrade, resource path traversal, prompt injection, sampling hijack, malformed",
         "JSON-RPC, batch bombs, tool argument injection, and context displacement.",
         "",
-        f"Full test suite version: v3.8 (attestation branch)",
+        f"Full test suite version: v{_get_version()} (attestation branch)",
         "",
         "---",
         "",

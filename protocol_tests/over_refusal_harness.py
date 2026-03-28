@@ -70,7 +70,9 @@ def http_post_json(url: str, body: dict, headers: dict | None = None,
             ct = resp.headers.get("Content-Type", "")
             raw = resp.read().decode("utf-8")
             if "application/json" in ct:
-                return json.loads(raw) if raw else {"_status": resp.status}
+                result = json.loads(raw) if raw else {}
+                result["_status"] = resp.status
+                return result
             if "text/event-stream" in ct:
                 for line in reversed(raw.strip().split("\n")):
                     if line.startswith("data: "):

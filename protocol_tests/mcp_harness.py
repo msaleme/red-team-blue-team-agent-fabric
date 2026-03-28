@@ -999,35 +999,67 @@ def main():
 
     categories = args.categories.split(",") if args.categories else None
 
-    # Run tests
-    suite = MCPSecurityTests(transport)
-    try:
-        results = suite.run_all(categories=categories)
-    finally:
+    if args.trials > 1:
+        # Multi-trial statistical mode: run the full suite N times
+        from protocol_tests.statistical import (
+            wilson_ci, bootstrap_ci, TrialResult,
+            enhance_report, generate_statistical_report,
+        )
+        all_trial_results: list[list] = []  # list of per-trial result lists
+        for trial_idx in range(args.trials):
+            print(f"\n{'#'*60}")
+            print(f"# TRIAL {trial_idx + 1}/{args.trials}")
+            print(f"{'#'*60}")
+            suite = MCPSecurityTests(transport)
+            try:
+                trial_results = suite.run_all(categories=categories)
+            finally:
+                pass  # keep transport open for next trial
+            all_trial_results.append(trial_results)
         transport.close()
 
-    # Report
-    if args.report:
-        if args.trials > 1:
-            # NIST AI 800-2 statistical mode
-            try:
-                from protocol_tests.statistical import enhance_report
-                report = {
-                    "suite": "MCP Protocol Security Tests v3.0",
-                    "summary": {
-                        "total": len(results),
-                        "passed": sum(1 for r in results if r.passed),
-                        "failed": sum(1 for r in results if not r.passed),
-                    },
-                    "results": [asdict(r) for r in results],
-                }
-                report = enhance_report(report)
-                with open(args.report, "w") as f:
-                    json.dump(report, f, indent=2, default=str)
-                print(f"NIST AI 800-2 aligned report written to {args.report}")
-            except ImportError:
-                generate_report(results, args.report)
-        else:
+        # Build per-test statistical aggregates
+        # Use test_id from first trial as reference
+        test_ids = [r.test_id for r in all_trial_results[0]]
+        stat_results: list[TrialResult] = []
+        for idx, tid in enumerate(test_ids):
+            per_trial = [
+                all_trial_results[t][idx].passed
+                if idx < len(all_trial_results[t]) else False
+                for t in range(args.trials)
+            ]
+            n_passed = sum(per_trial)
+            pass_rate = n_passed / args.trials
+            ci = wilson_ci(n_passed, args.trials)
+            stat_results.append(TrialResult(
+                test_id=tid,
+                test_name=all_trial_results[0][idx].name if idx < len(all_trial_results[0]) else tid,
+                n_trials=args.trials,
+                n_passed=n_passed,
+                pass_rate=round(pass_rate, 4),
+                ci_95=ci,
+                per_trial=per_trial,
+                mean_elapsed_s=0.0,
+            ))
+
+        # Use last trial's results as the base single-run results
+        results = all_trial_results[-1]
+
+        if args.report:
+            generate_statistical_report(
+                results, stat_results,
+                "MCP Protocol Security Tests v3.0",
+                args.report,
+            )
+    else:
+        # Single run mode
+        suite = MCPSecurityTests(transport)
+        try:
+            results = suite.run_all(categories=categories)
+        finally:
+            transport.close()
+
+        if args.report:
             generate_report(results, args.report)
 
     # Exit code

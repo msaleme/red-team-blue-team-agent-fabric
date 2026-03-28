@@ -39,8 +39,11 @@ def wilson_ci(successes: int, trials: int, z: float = 1.96) -> tuple[float, floa
     Returns:
         (lower, upper) confidence interval bounds
     """
+    # Input validation: clamp to valid ranges
+    trials = max(0, int(trials))
     if trials == 0:
         return (0.0, 0.0)
+    successes = max(0, min(int(successes), trials))
 
     p_hat = successes / trials
     z2 = z * z
@@ -57,13 +60,14 @@ def wilson_ci(successes: int, trials: int, z: float = 1.96) -> tuple[float, floa
 
 
 def bootstrap_ci(pass_rates: list[float], n_bootstrap: int = 10000,
-                 confidence: float = 0.95) -> tuple[float, float]:
+                 confidence: float = 0.95, seed: int = 42) -> tuple[float, float]:
     """Bootstrap confidence interval for aggregate pass rate.
 
     Args:
         pass_rates: List of per-test pass rates
         n_bootstrap: Number of bootstrap samples
         confidence: Confidence level
+        seed: Random seed for reproducibility (default=42)
 
     Returns:
         (lower, upper) confidence interval bounds
@@ -72,10 +76,11 @@ def bootstrap_ci(pass_rates: list[float], n_bootstrap: int = 10000,
     if not pass_rates:
         return (0.0, 0.0)
 
+    rng = random.Random(seed)
     n = len(pass_rates)
     means = []
     for _ in range(n_bootstrap):
-        sample = [random.choice(pass_rates) for _ in range(n)]
+        sample = [rng.choice(pass_rates) for _ in range(n)]
         means.append(sum(sample) / n)
 
     means.sort()
