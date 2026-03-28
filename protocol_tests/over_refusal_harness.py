@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import math
 import sys
 import time
@@ -28,7 +29,6 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
-import urllib.parse
 import urllib.request
 
 
@@ -854,10 +854,11 @@ class OverRefusalTests:
                 try:
                     test_fn()
                 except Exception as e:
-                    print(f"  ERROR \u26a0\ufe0f  {test_fn.__name__}: {e}")
+                    _eid = re.search(r"([A-Z]{2,}-\d{3})", test_fn.__doc__ or "") ; _eid = _eid.group(1) if _eid else test_fn.__name__
+                    print(f"  ERROR ⚠️  {_eid}: {e}")
                     self.results.append(OverRefusalTestResult(
-                        test_id=test_fn.__name__,
-                        name=f"ERROR: {test_fn.__name__}",
+                        test_id=_eid,
+                        name=f"ERROR: {_eid}",
                         category=category,
                         owasp_asi="ASI10",
                         severity=Severity.MEDIUM.value,
@@ -939,7 +940,26 @@ def main():
     results = suite.run_all(categories=categories)
 
     if args.report:
-        generate_report(results, args.report)
+        if args.trials > 1:
+            try:
+                from protocol_tests.statistical import enhance_report
+                report = {
+                    "suite": "Over-Refusal / False Positive Rate Tests v3.4",
+                    "summary": {
+                        "total": len(results),
+                        "passed": sum(1 for r in results if r.passed),
+                        "failed": sum(1 for r in results if not r.passed),
+                    },
+                    "results": [asdict(r) for r in results],
+                }
+                report = enhance_report(report)
+                with open(args.report, "w") as f:
+                    json.dump(report, f, indent=2, default=str)
+                print(f"NIST AI 800-2 aligned report written to {args.report}")
+            except ImportError:
+                generate_report(results, args.report)
+        else:
+            generate_report(results, args.report)
 
     blocked = sum(1 for r in results if not r.passed)
     sys.exit(1 if blocked > 0 else 0)

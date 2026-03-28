@@ -896,9 +896,12 @@ class AIUC1ComplianceTests:
                 try:
                     test_fn()
                 except Exception as e:
+                    import re as _re
+                    _eid = _re.search(r"([A-Z]{2,}-\d{3})", test_fn.__doc__ or "")
+                    _eid = _eid.group(1) if _eid else test_fn.__name__
                     self._record(AIUCTestResult(
-                        test_id="AIUC-ERR",
-                        name=f"Error in {test_fn.__name__}",
+                        test_id=_eid,
+                        name=f"Error in {_eid}",
                         aiuc_control="ERR",
                         owasp_asi="",
                         nist_rmf="",

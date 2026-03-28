@@ -28,6 +28,13 @@ class TestAllModulesImportable(unittest.TestCase):
         "protocol_tests.harmful_output_harness",
         "protocol_tests.cbrn_harness",
         "protocol_tests.incident_response_harness",
+        "protocol_tests.jailbreak_harness",
+        "protocol_tests.provenance_harness",
+        "protocol_tests.over_refusal_harness",
+        "protocol_tests.return_channel_harness",
+        "protocol_tests.cve_2026_25253_harness",
+        "protocol_tests.aiuc1_compliance_harness",
+        "protocol_tests.cloud_agent_harness",
     ]
     def test_all(self):
         import importlib
@@ -56,7 +63,7 @@ class TestRegX402(unittest.TestCase):
     def test_registered(self):
         from protocol_tests.cli import HARNESSES
         self.assertIn("x402", HARNESSES)
-    def test_15_harnesses(self):
+    def test_21_harnesses(self):
         from protocol_tests.cli import HARNESSES
         self.assertEqual(len(HARNESSES), 21)
     def test_modules_exist(self):

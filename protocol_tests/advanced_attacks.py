@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import random
 import string
 import sys
@@ -82,7 +83,7 @@ def http_post(url, payload, headers=None, timeout=15):
     except urllib.error.HTTPError as e:
         body = ""
         try: body = e.read().decode("utf-8")[:500]
-        except: pass
+        except Exception: pass
         return {"_error": True, "_status": e.code, "_body": body}
     except Exception as e:
         return {"_error": True, "_exception": str(e)}
@@ -624,9 +625,10 @@ class AdvancedAttackTests:
                 try:
                     fn()
                 except Exception as e:
-                    print(f"  ERROR ⚠️  {fn.__name__}: {e}")
+                    _eid = re.search(r"([A-Z]{2,}-\d{3})", fn.__doc__ or "") ; _eid = _eid.group(1) if _eid else fn.__name__
+                    print(f"  ERROR ⚠️  {_eid}: {e}")
                     self.results.append(AdvancedTestResult(
-                        test_id=fn.__name__, name=f"ERROR: {fn.__name__}",
+                        test_id=_eid, name=f"ERROR: {_eid}",
                         attack_pattern=cat, owasp_asi="", severity="P1-High",
                         passed=False, details=str(e), endpoint=self.base_url))
 
