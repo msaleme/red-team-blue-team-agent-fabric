@@ -206,26 +206,41 @@ Results: 8/10 passed (80% pass rate) - see report.json
 
 ## How This Differs From Other Projects
 
-Most AI security tools test **models** (prompt injection, jailbreaks, output filtering) or enforce **permissions** (identity, access control, sandboxing). This framework tests **agent systems** at the protocol, orchestration, and decision layer.
+The MCP security ecosystem has two layers: **static scanners** that analyze configurations and tool descriptions, and **active testing harnesses** that send real adversarial payloads. Most tools are scanners. This framework is a harness.
 
-| Capability | [NVIDIA Garak](https://github.com/NVIDIA/garak) (7K+ stars) | [MS Agent Governance](https://github.com/microsoft/agent-governance-toolkit) (300+ stars) | [SlowMist MCP Checklist](https://github.com/slowmist/MCP-Security-Checklist) (800+ stars) | [agent-audit](https://github.com/HeadyZhang/agent-audit) (100+ stars) | **This framework** |
+### Static Scanning vs. Active Testing
+
+| | **Static Scanners** | **This Framework** |
+|---|---|---|
+| **Approach** | Read configs, analyze tool descriptions, match patterns | Send real JSON-RPC attacks, observe responses |
+| **Analogy** | `npm audit` / dependency checker | Penetration test |
+| **Catches** | Known patterns, suspicious descriptions, config issues | Novel attacks, protocol-level vulnerabilities, behavioral failures |
+| **Protocols** | MCP only | MCP + A2A + L402 + x402 (4 wire protocols) |
+| **When to use** | Pre-deployment config review | Pre-deployment + production adversarial testing |
+
+**Use both.** Scan with [Invariant MCP-Scan](https://github.com/invariantlabs-ai/mcp-scan) or [Cisco MCP Scanner](https://github.com/cisco-ai-defense/mcp-scanner) for static analysis. Test with this framework for active exploitation. They're complementary layers.
+
+### Detailed Comparison
+
+| Capability | [Invariant MCP-Scan](https://github.com/invariantlabs-ai/mcp-scan) (2K stars) | [Cisco MCP Scanner](https://github.com/cisco-ai-defense/mcp-scanner) (865 stars) | [Snyk Agent Scan](https://github.com/snyk/agent-scan) (2K stars) | [NVIDIA Garak](https://github.com/NVIDIA/garak) (7K stars) | **This framework** |
 |---|---|---|---|---|---|
-| **What it tests** | LLM model vulnerabilities | Policy enforcement + sandboxing | MCP configuration (checklist) | Static code analysis | Agent protocols + orchestration + decisions |
-| **MCP wire-protocol tests** | - | - | - | - | 10 tests (JSON-RPC 2.0) |
-| **A2A wire-protocol tests** | - | - | - | - | 12 tests (Agent Cards, tasks, push notifications) |
-| **L402 payment flow tests** | - | - | - | - | 14 tests (macaroons, invoices, caveats) |
-| **x402 payment protocol tests** | - | - | - | - | 25 tests (Coinbase/Stripe agent payments, recipient manipulation, session theft, facilitator trust) |
-| **Agent Autonomy Risk Score** | - | - | - | - | 0-100 score: "should this agent spend money unsupervised?" |
-| **Enterprise platform adapters** | - | - | - | - | 25 cloud + 20 enterprise platforms (Bedrock, Azure, Vertex, Agentforce, watsonx, SAP, Salesforce, Workday, Oracle, ServiceNow, etc.) |
-| **APT simulation (GTG-1002)** | - | - | - | - | 17 tests (full campaign lifecycle) |
-| **NIST AI 800-2 evaluation protocol** | - | - | - | - | Statistical confidence intervals, qualified claims |
-| **Published research backing** | - | - | - | - | 2 DOI-citable papers + 3 NIST submissions |
-| **Executable tests** | Yes (model-layer) | Yes (policy-layer) | No (docs only) | Yes (static analysis) | Yes (332 tests, protocol + app layer) |
-| **Governance layer** | WHO (model safety) | WHO (identity, access) | WHO (config) | WHO (code scanning) | **HOW (decision governance)** |
+| **What it does** | Scans installed MCP configs for tool poisoning | YARA + LLM-as-judge for malicious tools | Scans agent configs for MCP/skill security | LLM model vulnerability testing | Active protocol exploitation + decision governance |
+| **Approach** | Static analysis | Static + LLM classification | Config scanning | Model-layer probing | **Wire-protocol adversarial testing** |
+| **MCP coverage** | Tool descriptions, config files | Tool descriptions, YARA rules | Config files | - | **13 tests: real JSON-RPC 2.0 attacks** |
+| **A2A coverage** | - | - | - | - | **12 tests** |
+| **L402/x402 coverage** | - | - | - | - | **39 tests** |
+| **Enterprise platforms** | - | - | - | - | **25 cloud + 20 enterprise** |
+| **APT simulation** | - | - | - | - | **GTG-1002 (17 tests)** |
+| **Jailbreak/over-refusal** | - | - | - | Yes | **50 tests (25 + 25 FPR)** |
+| **AIUC-1 certification** | - | - | - | - | **Maps to all 24 requirements** |
+| **Research backing** | - | Cisco blog | - | Papers | **3 DOIs + 3 NIST submissions** |
+| **MCP server mode** | - | - | - | - | **Yes - invoke from any AI agent** |
+| **Statistical testing** | - | - | - | - | **Wilson CIs, multi-trial** |
+| **Total tests** | Pattern matching | YARA rules | Config checks | Model probes | **332 active tests** |
 
 ### The WHO vs. HOW Gap
 
-Current tools govern *who* agents are and *what* they can access. This framework tests whether agents make correct *decisions* under adversarial conditions. Identity governance tells you the agent is authorized. Decision governance tells you the agent is right. Both are necessary. Most projects only address the first.
+Scanners and identity tools govern *who* agents are and *what* they can access. This framework tests whether agents make correct *decisions* under adversarial conditions. Identity governance tells you the agent is authorized. Decision governance tells you the agent is right. Both are necessary. Most projects only address the first.
 
 For the research behind this distinction, see [Constitutional Self-Governance for Autonomous AI Agents](https://doi.org/10.5281/zenodo.19162104) (77 days of production data, 56 agents).
 
