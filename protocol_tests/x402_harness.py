@@ -127,10 +127,13 @@ class X402Transport:
     """HTTP transport for x402-gated APIs."""
 
     def __init__(self, base_url: str, headers: dict | None = None,
-                 paid_path: str = ""):
+                 paid_path: str = "", default_method: str = "GET",
+                 default_body: str | None = None):
         self.base_url = base_url.rstrip("/")
         self.headers = headers or {}
         self.paid_path = paid_path  # Path that returns 402 (e.g., /api/v1/tools/weather/call)
+        self.default_method = default_method.upper()
+        self.default_body = default_body  # Optional JSON body for POST endpoints
 
     def request(
         self,
@@ -181,7 +184,18 @@ class X402Transport:
             return {"status": 0, "headers": {}, "body": "", "_error": True, "_exception": str(e)}
 
     def get(self, path: str = "", headers: dict | None = None, timeout: float = 15.0) -> dict:
-        return self.request("GET", path, headers=headers, timeout=timeout)
+        """Send a request using the transport's default method and body.
+
+        Despite the name, this respects ``default_method`` so that callers
+        (all existing tests) automatically use POST when ``--method POST``
+        is passed without requiring per-call changes.
+        """
+        body = self.default_body.encode("utf-8") if self.default_body else None
+        extra_headers = dict(headers or {})
+        if body and "Content-Type" not in extra_headers:
+            extra_headers["Content-Type"] = "application/json"
+        return self.request(self.default_method, path, body=body,
+                            headers=extra_headers, timeout=timeout)
 
     def post(self, path: str = "", body: bytes | None = None, headers: dict | None = None, timeout: float = 15.0) -> dict:
         return self.request("POST", path, body=body, headers=headers, timeout=timeout)
@@ -1861,6 +1875,12 @@ def main():
     ap.add_argument("--paid-path", default="",
                     help="Path that returns 402 (e.g., /api/v1/tools/weather/call). "
                          "If omitted, tests hit the root URL.")
+    ap.add_argument("--method", default="GET", choices=["GET", "POST"],
+                    help="HTTP method for the paid endpoint (default: GET). "
+                         "Use POST for x402 endpoints that only accept POST.")
+    ap.add_argument("--body", default=None,
+                    help="Optional JSON request body for POST endpoints "
+                         "(e.g., '{\"prompt\": \"hello\"}')")
     ap.add_argument("--categories", help="Comma-separated test categories to run")
     ap.add_argument("--report", help="Output JSON report path")
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")
@@ -1881,7 +1901,12 @@ def main():
         k, v = h.split(":", 1)
         headers[k.strip()] = v.strip()
 
-    transport = X402Transport(args.url, headers=headers, paid_path=args.paid_path)
+    # Validate --body requires --method POST
+    if args.body and args.method != "POST":
+        ap.error("--body requires --method POST")
+
+    transport = X402Transport(args.url, headers=headers, paid_path=args.paid_path,
+                              default_method=args.method, default_body=args.body)
     categories = args.categories.split(",") if args.categories else None
 
     if args.trials > 1:

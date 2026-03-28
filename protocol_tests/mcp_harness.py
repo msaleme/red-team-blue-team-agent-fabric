@@ -861,6 +861,114 @@ class MCPSecurityTests:
             elapsed_s=round(elapsed, 3),
         ))
 
+    def test_mcp_tool_description_oversized(self):
+        """MCP-012: Check tools/list for oversized descriptions that could displace LLM context."""
+        t0 = time.monotonic()
+
+        SIZE_THRESHOLD = 10_240  # 10 KB — descriptions beyond this are suspicious
+
+        msg = jsonrpc_request("tools/list", {})
+        resp = self.transport.send(msg)
+        elapsed = time.monotonic() - t0
+
+        tools = []
+        if resp and "result" in resp:
+            tools = resp["result"].get("tools", [])
+
+        oversized = []
+        for tool in tools:
+            desc = tool.get("description") or ""
+            if len(desc) > SIZE_THRESHOLD:
+                oversized.append({
+                    "name": tool.get("name", "?"),
+                    "desc_len": len(desc),
+                })
+
+        passed = len(oversized) == 0
+
+        self._record(MCPTestResult(
+            test_id="MCP-012",
+            name="Tool Description Oversized Check",
+            category="context_displacement",
+            owasp_asi="ASI08",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=(
+                f"{len(oversized)} tool(s) exceed {SIZE_THRESHOLD} byte description threshold: "
+                f"{[o['name'] + ' (' + str(o['desc_len']) + 'B)' for o in oversized]}"
+                if oversized
+                else f"All {len(tools)} tool descriptions are within {SIZE_THRESHOLD}B threshold"
+            ),
+            mcp_method="tools/list",
+            request_sent=msg,
+            response_received={"n_tools": len(tools),
+                               "oversized": oversized},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_mcp_tool_description_padding_detection(self):
+        """MCP-013: Detect repeated/padding text in tool descriptions designed to consume context tokens."""
+        t0 = time.monotonic()
+
+        msg = jsonrpc_request("tools/list", {})
+        resp = self.transport.send(msg)
+        elapsed = time.monotonic() - t0
+
+        tools = []
+        if resp and "result" in resp:
+            tools = resp["result"].get("tools", [])
+
+        # Heuristics for padding detection:
+        #  1. High ratio of repeated n-grams (sliding window)
+        #  2. Long runs of the same sentence/phrase repeated
+        REPEAT_PATTERN = re.compile(r"(.{20,}?)\1{3,}", re.DOTALL)  # same 20+ char chunk repeated 4+ times
+        WHITESPACE_PADDING = re.compile(r"[\s]{500,}")  # 500+ contiguous whitespace chars
+
+        padded_tools = []
+        for tool in tools:
+            desc = tool.get("description") or ""
+            if len(desc) < 200:
+                continue  # too short to be padding
+            issues = []
+            if REPEAT_PATTERN.search(desc):
+                issues.append("repeated_phrase")
+            if WHITESPACE_PADDING.search(desc):
+                issues.append("whitespace_padding")
+            # Check character-level entropy: if a long description has very few
+            # unique characters relative to its length, it's likely padding
+            if len(desc) > 1000:
+                unique_ratio = len(set(desc)) / len(desc)
+                if unique_ratio < 0.01:  # <1% unique chars in 1000+ char desc
+                    issues.append("low_entropy")
+            if issues:
+                padded_tools.append({
+                    "name": tool.get("name", "?"),
+                    "desc_len": len(desc),
+                    "issues": issues,
+                })
+
+        passed = len(padded_tools) == 0
+
+        self._record(MCPTestResult(
+            test_id="MCP-013",
+            name="Tool Description Padding / Repetition Detection",
+            category="context_displacement",
+            owasp_asi="ASI08",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=(
+                f"{len(padded_tools)} tool(s) contain suspicious padding/repetition: "
+                f"{[t['name'] + ' (' + ','.join(t['issues']) + ')' for t in padded_tools]}"
+                if padded_tools
+                else f"No padding or repetition detected in {len(tools)} tool descriptions"
+            ),
+            mcp_method="tools/list",
+            request_sent=msg,
+            response_received={"n_tools": len(tools),
+                               "padded_tools": padded_tools},
+            elapsed_s=round(elapsed, 3),
+        ))
+
     # ------------------------------------------------------------------
     # Run all tests
     # ------------------------------------------------------------------
@@ -895,6 +1003,8 @@ class MCPSecurityTests:
             ],
             "context_displacement": [
                 self.test_mcp_tool_description_context_displacement,
+                self.test_mcp_tool_description_oversized,
+                self.test_mcp_tool_description_padding_detection,
             ],
         }
 
