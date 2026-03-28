@@ -18,7 +18,20 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).parent.parent
 HARNESS_DIR = REPO_ROOT / "protocol_tests"
 
+# Primary: test_id= assignments
 TEST_ID_RE = re.compile(r'test_id\s*=\s*["\']([^"\']+)["\']')
+
+# Secondary: test IDs passed as function arguments (e.g., AIUC F002a-c via
+# _test_cbrn_category("AIUC-F002a", ...)).  We look for string literals
+# matching the canonical ID pattern that appear as first positional args.
+ARG_ID_RE = re.compile(
+    r'(?:self\._test_\w+|_test_\w+)\(\s*["\']'
+    r'([A-Z]+-[A-Z0-9]+[a-z]?)'  # e.g. AIUC-F002a
+    r'["\']'
+)
+
+# Synthetic / error-only IDs that should not count as real tests
+EXCLUDE_IDS = {"CVE-ERR"}
 
 # Map filenames to README module names
 MODULE_NAMES = {
@@ -56,6 +69,8 @@ def main():
             continue
         text = pyfile.read_text()
         ids = set(TEST_ID_RE.findall(text))
+        ids |= set(ARG_ID_RE.findall(text))
+        ids -= EXCLUDE_IDS  # drop synthetic error IDs
         if not ids:
             continue
 

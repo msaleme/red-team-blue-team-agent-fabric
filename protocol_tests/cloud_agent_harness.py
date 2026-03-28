@@ -924,6 +924,9 @@ def main():
     parser.add_argument("--report", help="Output JSON report to file")
     parser.add_argument("--list", action="store_true",
                         help="List available platforms and test counts")
+    parser.add_argument("--categories", help="Comma-separated test categories (platform names)")
+    parser.add_argument("--trials", type=int, default=1,
+                        help="Run N times for statistical analysis")
 
     args = parser.parse_args()
 
@@ -941,7 +944,12 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    platforms_to_test = [args.platform] if args.platform else list(PLATFORMS.keys())
+    if args.platform:
+        platforms_to_test = [args.platform]
+    elif args.categories:
+        platforms_to_test = [p for p in args.categories.split(",") if p in PLATFORMS]
+    else:
+        platforms_to_test = list(PLATFORMS.keys())
 
     print(f"\n{'='*60}")
     print(f"Cloud Agent Platform Security Tests")
@@ -995,9 +1003,21 @@ def main():
                 "by_platform": by_platform,
             },
         }
-        with open(args.report, "w") as f:
-            json.dump(report, f, indent=2)
-        print(f"Report saved to {args.report}")
+        if args.trials > 1:
+            try:
+                from protocol_tests.statistical import enhance_report
+                report = enhance_report(report)
+                with open(args.report, "w") as f:
+                    json.dump(report, f, indent=2, default=str)
+                print(f"NIST AI 800-2 aligned report written to {args.report}")
+            except ImportError:
+                with open(args.report, "w") as f:
+                    json.dump(report, f, indent=2)
+                print(f"Report saved to {args.report}")
+        else:
+            with open(args.report, "w") as f:
+                json.dump(report, f, indent=2)
+            print(f"Report saved to {args.report}")
 
 
 if __name__ == "__main__":

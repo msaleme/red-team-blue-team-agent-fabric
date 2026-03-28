@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Attestation report validation** utility (`protocol_tests/attestation.py`) with schema validation and v3.7-to-v3.8 migration
 - **v3.8 roadmap** (`docs/v3.8-roadmap.md`) with MoltBridge/TrustAgentAI mapping documentation
 
+### Fixed
+- `count_tests.py` now catches test IDs passed as function arguments (AIUC-F002a/b/c), adds 3 missing IDs
+- `count_tests.py` excludes synthetic `CVE-ERR` error-handler ID from count
+- Definitive test count corrected to **330** across 21 modules
+- `action.yml` parse-report step converted from shell-interpolated Python to heredoc+env pattern (no more `${REPORT}` injection)
+- `a2a_harness.py` `--trials` flag now wired into statistical report enhancement
+- `harmful_output_harness.py` `--categories` flag now filters tests by category
+- `cloud_agent_harness.py` gains `--trials` and `--categories` flags with full implementation
+
 ### Changed
 - Report format extended to attestation schema (backward-compatible; legacy format still emittable)
 
@@ -26,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.7.0] - 2026-03-25
 
 ### Added
-- 328 security tests across 21 modules
+- 330 security tests across 21 modules
 - OATR fixture loader (`protocol_tests/oatr_fixtures.py`)
 - x402 payment flow harness with L402 interop
 - CVE-2026-25253 supply chain provenance tests
