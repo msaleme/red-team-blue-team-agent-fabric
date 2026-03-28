@@ -194,16 +194,10 @@ def migrate_legacy_report(legacy: Dict[str, Any], harness_version: str = "3.8.0"
             result=result_str,
             severity=r.get("severity", "P4-Info"),
             timestamp=r.get("timestamp", legacy.get("timestamp")),
-            name=r.get("name"),
-            owasp_asi=r.get("owasp_asi"),
-            details=r.get("details"),
-            elapsed_s=r.get("elapsed_s"),
+            **{k: r[k] for k in ("name", "owasp_asi", "details", "elapsed_s",
+                                  "request_sent", "response_received")
+               if r.get(k) is not None},
         )
-        # Carry over evidence fields if present and non-null
-        if r.get("request_sent") is not None:
-            entry.data["request_sent"] = r["request_sent"]
-        if r.get("response_received") is not None:
-            entry.data["response_received"] = r["response_received"]
 
         entries.append(entry.to_dict())
 
