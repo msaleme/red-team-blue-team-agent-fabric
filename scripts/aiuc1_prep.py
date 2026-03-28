@@ -34,24 +34,9 @@ from pathlib import Path
 from typing import Any
 
 
-def _get_harness_version() -> str:
-    """Read version from pyproject.toml or fall back to importlib.metadata."""
-    try:
-        from importlib.metadata import version as pkg_version
-        return pkg_version("agent-security-harness")
-    except Exception:
-        pass
-    try:
-        _toml = Path(__file__).resolve().parent.parent / "pyproject.toml"
-        for line in _toml.read_text().splitlines():
-            if line.strip().startswith("version"):
-                return line.split("=", 1)[1].strip().strip('"').strip("'")
-    except Exception:
-        pass
-    return "unknown"
+from protocol_tests.version import get_harness_version
 
-
-HARNESS_VERSION = _get_harness_version()
+HARNESS_VERSION = get_harness_version()
 
 
 # ---------------------------------------------------------------------------
@@ -234,6 +219,8 @@ def run_harness(url: str, harnesses: list[str] | None = None, simulate: bool = F
     all_results: list[dict] = []
     suites = harnesses or ["mcp", "a2a", "identity"]
     tmp_dir = tempfile.mkdtemp(prefix="aiuc1_")
+    import atexit, shutil
+    atexit.register(shutil.rmtree, tmp_dir, True)
 
     for suite in suites:
         cmd = [sys.executable, "-m", f"protocol_tests.{_module_for_suite(suite)}"]
@@ -632,7 +619,7 @@ Examples:
         json_data = {
             "generated": datetime.now(timezone.utc).isoformat(),
             "target": target,
-            "framework_version": "3.8.0",
+            "framework_version": HARNESS_VERSION,
             "requirements": [
                 {
                     "req_id": s.req_id,

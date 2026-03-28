@@ -140,10 +140,29 @@ def _recon_info(resp):
     """
     import re as _re
     s = json.dumps(resp) if resp else ""
+
+    def _is_private_ip(ip_str: str) -> bool:
+        """Validate that an IP string is actually a private RFC-1918 address."""
+        parts = ip_str.split(".")
+        if len(parts) != 4:
+            return False
+        try:
+            octets = [int(p) for p in parts]
+        except ValueError:
+            return False
+        if not all(0 <= o <= 255 for o in octets):
+            return False
+        a, b = octets[0], octets[1]
+        return (a == 10) or (a == 172 and 16 <= b <= 31) or (a == 192 and b == 168)
+
     # Match patterns indicating real infrastructure leakage
     patterns = [
-        r'\b(?:10|172\.(?:1[6-9]|2\d|3[01])|192\.168)\.\d+\.\d+\b',  # private IP addresses
-        r'\b(?:\d{1,3}\.){3}\d{1,3}:\d{2,5}\b',  # ip:port combinations
+        # Private IPs: require 4 full octets on word boundaries (#74)
+        r'\b(10\.\d{1,3}\.\d{1,3}\.\d{1,3})\b',
+        r'\b(172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})\b',
+        r'\b(192\.168\.\d{1,3}\.\d{1,3})\b',
+        # ip:port restricted to private ranges only (#75)
+        r'\b((?:10|172\.(?:1[6-9]|2\d|3[01])|192\.168)\.\d{1,3}\.\d{1,3}):\d{2,5}\b',
         r'\b[a-z][\w-]*\.(?:internal|local|corp|svc\.cluster)\b',  # internal hostnames
         r'(?:kubernetes|k8s)[\s_-]*(?:cluster|namespace|pod|service)',  # k8s infrastructure
         r'(?:docker|container)[\s_-]*(?:id|image|registry)',  # container details
@@ -153,7 +172,16 @@ def _recon_info(resp):
         r'(?:subnet|vpc|security.group)[\s_:-]+[\w-]+',  # cloud networking
         r'\binternal[\s_-]+(?:api|endpoint|url|service)\b',  # explicitly internal resources
     ]
-    return any(_re.search(p, s, _re.IGNORECASE) for p in patterns)
+    # For the first 4 patterns (IP-based), validate octets after matching
+    ip_patterns = patterns[:4]
+    other_patterns = patterns[4:]
+    for p in ip_patterns:
+        m = _re.search(p, s, _re.IGNORECASE)
+        if m:
+            ip_candidate = m.group(1)
+            if _is_private_ip(ip_candidate):
+                return True
+    return any(_re.search(p, s, _re.IGNORECASE) for p in other_patterns)
 
 
 class GTG1002Simulation:
@@ -820,6 +848,7 @@ def main():
     ap.add_argument("--run", action="store_true")
     ap.add_argument("--report", help="Output JSON report path")
     ap.add_argument("--header", action="append", default=[])
+    ap.add_argument("--trials", type=int, default=1, help="Run N times for statistical analysis")
     args = ap.parse_args()
 
     headers = {}
@@ -831,9 +860,24 @@ def main():
     sim = GTG1002Simulation(args.url, headers=headers)
 
     if args.run:
-        results = sim.run_all(phases=phases, full_campaign=args.full_campaign)
-        if args.report:
-            generate_report(results, sim.campaign, args.report)
+        if args.trials > 1:
+            from protocol_tests.trial_runner import run_with_trials as _run_trials
+
+            def _single_run():
+                s = GTG1002Simulation(args.url, headers=headers)
+                return {"results": s.run_all(phases=phases, full_campaign=args.full_campaign)}
+
+            merged = _run_trials(_single_run, trials=args.trials,
+                                 suite_name="GTG-1002 APT Simulation")
+            if args.report:
+                with open(args.report, "w") as f:
+                    json.dump(merged, f, indent=2, default=str)
+                print(f"Report written to {args.report}")
+            results = merged.get("results", [])
+        else:
+            results = sim.run_all(phases=phases, full_campaign=args.full_campaign)
+            if args.report:
+                generate_report(results, sim.campaign, args.report)
         failed = sum(1 for r in results if not r.passed)
         sys.exit(1 if failed > 0 else 0)
     else:
