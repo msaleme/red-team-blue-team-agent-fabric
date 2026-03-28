@@ -184,8 +184,12 @@ Validate an attestation report against the JSON schema.
 
 ## Rate Limiting
 
-In HTTP mode, scan tools are rate-limited to **1 scan per 60 seconds per client**.
-This prevents abuse when the server is exposed on a network.
+Scan tools are rate-limited to **1 request per 60 seconds per client**.
+
+- **HTTP mode:** Rate limits are tracked per client identifier. Each distinct
+  client gets its own 60-second window. Stale entries are cleaned after 5 minutes.
+- **stdio mode:** All requests share a single client context (since stdio is
+  inherently single-client).
 
 The `get_test_catalog` and `validate_attestation` tools are not rate-limited.
 
@@ -197,7 +201,23 @@ For production deployments, use the `--api-key` flag:
 python -m mcp_server --transport http --port 8400 --api-key YOUR_SECRET_KEY
 ```
 
-When an API key is set, the `full_security_audit` tool requires authentication.
+When an API key is configured:
+
+- **`scan_mcp_server`** and **`get_test_catalog`** remain **unauthenticated**
+  (free tier). Anyone can run quick scans and browse the test catalog.
+- **`full_security_audit`** and **`aiuc1_readiness`** **require authentication**.
+  Pass the key via the `api_key` tool parameter, or set the
+  `AGENT_SECURITY_CLIENT_KEY` environment variable on the client side.
+- **`validate_attestation`** does not require authentication (schema validation
+  only, no server-side execution).
+
+If no `--api-key` is set, all tools are accessible without authentication.
+
+## Input Limits
+
+The `report_json` parameter accepted by `validate_attestation` and
+`aiuc1_readiness` is capped at **10 MB**. Payloads exceeding this limit are
+rejected immediately.
 The quick scan (`scan_mcp_server`) remains unauthenticated for free-tier access.
 
 ## Security Considerations
