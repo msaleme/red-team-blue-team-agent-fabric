@@ -21,7 +21,6 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -170,9 +169,6 @@ def create_server(api_key: str | None = None) -> FastMCP:
     # ------------------------------------------------------------------
     # Tool 1: scan_mcp_server (unauthenticated - free tier)
     # ------------------------------------------------------------------
-
-    # Session counter for anonymous clients (#109)
-    _session_counter = defaultdict(int)
 
     @mcp.tool()
     def scan_mcp_server(url: str, transport: str = "http") -> dict:

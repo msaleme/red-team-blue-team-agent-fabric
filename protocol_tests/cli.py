@@ -136,6 +136,11 @@ def print_usage():
     print("  agent-security test mcp --url http://localhost:8080 --trials 5")
     print("  agent-security test mcp --url http://localhost:8080 --delay 1000")
     print()
+    print("Attestation & Configuration:")
+    print("  agent-security publish --attestation <file> --server-name <name>")
+    print("  agent-security verify --registry-id <id>")
+    print("  agent-security config --no-telemetry")
+    print()
     print("Research: https://doi.org/10.5281/zenodo.19162104")
     print("Repo:     https://github.com/msaleme/red-team-blue-team-agent-fabric")
 

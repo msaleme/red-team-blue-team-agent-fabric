@@ -17,6 +17,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import html
 import os
 import re
 from datetime import datetime, timezone
@@ -24,10 +25,29 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 # Configurable registry endpoint - override for self-hosted deployments
-REGISTRY_ENDPOINT = os.environ.get(
-    "AGENT_SECURITY_REGISTRY_URL",
-    "https://registry.agentsecurity.dev/v1/attestation",
-)
+_DEFAULT_REGISTRY = "https://registry.agentsecurity.dev/v1/attestation"
+_raw_endpoint = os.environ.get("AGENT_SECURITY_REGISTRY_URL", _DEFAULT_REGISTRY)
+
+# Validate URL format (#124): must be https:// (or http:// for localhost only)
+if _raw_endpoint != _DEFAULT_REGISTRY:
+    from urllib.parse import urlparse as _urlparse
+
+    _parsed = _urlparse(_raw_endpoint)
+    if _parsed.scheme == "https":
+        pass  # always allowed
+    elif _parsed.scheme == "http" and _parsed.hostname in ("localhost", "127.0.0.1", "::1"):
+        pass  # http allowed for local development
+    else:
+        raise ValueError(
+            f"AGENT_SECURITY_REGISTRY_URL must use https:// "
+            f"(or http:// for localhost). Got: {_raw_endpoint!r}"
+        )
+    if not _parsed.hostname:
+        raise ValueError(
+            f"AGENT_SECURITY_REGISTRY_URL is not a valid URL: {_raw_endpoint!r}"
+        )
+
+REGISTRY_ENDPOINT = _raw_endpoint
 
 _KEY_DIR = Path.home() / ".agent-security"
 _KEY_FILE = _KEY_DIR / "signing_key.pem"
@@ -264,8 +284,8 @@ def publish_attestation(
             f"({registry_url})"
         ),
         "badge_html": (
-            f'<a href="{registry_url}">'
-            f'<img src="https://registry.agentsecurity.dev/badge/{registry_id}" '
+            f'<a href="{html.escape(registry_url)}">'
+            f'<img src="https://registry.agentsecurity.dev/badge/{html.escape(registry_id)}" '
             f'alt="Verified by Agent Security Harness" /></a>'
         ),
     }
