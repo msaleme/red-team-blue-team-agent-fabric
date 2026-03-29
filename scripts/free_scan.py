@@ -167,10 +167,20 @@ def build_recommendation(results: list[dict], grade: str) -> str:
 
 # ── Run scan ───────────────────────────────────────────────────────────────
 
-def run_free_scan(url: str) -> dict:
-    """Execute the 5 free-scan tests and return structured results."""
-    transport = StreamableHTTPTransport(url)
-    harness = MCPSecurityTests(transport)
+def run_free_scan(url: str, transport: str = "http") -> dict:
+    """Execute the 5 free-scan tests and return structured results.
+
+    Args:
+        url: Target MCP server URL.
+        transport: Transport type - 'http' (default) or 'stdio'.
+    """
+    # #110 - Wire transport parameter through
+    if transport == "stdio":
+        from protocol_tests.mcp_harness import StdioTransport
+        _transport = StdioTransport(url)
+    else:
+        _transport = StreamableHTTPTransport(url)
+    harness = MCPSecurityTests(_transport)
 
     scan_results: list[dict] = []
     passed = 0
@@ -207,7 +217,7 @@ def run_free_scan(url: str) -> dict:
                 "detail": str(exc),
             })
 
-    transport.close()
+    _transport.close()
 
     grade = compute_grade(passed, total)
     recommendation = build_recommendation(scan_results, grade)

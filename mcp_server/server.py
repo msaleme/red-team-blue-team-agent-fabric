@@ -171,6 +171,9 @@ def create_server(api_key: str | None = None) -> FastMCP:
     # Tool 1: scan_mcp_server (unauthenticated - free tier)
     # ------------------------------------------------------------------
 
+    # Session counter for anonymous clients (#109)
+    _session_counter = defaultdict(int)
+
     @mcp.tool()
     def scan_mcp_server(url: str, transport: str = "http") -> dict:
         """Quick 5-test MCP security scan with A-F grading.
@@ -188,8 +191,11 @@ def create_server(api_key: str | None = None) -> FastMCP:
             dict with keys: grade, tests_passed, tests_run, results,
             recommendation, scan_time, target_url, timestamp.
         """
-        # Rate limit (per-client)
-        rate_err = _check_rate_limit("scan")
+        # Rate limit per-client (#109): key on URL as client identifier
+        # since MCP tool calls don't carry a client_id in context.
+        # This ensures different clients scanning different targets aren't blocked.
+        client_key = f"scan:{url}"
+        rate_err = _check_rate_limit(client_key)
         if rate_err:
             return {"error": rate_err}
 
@@ -198,10 +204,15 @@ def create_server(api_key: str | None = None) -> FastMCP:
         if url_err:
             return url_err
 
+        # Validate transport (#110)
+        valid_transports = {"http", "stdio"}
+        if transport not in valid_transports:
+            return {"error": f"Invalid transport '{transport}'. Choose from: {', '.join(sorted(valid_transports))}"}
+
         start = time.time()
         try:
             from scripts.free_scan import run_free_scan
-            report = run_free_scan(url)
+            report = run_free_scan(url, transport=transport)
             report["scan_time"] = round(time.time() - start, 2)
             return report
         except Exception as e:

@@ -18,6 +18,7 @@ import copy
 import hashlib
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -34,6 +35,11 @@ _KEY_FILE = _KEY_DIR / "signing_key.pem"
 # Fields stripped from reports before publishing.
 # These contain request/response payloads that may include sensitive data
 # like target URLs, auth tokens, or infrastructure details.
+#
+# Defense-in-depth: This exact-match set catches known sensitive field names.
+# The _is_sensitive_key() function below also catches fields containing
+# common sensitive substrings (url, endpoint, host, address, path).
+# This is NOT exhaustive -- it is a best-effort defense layer.
 _SENSITIVE_FIELDS = frozenset({
     "request_sent",
     "response_received",
@@ -46,6 +52,21 @@ _SENSITIVE_FIELDS = frozenset({
     "url",
     "endpoint",
 })
+
+# Substrings that indicate a field may contain infrastructure details (#117).
+_SENSITIVE_SUBSTRINGS = ("url", "endpoint", "host", "address", "path")
+
+
+def _is_sensitive_key(key: str) -> bool:
+    """Check if a field name is sensitive by exact match or substring match.
+
+    This is defense-in-depth, not exhaustive. New sensitive patterns should
+    be added to _SENSITIVE_FIELDS or _SENSITIVE_SUBSTRINGS as discovered.
+    """
+    if key in _SENSITIVE_FIELDS:
+        return True
+    key_lower = key.lower()
+    return any(s in key_lower for s in _SENSITIVE_SUBSTRINGS)
 
 
 def _ensure_signing_key() -> bytes:
@@ -109,7 +130,7 @@ def strip_sensitive_fields(report: dict) -> dict:
     def _strip(obj: dict | list) -> None:
         if isinstance(obj, dict):
             for key in list(obj.keys()):
-                if key in _SENSITIVE_FIELDS:
+                if _is_sensitive_key(key):
                     del obj[key]
                 elif isinstance(obj[key], (dict, list)):
                     _strip(obj[key])
@@ -120,6 +141,47 @@ def strip_sensitive_fields(report: dict) -> dict:
 
     _strip(cleaned)
     return cleaned
+
+
+_SERVER_NAME_RE = re.compile(r"^[A-Za-z0-9\-\. ]+$")
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_REGISTRY_ID_RE = re.compile(r"^[A-Za-z0-9\-]+$")
+
+
+def _validate_server_name(server_name: str) -> None:
+    """Validate server_name: max 200 chars, alphanumeric + hyphens + dots + spaces."""
+    if not server_name:
+        raise ValueError("server_name is required and cannot be empty.")
+    if len(server_name) > 200:
+        raise ValueError(f"server_name exceeds 200 character limit (got {len(server_name)}).")
+    if not _SERVER_NAME_RE.match(server_name):
+        raise ValueError(
+            "server_name contains invalid characters. "
+            "Only alphanumeric, hyphens, dots, and spaces are allowed."
+        )
+
+
+def _validate_contact(contact: str) -> None:
+    """Validate contact: basic email format or max 200 chars."""
+    if len(contact) > 200:
+        raise ValueError(f"contact exceeds 200 character limit (got {len(contact)}).")
+    if not _EMAIL_RE.match(contact):
+        raise ValueError(
+            "contact must be a valid email address (e.g. user@example.com)."
+        )
+
+
+def _validate_registry_id(registry_id: str) -> None:
+    """Validate registry_id is alphanumeric/UUID format only. Prevents path traversal."""
+    if not registry_id:
+        raise ValueError("registry_id is required and cannot be empty.")
+    if len(registry_id) > 200:
+        raise ValueError("registry_id is too long.")
+    if not _REGISTRY_ID_RE.match(registry_id):
+        raise ValueError(
+            "registry_id contains invalid characters. "
+            "Only alphanumeric characters and hyphens are allowed."
+        )
 
 
 def publish_attestation(
@@ -136,11 +198,21 @@ def publish_attestation(
     Args:
         report: The attestation report dict (from harness output).
         server_name: Human-readable name for the server being attested.
+            Max 200 chars, alphanumeric + hyphens + dots + spaces only.
         contact: Optional contact email for the attestation listing.
+            Must be a valid email format, max 200 chars.
 
     Returns:
         dict with keys: registry_id, registry_url, badge_markdown, verification_hash
+
+    Raises:
+        ValueError: If server_name or contact fail validation.
     """
+    # Validate inputs (#113)
+    _validate_server_name(server_name)
+    if contact:
+        _validate_contact(contact)
+
     # Strip ALL sensitive fields before the data leaves this machine
     cleaned = strip_sensitive_fields(report)
 
@@ -207,10 +279,17 @@ def verify_attestation(registry_id: str) -> dict:
 
     Args:
         registry_id: The ID returned from publish_attestation().
+            Must be alphanumeric/UUID format only.
 
     Returns:
         dict with verification status, server name, published date, and hash.
+
+    Raises:
+        ValueError: If registry_id fails validation (e.g. path traversal attempt).
     """
+    # Validate registry_id before URL construction (#114)
+    _validate_registry_id(registry_id)
+
     url = f"{REGISTRY_ENDPOINT}/{registry_id}"
     req = Request(url, method="GET")
 

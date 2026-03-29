@@ -3,7 +3,7 @@
 WHAT THIS SENDS: version, module_name, test_count, passed, failed, os, python_version, timestamp
 WHAT THIS NEVER SENDS: URLs, results, payloads, credentials, IPs
 
-OPT OUT: export AGENT_SECURITY_TELEMETRY=off
+OPT IN: export AGENT_SECURITY_TELEMETRY=on
 
 This module is intentionally small (<100 lines) so you can audit it in 2 minutes.
 Source: https://github.com/msaleme/red-team-blue-team-agent-fabric/blob/main/protocol_tests/telemetry.py
@@ -21,30 +21,31 @@ TELEMETRY_ENDPOINT = os.environ.get(
 _CFG_DIR = Path.home() / ".agent-security"
 _CFG_FILE = _CFG_DIR / "telemetry.json"
 _NOTICE_MARKER = _CFG_DIR / "telemetry-notice-shown"
-_FIRST_RUN_NOTICE = """
-╔══════════════════════════════════════════════════════════════╗
-║  Agent Security Harness -- Anonymous Telemetry Notice       ║
-╠══════════════════════════════════════════════════════════════╣
-║  This tool sends anonymous usage stats (version, module     ║
-║  name, pass/fail counts, OS, Python version). No URLs,      ║
-║  results, payloads, or credentials are ever transmitted.    ║
-║                                                              ║
-║  Opt out:  export AGENT_SECURITY_TELEMETRY=off              ║
-║  Details:  docs/PRIVACY.md                                  ║
-╚══════════════════════════════════════════════════════════════╝
+_FIRST_RUN_NOTICE = """agent-security-harness: Anonymous usage statistics are OFF by default.
+To help improve the framework: export AGENT_SECURITY_TELEMETRY=on
+Details: docs/PRIVACY.md
 """
 
 def _is_disabled() -> bool:
-    """Check env var and config file. Either can disable telemetry."""
-    env = os.environ.get("AGENT_SECURITY_TELEMETRY", "").lower()
-    if env in ("off", "false", "0"):
-        return True
+    """Check env var and config file. Telemetry is OFF by default (opt-in).
+
+    Telemetry is only enabled when explicitly opted in via:
+    - Environment variable: AGENT_SECURITY_TELEMETRY=on/true/1
+    - Config file: {"enabled": true}
+    """
+    # Check config file first - explicit config takes precedence
     try:
-        if json.loads(_CFG_FILE.read_text()).get("enabled") is False:
-            return True
+        if json.loads(_CFG_FILE.read_text()).get("enabled") is True:
+            return False  # Explicitly enabled via config
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         pass
-    return False
+
+    # Check environment variable - must be explicitly enabled
+    env = os.environ.get("AGENT_SECURITY_TELEMETRY", "").lower()
+    if env in ("on", "true", "1"):
+        return False  # Explicitly enabled via env var
+
+    return True  # Default: disabled (GDPR-safe opt-in)
 
 def _show_first_run_notice() -> None:
     """Print telemetry notice to stderr on first run. Impossible to miss."""
@@ -86,5 +87,6 @@ def send_telemetry_event(module: str, tests: int, passed: int, failed: int) -> N
 
 def telemetry_payload_example() -> dict:
     """Return a sample payload so users can see exactly what's sent."""
-    return {"v": "3.8.0", "module": "mcp", "tests": 13, "passed": 11,
+    from protocol_tests.version import get_harness_version
+    return {"v": get_harness_version(), "module": "mcp", "tests": 13, "passed": 11,
             "failed": 2, "os": "linux", "py": "3.12", "ts": "2026-03-28T00:00:00Z"}

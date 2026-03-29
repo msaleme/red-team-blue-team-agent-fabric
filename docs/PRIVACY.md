@@ -14,7 +14,7 @@ We're security professionals building for security professionals. We know that v
 
 ## What We Collect (Anonymous Usage Stats)
 
-When telemetry is enabled (opt-OUT, on by default), we collect:
+When telemetry is enabled (opt-IN, off by default), we collect:
 
 | Field | Example | Why |
 |-------|---------|-----|
@@ -50,14 +50,14 @@ print(telemetry_payload_example())
 
 ---
 
-## How to Opt Out
+## How to Opt In
 
-Three ways. Pick whichever you prefer:
+Telemetry is **OFF by default**. To enable anonymous usage statistics:
 
 ### 1. Environment variable (fastest)
 
 ```bash
-export AGENT_SECURITY_TELEMETRY=off
+export AGENT_SECURITY_TELEMETRY=on
 ```
 
 Add to your `.bashrc`, `.zshrc`, or CI environment.
@@ -65,20 +65,24 @@ Add to your `.bashrc`, `.zshrc`, or CI environment.
 ### 2. CLI command
 
 ```bash
-agent-security config --no-telemetry
+agent-security config --telemetry
 ```
 
-This writes `{"enabled": false}` to `~/.agent-security/telemetry.json`.
+This writes `{"enabled": true}` to `~/.agent-security/telemetry.json`.
 
-### 3. Delete the config
+### How to Opt Out Again
+
+If you previously opted in:
 
 ```bash
+export AGENT_SECURITY_TELEMETRY=off
+# or
+agent-security config --no-telemetry
+# or
 rm -rf ~/.agent-security/
 ```
 
-If the config directory doesn't exist, telemetry checks for the env var only.
-
-All three paths are checked before any network call is made. Any one of them is sufficient to disable telemetry completely.
+Any of these will disable telemetry completely.
 
 ---
 
@@ -148,6 +152,41 @@ We will announce any changes to this privacy policy through:
 3. README.md notice
 
 No silent changes. Ever. The git history of this file is your audit trail.
+
+---
+
+## Legal Basis (GDPR)
+
+With telemetry set to opt-in by default, the legal basis for processing is **consent**. You explicitly choose to enable telemetry. You can withdraw consent at any time by disabling telemetry (see "How to Opt Out Again" above).
+
+### Data Subject Rights
+
+Under GDPR, you have the right to:
+
+- **Access** - Request a copy of any data we hold about you
+- **Deletion** - Request permanent deletion of your data
+- **Portability** - Receive your data in a structured, machine-readable format
+- **Rectification** - Request correction of inaccurate data
+- **Restriction** - Request that we limit processing of your data
+
+Since telemetry is anonymous (no IP addresses retained, no user identifiers), we may not be able to identify your specific data. However, we will make best efforts to honor any request.
+
+To exercise these rights, contact us at **trusted@synapseops.com**. We respond within 30 days.
+
+### Data Controller
+
+**Signal Ops / Michael K. Saleme**
+Contact for data protection inquiries: **trusted@synapseops.com**
+
+---
+
+## CCPA Compliance (California)
+
+- **We do not sell personal information.** We never have and never will.
+- **We do not share personal information** with third parties for their marketing purposes.
+- **Right to know:** You may request what data we collect (see table above - that's all of it).
+- **Right to delete:** Contact us to request deletion.
+- **Non-discrimination:** We will not discriminate against you for exercising your CCPA rights.
 
 ---
 

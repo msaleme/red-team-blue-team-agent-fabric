@@ -214,6 +214,58 @@ def main():
             print("Usage: agent-security config [--no-telemetry | --telemetry]")
             sys.exit(1)
 
+    if args[0] == "publish":
+        # #115 - Publish attestation report to registry
+        import argparse as _ap
+        pub_parser = _ap.ArgumentParser(prog="agent-security publish")
+        pub_parser.add_argument("--attestation", required=True, help="Path to attestation report JSON file")
+        pub_parser.add_argument("--server-name", required=True, help="Human-readable server name")
+        pub_parser.add_argument("--contact", default=None, help="Optional contact email")
+        pub_args = pub_parser.parse_args(args[1:])
+
+        import json as _json
+        try:
+            with open(pub_args.attestation) as f:
+                report = _json.load(f)
+        except FileNotFoundError:
+            print(f"Error: file not found: {pub_args.attestation}", file=sys.stderr)
+            sys.exit(1)
+        except _json.JSONDecodeError as e:
+            print(f"Error: invalid JSON in {pub_args.attestation}: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        from protocol_tests.attestation_registry import publish_attestation
+        try:
+            result = publish_attestation(
+                report=report,
+                server_name=pub_args.server_name,
+                contact=pub_args.contact,
+            )
+        except (ValueError, RuntimeError) as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        print(_json.dumps(result, indent=2))
+        sys.exit(0)
+
+    if args[0] == "verify":
+        # #115 - Verify attestation by registry ID
+        import argparse as _ap
+        ver_parser = _ap.ArgumentParser(prog="agent-security verify")
+        ver_parser.add_argument("--registry-id", required=True, help="Registry ID to verify")
+        ver_args = ver_parser.parse_args(args[1:])
+
+        import json as _json
+        from protocol_tests.attestation_registry import verify_attestation
+        try:
+            result = verify_attestation(ver_args.registry_id)
+        except (ValueError, RuntimeError) as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        print(_json.dumps(result, indent=2))
+        sys.exit(0)
+
     if args[0] == "test":
         if len(args) < 2:
             print("Error: specify a harness name. Use 'agent-security list' to see options.")
@@ -257,18 +309,47 @@ def main():
         sys.argv = [info["module"]] + filtered_args
 
         import runpy
-        runpy.run_module(info["module"], run_name="__main__")
+        ns = runpy.run_module(info["module"], run_name="__main__")
 
-        # Send anonymous telemetry after harness completes.
-        # NOTE: telemetry is imported HERE (not at module top) to keep it
-        # isolated from modules that handle URLs and payloads.
-        # Pass/fail counts aren't available from runpy, so we send module-level stats.
-        # The telemetry module handles opt-out checks internally.
+        # Send anonymous telemetry after harness completes (#112).
+        # Extract actual test counts from the harness namespace if available.
+        # Harnesses typically store results in _results, results, or similar.
         try:
             from protocol_tests.telemetry import send_telemetry_event
-            # runpy doesn't return results, so we report the run happened.
-            # Individual harnesses can call send_telemetry_event with exact counts.
-            send_telemetry_event(module=harness_name, tests=0, passed=0, failed=0)
+
+            # Try to extract counts from the module namespace
+            test_count = 0
+            pass_count = 0
+            fail_count = 0
+
+            # Check common result patterns from harness modules
+            for key in ("_results", "results", "test_results"):
+                result_list = ns.get(key)
+                if isinstance(result_list, (list, tuple)) and result_list:
+                    test_count = len(result_list)
+                    for r in result_list:
+                        status = ""
+                        if hasattr(r, "status"):
+                            status = str(getattr(r.status, "value", r.status)).upper()
+                        elif isinstance(r, dict):
+                            status = str(r.get("status", "")).upper()
+                        if status == "PASS":
+                            pass_count += 1
+                        elif status in ("FAIL", "ERROR"):
+                            fail_count += 1
+                    break
+
+            # Also check unittest-style result objects
+            if test_count == 0:
+                for key in ("_test_result", "test_result"):
+                    tr = ns.get(key)
+                    if tr and hasattr(tr, "testsRun"):
+                        test_count = tr.testsRun
+                        fail_count = len(getattr(tr, "failures", [])) + len(getattr(tr, "errors", []))
+                        pass_count = test_count - fail_count
+                        break
+
+            send_telemetry_event(module=harness_name, tests=test_count, passed=pass_count, failed=fail_count)
         except Exception:
             pass  # Telemetry must never break the CLI
 

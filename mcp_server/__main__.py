@@ -55,6 +55,15 @@ def main() -> None:
         )
         sys.exit(1)
 
+    # #108 - Warn when MCP server runs without authentication
+    if not args.api_key:
+        print(
+            "WARNING: MCP server running without authentication. "
+            "Full audit and AIUC-1 tools are unrestricted.\n"
+            "Use --api-key <key> to require authentication for expensive operations.",
+            file=sys.stderr,
+        )
+
     server = create_server(api_key=args.api_key)
     run_server(server, transport=args.transport, host=args.host, port=args.port)
 
