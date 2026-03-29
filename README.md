@@ -644,6 +644,12 @@ Full details: [docs/PRIVACY.md](docs/PRIVACY.md) | Attestation registry: [docs/a
 
 ---
 
+## Roadmap
+
+See **[v3.9.0 Roadmap](docs/v3.9-roadmap.md)** for planned features and community contribution opportunities.
+
+---
+
 ## Contributing
 
 We welcome contributions! Please see:
