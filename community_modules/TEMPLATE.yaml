@@ -1,0 +1,121 @@
+# =============================================================================
+# Community Attack Pattern Template
+# =============================================================================
+# Copy this file, fill in the fields, and submit a PR to community_modules/contrib/
+#
+# Docs: docs/PLUGIN_SPEC.md
+# Examples: community_modules/examples/
+# =============================================================================
+
+# --- Required Fields ---------------------------------------------------------
+
+# Unique ID. Format: CP-XXXX (four digits). Check existing patterns to avoid
+# duplicates. Range CP-0001 to CP-9999.
+id: CP-XXXX
+
+# Pattern version. Bump when you update the pattern. Semver format.
+version: "1.0.0"
+
+# Human-readable name. Keep it under 80 characters.
+name: ""
+
+# What does this pattern test? 1-3 sentences.
+description: >
+  Describe the attack scenario clearly. What is the threat? What is being
+  tested? What would a successful attack look like?
+
+# Target framework. Pick one:
+# mcp | a2a | autogen | crewai | langgraph | x402 | l402 | generic
+framework: generic
+
+# Impact severity: critical | high | medium | low
+# - critical: Full system compromise, data breach, authentication bypass
+# - high: Privilege escalation, significant data exposure
+# - medium: Information disclosure, partial boundary violation
+# - low: Minor policy violation, informational finding
+severity: medium
+
+# OWASP Agentic Top 10 mapping. See docs/PLUGIN_SPEC.md appendix for the list.
+# Example: OWASP-AGENT-01 (Prompt Injection)
+owasp_category: OWASP-AGENT-XX
+
+# --- Attack Steps ------------------------------------------------------------
+# Ordered list of actions. The runner executes them in sequence.
+# Each step needs: action, target, payload
+# Optional per step: description, delay_ms
+
+attack_steps:
+  - action: send_message          # Action type (see PLUGIN_SPEC.md for all types)
+    target: agent                  # What receives it: agent | server | endpoint | tool
+    description: >                 # Optional: explain what this step does
+      Describe what this step does and why.
+    payload:                       # Action-specific data
+      role: ""
+      content: ""
+      # Add fields relevant to your action type
+
+  # Add more steps as needed:
+  # - action: call_tool
+  #   target: server
+  #   payload:
+  #     tool_name: ""
+  #     arguments: {}
+
+# --- Assertions --------------------------------------------------------------
+# What to check after attack steps complete. At least one required.
+
+assertions:
+  - type: response_must_not_contain  # Assertion type (see PLUGIN_SPEC.md)
+    field: ""                         # Which field to check
+    value: ""                         # Expected or forbidden value
+    description: ""                   # Optional: explain what this checks
+
+  # Common assertion types:
+  # - response_must_not_contain: field must NOT include value
+  # - response_must_contain: field must include value
+  # - status_code_equals: HTTP status must match value
+  # - role_boundary_held: agent stays in expected_role
+  # - no_data_exfiltration: no outbound data transfer
+  # - error_returned: server returns an error
+  # - tool_not_executed: named tool must not be called
+  # - field_equals: field must equal value
+  # - field_matches: field must match regex in value
+
+# --- Evidence Schema ---------------------------------------------------------
+# Declare what evidence this pattern collects. Keys are field names, values
+# are types: string | object | list | integer | boolean | number
+
+evidence_schema:
+  request_sent: object
+  response_received: object
+  # Add fields specific to your attack:
+  # exfiltration_attempted: boolean
+  # role_at_start: string
+  # role_at_end: string
+
+# --- Optional Fields ---------------------------------------------------------
+
+# CVE identifier if this reproduces a known vulnerability.
+# cve_reference: CVE-YYYY-XXXXX
+
+# What must be true before running this pattern.
+# prerequisites:
+#   - "Server accessible via HTTP"
+#   - "Agent has at least one registered tool"
+
+# How defenders should prevent this attack.
+# blue_team_mitigation: >
+#   Describe defensive measures here.
+
+# Who wrote this pattern. Shows up in the contributor hall of fame.
+# contributor:
+#   name: Your Name
+#   github: your-github-username
+
+# Freeform tags for filtering.
+# tags:
+#   - prompt-injection
+#   - supply-chain
+
+# Minimum harness version required. Default: 3.8.0
+# min_harness_version: "3.8.0"
