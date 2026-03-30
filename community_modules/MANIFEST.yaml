@@ -1,0 +1,14 @@
+spec_version: '1.0'
+patterns:
+- file: examples/crewai_role_escape.yaml
+  id: CP-0001
+  sha256: 025b8fe6e7a8a8f5b76e1d65bd087b241932aebe3d7ba92409d96008d3399852
+  trust: verified
+  reviewed_by: msaleme
+  reviewed_at: '2026-03-30'
+- file: examples/mcp_description_exfil.yaml
+  id: CP-0002
+  sha256: 8807b8c74f228661c892acddae0de50bd6597a534accf3f36329cf6a0d07b4bf
+  trust: verified
+  reviewed_by: msaleme
+  reviewed_at: '2026-03-30'

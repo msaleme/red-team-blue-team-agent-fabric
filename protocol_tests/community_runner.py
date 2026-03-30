@@ -24,6 +24,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -54,6 +55,18 @@ MAX_DELAY_MS = 30_000  # 30 seconds max delay per step
 MAX_PATTERN_EXECUTION_TIMEOUT_S = 120  # 2 minutes max per pattern
 MAX_REGEX_LENGTH = 200  # Max regex pattern length for field_matches
 MAX_ATTACK_STEPS = 20  # Max number of attack steps per pattern
+
+# Trust tiers (ordered by privilege)
+TRUST_CORE = "core"          # Maintained by project maintainers
+TRUST_VERIFIED = "verified"  # Reviewed and approved by maintainers
+TRUST_COMMUNITY = "community"  # Submitted by community, restricted execution
+TRUST_UNREVIEWED = "unreviewed"  # Not yet reviewed, validate-only
+VALID_TRUST_TIERS = frozenset({TRUST_CORE, TRUST_VERIFIED, TRUST_COMMUNITY, TRUST_UNREVIEWED})
+
+# Trust tiers that allow execution
+EXECUTABLE_TRUST_TIERS = frozenset({TRUST_CORE, TRUST_VERIFIED, TRUST_COMMUNITY})
+
+MANIFEST_FILE = "MANIFEST.yaml"
 
 VALID_FRAMEWORKS = frozenset({
     "mcp", "a2a", "autogen", "crewai", "langgraph", "x402", "l402", "generic"
@@ -173,6 +186,139 @@ def load_yaml(file_path: str) -> dict | None:
 
 
 # ---------------------------------------------------------------------------
+# Manifest & integrity verification
+# ---------------------------------------------------------------------------
+
+def compute_file_hash(file_path: str) -> str:
+    """Compute SHA-256 hash of a file's contents."""
+    h = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+@dataclass
+class ManifestEntry:
+    """A single entry in the community pattern manifest."""
+    file: str
+    id: str
+    sha256: str | None
+    trust: str
+    reviewed_by: str = ""
+    reviewed_at: str = ""
+
+
+def load_manifest(community_dir: str) -> dict[str, ManifestEntry]:
+    """Load the MANIFEST.yaml from the community directory.
+
+    Returns a dict mapping relative file paths to ManifestEntry objects.
+    Returns empty dict if no manifest exists (all patterns treated as unreviewed).
+    """
+    manifest_path = Path(community_dir) / MANIFEST_FILE
+    if not manifest_path.exists():
+        return {}
+
+    data = load_yaml(str(manifest_path))
+    if data is None:
+        print("  WARNING: MANIFEST.yaml exists but failed to parse", file=sys.stderr)
+        return {}
+
+    entries = {}
+    for item in data.get("patterns", []):
+        if not isinstance(item, dict):
+            continue
+        file_rel = item.get("file", "")
+        trust = str(item.get("trust", TRUST_UNREVIEWED)).lower()
+        if trust not in VALID_TRUST_TIERS:
+            trust = TRUST_UNREVIEWED
+        entries[file_rel] = ManifestEntry(
+            file=file_rel,
+            id=item.get("id", ""),
+            sha256=item.get("sha256"),
+            trust=trust,
+            reviewed_by=str(item.get("reviewed_by", "")),
+            reviewed_at=str(item.get("reviewed_at", "")),
+        )
+    return entries
+
+
+def verify_pattern_integrity(
+    file_path: str,
+    community_dir: str,
+    manifest: dict[str, ManifestEntry],
+    strict: bool = True,
+) -> tuple[str, str | None]:
+    """Verify a pattern file against the manifest.
+
+    Returns (trust_tier, error_message).
+    If error_message is not None, the pattern should not be executed.
+    """
+    # Compute relative path from community_dir
+    try:
+        rel_path = str(Path(file_path).resolve().relative_to(Path(community_dir).resolve()))
+    except ValueError:
+        return TRUST_UNREVIEWED, f"Pattern is outside community directory: {file_path}"
+
+    # Check if pattern is in manifest
+    entry = manifest.get(rel_path)
+    if entry is None:
+        if strict:
+            return TRUST_UNREVIEWED, (
+                f"Pattern not in MANIFEST.yaml: {rel_path}. "
+                f"Run with --update-manifest to add it, or --no-strict to skip verification."
+            )
+        return TRUST_UNREVIEWED, None  # Allow in non-strict mode
+
+    # Verify SHA-256 hash if present
+    if entry.sha256 and entry.sha256 != "null":
+        actual_hash = compute_file_hash(file_path)
+        if actual_hash != entry.sha256:
+            return entry.trust, (
+                f"Hash mismatch for {rel_path}: "
+                f"expected {entry.sha256[:16]}..., got {actual_hash[:16]}... "
+                f"File may have been tampered with."
+            )
+
+    # Unreviewed patterns can be validated but not executed
+    if entry.trust == TRUST_UNREVIEWED:
+        return TRUST_UNREVIEWED, None  # Will be blocked at execution time
+
+    return entry.trust, None
+
+
+def update_manifest(community_dir: str):
+    """Update MANIFEST.yaml with current file hashes."""
+    manifest_path = Path(community_dir) / MANIFEST_FILE
+    if not manifest_path.exists():
+        print(f"No MANIFEST.yaml found at {manifest_path}")
+        return
+
+    data = load_yaml(str(manifest_path))
+    if data is None:
+        return
+
+    updated = 0
+    for item in data.get("patterns", []):
+        file_rel = item.get("file", "")
+        full_path = Path(community_dir) / file_rel
+        if full_path.exists():
+            new_hash = compute_file_hash(str(full_path))
+            old_hash = item.get("sha256")
+            if old_hash != new_hash:
+                item["sha256"] = new_hash
+                updated += 1
+                print(f"  Updated hash for {file_rel}: {new_hash[:16]}...")
+
+    if updated > 0:
+        with open(manifest_path, "w") as f:
+            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+        print(f"\nManifest updated: {updated} hash(es) written to {manifest_path}")
+    else:
+        print("All hashes are current. No updates needed.")
+
+
+# ---------------------------------------------------------------------------
 # Discovery
 # ---------------------------------------------------------------------------
 
@@ -185,8 +331,8 @@ def discover_patterns(base_dir: str) -> list[str]:
         return patterns
 
     for path in sorted(base.rglob("*.yaml")):
-        # Skip the template
-        if path.name == "TEMPLATE.yaml":
+        # Skip the template and manifest
+        if path.name in ("TEMPLATE.yaml", "MANIFEST.yaml"):
             continue
         patterns.append(str(path))
 
@@ -714,6 +860,7 @@ def run_community_tests(
     validate_only: bool = False,
     list_only: bool = False,
     dry_run: bool = False,
+    strict: bool = True,
 ) -> dict:
     """Discover, validate, and run community patterns.
 
@@ -732,12 +879,28 @@ def run_community_tests(
 
     print(f"Discovered {len(yaml_files)} community pattern(s)")
 
+    # Load manifest for integrity verification
+    base_dir = community_dir or find_community_dir()
+    manifest = load_manifest(base_dir)
+    if manifest:
+        print(f"Manifest loaded: {len(manifest)} registered pattern(s)")
+    elif strict:
+        print("WARNING: No MANIFEST.yaml found. Use --update-manifest to create hashes.")
+        print("         Running in strict mode - unmanifested patterns will be rejected.")
+
     # Load and validate
     patterns: list[AttackPattern] = []
+    pattern_trust: dict[str, str] = {}  # pattern_id -> trust tier
     all_errors: list[ValidationError] = []
     seen_ids: set[str] = set()
 
     for fp in yaml_files:
+        # Manifest integrity check
+        trust_tier, integrity_error = verify_pattern_integrity(fp, base_dir, manifest, strict=strict)
+        if integrity_error:
+            all_errors.append(ValidationError(fp, "integrity", integrity_error))
+            continue
+
         data = load_yaml(fp)
         if data is None:
             all_errors.append(ValidationError(fp, "file", "Failed to parse YAML"))
@@ -756,6 +919,12 @@ def run_community_tests(
             continue
         seen_ids.add(pattern.id)
 
+        # Block unreviewed patterns from execution
+        if trust_tier == TRUST_UNREVIEWED and not validate_only and not list_only:
+            print(f"  SKIP {pattern.id}: trust tier is 'unreviewed' (validate-only)")
+            continue
+
+        pattern_trust[pattern.id] = trust_tier
         patterns.append(pattern)
 
     # Report validation errors
@@ -787,7 +956,8 @@ def run_community_tests(
     if list_only:
         print(f"\nCommunity patterns ({len(patterns)}):")
         for p in patterns:
-            print(f"  {p.id:10s} [{p.severity:8s}] [{p.framework:10s}] {p.name}")
+            trust = pattern_trust.get(p.id, "?")
+            print(f"  {p.id:10s} [{p.severity:8s}] [{p.framework:10s}] [{trust:10s}] {p.name}")
             if p.cve_reference:
                 print(f"             CVE: {p.cve_reference}")
         return {"patterns_found": len(patterns), "patterns": [asdict(p) for p in patterns]}
@@ -867,6 +1037,12 @@ Examples:
                         help="List discovered patterns")
     parser.add_argument("--dry-run", action="store_true",
                         help="Execute steps but skip live interactions")
+    parser.add_argument("--no-strict", action="store_true",
+                        help="Allow patterns not in MANIFEST.yaml (not recommended)")
+    parser.add_argument("--update-manifest", action="store_true",
+                        help="Update MANIFEST.yaml with current file SHA-256 hashes")
+    parser.add_argument("--hash", type=str, metavar="FILE",
+                        help="Print SHA-256 hash of a pattern file")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Verbose output")
     parser.add_argument("--json", action="store_true",
@@ -875,6 +1051,18 @@ Examples:
                         help="Write JSON report to file")
 
     args = parser.parse_args()
+
+    # Handle --hash (standalone utility)
+    if args.hash:
+        h = compute_file_hash(args.hash)
+        print(f"{h}  {args.hash}")
+        sys.exit(0)
+
+    # Handle --update-manifest (standalone utility)
+    if args.update_manifest:
+        base_dir = args.community_dir or find_community_dir()
+        update_manifest(base_dir)
+        sys.exit(0)
 
     if not (args.community or args.pattern or args.validate or args.list):
         parser.print_help()
@@ -906,6 +1094,7 @@ Examples:
         validate_only=args.validate,
         list_only=args.list,
         dry_run=args.dry_run,
+        strict=not args.no_strict,
     )
 
     if args.json:
