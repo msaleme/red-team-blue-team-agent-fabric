@@ -266,7 +266,7 @@ def verify_pattern_integrity(
         if strict:
             return TRUST_UNREVIEWED, (
                 f"Pattern not in MANIFEST.yaml: {rel_path}. "
-                f"Run with --update-manifest to add it, or --no-strict to skip verification."
+                f"Add an entry to MANIFEST.yaml manually, or use --no-strict to skip verification."
             )
         return TRUST_UNREVIEWED, None  # Allow in non-strict mode
 
@@ -312,7 +312,7 @@ def update_manifest(community_dir: str):
 
     if updated > 0:
         with open(manifest_path, "w") as f:
-            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+            yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
         print(f"\nManifest updated: {updated} hash(es) written to {manifest_path}")
     else:
         print("All hashes are current. No updates needed.")
@@ -919,9 +919,9 @@ def run_community_tests(
             continue
         seen_ids.add(pattern.id)
 
-        # Block unreviewed patterns from execution
-        if trust_tier == TRUST_UNREVIEWED and not validate_only and not list_only:
-            print(f"  SKIP {pattern.id}: trust tier is 'unreviewed' (validate-only)")
+        # Block patterns outside executable trust tiers
+        if trust_tier not in EXECUTABLE_TRUST_TIERS and not validate_only and not list_only:
+            print(f"  SKIP {pattern.id}: trust tier '{trust_tier}' is not executable (requires: {', '.join(sorted(EXECUTABLE_TRUST_TIERS))})")
             continue
 
         pattern_trust[pattern.id] = trust_tier
@@ -1052,8 +1052,13 @@ Examples:
 
     args = parser.parse_args()
 
-    # Handle --hash (standalone utility)
+    # Handle --hash (standalone utility, restricted to project directory)
     if args.hash:
+        hash_path = Path(args.hash).resolve()
+        cwd = Path.cwd().resolve()
+        if not hash_path.is_relative_to(cwd):
+            print(f"ERROR: --hash path must be within the project directory", file=sys.stderr)
+            sys.exit(1)
         h = compute_file_hash(args.hash)
         print(f"{h}  {args.hash}")
         sys.exit(0)
