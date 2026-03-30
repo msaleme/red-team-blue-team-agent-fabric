@@ -48,6 +48,12 @@ except ImportError:
 SPEC_VERSION = "1.0.0"
 DEFAULT_MIN_HARNESS_VERSION = "3.8.0"
 
+# Security limits
+MAX_YAML_FILE_SIZE = 256 * 1024  # 256 KB max per YAML file
+MAX_DELAY_MS = 30_000  # 30 seconds max delay per step
+MAX_PATTERN_EXECUTION_TIMEOUT_S = 120  # 2 minutes max per pattern
+MAX_REGEX_LENGTH = 200  # Max regex pattern length for field_matches
+
 VALID_FRAMEWORKS = frozenset({
     "mcp", "a2a", "autogen", "crewai", "langgraph", "x402", "l402", "generic"
 })
@@ -137,12 +143,21 @@ class AttackPattern:
 # ---------------------------------------------------------------------------
 
 def load_yaml(file_path: str) -> dict | None:
-    """Load a YAML file and return as dict."""
+    """Load a YAML file and return as dict.
+
+    Security: enforces file size limit to prevent YAML bombs (billion laughs).
+    """
     if yaml is None:
         print(f"  ERROR: PyYAML not installed. Run: pip install pyyaml", file=sys.stderr)
         return None
 
     try:
+        # Check file size before loading (YAML bomb protection)
+        file_size = os.path.getsize(file_path)
+        if file_size > MAX_YAML_FILE_SIZE:
+            print(f"  ERROR: {file_path} exceeds max size ({file_size} > {MAX_YAML_FILE_SIZE} bytes)", file=sys.stderr)
+            return None
+
         with open(file_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
         if not isinstance(data, dict):
@@ -345,7 +360,9 @@ class StepExecutor:
         payload = step.get("payload", {})
         delay_ms = step.get("delay_ms", 0)
 
+        # Cap delay to prevent YAML-controlled blocking (max 30s)
         if delay_ms > 0:
+            delay_ms = min(delay_ms, MAX_DELAY_MS)
             time.sleep(delay_ms / 1000.0)
 
         handler = getattr(self, f"_do_{action}", None)
@@ -435,8 +452,8 @@ class StepExecutor:
         }
 
     def _do_wait(self, target: str, payload: dict) -> dict:
-        """Wait for a specified duration."""
-        duration_ms = payload.get("duration_ms", 0)
+        """Wait for a specified duration (capped at MAX_DELAY_MS)."""
+        duration_ms = min(payload.get("duration_ms", 0), MAX_DELAY_MS)
         time.sleep(duration_ms / 1000.0)
         return {"status": "waited", "duration_ms": duration_ms}
 
@@ -543,8 +560,16 @@ class AssertionEvaluator:
         pattern = str(assertion.get("value", ""))
         actual = str(self.evidence.get(field_name, ""))
 
-        if re.search(pattern, actual):
-            return True, f"Field '{field_name}' matches pattern '{pattern}'"
+        # ReDoS protection: limit regex length and add timeout
+        if len(pattern) > MAX_REGEX_LENGTH:
+            return False, f"Regex pattern too long ({len(pattern)} > {MAX_REGEX_LENGTH} chars)"
+        try:
+            if re.search(pattern, actual, timeout=5):
+                return True, f"Field '{field_name}' matches pattern '{pattern}'"
+        except re.error as e:
+            return False, f"Invalid regex pattern: {e}"
+        except TimeoutError:
+            return False, f"Regex timed out (possible ReDoS)"
         return False, f"Field '{field_name}' does not match pattern '{pattern}'"
 
 
@@ -558,7 +583,10 @@ def run_pattern(
     verbose: bool = False,
     dry_run: bool = False,
 ) -> PatternResult:
-    """Execute a community attack pattern and return the result."""
+    """Execute a community attack pattern and return the result.
+
+    Each pattern is capped at MAX_PATTERN_EXECUTION_TIMEOUT_S seconds.
+    """
     start_time = time.time()
 
     executor = StepExecutor(pattern, target_url=target_url, verbose=verbose)
@@ -570,6 +598,22 @@ def run_pattern(
         print(f"  Steps: {len(pattern.attack_steps)} | Assertions: {len(pattern.assertions)}")
 
     for i, step in enumerate(pattern.attack_steps):
+        # Enforce per-pattern execution timeout
+        elapsed = time.time() - start_time
+        if elapsed > MAX_PATTERN_EXECUTION_TIMEOUT_S:
+            if verbose:
+                print(f"    TIMEOUT: Pattern exceeded {MAX_PATTERN_EXECUTION_TIMEOUT_S}s limit")
+            return PatternResult(
+                test_id=pattern.id,
+                name=pattern.name,
+                source_file=pattern.source_file,
+                severity=pattern.severity,
+                passed=False,
+                details=f"Pattern execution timed out after {elapsed:.1f}s (limit: {MAX_PATTERN_EXECUTION_TIMEOUT_S}s)",
+                elapsed_s=round(elapsed, 3),
+                framework=pattern.framework,
+            )
+
         if verbose:
             desc = step.get("description", step.get("action", "step"))
             print(f"    Step {i+1}/{len(pattern.attack_steps)}: {step['action']} -> {step['target']}")
@@ -825,6 +869,23 @@ Examples:
     if not (args.community or args.pattern or args.validate or args.list):
         parser.print_help()
         sys.exit(1)
+
+    # Path traversal protection for --pattern
+    if args.pattern:
+        pattern_path = Path(args.pattern).resolve()
+        # Must be within current working directory or community_modules
+        cwd = Path.cwd().resolve()
+        if not (str(pattern_path).startswith(str(cwd))):
+            print(f"ERROR: --pattern path must be within the project directory", file=sys.stderr)
+            sys.exit(1)
+
+    # Path traversal protection for --report
+    if args.report:
+        report_path = Path(args.report).resolve()
+        cwd = Path.cwd().resolve()
+        if not (str(report_path).startswith(str(cwd))):
+            print(f"ERROR: --report path must be within the project directory", file=sys.stderr)
+            sys.exit(1)
 
     summary = run_community_tests(
         community_dir=args.community_dir,
