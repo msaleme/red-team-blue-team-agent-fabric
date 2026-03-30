@@ -53,6 +53,7 @@ MAX_YAML_FILE_SIZE = 256 * 1024  # 256 KB max per YAML file
 MAX_DELAY_MS = 30_000  # 30 seconds max delay per step
 MAX_PATTERN_EXECUTION_TIMEOUT_S = 120  # 2 minutes max per pattern
 MAX_REGEX_LENGTH = 200  # Max regex pattern length for field_matches
+MAX_ATTACK_STEPS = 20  # Max number of attack steps per pattern
 
 VALID_FRAMEWORKS = frozenset({
     "mcp", "a2a", "autogen", "crewai", "langgraph", "x402", "l402", "generic"
@@ -259,6 +260,11 @@ def validate_pattern(data: dict, file_path: str) -> tuple[AttackPattern | None, 
     if not isinstance(steps, list) or len(steps) == 0:
         errors.append(ValidationError(file_path, "attack_steps", "Must have at least one attack step"))
     else:
+        if len(steps) > MAX_ATTACK_STEPS:
+            errors.append(ValidationError(
+                file_path, "attack_steps",
+                f"Too many attack steps ({len(steps)} > {MAX_ATTACK_STEPS})"
+            ))
         for i, step in enumerate(steps):
             if not isinstance(step, dict):
                 errors.append(ValidationError(file_path, f"attack_steps[{i}]", "Step must be an object"))
@@ -360,9 +366,9 @@ class StepExecutor:
         payload = step.get("payload", {})
         delay_ms = step.get("delay_ms", 0)
 
-        # Cap delay to prevent YAML-controlled blocking (max 30s)
+        # Cap delay to prevent YAML-controlled blocking (max 30s, floor at 0)
         if delay_ms > 0:
-            delay_ms = min(delay_ms, MAX_DELAY_MS)
+            delay_ms = max(0, min(delay_ms, MAX_DELAY_MS))
             time.sleep(delay_ms / 1000.0)
 
         handler = getattr(self, f"_do_{action}", None)
@@ -452,8 +458,8 @@ class StepExecutor:
         }
 
     def _do_wait(self, target: str, payload: dict) -> dict:
-        """Wait for a specified duration (capped at MAX_DELAY_MS)."""
-        duration_ms = min(payload.get("duration_ms", 0), MAX_DELAY_MS)
+        """Wait for a specified duration (capped at MAX_DELAY_MS, floor at 0)."""
+        duration_ms = max(0, min(payload.get("duration_ms", 0), MAX_DELAY_MS))
         time.sleep(duration_ms / 1000.0)
         return {"status": "waited", "duration_ms": duration_ms}
 
@@ -560,16 +566,20 @@ class AssertionEvaluator:
         pattern = str(assertion.get("value", ""))
         actual = str(self.evidence.get(field_name, ""))
 
-        # ReDoS protection: limit regex length and add timeout
+        # ReDoS protection: limit regex length AND input length
         if len(pattern) > MAX_REGEX_LENGTH:
             return False, f"Regex pattern too long ({len(pattern)} > {MAX_REGEX_LENGTH} chars)"
+        # Truncate input to prevent catastrophic backtracking on large data
+        if len(actual) > 10_000:
+            actual = actual[:10_000]
+        # Reject known ReDoS patterns (nested quantifiers)
+        if re.search(r'\([^)]*[+*][^)]*\)[+*]', pattern):
+            return False, f"Regex contains nested quantifiers (potential ReDoS)"
         try:
-            if re.search(pattern, actual, timeout=5):
+            if re.search(pattern, actual):
                 return True, f"Field '{field_name}' matches pattern '{pattern}'"
         except re.error as e:
             return False, f"Invalid regex pattern: {e}"
-        except TimeoutError:
-            return False, f"Regex timed out (possible ReDoS)"
         return False, f"Field '{field_name}' does not match pattern '{pattern}'"
 
 
@@ -870,12 +880,11 @@ Examples:
         parser.print_help()
         sys.exit(1)
 
-    # Path traversal protection for --pattern
+    # Path traversal protection for --pattern (use is_relative_to for correct containment)
     if args.pattern:
         pattern_path = Path(args.pattern).resolve()
-        # Must be within current working directory or community_modules
         cwd = Path.cwd().resolve()
-        if not (str(pattern_path).startswith(str(cwd))):
+        if not pattern_path.is_relative_to(cwd):
             print(f"ERROR: --pattern path must be within the project directory", file=sys.stderr)
             sys.exit(1)
 
@@ -883,7 +892,7 @@ Examples:
     if args.report:
         report_path = Path(args.report).resolve()
         cwd = Path.cwd().resolve()
-        if not (str(report_path).startswith(str(cwd))):
+        if not report_path.is_relative_to(cwd):
             print(f"ERROR: --report path must be within the project directory", file=sys.stderr)
             sys.exit(1)
 
