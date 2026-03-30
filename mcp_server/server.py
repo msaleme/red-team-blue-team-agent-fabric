@@ -162,7 +162,7 @@ def create_server(api_key: str | None = None) -> FastMCP:
         version="1.0.0",
         description=(
             "Security testing tools for AI agent systems. "
-            "332 tests across MCP, A2A, L402, x402, and identity protocols."
+            "342 tests across MCP, A2A, L402, x402, and identity protocols."
         ),
     )
 

@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - `count_tests.py` now catches test IDs passed as function arguments (AIUC-F002a/b/c), adds 3 missing IDs
 - `count_tests.py` excludes synthetic `CVE-ERR` error-handler ID from count
-- Definitive test count corrected to **332** across 21 modules
+- Definitive test count corrected to **342** across 21 modules
 - `action.yml` parse-report step converted from shell-interpolated Python to heredoc+env pattern (no more `${REPORT}` injection)
 - `a2a_harness.py` `--trials` flag now wired into statistical report enhancement
 - `harmful_output_harness.py` `--categories` flag now filters tests by category
@@ -37,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.7.0] - 2026-03-25
 
 ### Added
-- 332 security tests across 21 modules
+- 342 security tests across 21 modules
 - OATR fixture loader (`protocol_tests/oatr_fixtures.py`)
 - x402 payment flow harness with L402 interop
 - CVE-2026-25253 supply chain provenance tests
