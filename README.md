@@ -23,11 +23,11 @@ We are carving out a new category: **Decision Governance for Autonomous Agents**
 
 ## Strategic Roadmap
 
-We publish a living roadmap in [ROADMAP.md](./ROADMAP.md). High-level focus areas:
+We publish a living roadmap in [ROADMAP.md](./ROADMAP.md), sequenced around buyer motions and the 2026 compliance window (AIUC-1, EU AI Act, NIST AI Agent Standards):
 
-- **v3.9 – Usability & Transparency:** ship CI-ready JSON output, clearer errors, expanded scope docs, and turnkey GitHub Action examples so teams can adopt the harness quickly.
-- **v3.10 – Protocol Depth & Insights:** deepen MCP/A2A coverage, add behavioral profiling + risk scoring, and deliver richer HTML/summary reporting.
-- **v4.0 – Governance & Compliance:** map to AIUC-1, enforce intent contracts, test multi-agent interaction safety, and generate audit-ready evidence packs.
+- **v3.9 – Adopt in 15 Minutes:** CI-ready JSON output, clearer errors, expanded scope docs, and turnkey GitHub Action so teams can gate deploys quickly.
+- **v3.10 – Prove It to Auditors:** AIUC-1 compliance test suite, signed evidence packs, behavioral profiling + risk scoring, HTML dashboards. Target: before July 2026.
+- **v4.0 – Lock the Category:** decision-governance benchmark corpus, intent contract validation, multi-agent interaction safety, memory tampering tests, longitudinal attestation registry.
 
 Issues are tagged with their target release via GitHub milestones so contributors can jump into the area that matters most.
 
