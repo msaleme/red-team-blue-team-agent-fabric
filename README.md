@@ -90,6 +90,34 @@ Both are necessary.
 
 ---
 
+## Scope and Limitations
+
+**What this framework tests:**
+- Wire-protocol adversarial behavior: real JSON-RPC 2.0 payloads against MCP, A2A, L402, x402 endpoints
+- Decision-layer attack scenarios: escalation, scope creep, unsafe delegation, authority impersonation
+- Payment protocol security: unauthorized execution, budget overflow, facilitator trust
+- Platform-specific adapters: cloud agent platforms (Bedrock, Azure, Vertex) and enterprise systems (SAP, Oracle, Salesforce)
+- Compliance mapping: AIUC-1, OWASP Agentic Top 10, NIST alignment
+
+**What this framework does NOT test:**
+- Static code analysis or source code scanning (use Snyk, Semgrep, etc.)
+- Container security, network isolation, or infrastructure hardening
+- ML model internals, weight inspection, or training data auditing
+- Runtime monitoring or continuous production observability (this is a point-in-time test suite)
+- Identity provider configuration or OAuth/OIDC setup correctness
+
+**Environment assumptions:**
+- Target server must be reachable via HTTP or stdio transport
+- Tests send adversarial payloads — run against test/staging environments first
+- Some tests (CBRN, harmful content) require a live LLM endpoint; others are protocol-only
+- Statistical multi-trial mode (`--trials`) requires NIST AI 800-2 aligned evaluation methodology
+
+**False positive guidance:**
+- A test like "Capability Escalation via Initialize" sends a malicious `initialize` request. If the server correctly rejects it, the test *passes*. The test is checking the server's defense, not attacking it.
+- Over-refusal tests (25 tests) verify that legitimate requests are NOT incorrectly blocked. A failure here means the system is too restrictive, not too permissive.
+
+---
+
 ## What's New in v3.8
 
 - **Attestation JSON Schema** (`schemas/attestation-report.json`) - machine-readable report format for CI/CD and compliance pipelines
@@ -563,35 +591,70 @@ This framework is part of a peer-reviewed research program on autonomous AI agen
 
 ## CI/CD Integration
 
-Use the Agent Security Harness as a GitHub Action to gate deployments on protocol-level security:
+Gate deployments on decision-governance tests. Drop this into any GitHub Actions workflow:
 
 ```yaml
-# In your workflow
-- uses: msaleme/red-team-blue-team-agent-fabric@v3.8
-  with:
-    target_url: http://localhost:8080/mcp
-```
+name: Agent Security Gate
+on: [pull_request]
 
-Or call the reusable workflow:
-
-```yaml
 jobs:
-  security:
-    uses: msaleme/red-team-blue-team-agent-fabric/.github/workflows/security-scan.yml@v3.8
-    with:
-      target_url: http://localhost:8080/mcp
-      fail_on: critical  # any | critical | none
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Start your MCP server (replace with your setup)
+      - name: Start MCP server
+        run: |
+          npm start &
+          sleep 5
+
+      # Run the security harness
+      - name: Agent Security Harness
+        id: security
+        uses: msaleme/red-team-blue-team-agent-fabric@v3.8
+        with:
+          target_url: http://localhost:8080/mcp
+          fail_on: critical  # any | critical | none
+
+      # Use results in downstream steps
+      - name: Check results
+        if: always()
+        run: |
+          echo "Passed: ${{ steps.security.outputs.passed }}/${{ steps.security.outputs.total_tests }}"
+          echo "Critical failures: ${{ steps.security.outputs.critical_failures }}"
 ```
 
-**Inputs:** `target_url` (required), `transport` (http/stdio), `categories` (filter), `fail_on` (threshold)
+**Inputs:** `target_url` (required), `transport` (http/stdio), `categories` (filter), `fail_on` (any/critical/none), `harness_version` (pin a specific release)
+
+**Outputs:** `report_path` (JSON report), `total_tests`, `passed`, `failed`, `critical_failures`
 
 **Features:**
 - Automatic PR comments with test results
 - Configurable fail thresholds (any/critical/none)
-- JSON report uploaded as workflow artifact
+- JSON report uploaded as workflow artifact (30-day retention)
 - Step summary with pass/fail breakdown
 
-See [docs/github-action.md](docs/github-action.md) for full usage examples and configuration options.
+Or use the CLI directly in any CI system:
+
+```bash
+pip install agent-security-harness
+agent-security test mcp --url http://localhost:8080/mcp --json > report.json
+```
+
+See [docs/github-action.md](docs/github-action.md) for full usage examples including service containers, reusable workflows, and output handling.
+
+---
+
+## Used By
+
+Community validators and integrators using the harness in production or research:
+
+| Who | Use Case |
+|-----|----------|
+| [FransDevelopment / Open Agent Trust Registry](https://github.com/FransDevelopment/open-agent-trust-registry) | OATR SDK v1.2.0 test fixtures (X4-021 through X4-030) — Ed25519 attestation verification |
+
+*Using the harness? Open a PR to add yourself, or tag us in your project.*
 
 ---
 
