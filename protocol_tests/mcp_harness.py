@@ -43,7 +43,20 @@ from enum import Enum
 from typing import Any, Optional
 import http.client
 import socket
+import urllib.parse
 import urllib.request
+
+
+def _sanitize_url(url: str) -> str:
+    """Remove credentials from URL for safe display in error messages and reports."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.username or parsed.password:
+            safe = parsed._replace(netloc=f"{parsed.hostname}:{parsed.port}" if parsed.port else parsed.hostname)
+            return urllib.parse.urlunparse(safe)
+    except Exception:
+        pass
+    return url
 
 
 # ---------------------------------------------------------------------------
@@ -281,14 +294,14 @@ class MCPSecurityTests:
         try:
             resp = self.transport.send(msg)
         except ConnectionRefusedError:
-            url = getattr(self.transport, "url", "unknown")
+            url = _sanitize_url(getattr(self.transport, "url", "unknown"))
             err_msg = f"Could not connect to {url} — is the server running? (connection refused)"
             if not self.json_output:
                 print(f"  {err_msg}", file=sys.stderr)
             self._connection_error = err_msg
             return False
         except socket.timeout:
-            url = getattr(self.transport, "url", "unknown")
+            url = _sanitize_url(getattr(self.transport, "url", "unknown"))
             err_msg = f"Could not connect to {url} — is the server running? (connection timed out)"
             if not self.json_output:
                 print(f"  {err_msg}", file=sys.stderr)
@@ -310,7 +323,7 @@ class MCPSecurityTests:
             self._connection_error = err_msg
             return False
         except OSError as e:
-            url = getattr(self.transport, "url", "unknown")
+            url = _sanitize_url(getattr(self.transport, "url", "unknown"))
             err_msg = f"Could not connect to {url} — {e}"
             if not self.json_output:
                 print(f"  {err_msg}", file=sys.stderr)

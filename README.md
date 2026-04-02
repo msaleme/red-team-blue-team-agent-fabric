@@ -17,7 +17,7 @@ We test a harder, more consequential question:
 
 This is the domain of **Decision Governance**.
 
-As autonomous agents move from copilots to systems that can trigger real-world actions, the security problem fundamentally changes. Our open-source harness is purpose-built for this reality, containing 332 executable tests across 24 modules focused on MCP and A2A wire-protocol testing, L402/x402 payment flows, and decision-layer attack scenarios.
+As autonomous agents move from copilots to systems that can trigger real-world actions, the security problem fundamentally changes. Our open-source harness is purpose-built for this reality, containing 342 executable tests across 24 modules focused on MCP and A2A wire-protocol testing, L402/x402 payment flows, and decision-layer attack scenarios.
 
 We are carving out a new category: **Decision Governance for Autonomous Agents**.
 
@@ -118,7 +118,7 @@ Both are necessary.
 
 ---
 
-## What's New in v3.8
+## What's New in v3.9
 
 - **Attestation JSON Schema** (`schemas/attestation-report.json`) - machine-readable report format for CI/CD and compliance pipelines
 - **GitHub Action for CI/CD** - gate deployments on protocol-level security ([details below](#cicd-integration))
@@ -184,7 +184,7 @@ agent-security test a2a --url https://agent.example.com --delay 2000
 ### Example Output
 ```bash
 $ agent-security test mcp --url http://localhost:8080/mcp
-Running MCP Protocol Security Tests v3.8...
+Running MCP Protocol Security Tests v3.9...
 ✓ MCP-001: Tool List Integrity Check [PASS] (0.234s)
 ✓ MCP-002: Tool Registration via Call Injection [PASS] (0.412s)
 ✗ MCP-003: Capability Escalation via Initialize [FAIL] (0.156s)
