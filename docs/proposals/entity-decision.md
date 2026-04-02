@@ -1,6 +1,6 @@
 # Entity Decision: How to Sign the Work
 
-**Status:** DECISION NEEDED — blocks AIUC-1 submission, landing page, and first pilot contract
+**Status:** DECIDED — Option B (2026-04-02). Personal name for standards/research, CTE for commerce. Revisit after first paying customer.
 
 ---
 
