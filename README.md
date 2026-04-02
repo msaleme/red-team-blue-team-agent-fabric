@@ -31,6 +31,8 @@ We publish a living roadmap in [ROADMAP.md](./ROADMAP.md), sequenced around buye
 
 Issues are tagged with their target release via GitHub milestones so contributors can jump into the area that matters most.
 
+**Research-backed:** 5 peer-reviewed preprints and 3 NIST submissions underpin the methodology. See [Research](#research) for DOIs.
+
 ## Why This Matters Now
 
 Enterprises are moving from isolated copilots to agents that can act. As that shift accelerates, the control problem changes:
@@ -545,15 +547,17 @@ Multi-step, stateful attack simulations based on real-world AI agent exploitatio
 
 ---
 
-## Related Research
+## Research
 
-This security testing framework is part of a broader research program on autonomous AI agent governance:
+This framework is part of a peer-reviewed research program on autonomous AI agent governance. Five preprints, three NIST submissions:
 
-| Publication | DOI | Description |
-|---|---|---|
-| **Detecting Normalization of Deviance in Multi-Agent Systems** | [10.5281/zenodo.19195516](https://doi.org/10.5281/zenodo.19195516) | First empirical demonstration that automated security harnesses can detect behavioral drift (normalization of deviance) in agent systems through stateful session tracking. Includes gateway transparency finding and production validation (19-day silent failure case). |
-| **Constitutional Self-Governance for Autonomous AI Agents** | [10.5281/zenodo.19162104](https://doi.org/10.5281/zenodo.19162104) | Framework for governing agent *decisions*, not just permissions. 12 mechanisms observed in 77 days of production with 56 agents. Maps to EU AI Act, NIST AI Agent Standards Initiative, and Singapore's agentic AI framework. |
-| **Decision Load Index (DLI)** | [10.5281/zenodo.18217577](https://doi.org/10.5281/zenodo.18217577) | Measuring the cognitive burden of AI agent oversight on human operators. Connects agent governance architecture to measurable human outcomes. |
+| Publication | DOI |
+|---|---|
+| **Constitutional Self-Governance for Autonomous AI Agents** — 12 governance mechanisms, 77 days production data, 56 agents. Maps to EU AI Act, NIST AI Agent Standards, Singapore agentic AI framework. | [10.5281/zenodo.19162104](https://doi.org/10.5281/zenodo.19162104) |
+| **Detecting Normalization of Deviance in Multi-Agent Systems** — First empirical demonstration that automated harnesses detect behavioral drift. 19-day silent failure case. | [10.5281/zenodo.19195516](https://doi.org/10.5281/zenodo.19195516) |
+| **Decision Load Index (DLI): A Quantitative Framework for Agent Autonomy Risk** — Measuring cognitive burden of AI agent oversight on human operators. | [10.5281/zenodo.18217577](https://doi.org/10.5281/zenodo.18217577) |
+| **Normalization of Deviance in Autonomous Agent Systems** — Foundational research on behavioral drift patterns in autonomous agent deployments. | [10.5281/zenodo.15105866](https://doi.org/10.5281/zenodo.15105866) |
+| **Cognitive Style Governance for Multi-Agent Deployments** — Governance mechanisms for managing cognitive style across multi-agent systems. | [10.5281/zenodo.15106553](https://doi.org/10.5281/zenodo.15106553) |
 
 ---
 
