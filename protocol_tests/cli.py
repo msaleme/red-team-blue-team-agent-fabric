@@ -25,7 +25,7 @@ import sys
 import importlib
 
 
-VERSION = "3.8.1"
+VERSION = "3.9.0"
 
 HARNESSES = {
     "mcp": {
@@ -143,6 +143,7 @@ def print_usage():
     print("  agent-security test mcp --transport stdio --command 'node server.js'")
     print("  agent-security test mcp --url http://localhost:8080 --trials 5")
     print("  agent-security test mcp --url http://localhost:8080 --delay 1000")
+    print("  agent-security test mcp --url http://localhost:8080 --json")
     print()
     print("Attestation & Configuration:")
     print("  agent-security publish --attestation <file> --server-name <name>")
@@ -291,10 +292,11 @@ def main():
             sys.exit(1)
 
         info = HARNESSES[harness_name]
-        # Extract --delay/--delay-ms and --no-telemetry before passing to harness
+        # Extract --delay/--delay-ms, --no-telemetry, and --json before passing to harness
         harness_args = args[2:]
         delay_ms = 0
         no_telemetry = False
+        json_output = False
         filtered_args = []
         i = 0
         while i < len(harness_args):
@@ -307,6 +309,9 @@ def main():
             elif harness_args[i] == "--no-telemetry":
                 no_telemetry = True
                 i += 1
+            elif harness_args[i] == "--json":
+                json_output = True
+                i += 1
             else:
                 filtered_args.append(harness_args[i])
                 i += 1
@@ -315,9 +320,16 @@ def main():
         if no_telemetry:
             os.environ["AGENT_SECURITY_TELEMETRY"] = "off"
 
+        # --json flag: tell harnesses to output JSON to stdout (#103)
+        if json_output:
+            os.environ["AGENT_SECURITY_JSON_OUTPUT"] = "1"
+            # Also pass --json through to harness modules that support it
+            filtered_args.append("--json")
+
         if delay_ms > 0:
             os.environ["AGENT_SECURITY_DELAY_MS"] = str(delay_ms)
-            print(f"[Delay: {delay_ms}ms between tests]")
+            if not json_output:
+                print(f"[Delay: {delay_ms}ms between tests]")
 
         sys.argv = [info["module"]] + filtered_args
 
