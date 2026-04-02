@@ -1,11 +1,13 @@
 {
-  "description": "OATR test fixtures for x402 identity verification (X4-021 through X4-025)",
-  "generated_at": "2026-03-24T13:21:30.386Z",
+  "description": "OATR test fixtures for x402 identity verification (X4-021 through X4-030)",
+  "generated_at": "2026-03-31T08:44:28.552Z",
   "source": "FransDevelopment (issue #51)",
+  "oatr_sdk_version": "1.2.0",
   "test_audience": "https://test-service.example.com",
   "registered_issuer_id": "test-harness",
   "registered_kid": "test-harness-2026-03",
   "public_key_base64url": "dLkXRmTqvXiVGOb57JZ-5cdH0GXH_lWVB-5pKY3Cee4",
+  "verification_time": "2026-03-31T08:44:28.552Z",
   "tokens": {
     "valid": {
       "jwt": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtaGFybmVzcy0yMDI2LTAzIiwiaXNzIjoidGVzdC1oYXJuZXNzIiwidHlwIjoiYWdlbnQtYXR0ZXN0YXRpb24rand0In0.eyJzdWIiOiJhZ2VudC1pbnN0YW5jZS12YWxpZCIsImF1ZCI6Imh0dHBzOi8vdGVzdC1zZXJ2aWNlLmV4YW1wbGUuY29tIiwic2NvcGUiOlsicGF5bWVudDp0cmFuc2ZlciIsInRvb2w6d2ViX3NlYXJjaCJdLCJjb25zdHJhaW50cyI6eyJ0aW1lX2JvdW5kIjp0cnVlfSwidXNlcl9wc2V1ZG9ueW0iOiJwYWlyd2lzZS10ZXN0LXZhbGlkIiwicnVudGltZV92ZXJzaW9uIjoiMS4wLjAiLCJpYXQiOjE3NzQzNTg0OTAsImV4cCI6MTc3NDM2MjA5MH0.DmtSpo4XvMq17FMSsOpAGuNXD9OU23UFZWkSzO_hHOKkEN3ZmDYTX4y_-Z5-R8TyYLkuAn0ZPfAqejXwXNDTDg",
@@ -29,35 +31,191 @@
       "jwt": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtaGFybmVzcy0yMDI2LTAzIiwiaXNzIjoidGVzdC1oYXJuZXNzIiwidHlwIjoiYWdlbnQtYXR0ZXN0YXRpb24rand0In0.eyJzdWIiOiJhZ2VudC1pbnN0YW5jZS12YWxpZCIsImF1ZCI6Imh0dHBzOi8vdGVzdC1zZXJ2aWNlLmV4YW1wbGUuY29tIiwic2NvcGUiOlsicGF5bWVudDp0cmFuc2ZlciIsInRvb2w6d2ViX3NlYXJjaCJdLCJjb25zdHJhaW50cyI6eyJ0aW1lX2JvdW5kIjp0cnVlfSwidXNlcl9wc2V1ZG9ueW0iOiJwYWlyd2lzZS10ZXN0LXZhbGlkIiwicnVudGltZV92ZXJzaW9uIjoiMS4wLjAiLCJpYXQiOjE3NzQzNTg0OTAsImV4cCI6MTc3NDM2MjA5MH0.DmtSpo4XvMq17FMSsOpAGuNXD9OU23UFZWkSzO_hHOKkEN3ZmDYTX4y_-Z5-R8TyYLkuAn0ZPfAqejXwXNXXXX",
       "expected": {"valid": false, "reason": "invalid_signature"},
       "note": "Valid header+payload, last 4 chars of signature corrupted"
+    },
+    "revoked_issuer": {
+      "jwt": "eyJhbGciOiJFZERTQSIsImtpZCI6InJldm9rZWQtcnVudGltZS0yMDI2LTAzIiwiaXNzIjoicmV2b2tlZC1ydW50aW1lIiwidHlwIjoiYWdlbnQtYXR0ZXN0YXRpb24rand0In0.eyJzdWIiOiJhZ2VudC1pbnN0YW5jZS1yZXZva2VkIiwiYXVkIjoiaHR0cHM6Ly90ZXN0LXNlcnZpY2UuZXhhbXBsZS5jb20iLCJzY29wZSI6WyJwYXltZW50OnRyYW5zZmVyIl0sImNvbnN0cmFpbnRzIjp7InRpbWVfYm91bmQiOnRydWV9LCJ1c2VyX3BzZXVkb255bSI6InBhaXJ3aXNlLXRlc3QtcmV2b2tlZCIsInJ1bnRpbWVfdmVyc2lvbiI6IjEuMC4wIiwiaWF0IjoxNzc0MzgwMzE3LCJleHAiOjE3NzQzODM5MTd9.Gs_rBrKrcOYR8tlBb3xqZaxT0pcMVjhSk3l2B0V2GfIkzGxz4VyfCkyPYSjSWghledc3QGIhgvglY8c8UOrPCA",
+      "expected": {"valid": false, "reason": "revoked_issuer"}
+    },
+    "unknown_kid": {
+      "jwt": "eyJhbGciOiJFZERTQSIsImtpZCI6Im5vbmV4aXN0ZW50LWtpZC0yMDI2LTk5IiwiaXNzIjoidGVzdC1oYXJuZXNzIiwidHlwIjoiYWdlbnQtYXR0ZXN0YXRpb24rand0In0.eyJzdWIiOiJhZ2VudC1pbnN0YW5jZS11bmtub3duLWtpZCIsImF1ZCI6Imh0dHBzOi8vdGVzdC1zZXJ2aWNlLmV4YW1wbGUuY29tIiwic2NvcGUiOlsicGF5bWVudDp0cmFuc2ZlciJdLCJjb25zdHJhaW50cyI6eyJ0aW1lX2JvdW5kIjp0cnVlfSwidXNlcl9wc2V1ZG9ueW0iOiJwYWlyd2lzZS10ZXN0LXVua25vd24ta2lkIiwicnVudGltZV92ZXJzaW9uIjoiMS4wLjAiLCJpYXQiOjE3NzQzODAzMTcsImV4cCI6MTc3NDM4MzkxN30.goRTdb0AlUMYxBrUHW9Q667OGHqdg22vZINbLml2_oUFuXyn_T495nDllI16GZ1fO9m4lgaE894OG34bpWoBAQ",
+      "expected": {"valid": false, "reason": "unknown_key"}
+    },
+    "suspended_issuer": {
+      "jwt": "eyJhbGciOiJFZERTQSIsImtpZCI6InN1c3BlbmRlZC1ydW50aW1lLTIwMjYtMDMiLCJpc3MiOiJzdXNwZW5kZWQtcnVudGltZSIsInR5cCI6ImFnZW50LWF0dGVzdGF0aW9uK2p3dCJ9.eyJzdWIiOiJhZ2VudC1pbnN0YW5jZS1zdXNwZW5kZWQiLCJhdWQiOiJodHRwczovL3Rlc3Qtc2VydmljZS5leGFtcGxlLmNvbSIsInNjb3BlIjpbInBheW1lbnQ6dHJhbnNmZXIiXSwiY29uc3RyYWludHMiOnsidGltZV9ib3VuZCI6dHJ1ZX0sInVzZXJfcHNldWRvbnltIjoicGFpcndpc2UtdGVzdC1zdXNwZW5kZWQiLCJydW50aW1lX3ZlcnNpb24iOiIxLjAuMCIsImlhdCI6MTc3NDk0NjY2OCwiZXhwIjoxNzc0OTUwMjY4fQ.r_zqwKQLBLhs7Rv4yNd_d8rf7_feGebfKcSvQBZ2HXnTbyT9iaez6_84PLZQddliOZXSEy4l8i0Efmq9QI_3AA",
+      "expected": {"valid": false, "reason": "suspended_issuer"},
+      "note": "Valid JWT, valid signature, but issuer status is 'suspended' (temporary, reversible). Distinct from revoked_issuer (permanent). Added in @open-agent-trust/registry v1.2.0."
+    },
+    "deprecated_within_grace": {
+      "jwt": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRlcHJlY2F0ZWQtcnVudGltZS0yMDI2LTAzIiwiaXNzIjoiZGVwcmVjYXRlZC1ydW50aW1lIiwidHlwIjoiYWdlbnQtYXR0ZXN0YXRpb24rand0In0.eyJzdWIiOiJhZ2VudC1pbnN0YW5jZS1kZXByZWNhdGVkLXdpdGhpbiIsImF1ZCI6Imh0dHBzOi8vdGVzdC1zZXJ2aWNlLmV4YW1wbGUuY29tIiwic2NvcGUiOlsicGF5bWVudDp0cmFuc2ZlciJdLCJjb25zdHJhaW50cyI6eyJ0aW1lX2JvdW5kIjp0cnVlfSwidXNlcl9wc2V1ZG9ueW0iOiJwYWlyd2lzZS10ZXN0LWRlcHJlY2F0ZWQtd2l0aGluIiwicnVudGltZV92ZXJzaW9uIjoiMS4wLjAiLCJpYXQiOjE3NzQ5NDY2NjgsImV4cCI6MTc3NDk1MDI2OH0.rnvX3eBXI1WgIDq8WD5KPnntLk1F5QdKnodK2Vaq0D0kzl89IgL5SSKqEm4_MDsN-Ko1LZ7M834jR7dn13glDw",
+      "expected": {"valid": true},
+      "note": "Key deprecated 30 days ago, within 90-day grace period. Verify with now=verification_time. Uses deprecated-runtime issuer entry with deprecated_at=2026-03-01. Added in @open-agent-trust/registry v1.2.0.",
+      "verification_context": {
+        "now": "2026-03-31T08:44:28.552Z",
+        "deprecated_at": "2026-03-01T08:44:28.553Z",
+        "days_since_deprecation": 30,
+        "grace_period_days": 90
+      }
+    },
+    "deprecated_past_grace": {
+      "jwt": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRlcHJlY2F0ZWQtcnVudGltZS0yMDI2LTAzIiwiaXNzIjoiZGVwcmVjYXRlZC1ydW50aW1lIiwidHlwIjoiYWdlbnQtYXR0ZXN0YXRpb24rand0In0.eyJzdWIiOiJhZ2VudC1pbnN0YW5jZS1kZXByZWNhdGVkLXBhc3QiLCJhdWQiOiJodHRwczovL3Rlc3Qtc2VydmljZS5leGFtcGxlLmNvbSIsInNjb3BlIjpbInBheW1lbnQ6dHJhbnNmZXIiXSwiY29uc3RyYWludHMiOnsidGltZV9ib3VuZCI6dHJ1ZX0sInVzZXJfcHNldWRvbnltIjoicGFpcndpc2UtdGVzdC1kZXByZWNhdGVkLXBhc3QiLCJydW50aW1lX3ZlcnNpb24iOiIxLjAuMCIsImlhdCI6MTc3NDk0NjY2OCwiZXhwIjoxNzc0OTUwMjY4fQ.j2j9w6cBenYKtP4bA_i76lhd55188xKwiJrUNE4wsuNQDGk7GAsACYzEy7k6oBKlSvytFYvkp9H8cnG7yXqEAA",
+      "expected": {"valid": false, "reason": "grace_period_expired"},
+      "note": "Key deprecated 120 days ago, past 90-day grace period. Verify with now=verification_time. Uses deprecated-runtime issuer entry with deprecated_at=2025-12-01. Added in @open-agent-trust/registry v1.2.0.",
+      "verification_context": {
+        "now": "2026-03-31T08:44:28.552Z",
+        "deprecated_at": "2025-12-01T08:44:28.553Z",
+        "days_since_deprecation": 120,
+        "grace_period_days": 90
+      }
     }
   },
   "manifest": {
     "schema_version": "1.0.0",
     "registry_id": "open-trust-registry-test",
-    "generated_at": "2026-03-24T13:21:30.385Z",
-    "expires_at": "2026-03-25T13:21:30.385Z",
-    "total_issuers": 1,
+    "generated_at": "2026-03-31T08:44:28.552Z",
+    "expires_at": "2026-04-01T08:44:28.552Z",
+    "total_issuers": 4,
     "entries": [
       {
         "issuer_id": "test-harness",
         "display_name": "Test Harness Issuer",
+        "website": "https://test-harness.example.com",
+        "security_contact": "security@test-harness.example.com",
         "status": "active",
+        "added_at": "2026-03-24T13:21:30.386Z",
         "public_keys": [
           {
             "kid": "test-harness-2026-03",
             "algorithm": "Ed25519",
             "public_key": "dLkXRmTqvXiVGOb57JZ-5cdH0GXH_lWVB-5pKY3Cee4",
-            "status": "active"
+            "status": "active",
+            "issued_at": "2026-03-24T13:21:30.386Z",
+            "expires_at": "2027-03-24T13:21:30.386Z",
+            "deprecated_at": null,
+            "revoked_at": null
           }
-        ]
+        ],
+        "capabilities": {
+          "supervision_model": "none",
+          "audit_logging": true,
+          "immutable_audit": false,
+          "attestation_format": "jwt",
+          "max_attestation_ttl_seconds": 3600,
+          "capabilities_verified": false
+        }
+      },
+      {
+        "issuer_id": "revoked-runtime",
+        "display_name": "Revoked Test Runtime",
+        "website": "https://revoked-runtime.example.com",
+        "security_contact": "security@revoked-runtime.example.com",
+        "status": "active",
+        "added_at": "2026-03-24T19:25:17.222Z",
+        "public_keys": [
+          {
+            "kid": "revoked-runtime-2026-03",
+            "algorithm": "Ed25519",
+            "public_key": "pdZk-snzmgmxnWyddTFMpVEmg-8p6IQbCAQkwrJVEXI",
+            "status": "active",
+            "issued_at": "2026-03-24T19:25:17.222Z",
+            "expires_at": "2027-03-24T19:25:17.222Z",
+            "deprecated_at": null,
+            "revoked_at": null
+          }
+        ],
+        "capabilities": {
+          "supervision_model": "none",
+          "audit_logging": true,
+          "immutable_audit": false,
+          "attestation_format": "jwt",
+          "max_attestation_ttl_seconds": 3600,
+          "capabilities_verified": false
+        }
+      },
+      {
+        "issuer_id": "suspended-runtime",
+        "display_name": "Suspended Test Runtime",
+        "website": "https://suspended-runtime.example.com",
+        "security_contact": "security@suspended-runtime.example.com",
+        "status": "suspended",
+        "added_at": "2026-03-01T00:00:00.000Z",
+        "public_keys": [
+          {
+            "kid": "suspended-runtime-2026-03",
+            "algorithm": "Ed25519",
+            "public_key": "84juvPNUObhEpCWKHnVoyhGDzmyLvY6PHUkeVcULTf0",
+            "status": "active",
+            "issued_at": "2026-03-01T00:00:00.000Z",
+            "expires_at": "2027-03-01T00:00:00.000Z",
+            "deprecated_at": null,
+            "revoked_at": null
+          }
+        ],
+        "capabilities": {
+          "supervision_model": "none",
+          "audit_logging": true,
+          "immutable_audit": false,
+          "attestation_format": "jwt",
+          "max_attestation_ttl_seconds": 3600,
+          "capabilities_verified": false
+        }
+      },
+      {
+        "issuer_id": "deprecated-runtime",
+        "display_name": "Deprecated Key Runtime",
+        "website": "https://deprecated-runtime.example.com",
+        "security_contact": "security@deprecated-runtime.example.com",
+        "status": "active",
+        "added_at": "2025-08-01T00:00:00.000Z",
+        "public_keys": [
+          {
+            "kid": "deprecated-runtime-2026-03",
+            "algorithm": "Ed25519",
+            "public_key": "Sfomjq_zy-pm_k8Nyj_iO3PRf4aEq7i9cAjk05Y5HqQ",
+            "status": "deprecated",
+            "issued_at": "2025-08-01T00:00:00.000Z",
+            "expires_at": "2027-01-01T00:00:00.000Z",
+            "deprecated_at": "CONTEXT_DEPENDENT",
+            "revoked_at": null
+          }
+        ],
+        "capabilities": {
+          "supervision_model": "none",
+          "audit_logging": true,
+          "immutable_audit": false,
+          "attestation_format": "jwt",
+          "max_attestation_ttl_seconds": 3600,
+          "capabilities_verified": false
+        },
+        "note": "deprecated_at is context-dependent: use 2026-03-01T08:44:28.553Z for deprecated_within_grace (30 days), use 2025-12-01T08:44:28.553Z for deprecated_past_grace (120 days). See verification_context on each token."
       }
     ]
   },
   "revocations": {
     "schema_version": "1.0.0",
-    "generated_at": "2026-03-24T13:21:30.386Z",
-    "expires_at": "2026-03-24T13:26:30.386Z",
+    "generated_at": "2026-03-31T08:44:28.552Z",
+    "expires_at": "2026-03-31T08:49:28.552Z",
     "revoked_keys": [],
-    "revoked_issuers": []
+    "revoked_issuers": [
+      {
+        "issuer_id": "revoked-runtime",
+        "revoked_at": "2026-03-24T19:25:17.222Z",
+        "reason": "key_compromise"
+      }
+    ]
+  },
+  "verification_codes": {
+    "description": "Complete OATR SDK v1.2.0 reason codes for test assertions",
+    "codes": {
+      "unknown_issuer": "Issuer ID not found in manifest",
+      "suspended_issuer": "Issuer exists but status is 'suspended' (temporary, reversible)",
+      "revoked_issuer": "Issuer on revocation list or status is 'revoked' (permanent)",
+      "unknown_key": "Key ID not found for issuer",
+      "revoked_key": "Key on revocation list or key status is 'revoked'",
+      "grace_period_expired": "Key is deprecated and past the 90-day grace period",
+      "expired_attestation": "JWT exp claim has passed",
+      "invalid_signature": "Ed25519 signature verification failed or key expired",
+      "audience_mismatch": "JWT aud claim does not match expected audience",
+      "nonce_mismatch": "JWT nonce does not match expected nonce"
+    }
   }
 }
