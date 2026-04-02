@@ -42,6 +42,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 import http.client
+import socket
 import urllib.request
 
 
@@ -248,16 +249,18 @@ class MCPTestResult:
 class MCPSecurityTests:
     """Protocol-level security tests for MCP servers."""
 
-    def __init__(self, transport: MCPTransport):
+    def __init__(self, transport: MCPTransport, json_output: bool = False):
         self.transport = transport
         self.results: list[MCPTestResult] = []
         self.server_info: dict = {}
         self.server_capabilities: dict = {}
+        self.json_output = json_output or os.environ.get("AGENT_SECURITY_JSON_OUTPUT") == "1"
 
     def _record(self, result: MCPTestResult):
         self.results.append(result)
-        status = "PASS ✅" if result.passed else "FAIL ❌"
-        print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
+        if not self.json_output:
+            status = "PASS ✅" if result.passed else "FAIL ❌"
+            print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     # ------------------------------------------------------------------
     # Setup: Initialize connection (required before testing)
@@ -265,7 +268,8 @@ class MCPSecurityTests:
 
     def initialize(self) -> bool:
         """Perform MCP initialize handshake."""
-        print("\n[Initializing MCP connection]")
+        if not self.json_output:
+            print("\n[Initializing MCP connection]")
         msg = jsonrpc_request("initialize", {
             "protocolVersion": "2025-03-26",
             "capabilities": {},
@@ -274,19 +278,61 @@ class MCPSecurityTests:
                 "version": "3.0.0"
             }
         })
-        resp = self.transport.send(msg)
+        try:
+            resp = self.transport.send(msg)
+        except ConnectionRefusedError:
+            url = getattr(self.transport, "url", "unknown")
+            err_msg = f"Could not connect to {url} — is the server running? (connection refused)"
+            if not self.json_output:
+                print(f"  {err_msg}", file=sys.stderr)
+            self._connection_error = err_msg
+            return False
+        except socket.timeout:
+            url = getattr(self.transport, "url", "unknown")
+            err_msg = f"Could not connect to {url} — is the server running? (connection timed out)"
+            if not self.json_output:
+                print(f"  {err_msg}", file=sys.stderr)
+            self._connection_error = err_msg
+            return False
+        except urllib.error.URLError as e:
+            url = getattr(self.transport, "url", "unknown")
+            reason = str(e.reason) if hasattr(e, "reason") else str(e)
+            if "Name or service not known" in reason or "getaddrinfo" in reason:
+                err_msg = f"Could not connect to {url} — DNS resolution failed. Check the hostname."
+            elif "Connection refused" in reason:
+                err_msg = f"Could not connect to {url} — is the server running? (connection refused)"
+            elif "timed out" in reason:
+                err_msg = f"Could not connect to {url} — is the server running? (connection timed out)"
+            else:
+                err_msg = f"Could not connect to {url} — {reason}"
+            if not self.json_output:
+                print(f"  {err_msg}", file=sys.stderr)
+            self._connection_error = err_msg
+            return False
+        except OSError as e:
+            url = getattr(self.transport, "url", "unknown")
+            err_msg = f"Could not connect to {url} — {e}"
+            if not self.json_output:
+                print(f"  {err_msg}", file=sys.stderr)
+            self._connection_error = err_msg
+            return False
+
         if resp and "result" in resp:
             self.server_info = resp["result"].get("serverInfo", {})
             self.server_capabilities = resp["result"].get("capabilities", {})
-            print(f"  Server: {self.server_info.get('name', 'unknown')} "
-                  f"v{self.server_info.get('version', '?')}")
-            print(f"  Capabilities: {list(self.server_capabilities.keys())}")
+            if not self.json_output:
+                print(f"  Server: {self.server_info.get('name', 'unknown')} "
+                      f"v{self.server_info.get('version', '?')}")
+                print(f"  Capabilities: {list(self.server_capabilities.keys())}")
 
             # Send initialized notification
             self.transport.send(jsonrpc_notification("notifications/initialized"))
             return True
         else:
-            print(f"  ⚠️  Initialize failed: {resp}")
+            err_msg = f"Initialize failed: {resp}"
+            if not self.json_output:
+                print(f"  ⚠️  {err_msg}")
+            self._connection_error = err_msg
             return False
 
     # ------------------------------------------------------------------
@@ -1014,23 +1060,28 @@ class MCPSecurityTests:
         else:
             test_map = all_tests
 
-        print(f"\n{'='*60}")
-        print("MCP PROTOCOL SECURITY TEST SUITE v3.0")
-        print(f"{'='*60}")
+        if not self.json_output:
+            print(f"\n{'='*60}")
+            print("MCP PROTOCOL SECURITY TEST SUITE v3.0")
+            print(f"{'='*60}")
 
         # Initialize connection
         if not self.initialize():
-            print("\n❌ Failed to initialize MCP connection. Aborting.")
+            err = getattr(self, "_connection_error", "Failed to initialize MCP connection")
+            if not self.json_output:
+                print(f"\n❌ {err}. Aborting.")
             return self.results
 
         for category, tests in test_map.items():
-            print(f"\n[{category.upper().replace('_', ' ')}]")
+            if not self.json_output:
+                print(f"\n[{category.upper().replace('_', ' ')}]")
             for test_fn in tests:
                 try:
                     test_fn()
                 except Exception as e:
                     _eid = re.search(r"([A-Z]{2,}-\d{3})", test_fn.__doc__ or "") ; _eid = _eid.group(1) if _eid else test_fn.__name__
-                    print(f"  ERROR ⚠️  {_eid}: {e}")
+                    if not self.json_output:
+                        print(f"  ERROR ⚠️  {_eid}: {e}")
                     self.results.append(MCPTestResult(
                         test_id=_eid,
                         name=f"ERROR: {_eid}",
@@ -1045,9 +1096,10 @@ class MCPSecurityTests:
         # Summary
         total = len(self.results)
         passed = sum(1 for r in self.results if r.passed)
-        print(f"\n{'='*60}")
-        print(f"RESULTS: {passed}/{total} passed ({passed/total*100:.0f}%)" if total else "No tests run")
-        print(f"{'='*60}\n")
+        if not self.json_output:
+            print(f"\n{'='*60}")
+            print(f"RESULTS: {passed}/{total} passed ({passed/total*100:.0f}%)" if total else "No tests run")
+            print(f"{'='*60}\n")
 
         return self.results
 
@@ -1056,8 +1108,8 @@ class MCPSecurityTests:
 # Report generation
 # ---------------------------------------------------------------------------
 
-def generate_report(results: list[MCPTestResult], output_path: str):
-    """Write JSON report."""
+def build_report(results: list[MCPTestResult], error: str | None = None) -> dict:
+    """Build report dict from results."""
     report = {
         "suite": "MCP Protocol Security Tests v3.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -1068,6 +1120,14 @@ def generate_report(results: list[MCPTestResult], output_path: str):
         },
         "results": [asdict(r) for r in results],
     }
+    if error:
+        report["error"] = error
+    return report
+
+
+def generate_report(results: list[MCPTestResult], output_path: str):
+    """Write JSON report."""
+    report = build_report(results)
     with open(output_path, "w") as f:
         json.dump(report, f, indent=2, default=str)
     print(f"Report written to {output_path}")
@@ -1084,16 +1144,27 @@ def main():
     ap.add_argument("--command", help="Server command (for stdio transport), space-separated")
     ap.add_argument("--categories", help="Comma-separated test categories to run")
     ap.add_argument("--report", help="Output JSON report path")
+    ap.add_argument("--json", action="store_true", dest="json_output",
+                    help="Output results as JSON to stdout (no human-readable text)")
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")
     ap.add_argument("--trials", type=int, default=1, help="Run each test N times for statistical analysis (NIST AI 800-2)")
     args = ap.parse_args()
 
+    # Also check env var for JSON output (set by CLI --json flag)
+    json_output = args.json_output or os.environ.get("AGENT_SECURITY_JSON_OUTPUT") == "1"
+
     # Validate transport args early (before creating any transport)
     if args.transport == "http" and not args.url:
-        print("ERROR: --url required for http transport", file=sys.stderr)
+        if json_output:
+            print(json.dumps({"error": "--url required for http transport"}))
+        else:
+            print("ERROR: --url required for http transport", file=sys.stderr)
         sys.exit(1)
     if args.transport == "stdio" and not args.command:
-        print("ERROR: --command required for stdio transport", file=sys.stderr)
+        if json_output:
+            print(json.dumps({"error": "--command required for stdio transport"}))
+        else:
+            print("ERROR: --command required for stdio transport", file=sys.stderr)
         sys.exit(1)
 
     categories = args.categories.split(",") if args.categories else None
@@ -1117,7 +1188,7 @@ def main():
 
         def _single_run():
             transport = _make_transport()
-            suite = MCPSecurityTests(transport)
+            suite = MCPSecurityTests(transport, json_output=json_output)
             try:
                 return {"results": suite.run_all(categories=categories)}
             finally:
@@ -1128,19 +1199,28 @@ def main():
         if args.report:
             with open(args.report, "w") as f:
                 json.dump(merged, f, indent=2, default=str)
-            print(f"Report written to {args.report}")
+            if not json_output:
+                print(f"Report written to {args.report}")
+        if json_output:
+            print(json.dumps(merged, indent=2, default=str))
         results = merged.get("results", [])
     else:
         # Single run mode - create transport only here
         transport = _make_transport()
-        suite = MCPSecurityTests(transport)
+        suite = MCPSecurityTests(transport, json_output=json_output)
+        conn_error = None
         try:
             results = suite.run_all(categories=categories)
+            conn_error = getattr(suite, "_connection_error", None)
         finally:
             transport.close()
 
         if args.report:
             generate_report(results, args.report)
+
+        if json_output:
+            report = build_report(results, error=conn_error)
+            print(json.dumps(report, indent=2, default=str))
 
     # Exit code
     failed = sum(1 for r in results if not r.passed)
