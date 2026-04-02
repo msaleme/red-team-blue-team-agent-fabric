@@ -7,15 +7,29 @@
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/security%20tests-342-green.svg)](#test-inventory)
 
-The first open-source security testing framework purpose-built for multi-agent AI deployments in critical infrastructure and other high-impact enterprise environments.
+We are not building another security scanner.
 
-AI agents are being deployed into enterprise systems with the ability to make decisions, invoke tools, move across workflows, and trigger consequential actions. The attack surface is fundamentally different from traditional software: agent-to-agent escalation, context poisoning, protocol abuse, prompt injection through operational data, authority drift, and normalization of deviance in safety-critical environments.
+Most current tools focus on *identity and authorization* — who the agent is and what it is allowed to access.
 
-This repository exists to test a harder question than access control alone can answer:
+We test a harder, more consequential question:
 
-**Can an autonomous agent be trusted to take consequential action under adversarial conditions?**
+**Even if an agent is properly authenticated and authorized, can it still be manipulated into unsafe or policy-violating behavior?**
 
-That includes payment flows, but it also includes tool execution, orchestration, platform actions, cross-system chaining, and decision behavior across MCP, A2A, L402, x402, cloud agent platforms, and enterprise systems.
+This is the domain of **Decision Governance**.
+
+As autonomous agents move from copilots to systems that can trigger real-world actions, the security problem fundamentally changes. Our open-source harness is purpose-built for this reality, containing 332 executable tests across 24 modules focused on MCP and A2A wire-protocol testing, L402/x402 payment flows, and decision-layer attack scenarios.
+
+We are carving out a new category: **Decision Governance for Autonomous Agents**.
+
+## Strategic Roadmap
+
+We publish a living roadmap in [ROADMAP.md](./ROADMAP.md). High-level focus areas:
+
+- **v3.9 – Usability & Transparency:** ship CI-ready JSON output, clearer errors, expanded scope docs, and turnkey GitHub Action examples so teams can adopt the harness quickly.
+- **v3.10 – Protocol Depth & Insights:** deepen MCP/A2A coverage, add behavioral profiling + risk scoring, and deliver richer HTML/summary reporting.
+- **v4.0 – Governance & Compliance:** map to AIUC-1, enforce intent contracts, test multi-agent interaction safety, and generate audit-ready evidence packs.
+
+Issues are tagged with their target release via GitHub milestones so contributors can jump into the area that matters most.
 
 ## Why This Matters Now
 
