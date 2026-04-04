@@ -1,0 +1,30 @@
+title: "[Compliance] "
+labels: ["compliance", "community"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share your experience with AI agent compliance — EU AI Act, AIUC-1, NIST, OWASP Agentic Top 10, or other frameworks.
+
+        We're building compliance-grade evidence tooling and want to understand what auditors actually accept, what enterprises need, and where the gaps are.
+  - type: textarea
+    id: context
+    attributes:
+      label: What compliance framework or regulation are you working with?
+      placeholder: "e.g., EU AI Act high-risk, AIUC-1 pre-certification, NIST AI RMF, internal governance..."
+    validations:
+      required: true
+  - type: textarea
+    id: experience
+    attributes:
+      label: What's working? What's missing?
+      placeholder: "What evidence do auditors actually accept? What tools are you using? Where are the gaps?"
+    validations:
+      required: true
+  - type: textarea
+    id: interest
+    attributes:
+      label: Would you be interested in testing the evidence pack generator?
+      placeholder: "We have a new tool that produces signed evidence packages for AIUC-1 and OWASP mapping. Happy to share early access."
+    validations:
+      required: false
