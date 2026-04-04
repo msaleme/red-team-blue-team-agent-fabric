@@ -68,7 +68,7 @@ def _build_requirement_index(mapping: dict[str, Any]) -> dict[str, dict]:
                 "owasp_asi": req_def.get("owasp_asi", ""),
                 "nist_rmf": req_def.get("nist_rmf", ""),
                 "status": req_def.get("status", "UNKNOWN"),
-                "gap_notes": req_def.get("gap_notes", ""),
+                "gap_notes": req_def.get("gap_notes") or "",
             }
     return index
 
@@ -120,7 +120,7 @@ def compute_aiuc1_coverage(
                 "passed": 0,
                 "failed": 0,
                 "total": 0,
-                "notes": req_def.get("gap_notes", "Not yet covered"),
+                "notes": req_def.get("gap_notes") or "Not yet covered",
             }
             gap_count += 1
             continue
@@ -191,7 +191,9 @@ def compute_owasp_coverage(
     for _req_id, req_def in req_index.items():
         asi = req_def.get("owasp_asi", "")
         if asi:
-            asi_tests.setdefault(asi, []).extend(req_def["test_ids"])
+            for tid in req_def["test_ids"]:
+                if tid not in asi_tests.get(asi, []):
+                    asi_tests.setdefault(asi, []).append(tid)
 
     # Index results
     result_by_id: dict[str, dict] = {}
@@ -202,7 +204,7 @@ def compute_owasp_coverage(
 
     owasp: dict[str, Any] = {}
     for asi_id, asi_name in OWASP_AGENTIC_CATEGORIES.items():
-        test_ids = asi_tests.get(asi_id, [])
+        test_ids = list(dict.fromkeys(asi_tests.get(asi_id, [])))  # deduplicate preserving order
         matched = [tid for tid in test_ids if tid in result_by_id]
         passed = sum(1 for tid in matched if result_by_id[tid].get("passed", False))
         failed = len(matched) - passed
@@ -429,8 +431,8 @@ def build_evidence_pack(
         sign_key = os.environ.get("AGENT_SECURITY_SIGN_KEY", "")
         if not sign_key:
             sign_key = secrets.token_hex(32)
-            print(f"No AGENT_SECURITY_SIGN_KEY set. Auto-generated key: {sign_key}")
-            print("Store this key to verify the signature later.")
+            print(f"No AGENT_SECURITY_SIGN_KEY set. Auto-generated key: {sign_key}", file=sys.stderr)
+            print("Store this key to verify the signature later.", file=sys.stderr)
         attestation = sign_evidence(evidence_hash, sign_key)
 
     # Build evidence-summary.json
