@@ -63,9 +63,9 @@ class TestRegX402(unittest.TestCase):
     def test_registered(self):
         from protocol_tests.cli import HARNESSES
         self.assertIn("x402", HARNESSES)
-    def test_21_harnesses(self):
+    def test_harness_count(self):
         from protocol_tests.cli import HARNESSES
-        self.assertEqual(len(HARNESSES), 21)
+        self.assertEqual(len(HARNESSES), 23)
     def test_modules_exist(self):
         from protocol_tests.cli import HARNESSES
         for n, i in HARNESSES.items():
@@ -194,10 +194,10 @@ class TestAIUC1Crosswalk(unittest.TestCase):
     def test_crosswalk_section_exists(self):
         self.assertIn("AIUC-1 Crosswalk", self._readme())
 
-    def test_claims_15_of_20(self):
-        """README claims 15 of 20 testable requirements covered."""
+    def test_claims_19_of_20(self):
+        """README claims 19 of 20 testable requirements covered."""
         readme = self._readme()
-        self.assertIn("15 of 20", readme)
+        self.assertIn("19 of 20", readme)
 
     def test_coverage_summary_exists(self):
         """Should have a summary table with category-level coverage."""

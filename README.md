@@ -120,13 +120,13 @@ Both are necessary.
 
 ## What's New in v3.9
 
-- **Attestation JSON Schema** (`schemas/attestation-report.json`) - machine-readable report format for CI/CD and compliance pipelines
-- **GitHub Action for CI/CD** - gate deployments on protocol-level security ([details below](#cicd-integration))
-- **Free MCP Security Scan** (`scripts/free_scan.py`) - quick 5-test scan with A-F grading
-- **Monthly Agent Security Report** (`scripts/monthly_security_report.py`) - automated trend tracking and executive summaries
-- **AIUC-1 Certification Prep** (`scripts/aiuc1_prep.py`) - maps test results to all 24 AIUC-1 requirements with gap analysis
-- **Discord Security Scan Bot** (`scripts/discord_scan_bot.py`) - run scans directly from Discord
-- **Shared `trial_runner`** - real multi-trial statistical testing across all harness modules
+- **`--json` CLI output** - `agent-security test mcp --url ... --json` outputs structured JSON to stdout for CI pipelines, compliance tooling, and automation. Works in single-run and multi-trial modes.
+- **Improved connection error messages** - distinguishes DNS failure, connection refused, and timeout with actionable diagnostics. URL credentials are sanitized to prevent leakage in reports.
+- **Scope & Limitations documentation** - explicit section on what the framework tests, what it does NOT test, environment assumptions, and false positive guidance.
+- **CI/CD quickstart** - complete GitHub Actions workflow example with service startup, output handling, and CLI alternative for non-GitHub CI systems.
+- **Audit-ready evidence packs** (`scripts/evidence_pack.py`) - generates signed evidence packages (JSON + markdown) with AIUC-1 requirement mapping, OWASP Agentic Top 10 coverage, and HMAC-SHA256 signing. Usable as CI gate artifacts, audit packet exhibits, and procurement attachments.
+- **AIUC-1 test suite formalized** - `--json` output for the AIUC-1 compliance harness, per-requirement coverage summary, `aiuc1_req` field in results. AIUC-1 mapping updated to 19/20 requirements covered (95%).
+- **OATR v1.2.0 test fixtures** (community: @FransDevelopment) - 3 new Ed25519 tokens (X4-028 through X4-030) for suspended issuer and grace period enforcement. 29 offline tests.
 
 ---
 
@@ -428,7 +428,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 [AIUC-1](https://www.aiuc-1.com) (v2026-Q1, last reviewed March 2026) is the first AI agent certification standard, requiring **quarterly independent adversarial testing** to validate agent security, safety, and reliability. Built with MITRE, Cisco, Stanford, MIT, and Google Cloud. This framework provides the technical testing that AIUC-1 certification demands.
 
 <details>
-<summary><strong>Full AIUC-1 Requirement Mapping (15 of 20 testable requirements covered)</strong></summary>
+<summary><strong>Full AIUC-1 Requirement Mapping (19 of 20 testable requirements covered)</strong></summary>
 
 #### B. Security (100% coverage)
 
@@ -501,7 +501,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 
 ## Standards Alignment
 
-- ✅ **AIUC-1 (2026)** - Pre-certification testing for 15 of 20 testable requirements ([crosswalk above](#aiuc-1-crosswalk-pre-certification-testing))
+- ✅ **AIUC-1 (2026)** - Pre-certification testing for 19 of 20 testable requirements ([crosswalk above](#aiuc-1-crosswalk-pre-certification-testing))
 - ✅ **OWASP Top 10 for Agentic Applications (2026)** - Complete ASI01-ASI10 coverage
 - ✅ **OWASP LLM Top 10** - LLM01 (Prompt Injection), LLM02, LLM03, LLM04, LLM06, LLM08
 - ✅ **NIST AI RMF** - GOVERN, MAP, MEASURE, MANAGE functions covered
@@ -709,6 +709,22 @@ python scripts/aiuc1_prep.py --url http://your-agent --simulate
 ```
 
 Maps results to all 24 AIUC-1 requirements with gap analysis.
+
+---
+
+## Evidence Pack Generator
+
+Generate signed, audit-ready evidence packages from harness test results:
+
+```bash
+# Generate evidence pack from a harness report
+python scripts/evidence_pack.py --report report.json --output evidence/
+
+# Generate and sign with HMAC-SHA256
+python scripts/evidence_pack.py --report report.json --output evidence/ --sign --zip
+```
+
+Produces four files: `evidence-summary.json` (machine-readable), `test-results.json` (raw data), `aiuc1-mapping.json` (per-requirement coverage), and `evidence-summary.md` (human-readable for auditors). Usable as CI gate artifacts, procurement questionnaire attachments, or audit packet exhibits.
 
 ---
 
