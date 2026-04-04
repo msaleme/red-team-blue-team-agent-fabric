@@ -1,0 +1,23 @@
+title: "[Payments] "
+labels: ["x402", "l402", "payments"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This project has the only dedicated security testing suite for agent payment protocols (x402/L402 — 39 tests).
+
+        If you're building on x402, L402, or other agent payment rails, we want to hear about your security concerns and what testing you need.
+  - type: textarea
+    id: context
+    attributes:
+      label: What payment protocol and use case are you working with?
+      placeholder: "e.g., x402/USDC settlement, L402/Lightning micropayments, agent-to-agent payments..."
+    validations:
+      required: true
+  - type: textarea
+    id: concerns
+    attributes:
+      label: What security concerns keep you up at night?
+      placeholder: "e.g., unauthorized execution, budget overflow, replay attacks, facilitator trust..."
+    validations:
+      required: true

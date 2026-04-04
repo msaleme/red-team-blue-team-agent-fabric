@@ -1,0 +1,51 @@
+name: Security Test Request
+description: Request a new security test scenario for the harness
+title: "[Test Request] "
+labels: ["enhancement", "test-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Request a new adversarial test scenario. We prioritize tests that cover real-world attack surfaces not addressed by static scanners.
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Protocol / Layer
+      options:
+        - MCP (Model Context Protocol)
+        - A2A (Agent-to-Agent)
+        - L402 (Lightning payments)
+        - x402 (USDC/stablecoin payments)
+        - Enterprise platform (SAP, Salesforce, etc.)
+        - Cloud agent platform (Bedrock, Azure, Vertex)
+        - Decision governance
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Attack scenario
+      placeholder: "Describe the adversarial scenario. What does the attacker do? What should the agent do? What would a failure look like?"
+    validations:
+      required: true
+  - type: textarea
+    id: real-world
+    attributes:
+      label: Real-world context
+      placeholder: "Have you seen this in production? Is this based on a published CVE, research paper, or incident?"
+    validations:
+      required: false
+  - type: dropdown
+    id: compliance
+    attributes:
+      label: Compliance mapping (if known)
+      options:
+        - AIUC-1
+        - OWASP Agentic Top 10
+        - NIST AI RMF
+        - EU AI Act
+        - Not sure
+        - Other
+    validations:
+      required: false
