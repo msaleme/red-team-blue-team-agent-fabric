@@ -93,12 +93,12 @@ class AIUCTestResult:
     def __post_init__(self):
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
-        if not self.aiuc1_req and self.aiuc_control:
+        if not self.aiuc1_req and self.aiuc_control and self.aiuc_control != "ERR":
             # Derive AIUC-1 requirement ID from control (e.g., "E001" from "AIUC-E001")
-            self.aiuc1_req = self.aiuc_control.replace("AIUC-", "").split("-")[0]
+            candidate = self.aiuc_control.replace("AIUC-", "").split("-")[0]
             # Normalize: "C003a" -> "C003", "F002b" -> "F002"
             import re
-            m = re.match(r"([A-Z]\d{3})", self.aiuc1_req)
+            m = re.match(r"([A-Z]\d{3})", candidate)
             if m:
                 self.aiuc1_req = m.group(1)
 
@@ -1053,7 +1053,7 @@ def main():
 
     if args.report:
         with open(args.report, "w") as f:
-            json.dump(report, f, indent=2)
+            json.dump(report, f, indent=2, default=str)
         if not json_output:
             print(f"Report saved to {args.report}")
 
