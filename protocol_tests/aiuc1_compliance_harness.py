@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 import uuid
@@ -87,10 +88,19 @@ class AIUCTestResult:
     response_received: dict | None = None
     elapsed_s: float = 0.0
     timestamp: str = ""
+    aiuc1_req: str = ""
 
     def __post_init__(self):
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
+        if not self.aiuc1_req and self.aiuc_control:
+            # Derive AIUC-1 requirement ID from control (e.g., "E001" from "AIUC-E001")
+            self.aiuc1_req = self.aiuc_control.replace("AIUC-", "").split("-")[0]
+            # Normalize: "C003a" -> "C003", "F002b" -> "F002"
+            import re
+            m = re.match(r"([A-Z]\d{3})", self.aiuc1_req)
+            if m:
+                self.aiuc1_req = m.group(1)
 
 
 # ---------------------------------------------------------------------------
@@ -290,17 +300,19 @@ class AIUC1ComplianceTests:
     """AIUC-1 compliance tests for AI agent systems."""
 
     def __init__(self, url: str | None = None, simulate: bool = False,
-                 headers: dict | None = None):
+                 headers: dict | None = None, json_output: bool = False):
         self.url = url
         self.simulate = simulate
         self.headers = headers or {}
         self.results: list[AIUCTestResult] = []
         self._session_id: str | None = None
+        self.json_output = json_output or os.environ.get("AGENT_SECURITY_JSON_OUTPUT") == "1"
 
     def _record(self, result: AIUCTestResult):
         self.results.append(result)
-        status = "PASS \u2705" if result.passed else "FAIL \u274c"
-        print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
+        if not self.json_output:
+            status = "PASS \u2705" if result.passed else "FAIL \u274c"
+            print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _send_prompt(self, prompt: str, session_id: str | None = None) -> dict:
         """Send a prompt to the agent and return the response."""
@@ -891,17 +903,19 @@ class AIUC1ComplianceTests:
             ]),
         ]
 
-        print(f"\n{'='*60}")
-        print(f"AIUC-1 Compliance Test Harness")
-        print(f"Incident Response | CBRN Prevention | Harmful Output")
-        print(f"{'='*60}")
-        mode = "SIMULATION" if self.simulate else f"LIVE ({self.url})"
-        print(f"Mode: {mode}")
+        if not self.json_output:
+            print(f"\n{'='*60}")
+            print(f"AIUC-1 Compliance Test Harness")
+            print(f"Incident Response | CBRN Prevention | Harmful Output")
+            print(f"{'='*60}")
+            mode = "SIMULATION" if self.simulate else f"LIVE ({self.url})"
+            print(f"Mode: {mode}")
 
         for cat_name, tests in all_tests:
             if categories and cat_name not in categories:
                 continue
-            print(f"\n[{cat_name.upper().replace('_', ' ')}]")
+            if not self.json_output:
+                print(f"\n[{cat_name.upper().replace('_', ' ')}]")
             for test_fn in tests:
                 try:
                     test_fn()
@@ -923,11 +937,41 @@ class AIUC1ComplianceTests:
         # Summary
         passed = sum(1 for r in self.results if r.passed)
         failed = sum(1 for r in self.results if not r.passed)
-        print(f"\n{'='*60}")
-        print(f"Results: {passed} passed, {failed} failed, {len(self.results)} total")
-        print(f"{'='*60}\n")
+        if not self.json_output:
+            print(f"\n{'='*60}")
+            print(f"Results: {passed} passed, {failed} failed, {len(self.results)} total")
+            print(f"{'='*60}")
+            self._print_requirement_summary()
+            print()
 
         return self.results
+
+    def _print_requirement_summary(self):
+        """Print per-requirement pass/fail coverage."""
+        # Group results by AIUC-1 requirement
+        req_results: dict[str, list[AIUCTestResult]] = {}
+        for r in self.results:
+            if r.aiuc1_req:
+                req_results.setdefault(r.aiuc1_req, []).append(r)
+
+        REQ_NAMES = {
+            "C003": "Harmful Output Prevention",
+            "C004": "Scope Enforcement",
+            "E001": "Incident Detection Latency",
+            "E002": "Incident Containment",
+            "E003": "Incident Audit Trail",
+            "F002": "CBRN Content Prevention",
+        }
+
+        print(f"\nAIUC-1 Requirement Coverage:")
+        for req_id in sorted(req_results.keys()):
+            results = req_results[req_id]
+            p = sum(1 for r in results if r.passed)
+            f = len(results) - p
+            name = REQ_NAMES.get(req_id, req_id)
+            status = "PASS" if f == 0 else "FAIL"
+            mode = " (simulation)" if self.simulate else ""
+            print(f"  {req_id} {name}: {status} ({p}/{len(results)} passed){mode}")
 
 
 # ---------------------------------------------------------------------------
@@ -944,48 +988,81 @@ def main():
     parser.add_argument("--categories",
                         help="Comma-separated: incident_response,cbrn,harmful_output")
     parser.add_argument("--report", help="Output JSON report to file")
+    parser.add_argument("--json", action="store_true", dest="json_output",
+                        help="Output results as JSON to stdout (no human-readable text)")
     parser.add_argument("--trials", type=int, default=1,
                         help="Number of trial runs")
 
     args = parser.parse_args()
 
+    json_output = args.json_output or os.environ.get("AGENT_SECURITY_JSON_OUTPUT") == "1"
+
     if not args.url and not args.simulate:
-        print("Error: specify --url or --simulate")
-        parser.print_help()
+        if json_output:
+            print(json.dumps({"error": "specify --url or --simulate"}))
+        else:
+            print("Error: specify --url or --simulate")
+            parser.print_help()
         sys.exit(1)
 
     categories = args.categories.split(",") if args.categories else None
 
     all_results = []
     for trial in range(args.trials):
-        if args.trials > 1:
+        if args.trials > 1 and not json_output:
             print(f"\n--- Trial {trial + 1}/{args.trials} ---")
 
         suite = AIUC1ComplianceTests(
             url=args.url,
             simulate=args.simulate,
+            json_output=json_output,
         )
         results = suite.run_all(categories=categories)
         all_results.extend(results)
 
+    # Build report
+    report = {
+        "harness": "AIUC-1 Compliance Test Harness",
+        "version": "1.0.0",
+        "standard": "AIUC-1",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "mode": "simulation" if args.simulate else "live",
+        "trials": args.trials,
+        "results": [asdict(r) for r in all_results],
+        "summary": {
+            "total": len(all_results),
+            "passed": sum(1 for r in all_results if r.passed),
+            "failed": sum(1 for r in all_results if not r.passed),
+        },
+    }
+
+    # Add per-requirement coverage to report
+    req_coverage: dict[str, dict] = {}
+    for r in all_results:
+        if r.aiuc1_req:
+            if r.aiuc1_req not in req_coverage:
+                req_coverage[r.aiuc1_req] = {"passed": 0, "failed": 0, "total": 0}
+            req_coverage[r.aiuc1_req]["total"] += 1
+            if r.passed:
+                req_coverage[r.aiuc1_req]["passed"] += 1
+            else:
+                req_coverage[r.aiuc1_req]["failed"] += 1
+    for req_id, counts in req_coverage.items():
+        counts["status"] = "PASS" if counts["failed"] == 0 else "FAIL"
+    report["aiuc1_requirement_coverage"] = req_coverage
+
     if args.report:
-        report = {
-            "harness": "AIUC-1 Compliance Test Harness",
-            "version": "1.0.0",
-            "standard": "AIUC-1",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "mode": "simulation" if args.simulate else "live",
-            "trials": args.trials,
-            "results": [asdict(r) for r in all_results],
-            "summary": {
-                "total": len(all_results),
-                "passed": sum(1 for r in all_results if r.passed),
-                "failed": sum(1 for r in all_results if not r.passed),
-            },
-        }
         with open(args.report, "w") as f:
             json.dump(report, f, indent=2)
-        print(f"Report saved to {args.report}")
+        if not json_output:
+            print(f"Report saved to {args.report}")
+
+    if json_output:
+        print(json.dumps(report, indent=2, default=str))
+
+    # Exit code
+    failed = sum(1 for r in all_results if not r.passed)
+    sys.exit(1 if failed > 0 else 0)
 
 
 if __name__ == "__main__":
