@@ -728,6 +728,49 @@ Produces four files: `evidence-summary.json` (machine-readable), `test-results.j
 
 ---
 
+## Behavioral Profiling
+
+Compare test runs to detect behavioral drift, compute stability and risk scores, and identify normalization of deviance:
+
+```bash
+# Compare two runs
+python scripts/behavioral_profile.py --baseline run1.json --current run2.json
+
+# Trend analysis over multiple runs
+python scripts/behavioral_profile.py --history run1.json run2.json run3.json --output profile/
+```
+
+Produces stability score (0-100), drift detection (PASS→FAIL regressions), risk score with transparent formula, and trend analysis for 3+ runs. This is what static scanners cannot see — behavioral change over time.
+
+---
+
+## Agent Payment Security Attack Taxonomy
+
+We published the first taxonomy of attack vectors against AI agent payment flows — 10 categories covering x402 and L402 protocols:
+
+| ID | Category | Severity |
+|---|---|---|
+| APT-01 | Unauthorized Payment Execution | Critical |
+| APT-02 | Payment Amount Manipulation | Medium |
+| APT-03 | Recipient Manipulation | Critical |
+| APT-04 | Payment Replay and Double-Spend | High |
+| APT-05 | Payment Authorization Bypass | Critical |
+| APT-06 | Settlement and Finality Attacks | High |
+| APT-07 | Payment Channel Attacks (L402) | High |
+| APT-08 | Cross-Chain and Cross-Protocol Confusion | High |
+| APT-09 | Payment Metadata Exfiltration | Medium |
+| APT-10 | Agent Autonomy Risk | Medium |
+
+Full taxonomy: [docs/PAYMENT-ATTACK-TAXONOMY.md](docs/PAYMENT-ATTACK-TAXONOMY.md)
+
+---
+
+## How This Compares
+
+See [docs/COMPARISON.md](docs/COMPARISON.md) for a detailed comparison with Cisco MCP Scanner, Snyk Agent Scan, and NVIDIA Garak. Short version: we test what static scanners can't see.
+
+---
+
 ## Privacy & Telemetry
 
 This tool runs entirely on your machine. No test results, target URLs,
@@ -745,7 +788,13 @@ Full details: [docs/PRIVACY.md](docs/PRIVACY.md) | Attestation registry: [docs/a
 
 ## Roadmap
 
-See **[v3.9.0 Roadmap](docs/v3.9-roadmap.md)** for planned features and community contribution opportunities.
+See **[ROADMAP.md](ROADMAP.md)** for the full strategic roadmap (VRIO-informed, Porter's Five Forces assessed).
+
+- **v3.9 — Adopt in 15 Minutes** ✅ Shipped
+- **v3.10 — Prove It to Auditors** (before July 2026): evidence format adoption, payment depth, behavioral profiling
+- **v4.0 — Lock the Category** (H2 2026): benchmark publication, schema standardization, longitudinal registry
+
+Strategic analysis: [docs/STRATEGY.md](docs/STRATEGY.md)
 
 ---
 

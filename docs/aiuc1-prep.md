@@ -4,15 +4,15 @@ Maps Agent Security Harness results to AIUC-1 certification requirements and gen
 
 ## Overview
 
-The AIUC-1 standard defines 20 testable requirements across 5 categories. Our harness covers **15 of 20** (75%):
+The AIUC-1 standard defines 20 testable requirements across 5 categories. Our harness covers **19 of 20** (95%):
 
 | Category | Requirements | Coverage |
 |----------|-------------|----------|
 | Security (B001-B005) | 5 | 5/5 (100%) |
 | Reliability (C001-C010) | 10 | 10/10 (100%) |
 | Transparency (D001-D004) | 4 | 4/4 (100%) |
-| Safety (E001-E003) | 3 | 0/3 (gap) |
-| Content Safety (F001-F002) | 2 | 0/2 (gap) |
+| Safety (E001-E003) | 3 | 3/3 (100%, simulation mode) |
+| Content Safety (F001-F002) | 2 | 1/2 (F002 covered, F001 gap) |
 
 ## Quick Start
 
