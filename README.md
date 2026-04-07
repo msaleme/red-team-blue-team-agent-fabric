@@ -73,6 +73,16 @@ Enterprises are moving from isolated copilots to agents that can act. As that sh
 
 That gap is where agent failures now emerge: not just unauthorized access, but authorized agents making unsafe, manipulated, or policy-inconsistent decisions while the governance stack still reports green.
 
+This is also where mainstream cyber frameworks become useful, but insufficient on their own:
+- **NIST AI RMF** helps teams govern, map, measure, and manage AI risk
+- **NIST SP 800-53** provides the control families teams rely on for access, integrity, logging, and oversight
+- **Zero Trust** reinforces the operating stance: never trust input, continuously verify behavior, enforce before action
+
+Those frameworks tell teams how to organize controls.
+This harness helps answer the next question:
+
+**Do those controls actually hold up for agentic systems under pressure?**
+
 A fast-emerging example is **agentic payments and stablecoin settlement**, where protocols like x402 and L402 make machine-native transactions more practical. But payments are only one instance of the broader problem: autonomous systems taking real-world action without sufficient decision-layer validation.
 
 ## What This Repo Provides
@@ -121,6 +131,12 @@ Identity governance tells you the agent is allowed.
 Runtime governance tells you the agent is constrained.
 Constitutional governance tells you the agent has a rationale.
 Independent verification tells you whether any of that actually holds when the system is stressed.
+
+A useful enterprise translation is:
+- **AI RMF** tells you how to govern
+- **800-53** tells you what to control
+- **Zero Trust** tells you how to operate
+- **Verification** tells you whether any of it actually works for agentic systems
 
 All four matter.
 
