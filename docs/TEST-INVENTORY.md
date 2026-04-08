@@ -1,6 +1,6 @@
 # Test Inventory
 
-**398 security tests across 26 modules** (verified by `scripts/count_tests.py`)
+**411 security tests across 26 modules** (verified by `scripts/count_tests.py`)
 
 ---
 

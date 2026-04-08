@@ -399,6 +399,61 @@ def main():
         except Exception:
             pass  # Telemetry must never break the CLI
 
+        # --html <path>: generate self-contained HTML report (#112)
+        if html_output:
+            try:
+                import json as _json
+
+                _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                if _repo_root not in sys.path:
+                    sys.path.insert(0, _repo_root)
+                from scripts.html_report import generate_html as _gen_html
+
+                report_json = None
+                for key in ("_json_report", "json_report", "_report"):
+                    candidate = ns.get(key)
+                    if isinstance(candidate, dict) and "results" in candidate:
+                        report_json = candidate
+                        break
+
+                if report_json is None:
+                    result_list_raw = None
+                    for key in ("_results", "results", "test_results"):
+                        candidate = ns.get(key)
+                        if isinstance(candidate, (list, tuple)) and candidate:
+                            result_list_raw = candidate
+                            break
+                    if result_list_raw:
+                        serialized = []
+                        for r in result_list_raw:
+                            if isinstance(r, dict):
+                                serialized.append(r)
+                            elif hasattr(r, "__dict__"):
+                                d = {}
+                                for attr in ("test_id", "name", "passed", "status",
+                                             "severity", "module", "category",
+                                             "detail", "error", "reason"):
+                                    v = getattr(r, attr, None)
+                                    if v is not None:
+                                        d[attr] = (
+                                            str(v)
+                                            if not isinstance(v, (bool, int, float))
+                                            else v
+                                        )
+                                serialized.append(d)
+                        report_json = {"results": serialized, "target": "unknown"}
+
+                if report_json:
+                    _html_out = _gen_html(report_json)
+                    with open(html_output, "w") as _hf:
+                        _hf.write(_html_out)
+                    print(f"HTML report written to {html_output}", file=sys.stderr)
+                else:
+                    print("Warning: could not generate HTML -- no results found",
+                          file=sys.stderr)
+            except Exception as e:
+                print(f"Warning: HTML report generation failed: {e}", file=sys.stderr)
+
         sys.exit(0)
 
     print(f"Error: unknown command '{args[0]}'")

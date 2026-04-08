@@ -4,11 +4,11 @@
 [![PyPI version](https://badge.fury.io/py/agent-security-harness.svg)](https://pypi.org/project/agent-security-harness/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/security%20tests-398-green.svg)](#three-layers-of-agent-decision-security)
+[![Tests](https://img.shields.io/badge/security%20tests-411-green.svg)](#three-layers-of-agent-decision-security)
 
 **Even if an agent is properly authenticated and authorized, can it still be manipulated into unsafe or policy-violating behavior?**
 
-398 executable security tests across 26 modules. MCP + A2A + L402 + x402 wire-protocol testing. Decision-layer attack scenarios. One `pip install` away.
+411 executable security tests across 26 modules. MCP + A2A + L402 + x402 wire-protocol testing. Decision-layer attack scenarios. One `pip install` away.
 
 ```
 $ agent-security test mcp --url http://localhost:8080/mcp
@@ -54,7 +54,7 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 | **Approach** | Static analysis | Static + LLM classification | Config scanning | Model-layer probing | **Wire-protocol adversarial testing** |
 | **MCP coverage** | Tool descriptions, config files | Tool descriptions, YARA rules | Config files | - | **13 tests: real JSON-RPC 2.0 attacks** |
 | **A2A coverage** | - | - | - | - | **12 tests** |
-| **L402/x402 coverage** | - | - | - | - | **74 tests** |
+| **L402/x402 coverage** | - | - | - | - | **85 tests** |
 | **Enterprise platforms** | - | - | - | - | **25 cloud + 20 enterprise** |
 | **APT simulation** | - | - | - | - | **GTG-1002 (17 tests)** |
 | **Jailbreak/over-refusal** | - | - | - | Yes | **50 tests (25 + 25 FPR)** |
@@ -62,7 +62,7 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 | **Research backing** | - | Cisco blog | - | Papers | **5 DOIs + 3 NIST submissions** |
 | **MCP server mode** | - | - | - | - | **Yes - invoke from any AI agent** |
 | **Statistical testing** | - | - | - | - | **Wilson CIs, multi-trial** |
-| **Total tests** | Pattern matching | YARA rules | Config checks | Model probes | **398 active tests** |
+| **Total tests** | Pattern matching | YARA rules | Config checks | Model probes | **411 active tests** |
 
 **Use both.** Scan with [Invariant MCP-Scan](https://github.com/invariantlabs-ai/mcp-scan) or [Cisco MCP Scanner](https://github.com/cisco-ai-defense/mcp-scanner) for static analysis. Test with this framework for active exploitation. They're complementary layers.
 
@@ -87,7 +87,7 @@ Five peer-reviewed preprints and three NIST submissions underpin the methodology
 | Resource | Link |
 |---|---|
 | Expanded Quick Start | [docs/QUICKSTART.md](docs/QUICKSTART.md) |
-| Full Test Inventory (398 tests) | [docs/TEST-INVENTORY.md](docs/TEST-INVENTORY.md) |
+| Full Test Inventory (411 tests) | [docs/TEST-INVENTORY.md](docs/TEST-INVENTORY.md) |
 | AIUC-1 Crosswalk | [docs/AIUC1-CROSSWALK.md](docs/AIUC1-CROSSWALK.md) |
 | Advanced Capabilities | [docs/ADVANCED.md](docs/ADVANCED.md) |
 | MCP Server | [docs/mcp-server.md](docs/mcp-server.md) |

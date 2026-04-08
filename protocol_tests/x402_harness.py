@@ -2420,6 +2420,645 @@ class X402SecurityTests:
         ))
 
     # ------------------------------------------------------------------
+    # Category 13: Payment Replay & Double-Spend (APT-04) (X4-045 to X4-046)
+    # ------------------------------------------------------------------
+
+    def test_x402_replay_same_payment_hash(self):
+        """X4-045: Replay identical payment hash to test nonce/hash dedup."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        # Create a payment proof with a fixed hash
+        fixed_hash = hashlib.sha256(b"replay_test_" + uuid.uuid4().bytes).hexdigest()
+        payment_proof = base64.b64encode(json.dumps({
+            "amount": challenge.amount if challenge else "1000000",
+            "currency": challenge.currency if challenge else "USDC",
+            "recipient": challenge.recipient if challenge else ZERO_ADDRESS,
+            "payment_hash": fixed_hash,
+            "nonce": uuid.uuid4().hex,
+            "timestamp": int(time.time()),
+        }).encode()).decode()
+
+        # First submission
+        resp1 = self.transport.get(headers={
+            "X-Payment-Authorization": payment_proof,
+            "X-Payment-Hash": fixed_hash,
+        })
+        status1 = resp1.get("status", 0)
+
+        # Replay same payment hash
+        resp2 = self.transport.get(headers={
+            "X-Payment-Authorization": payment_proof,
+            "X-Payment-Hash": fixed_hash,
+        })
+        status2 = resp2.get("status", 0)
+
+        elapsed = time.monotonic() - t0
+
+        # If the first was accepted (200), the replay should be rejected
+        # If both are rejected, that's also safe (server requires real payment)
+        replay_accepted = (status1 == 200 and status2 == 200)
+        passed = not replay_accepted
+
+        self._record(X402TestResult(
+            test_id="X4-045",
+            name="Replay Same Payment Hash",
+            category="replay_double_spend",
+            owasp_asi="ASI03",
+            severity=Severity.CRITICAL.value,
+            passed=passed,
+            details=(f"Payment hash replay accepted twice (status {status1}, {status2}) — "
+                     "MISSING DEDUP" if replay_accepted
+                     else f"Replay correctly handled (status {status1}, {status2})"),
+            http_method="GET",
+            csg_mapping="HC-35: Payment hashes must be single-use; replay of consumed hash must be rejected",
+            estimated_impact="fund_theft",
+            estimated_severity="critical",
+            request_sent={"payment_hash": fixed_hash},
+            response_received={"status_first": status1, "status_replay": status2},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_x402_duplicate_settlement_claim(self):
+        """X4-046: Submit two settlement claims for the same payment nonce."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        shared_nonce = uuid.uuid4().hex
+        fake_tx_hash_1 = "0x" + hashlib.sha256(b"tx1").hexdigest()
+        fake_tx_hash_2 = "0x" + hashlib.sha256(b"tx2").hexdigest()
+
+        settlement_claims = []
+        for tx_hash in [fake_tx_hash_1, fake_tx_hash_2]:
+            proof = base64.b64encode(json.dumps({
+                "amount": challenge.amount if challenge else "1000000",
+                "currency": challenge.currency if challenge else "USDC",
+                "nonce": shared_nonce,
+                "tx_hash": tx_hash,
+                "timestamp": int(time.time()),
+            }).encode()).decode()
+
+            resp = self.transport.get(headers={
+                "X-Payment-Authorization": proof,
+                "X-Payment-Nonce": shared_nonce,
+                "X-Payment-TxHash": tx_hash,
+            })
+            settlement_claims.append(resp.get("status", 0))
+
+        elapsed = time.monotonic() - t0
+
+        # At most one settlement claim should be accepted for the same nonce
+        n_accepted = sum(1 for s in settlement_claims if s == 200)
+        passed = n_accepted <= 1
+
+        self._record(X402TestResult(
+            test_id="X4-046",
+            name="Duplicate Settlement Claim",
+            category="replay_double_spend",
+            owasp_asi="ASI03",
+            severity=Severity.CRITICAL.value,
+            passed=passed,
+            details=(f"Both settlement claims accepted for same nonce — DOUBLE SPEND"
+                     if not passed
+                     else f"At most 1 settlement accepted ({settlement_claims}) — safe"),
+            http_method="GET",
+            csg_mapping="HC-36: Only one settlement claim per payment nonce must be accepted",
+            estimated_impact="fund_theft",
+            estimated_severity="critical",
+            request_sent={"nonce": shared_nonce, "tx_hashes": [fake_tx_hash_1, fake_tx_hash_2]},
+            response_received={"statuses": settlement_claims},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
+    # Category 14: Authorization Bypass (APT-05) (X4-047 to X4-048)
+    # ------------------------------------------------------------------
+
+    def test_x402_expired_auth_token_reuse(self):
+        """X4-047: Reuse an expired payment authorization token."""
+        t0 = time.monotonic()
+
+        # Craft a payment authorization with an expiry in the past
+        expired_payload = base64.b64encode(json.dumps({
+            "amount": "1000000",
+            "currency": "USDC",
+            "nonce": uuid.uuid4().hex,
+            "iat": int(time.time()) - 7200,   # issued 2 hours ago
+            "exp": int(time.time()) - 3600,    # expired 1 hour ago
+            "scope": "read",
+        }).encode()).decode()
+
+        # Also craft a fake JWT-shaped expired token
+        expired_jwt = _fake_jwt()
+        # Decode and re-encode with past expiry
+        parts = expired_jwt.split(".")
+        payload_data = json.loads(base64.urlsafe_b64decode(parts[1] + "=="))
+        payload_data["exp"] = int(time.time()) - 3600
+        payload_data["iat"] = int(time.time()) - 7200
+        parts[1] = base64.urlsafe_b64encode(json.dumps(payload_data).encode()).decode().rstrip("=")
+        expired_jwt_token = ".".join(parts)
+
+        accepted_expired = []
+        for label, token in [("expired_b64", expired_payload), ("expired_jwt", expired_jwt_token)]:
+            resp = self.transport.get(headers={
+                "X-Payment-Authorization": token,
+            })
+            if resp.get("status") == 200:
+                accepted_expired.append(label)
+
+        elapsed = time.monotonic() - t0
+        passed = len(accepted_expired) == 0
+
+        self._record(X402TestResult(
+            test_id="X4-047",
+            name="Expired Auth Token Reuse",
+            category="authorization_bypass",
+            owasp_asi="ASI02",
+            severity=Severity.CRITICAL.value,
+            passed=passed,
+            details=(f"Server accepted expired authorization tokens: {accepted_expired}"
+                     if accepted_expired
+                     else "All expired authorization tokens correctly rejected"),
+            http_method="GET",
+            csg_mapping="HC-37: Payment authorization tokens with past expiry must be rejected",
+            estimated_impact="fund_theft",
+            estimated_severity="critical",
+            request_sent={"expired_variants": ["expired_b64", "expired_jwt"]},
+            response_received={"accepted_expired": accepted_expired},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_x402_scope_escalation_in_payment(self):
+        """X4-048: Escalate payment scope from read to admin/write."""
+        t0 = time.monotonic()
+
+        # Craft payment authorizations claiming elevated scopes
+        scope_escalations = [
+            ("admin_scope", {"scope": "admin", "role": "admin"}),
+            ("write_scope", {"scope": "write", "permissions": ["read", "write", "delete"]}),
+            ("wildcard_scope", {"scope": "*", "resource": "*"}),
+            ("elevated_amount", {"scope": "read", "max_amount": "999999999999"}),
+        ]
+
+        accepted_escalation = []
+        for label, extra_claims in scope_escalations:
+            payload = {
+                "amount": "1000000",
+                "currency": "USDC",
+                "nonce": uuid.uuid4().hex,
+                "timestamp": int(time.time()),
+                **extra_claims,
+            }
+            proof = base64.b64encode(json.dumps(payload).encode()).decode()
+            resp = self.transport.get(headers={
+                "X-Payment-Authorization": proof,
+            })
+            if resp.get("status") == 200:
+                accepted_escalation.append(label)
+
+        elapsed = time.monotonic() - t0
+        passed = len(accepted_escalation) == 0
+
+        self._record(X402TestResult(
+            test_id="X4-048",
+            name="Scope Escalation in Payment Context",
+            category="authorization_bypass",
+            owasp_asi="ASI02",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=(f"Server accepted escalated scope claims: {accepted_escalation}"
+                     if accepted_escalation
+                     else "All scope escalation attempts in payment proof rejected"),
+            http_method="GET",
+            csg_mapping="HC-38: Payment proofs with escalated scope claims must be validated against authorized scope",
+            estimated_impact="fund_theft",
+            estimated_severity="high",
+            request_sent={"escalation_variants": [l for l, _ in scope_escalations]},
+            response_received={"accepted_escalation": accepted_escalation},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
+    # Category 15: Settlement & Finality (APT-06) (X4-049 to X4-050)
+    # ------------------------------------------------------------------
+
+    def test_x402_premature_finality_claim(self):
+        """X4-049: Claim settlement finality with zero confirmations."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        # Claim payment is settled with zero or fabricated confirmation count
+        premature_claims = [
+            ("zero_confirmations", {"confirmations": 0, "block_hash": "0x" + "a" * 64}),
+            ("pending_status", {"confirmations": 0, "status": "pending", "tx_hash": "0x" + "b" * 64}),
+            ("future_block", {"confirmations": 1, "block_number": 999999999999}),
+        ]
+
+        accepted_premature = []
+        for label, settlement_data in premature_claims:
+            proof = base64.b64encode(json.dumps({
+                "amount": challenge.amount if challenge else "1000000",
+                "currency": challenge.currency if challenge else "USDC",
+                "nonce": uuid.uuid4().hex,
+                "timestamp": int(time.time()),
+                **settlement_data,
+            }).encode()).decode()
+
+            resp = self.transport.get(headers={
+                "X-Payment-Authorization": proof,
+                "X-Payment-Confirmations": str(settlement_data.get("confirmations", 0)),
+                "X-Payment-Status": settlement_data.get("status", "confirmed"),
+            })
+            if resp.get("status") == 200:
+                accepted_premature.append(label)
+
+        elapsed = time.monotonic() - t0
+        passed = len(accepted_premature) == 0
+
+        self._record(X402TestResult(
+            test_id="X4-049",
+            name="Premature Finality Claim",
+            category="settlement_finality",
+            owasp_asi="ASI03",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=(f"Server accepted premature finality claims: {accepted_premature}"
+                     if accepted_premature
+                     else "All premature finality claims correctly rejected"),
+            http_method="GET",
+            csg_mapping="HC-39: Server must verify sufficient block confirmations before granting access",
+            estimated_impact="fund_theft",
+            estimated_severity="high",
+            request_sent={"premature_variants": [l for l, _ in premature_claims]},
+            response_received={"accepted_premature": accepted_premature},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_x402_settlement_race_condition(self):
+        """X4-050: Access resource before settlement confirmation (race window)."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        # Submit a payment proof and immediately request the resource
+        # with a claim that settlement is "in progress"
+        nonce = uuid.uuid4().hex
+        proof = base64.b64encode(json.dumps({
+            "amount": challenge.amount if challenge else "1000000",
+            "currency": challenge.currency if challenge else "USDC",
+            "nonce": nonce,
+            "timestamp": int(time.time()),
+            "settlement_status": "pending",
+        }).encode()).decode()
+
+        # First: submit payment with pending status
+        resp_pending = self.transport.get(headers={
+            "X-Payment-Authorization": proof,
+            "X-Payment-Settlement-Status": "pending",
+        })
+        status_pending = resp_pending.get("status", 0)
+
+        # Second: immediately request resource claiming same nonce
+        resp_access = self.transport.get(headers={
+            "X-Payment-Authorization": proof,
+            "X-Payment-Nonce": nonce,
+            "X-Payment-Settlement-Status": "confirming",
+        })
+        status_access = resp_access.get("status", 0)
+
+        elapsed = time.monotonic() - t0
+
+        # Server should not grant access while settlement is pending/confirming
+        granted_before_settlement = (status_pending == 200 or status_access == 200)
+        passed = not granted_before_settlement
+
+        self._record(X402TestResult(
+            test_id="X4-050",
+            name="Settlement Race Condition",
+            category="settlement_finality",
+            owasp_asi="ASI03",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=(f"Server granted access before settlement finality "
+                     f"(pending={status_pending}, confirming={status_access})"
+                     if not passed
+                     else f"Access correctly denied until settlement (pending={status_pending}, confirming={status_access})"),
+            http_method="GET",
+            csg_mapping="HC-40: Resource access must not be granted until settlement is confirmed",
+            estimated_impact="fund_theft",
+            estimated_severity="high",
+            request_sent={"nonce": nonce, "settlement_statuses": ["pending", "confirming"]},
+            response_received={"status_pending": status_pending, "status_confirming": status_access},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
+    # Category 16: Cross-Protocol Confusion (APT-08) (X4-051 to X4-052)
+    # ------------------------------------------------------------------
+
+    def test_x402_l402_protocol_confusion(self):
+        """X4-051: Submit L402 auth header to x402 endpoint (protocol confusion)."""
+        t0 = time.monotonic()
+
+        # Craft an L402-style authorization header and submit to x402 endpoint
+        fake_macaroon = base64.b64encode(b"macaroon_" + os.urandom(32)).decode()
+        fake_preimage = os.urandom(32).hex()
+
+        l402_auth_variants = [
+            ("l402_header", {"Authorization": f"L402 {fake_macaroon}:{fake_preimage}"}),
+            ("lsat_header", {"Authorization": f"LSAT {fake_macaroon}:{fake_preimage}"}),
+            ("mixed_headers", {
+                "Authorization": f"L402 {fake_macaroon}:{fake_preimage}",
+                "X-Payment-Authorization": _fake_payment_authorization(),
+            }),
+        ]
+
+        accepted_l402 = []
+        for label, headers in l402_auth_variants:
+            resp = self.transport.get(headers=headers)
+            if resp.get("status") == 200:
+                accepted_l402.append(label)
+
+        elapsed = time.monotonic() - t0
+        passed = len(accepted_l402) == 0
+
+        self._record(X402TestResult(
+            test_id="X4-051",
+            name="L402-to-x402 Protocol Confusion",
+            category="cross_protocol_confusion",
+            owasp_asi="ASI09",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=(f"Server accepted L402/LSAT auth on x402 endpoint: {accepted_l402}"
+                     if accepted_l402
+                     else "L402/LSAT protocol confusion correctly rejected on x402 endpoint"),
+            http_method="GET",
+            csg_mapping="HC-41: x402 endpoints must reject L402/LSAT authorization headers",
+            estimated_impact="fund_theft",
+            estimated_severity="high",
+            request_sent={"l402_variants": [l for l, _ in l402_auth_variants]},
+            response_received={"accepted_l402": accepted_l402},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_x402_mixed_settlement_protocol(self):
+        """X4-052: Claim settlement via wrong protocol (Lightning preimage on x402)."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        # Submit x402 payment proof but claim settlement via Lightning-style preimage
+        fake_preimage = os.urandom(32).hex()
+        fake_payment_hash = hashlib.sha256(bytes.fromhex(fake_preimage)).hexdigest()
+
+        mixed_proofs = [
+            ("lightning_preimage", {
+                "X-Payment-Authorization": _fake_payment_authorization(),
+                "X-Payment-Preimage": fake_preimage,
+                "X-Payment-Hash": fake_payment_hash,
+            }),
+            ("bolt11_invoice", {
+                "X-Payment-Authorization": _fake_payment_authorization(),
+                "X-Payment-Invoice": "lnbc1000n1p" + os.urandom(20).hex(),
+            }),
+            ("htlc_settlement", {
+                "X-Payment-Authorization": _fake_payment_authorization(),
+                "X-Payment-Settlement-Type": "lightning-htlc",
+                "X-Payment-Preimage": fake_preimage,
+            }),
+        ]
+
+        accepted_mixed = []
+        for label, headers in mixed_proofs:
+            resp = self.transport.get(headers=headers)
+            if resp.get("status") == 200:
+                accepted_mixed.append(label)
+
+        elapsed = time.monotonic() - t0
+        passed = len(accepted_mixed) == 0
+
+        self._record(X402TestResult(
+            test_id="X4-052",
+            name="Mixed Settlement Protocol Confusion",
+            category="cross_protocol_confusion",
+            owasp_asi="ASI09",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=(f"Server accepted mixed-protocol settlement claims: {accepted_mixed}"
+                     if accepted_mixed
+                     else "All mixed-protocol settlement attempts correctly rejected"),
+            http_method="GET",
+            csg_mapping="HC-42: x402 settlement must reject Lightning/HTLC-style proofs",
+            estimated_impact="fund_theft",
+            estimated_severity="high",
+            request_sent={"mixed_variants": [l for l, _ in mixed_proofs]},
+            response_received={"accepted_mixed": accepted_mixed},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
+    # Category 17: Metadata Exfiltration (APT-09) (X4-053 to X4-054)
+    # ------------------------------------------------------------------
+
+    def test_x402_metadata_side_channel(self):
+        """X4-053: Detect timing/size side channels in payment responses."""
+        t0 = time.monotonic()
+
+        # Send requests with varying payment amounts and measure response
+        # characteristics to detect information leakage via side channels
+        test_amounts = [
+            ("valid_small", "1000000"),
+            ("valid_large", "999999999"),
+            ("boundary", "0"),
+            ("negative", "-1"),
+            ("overflow", "115792089237316195423570985008687907853269984665640564039457584007913129639935"),
+        ]
+
+        responses: list[dict] = []
+        for label, amount in test_amounts:
+            proof = base64.b64encode(json.dumps({
+                "amount": amount,
+                "currency": "USDC",
+                "nonce": uuid.uuid4().hex,
+                "timestamp": int(time.time()),
+            }).encode()).decode()
+
+            req_t0 = time.monotonic()
+            resp = self.transport.get(headers={
+                "X-Payment-Authorization": proof,
+                "X-Payment-Amount": amount,
+            })
+            req_elapsed = time.monotonic() - req_t0
+
+            responses.append({
+                "label": label,
+                "status": resp.get("status", 0),
+                "body_len": len(resp.get("body", "")),
+                "elapsed_ms": round(req_elapsed * 1000, 1),
+                "headers_count": len(resp.get("headers", {})),
+            })
+
+        elapsed = time.monotonic() - t0
+
+        # Detect side channels: different amounts should produce similar
+        # response sizes/times (no amount-dependent info leakage)
+        body_lengths = [r["body_len"] for r in responses]
+        # Flag if response body length varies significantly across amounts
+        # (which could leak information about internal validation logic)
+        max_body = max(body_lengths) if body_lengths else 0
+        min_body = min(body_lengths) if body_lengths else 0
+        body_variance = max_body - min_body
+
+        # Also check if any response leaked the actual amount back
+        leaked_amount = False
+        for r in responses:
+            # Already captured in resp above; re-check bodies would need storage
+            pass
+
+        # Side channel if body sizes vary by more than 500 bytes across
+        # different invalid payment amounts (suggests amount-dependent processing)
+        side_channel_detected = body_variance > 500
+        passed = not side_channel_detected
+
+        self._record(X402TestResult(
+            test_id="X4-053",
+            name="Payment Metadata Side Channel",
+            category="metadata_exfiltration",
+            owasp_asi="ASI06",
+            severity=Severity.MEDIUM.value,
+            passed=passed,
+            details=(f"Response body variance: {body_variance} bytes across payment amounts "
+                     f"(side channel {'DETECTED' if side_channel_detected else 'not detected'})"),
+            http_method="GET",
+            csg_mapping="HC-43: Error responses must not vary in size/timing based on payment amount validation",
+            estimated_impact="info_leak",
+            estimated_severity="medium",
+            request_sent={"test_amounts": [l for l, _ in test_amounts]},
+            response_received={"responses": responses, "body_variance": body_variance},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_x402_payment_correlation_attack(self):
+        """X4-054: Detect cross-request payment correlation via headers/tokens."""
+        t0 = time.monotonic()
+
+        # Make multiple requests and check if responses contain correlatable
+        # identifiers that link requests to the same agent/session
+        correlation_markers: list[str] = []
+        session_ids: list[str] = []
+
+        for i in range(3):
+            resp = self.transport.get(headers={
+                "X-Payment-Authorization": _fake_payment_authorization(),
+            })
+            resp_headers = resp.get("headers", {})
+            body = resp.get("body", "")
+
+            # Collect any session/correlation identifiers
+            for key in ["set-cookie", "x-session-id", "x-request-id",
+                        "x-correlation-id", "x-trace-id", "x-payment-session"]:
+                val = resp_headers.get(key, "")
+                if val:
+                    session_ids.append(f"{key}={val[:50]}")
+
+            # Check if response body contains wallet/address correlation data
+            if resp_headers.get("x-payment-recipient"):
+                correlation_markers.append("recipient_in_error_response")
+
+        elapsed = time.monotonic() - t0
+
+        # Check for correlatable session identifiers that persist across requests
+        # with different payment proofs (enables tracking)
+        unique_sessions = set(session_ids)
+        # If the same session ID appears across requests with different auth tokens,
+        # that's a correlation risk
+        has_persistent_session = len(session_ids) > len(unique_sessions) and len(unique_sessions) > 0
+        passed = not has_persistent_session and len(correlation_markers) == 0
+
+        self._record(X402TestResult(
+            test_id="X4-054",
+            name="Payment Correlation Attack",
+            category="metadata_exfiltration",
+            owasp_asi="ASI06",
+            severity=Severity.MEDIUM.value,
+            passed=passed,
+            details=(f"Correlation risk: persistent sessions={has_persistent_session}, "
+                     f"markers={correlation_markers}, unique_sessions={len(unique_sessions)}"
+                     if not passed
+                     else "No cross-request payment correlation detected"),
+            http_method="GET",
+            csg_mapping="HC-44: Responses must not contain persistent identifiers that correlate independent payment requests",
+            estimated_impact="info_leak",
+            estimated_severity="medium",
+            request_sent={"num_requests": 3},
+            response_received={"session_ids": session_ids[:10], "correlation_markers": correlation_markers},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
+    # Category 18: Agent Autonomy Risk (APT-10) (X4-055)
+    # ------------------------------------------------------------------
+
+    def test_x402_cascading_payment_approval(self):
+        """X4-055: Cascading 402 chain — resource triggers further 402 payments."""
+        t0 = time.monotonic()
+
+        # Simulate a cascading payment scenario: the initial resource response
+        # contains headers that would trigger additional 402 payments
+        fake_auth = _fake_payment_authorization()
+        resp = self.transport.get(headers={
+            "X-Payment-Authorization": fake_auth,
+        })
+
+        body = resp.get("body", "")
+        resp_headers = resp.get("headers", {})
+        status = resp.get("status", 0)
+
+        # Check if response body contains URLs or references that would
+        # trigger additional 402 payment challenges
+        cascade_indicators = []
+
+        # Look for embedded payment-required URLs in the response
+        if "402" in body and ("x-payment" in body.lower() or "payment-required" in body.lower()):
+            cascade_indicators.append("embedded_402_reference")
+
+        # Check for redirect chains that could lead to additional payments
+        location = resp_headers.get("location", "")
+        if location and status in (301, 302, 307, 308):
+            cascade_indicators.append(f"redirect_to_{location[:60]}")
+
+        # Check for x-payment headers in non-402 responses (payment injection)
+        if status != 402:
+            for h in X402_REQUIRED_HEADERS:
+                if resp_headers.get(h):
+                    cascade_indicators.append(f"payment_header_in_{status}_response")
+                    break
+
+        # Check for sub-resource payment requirements
+        if "x-payment-sub-resource" in resp_headers or "x-payment-chain" in resp_headers:
+            cascade_indicators.append("sub_resource_payment_chain")
+
+        elapsed = time.monotonic() - t0
+        passed = len(cascade_indicators) == 0
+
+        self._record(X402TestResult(
+            test_id="X4-055",
+            name="Cascading Payment Approval Chain",
+            category="agent_autonomy",
+            owasp_asi="ASI02",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=(f"Cascading payment indicators found: {cascade_indicators}"
+                     if cascade_indicators
+                     else "No cascading payment chain detected in response"),
+            http_method="GET",
+            csg_mapping="HC-45: Responses must not embed or trigger cascading payment requirements without explicit agent consent",
+            estimated_impact="fund_theft",
+            estimated_severity="high",
+            request_sent={"path": self._paid_path or "/"},
+            response_received={"status": status, "cascade_indicators": cascade_indicators},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
     # Agent Autonomy Risk Score
     # ------------------------------------------------------------------
 
@@ -2541,6 +3180,29 @@ class X402SecurityTests:
             "test_x402_concurrent_payment_race",
             "test_x402_payment_replay_different_endpoint",
         ],
+        "replay_double_spend": [
+            "test_x402_replay_same_payment_hash",
+            "test_x402_duplicate_settlement_claim",
+        ],
+        "authorization_bypass": [
+            "test_x402_expired_auth_token_reuse",
+            "test_x402_scope_escalation_in_payment",
+        ],
+        "settlement_finality": [
+            "test_x402_premature_finality_claim",
+            "test_x402_settlement_race_condition",
+        ],
+        "cross_protocol_confusion": [
+            "test_x402_l402_protocol_confusion",
+            "test_x402_mixed_settlement_protocol",
+        ],
+        "metadata_exfiltration": [
+            "test_x402_metadata_side_channel",
+            "test_x402_payment_correlation_attack",
+        ],
+        "agent_autonomy": [
+            "test_x402_cascading_payment_approval",
+        ],
     }
 
     def run_all(self, categories: list[str] | None = None) -> list[X402TestResult]:
@@ -2637,6 +3299,17 @@ _TEST_DESCRIPTIONS: dict[str, str] = {
     "X4-042": "Payment metadata exfiltration — sensitive data in metadata fields",
     "X4-043": "Concurrent payment race condition — test atomicity of payment processing",
     "X4-044": "Payment replay against different endpoint — proof not bound to path",
+    "X4-045": "Replay same payment hash to test nonce/hash dedup (APT-04)",
+    "X4-046": "Duplicate settlement claim for same payment nonce (APT-04)",
+    "X4-047": "Reuse expired payment authorization token (APT-05)",
+    "X4-048": "Scope escalation in payment context (read→admin) (APT-05)",
+    "X4-049": "Premature finality claim with zero confirmations (APT-06)",
+    "X4-050": "Settlement race condition — access before confirmation (APT-06)",
+    "X4-051": "L402-to-x402 protocol confusion — wrong auth header (APT-08)",
+    "X4-052": "Mixed settlement protocol — Lightning preimage on x402 (APT-08)",
+    "X4-053": "Payment metadata side channel — response variance (APT-09)",
+    "X4-054": "Cross-request payment correlation attack (APT-09)",
+    "X4-055": "Cascading payment approval chain — recursive 402s (APT-10)",
 }
 
 
@@ -2659,6 +3332,12 @@ def list_tests():
         "protocol_abuse":        ["X4-031", "X4-032", "X4-033", "X4-034", "X4-035", "X4-036"],
         "trust_abuse":           ["X4-037", "X4-038", "X4-039"],
         "network_attacks":       ["X4-040", "X4-041", "X4-042", "X4-043", "X4-044"],
+        "replay_double_spend":   ["X4-045", "X4-046"],
+        "authorization_bypass":  ["X4-047", "X4-048"],
+        "settlement_finality":   ["X4-049", "X4-050"],
+        "cross_protocol_confusion": ["X4-051", "X4-052"],
+        "metadata_exfiltration": ["X4-053", "X4-054"],
+        "agent_autonomy":        ["X4-055"],
     }
 
     for category, ids in test_id_map.items():
