@@ -141,7 +141,7 @@ HARNESSES = {
 
 def print_usage():
     print(f"Agent Security Harness v{VERSION}")
-    print(f"411 security tests for AI agent systems")
+    print(f"431 security tests for AI agent systems")
     print()
     print("Usage:")
     print("  agent-security test <harness> [options]    Run a test harness")
@@ -160,6 +160,7 @@ def print_usage():
     print("  agent-security test mcp --url http://localhost:8080 --trials 5")
     print("  agent-security test mcp --url http://localhost:8080 --delay 1000")
     print("  agent-security test mcp --url http://localhost:8080 --json")
+    print("  agent-security test mcp --url http://localhost:8080 --html report.html")
     print()
     print("Attestation & Configuration:")
     print("  agent-security publish --attestation <file> --server-name <name>")
@@ -179,7 +180,7 @@ def main():
 
     if args[0] == "version":
         print(f"agent-security-harness v{VERSION}")
-        print(f"Tests: 411 across {len(HARNESSES)} harness modules")
+        print(f"Tests: 431 across {len(HARNESSES)} harness modules")
         print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402, x402")
         print(f"Platforms: 25 cloud + 20 enterprise adapters")
         print(f"Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF, AIUC-1")
