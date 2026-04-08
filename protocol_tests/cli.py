@@ -116,6 +116,10 @@ HARNESSES = {
         "module": "protocol_tests.autogen_harness",
         "description": "AutoGen multi-agent security tests (10 tests, conversation injection + delegation + speaker selection)",
     },
+    "memory": {
+        "module": "protocol_tests.memory_harness",
+        "description": "Memory & continuity security tests (10 tests, cross-session leakage + poisoning + extraction)",
+    },
     "community": {
         "module": "protocol_tests.community_runner",
         "description": "Community-contributed attack patterns (YAML-based, extensible)",
