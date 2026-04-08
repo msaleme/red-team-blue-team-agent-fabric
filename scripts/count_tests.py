@@ -57,6 +57,7 @@ MODULE_NAMES = {
     "aiuc1_compliance_harness.py": "AIUC-1 Compliance",
     "cloud_agent_harness.py": "Cloud Agent Platforms",
     "crewai_cve_harness.py": "CrewAI CVE Reproduction",
+    "multi_agent_harness.py": "Multi-Agent Interaction",
 }
 
 

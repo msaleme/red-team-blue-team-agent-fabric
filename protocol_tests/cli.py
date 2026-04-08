@@ -120,6 +120,10 @@ HARNESSES = {
         "module": "protocol_tests.memory_harness",
         "description": "Memory & continuity security tests (10 tests, cross-session leakage + poisoning + extraction)",
     },
+    "multi-agent": {
+        "module": "protocol_tests.multi_agent_harness",
+        "description": "Multi-agent interaction security tests (12 tests, delegation poisoning + trust boundary bypass)",
+    },
     "crewai-cve": {
         "module": "protocol_tests.crewai_cve_harness",
         "description": "CrewAI CVE reproduction suite (10 tests, CVE-2026-2275/2285/2286/2287 sandbox escape + SSRF + file read)",
@@ -128,12 +132,16 @@ HARNESSES = {
         "module": "protocol_tests.community_runner",
         "description": "Community-contributed attack patterns (YAML-based, extensible)",
     },
+    "intent-contract": {
+        "module": "protocol_tests.intent_contract_harness",
+        "description": "Intent contract validation tests (8 tests, intent declaration + scope + escalation)",
+    },
 }
 
 
 def print_usage():
     print(f"Agent Security Harness v{VERSION}")
-    print(f"398 security tests for AI agent systems")
+    print(f"411 security tests for AI agent systems")
     print()
     print("Usage:")
     print("  agent-security test <harness> [options]    Run a test harness")
@@ -171,7 +179,7 @@ def main():
 
     if args[0] == "version":
         print(f"agent-security-harness v{VERSION}")
-        print(f"Tests: 398 across {len(HARNESSES)} harness modules")
+        print(f"Tests: 411 across {len(HARNESSES)} harness modules")
         print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402, x402")
         print(f"Platforms: 25 cloud + 20 enterprise adapters")
         print(f"Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF, AIUC-1")
@@ -305,6 +313,7 @@ def main():
         delay_ms = 0
         no_telemetry = False
         json_output = False
+        html_output = None  # Path for --html report
         filtered_args = []
         i = 0
         while i < len(harness_args):
@@ -320,6 +329,10 @@ def main():
             elif harness_args[i] == "--json":
                 json_output = True
                 i += 1
+            elif harness_args[i] == "--html" and i + 1 < len(harness_args):
+                html_output = harness_args[i + 1]
+                json_output = True  # --html implies --json (needs JSON to generate HTML)
+                i += 2
             else:
                 filtered_args.append(harness_args[i])
                 i += 1
