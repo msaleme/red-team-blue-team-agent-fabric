@@ -1028,6 +1028,81 @@ class MCPSecurityTests:
             elapsed_s=round(elapsed, 3),
         ))
 
+    def test_mcp_tool_description_injection_patterns(self):
+        """MCP-014: Check tool descriptions for injection patterns (URLs, base64, encoded commands, hidden instructions)."""
+        t0 = time.monotonic()
+
+        msg = jsonrpc_request("tools/list", {})
+        resp = self.transport.send(msg)
+        elapsed = time.monotonic() - t0
+
+        tools = []
+        if resp and "result" in resp:
+            tools = resp["result"].get("tools", [])
+
+        # Injection pattern detectors
+        URL_PATTERN = re.compile(r'https?://[^\s"\'<>]{10,}', re.IGNORECASE)
+        BASE64_PATTERN = re.compile(r'[A-Za-z0-9+/]{40,}={0,2}')
+        ENCODED_CMD_PATTERN = re.compile(
+            r'(?:%[0-9a-fA-F]{2}){5,}'  # URL-encoded sequences
+            r'|\\x[0-9a-fA-F]{2}(?:\\x[0-9a-fA-F]{2}){4,}'  # hex-encoded
+            r'|\\u[0-9a-fA-F]{4}(?:\\u[0-9a-fA-F]{4}){4,}',  # unicode-escaped
+        )
+        HIDDEN_INSTRUCTION_PATTERN = re.compile(
+            r'ignore\s+(?:all\s+)?previous\s+instructions'
+            r'|you\s+are\s+now\s+(?:unrestricted|unfiltered|DAN)'
+            r'|system\s*:\s*'
+            r'|<\s*(?:system|instruction|hidden|secret)\s*>'
+            r'|\bdo\s+not\s+tell\s+the\s+user\b'
+            r'|\bsend\s+(?:all|the)\s+(?:data|context|conversation)\s+to\b'
+            r'|\bexfiltrate\b'
+            r'|\bforward\s+(?:all|every)\b.*\bto\b',
+            re.IGNORECASE,
+        )
+
+        flagged_tools = []
+        for tool in tools:
+            desc = tool.get("description") or ""
+            if not desc:
+                continue
+            issues = []
+            urls = URL_PATTERN.findall(desc)
+            if urls:
+                issues.append(f"urls({len(urls)})")
+            if BASE64_PATTERN.search(desc):
+                issues.append("base64_blob")
+            if ENCODED_CMD_PATTERN.search(desc):
+                issues.append("encoded_command")
+            if HIDDEN_INSTRUCTION_PATTERN.search(desc):
+                issues.append("hidden_instruction")
+            if issues:
+                flagged_tools.append({
+                    "name": tool.get("name", "?"),
+                    "issues": issues,
+                })
+
+        passed = len(flagged_tools) == 0
+
+        self._record(MCPTestResult(
+            test_id="MCP-014",
+            name="Tool Description Injection Pattern Detection",
+            category="description_injection",
+            owasp_asi="ASI04",
+            severity=Severity.CRITICAL.value,
+            passed=passed,
+            details=(
+                f"{len(flagged_tools)} tool(s) contain injection patterns: "
+                f"{[t['name'] + ' (' + ','.join(t['issues']) + ')' for t in flagged_tools]}"
+                if flagged_tools
+                else f"No injection patterns detected in {len(tools)} tool descriptions"
+            ),
+            mcp_method="tools/list",
+            request_sent=msg,
+            response_received={"n_tools": len(tools),
+                               "flagged_tools": flagged_tools},
+            elapsed_s=round(elapsed, 3),
+        ))
+
     # ------------------------------------------------------------------
     # Run all tests
     # ------------------------------------------------------------------
@@ -1064,6 +1139,9 @@ class MCPSecurityTests:
                 self.test_mcp_tool_description_context_displacement,
                 self.test_mcp_tool_description_oversized,
                 self.test_mcp_tool_description_padding_detection,
+            ],
+            "description_injection": [
+                self.test_mcp_tool_description_injection_patterns,
             ],
         }
 

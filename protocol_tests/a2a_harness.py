@@ -752,6 +752,99 @@ class A2ASecurityTests:
         ))
 
     # ------------------------------------------------------------------
+    # Category 7: Agent Card Limitations Verification (ASI09)
+    # ------------------------------------------------------------------
+
+    def test_a2a_agent_card_limitations(self):
+        """A2A-013: Verify Agent Card contains meaningful limitations field."""
+        t0 = time.monotonic()
+
+        # Use cached agent card if already fetched, otherwise fetch it
+        card = self.agent_card
+        if not card:
+            card = self.transport.get(self.agent_card_path)
+
+        elapsed = time.monotonic() - t0
+
+        if card.get("_error"):
+            self._record(A2ATestResult(
+                test_id="A2A-013",
+                name="Agent Card Limitations Field Verification",
+                category="agent_card_limitations",
+                owasp_asi="ASI09",
+                severity=Severity.MEDIUM.value,
+                passed=False,
+                details=f"Could not fetch Agent Card to check limitations: {card}",
+                a2a_method="GET /.well-known/agent.json",
+                response_received=card,
+                elapsed_s=round(elapsed, 3),
+            ))
+            return
+
+        limitations = card.get("limitations")
+
+        # Check 1: limitations field must exist
+        if limitations is None:
+            self._record(A2ATestResult(
+                test_id="A2A-013",
+                name="Agent Card Limitations Field Verification",
+                category="agent_card_limitations",
+                owasp_asi="ASI09",
+                severity=Severity.MEDIUM.value,
+                passed=False,
+                details="Agent Card has no 'limitations' field — agents that claim no limitations are suspicious",
+                a2a_method="GET /.well-known/agent.json",
+                response_received=card,
+                elapsed_s=round(elapsed, 3),
+            ))
+            return
+
+        # Check 2: limitations must not be empty or trivially dismissive
+        lim_str = ""
+        if isinstance(limitations, str):
+            lim_str = limitations.strip()
+        elif isinstance(limitations, list):
+            lim_str = " ".join(str(item) for item in limitations).strip()
+        elif isinstance(limitations, dict):
+            lim_str = json.dumps(limitations)
+        else:
+            lim_str = str(limitations).strip()
+
+        trivial_values = ["none", "n/a", "na", "no limitations", "null", "empty", "[]", "{}", ""]
+        is_trivial = lim_str.lower() in trivial_values or len(lim_str) < 3
+
+        # Check 3: limitations should contain actual constraint language
+        constraint_indicators = [
+            "cannot", "can't", "does not", "doesn't", "unable",
+            "limited", "restricted", "only", "no access",
+            "not supported", "not capable", "will not", "won't",
+            "maximum", "up to", "within", "boundary",
+        ]
+        has_constraints = any(kw in lim_str.lower() for kw in constraint_indicators)
+
+        passed = not is_trivial and (has_constraints or len(lim_str) >= 20)
+
+        if is_trivial:
+            detail = f"Limitations field is trivial/empty: '{lim_str[:100]}' — agents that claim no limitations are suspicious"
+        elif not passed:
+            detail = f"Limitations field present but lacks meaningful constraints: '{lim_str[:200]}'"
+        else:
+            detail = f"Limitations field contains meaningful constraints ({len(lim_str)} chars)"
+
+        self._record(A2ATestResult(
+            test_id="A2A-013",
+            name="Agent Card Limitations Field Verification",
+            category="agent_card_limitations",
+            owasp_asi="ASI09",
+            severity=Severity.MEDIUM.value,
+            passed=passed,
+            details=detail,
+            a2a_method="GET /.well-known/agent.json",
+            response_received=card,
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
     # Run all tests
     # ------------------------------------------------------------------
 
@@ -782,6 +875,9 @@ class A2ASecurityTests:
             ],
             "context_isolation": [
                 self.test_a2a_context_isolation,
+            ],
+            "agent_card_limitations": [
+                self.test_a2a_agent_card_limitations,
             ],
         }
 
