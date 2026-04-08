@@ -116,7 +116,7 @@ python -m mcp_server --transport http --port 8400
 }
 ```
 
-**Available tools:** `scan_mcp_server` (quick 5-test scan), `full_security_audit` (358 tests), `aiuc1_readiness` (certification prep), `get_test_catalog` (list tests), `validate_attestation` (schema validation).
+**Available tools:** `scan_mcp_server` (quick 5-test scan), `full_security_audit` (398 tests), `aiuc1_readiness` (certification prep), `get_test_catalog` (list tests), `validate_attestation` (schema validation).
 
 See [mcp-server.md](mcp-server.md) for full documentation.
 

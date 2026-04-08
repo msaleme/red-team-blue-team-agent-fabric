@@ -187,53 +187,58 @@ class TestTestIDUniqueness(unittest.TestCase):
 # ─── NEW: AIUC-1 Crosswalk Validation (PR#31) ───
 
 class TestAIUC1Crosswalk(unittest.TestCase):
-    """Validates the AIUC-1 crosswalk claims in the README."""
+    """Validates the AIUC-1 crosswalk claims in docs/AIUC1-CROSSWALK.md (moved from README in v3.10)."""
+
+    def _crosswalk(self):
+        crosswalk_path = os.path.join(REPO_ROOT, "docs", "AIUC1-CROSSWALK.md")
+        if os.path.exists(crosswalk_path):
+            with open(crosswalk_path) as f:
+                return f.read()
+        # Fallback to README for backwards compatibility
+        with open(os.path.join(REPO_ROOT, "README.md")) as f:
+            return f.read()
 
     def _readme(self):
         with open(os.path.join(REPO_ROOT, "README.md")) as f:
             return f.read()
 
     def test_crosswalk_section_exists(self):
-        self.assertIn("AIUC-1 Crosswalk", self._readme())
+        self.assertIn("AIUC-1", self._crosswalk())
 
     def test_claims_19_of_20(self):
-        """README claims 19 of 20 testable requirements covered."""
-        readme = self._readme()
-        self.assertIn("19 of 20", readme)
+        """Crosswalk claims 19 of 20 testable requirements covered."""
+        content = self._crosswalk()
+        self.assertIn("19 of 20", content)
 
     def test_coverage_summary_exists(self):
         """Should have a summary table with category-level coverage."""
-        readme = self._readme()
-        self.assertIn("Coverage Summary", readme)
+        content = self._crosswalk()
+        self.assertIn("Coverage Summary", content)
 
     def test_requirement_ids_present(self):
         """AIUC-1 requirement IDs should be referenced (e.g., B001, C010, D004)."""
-        readme = self._readme()
-        req_ids = re.findall(r'[A-G]\d{3}', readme)
+        content = self._crosswalk()
+        req_ids = re.findall(r'[A-G]\d{3}', content)
         self.assertGreater(len(req_ids), 10,
                            "Expected 10+ AIUC-1 requirement IDs in crosswalk")
 
     def test_security_section_claims_100pct(self):
         """The crosswalk claims 100% coverage of Security (B) requirements."""
-        readme = self._readme()
-        # Check the Security section exists with coverage claim
-        self.assertIn("Security", readme)
-        # Find "100%" near Security heading
+        content = self._crosswalk()
+        self.assertIn("Security", content)
         self.assertTrue(
-            re.search(r'Security.*?100%', readme, re.DOTALL | re.IGNORECASE),
+            re.search(r'Security.*?100%', content, re.DOTALL | re.IGNORECASE),
             "Security section should claim 100% coverage"
         )
 
     def test_crosswalk_references_real_test_ids(self):
         """Crosswalk should reference actual test IDs or harness names that exist."""
-        readme = self._readme()
-        # Extract harness/test references from crosswalk section
-        crosswalk_start = readme.find("AIUC-1 Crosswalk")
+        content = self._crosswalk()
+        crosswalk_start = content.find("AIUC-1")
         if crosswalk_start == -1:
             self.fail("No crosswalk section")
-        crosswalk = readme[crosswalk_start:crosswalk_start + 5000]
+        crosswalk = content[crosswalk_start:crosswalk_start + 5000]
 
-        # Should reference known harness names
         harness_refs = ["MCP", "A2A", "L402", "x402", "enterprise", "identity",
                         "GTG-1002", "advanced"]
         found = sum(1 for h in harness_refs if h.lower() in crosswalk.lower())
@@ -242,9 +247,9 @@ class TestAIUC1Crosswalk(unittest.TestCase):
 
     def test_test_count_consistent_in_crosswalk(self):
         """If the crosswalk mentions a test count, it should match CLI."""
-        readme = self._readme()
-        crosswalk_start = readme.find("AIUC-1 Crosswalk")
-        crosswalk = readme[crosswalk_start:crosswalk_start + 5000]
+        content = self._crosswalk()
+        crosswalk_start = content.find("AIUC-1")
+        crosswalk = content[crosswalk_start:crosswalk_start + 5000]
 
         counts_in_crosswalk = re.findall(r'(\d+)\s+(?:executable\s+)?tests', crosswalk)
         with open(os.path.join(REPO_ROOT, "protocol_tests", "cli.py")) as f:
@@ -252,30 +257,41 @@ class TestAIUC1Crosswalk(unittest.TestCase):
 
         if counts_in_crosswalk and cli_counts:
             for c in counts_in_crosswalk:
-                if int(c) > 100:  # Only check large counts that should match
+                if int(c) > 100:
                     self.assertEqual(c, cli_counts[0],
                                      f"Crosswalk says {c} tests, CLI says {cli_counts[0]}")
 
     def test_standards_section_includes_aiuc1(self):
-        """Standards alignment section should now include AIUC-1."""
-        readme = self._readme()
-        # Look for AIUC-1 in the standards/alignment area
+        """Crosswalk or README should reference AIUC-1."""
+        content = self._crosswalk()
         self.assertTrue(
-            re.search(r'AIUC-1.*2026', readme),
-            "Standards section should reference AIUC-1 (2026)"
+            re.search(r'AIUC-1.*2026', content),
+            "Should reference AIUC-1 (2026)"
         )
 
 
 class TestReadmeCompleteness(unittest.TestCase):
-    """Carried from round 4 — README should document all major features."""
+    """Carried from round 4 — README or docs should document all major features."""
+
+    def _read_all_docs(self):
+        """Read README + all docs/ markdown files for completeness checks."""
+        content = ""
+        with open(os.path.join(REPO_ROOT, "README.md")) as f:
+            content += f.read()
+        docs_dir = os.path.join(REPO_ROOT, "docs")
+        if os.path.isdir(docs_dir):
+            for fname in os.listdir(docs_dir):
+                if fname.endswith(".md"):
+                    with open(os.path.join(docs_dir, fname)) as f:
+                        content += f.read()
+        return content
 
     def test_x402(self):
-        with open(os.path.join(REPO_ROOT, "README.md")) as f: self.assertIn("x402", f.read())
+        self.assertIn("x402", self._read_all_docs())
     def test_mock_server(self):
-        with open(os.path.join(REPO_ROOT, "README.md")) as f: self.assertIn("mock_mcp_server", f.read())
+        self.assertIn("mock_mcp_server", self._read_all_docs())
     def test_leak_detection(self):
-        with open(os.path.join(REPO_ROOT, "README.md")) as f:
-            c = f.read().lower()
+        c = self._read_all_docs().lower()
         self.assertTrue("leak" in c or "response body" in c)
 
 
