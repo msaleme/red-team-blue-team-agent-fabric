@@ -36,6 +36,7 @@ class TestAllModulesImportable(unittest.TestCase):
         "protocol_tests.aiuc1_compliance_harness",
         "protocol_tests.cloud_agent_harness",
         "protocol_tests.memory_harness",
+        "protocol_tests.crewai_cve_harness",
     ]
     def test_all(self):
         import importlib
@@ -66,7 +67,7 @@ class TestRegX402(unittest.TestCase):
         self.assertIn("x402", HARNESSES)
     def test_harness_count(self):
         from protocol_tests.cli import HARNESSES
-        self.assertEqual(len(HARNESSES), 24)
+        self.assertEqual(len(HARNESSES), 25)
     def test_modules_exist(self):
         from protocol_tests.cli import HARNESSES
         for n, i in HARNESSES.items():

@@ -66,7 +66,7 @@ agent-security test mcp --url http://localhost:8080/mcp
 agent-security test a2a --url https://agent.example.com
 ```
 
-### L402 Payment Protocol - 14 tests
+### L402 Payment Protocol - 33 tests
 ```bash
 agent-security test l402 --url https://l402.example.com
 ```
@@ -133,7 +133,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 |---|---|---|---|
 | **MCP Protocol** | 13 | JSON-RPC 2.0 | Anthropic MCP wire-protocol testing |
 | **A2A Protocol** | 12 | JSON-RPC/HTTP | Google Agent-to-Agent communication |
-| **L402 Payment** | 14 | HTTP/Lightning | Bitcoin/Lightning payment flow security (macaroons, preimages, caveats) |
+| **L402 Payment** | 33 | HTTP/Lightning | Bitcoin/Lightning payment flow security (macaroons, preimages, caveats) |
 | **x402 Payment** | 25 | HTTP/USDC | Coinbase/Stripe agent payment protocol (recipient manipulation, session theft, facilitator trust, cross-chain confusion) |
 | **Framework Adapters** | 11 | Various APIs | LangChain, CrewAI, AutoGen, OpenAI, Bedrock |
 | **Enterprise Platforms** | 58 | Platform APIs | SAP, Salesforce, Workday, Oracle, ServiceNow, +15 more |

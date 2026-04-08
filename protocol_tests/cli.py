@@ -38,7 +38,7 @@ HARNESSES = {
     },
     "l402": {
         "module": "protocol_tests.l402_harness",
-        "description": "L402 payment flow security tests (14 tests, macaroons + invoices)",
+        "description": "L402 payment flow security tests (33 tests, macaroons + invoices)",
     },
     "x402": {
         "module": "protocol_tests.x402_harness",
@@ -120,6 +120,10 @@ HARNESSES = {
         "module": "protocol_tests.memory_harness",
         "description": "Memory & continuity security tests (10 tests, cross-session leakage + poisoning + extraction)",
     },
+    "crewai-cve": {
+        "module": "protocol_tests.crewai_cve_harness",
+        "description": "CrewAI CVE reproduction suite (10 tests, CVE-2026-2275/2285/2286/2287 sandbox escape + SSRF + file read)",
+    },
     "community": {
         "module": "protocol_tests.community_runner",
         "description": "Community-contributed attack patterns (YAML-based, extensible)",
@@ -129,7 +133,7 @@ HARNESSES = {
 
 def print_usage():
     print(f"Agent Security Harness v{VERSION}")
-    print(f"358 security tests for AI agent systems")
+    print(f"368 security tests for AI agent systems")
     print()
     print("Usage:")
     print("  agent-security test <harness> [options]    Run a test harness")
@@ -167,7 +171,7 @@ def main():
 
     if args[0] == "version":
         print(f"agent-security-harness v{VERSION}")
-        print(f"Tests: 358 across {len(HARNESSES)} harness modules")
+        print(f"Tests: 368 across {len(HARNESSES)} harness modules")
         print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402, x402")
         print(f"Platforms: 25 cloud + 20 enterprise adapters")
         print(f"Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF, AIUC-1")

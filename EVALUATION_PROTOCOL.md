@@ -109,7 +109,7 @@ Per NIST AI 800-2 Practice 1.1, possible uses of these evaluation results includ
 | Application-layer scenarios | `red_team_automation.py` | 30 | HTTP REST |
 | MCP protocol harness | `protocol_tests/mcp_harness.py` | 10 | JSON-RPC 2.0 |
 | A2A protocol harness | `protocol_tests/a2a_harness.py` | 12 | JSON-RPC 2.0 / HTTP |
-| L402 payment protocol | `protocol_tests/l402_harness.py` | 14 | HTTP/Lightning |
+| L402 payment protocol | `protocol_tests/l402_harness.py` | 33 | HTTP/Lightning |
 | Framework adapters | `protocol_tests/framework_adapters.py` | 21 | Framework-specific APIs |
 | Enterprise adapters (Tier 1) | `protocol_tests/enterprise_adapters.py` | 30 | Platform APIs |
 | Enterprise adapters (Tier 2) | `protocol_tests/extended_enterprise_adapters.py` | 27 | Platform APIs |

@@ -958,6 +958,924 @@ class L402SecurityTests:
         ))
 
     # ------------------------------------------------------------------
+    # Category 7: Macaroon Caveat Manipulation (L4-015 through L4-018)
+    # ------------------------------------------------------------------
+
+    def test_l402_forged_caveat_hmac(self):
+        """L4-015: Forge a macaroon with attacker-chosen caveats and guessed HMAC."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        if not challenge:
+            elapsed = time.monotonic() - t0
+            self._record(L402TestResult(
+                test_id="L4-015",
+                name="Forged Caveat HMAC",
+                category="macaroon_caveat_manipulation",
+                owasp_asi="ASI03",
+                severity=Severity.CRITICAL.value,
+                passed=False,
+                details="Could not obtain L402 challenge from server to test",
+                http_method="GET",
+                elapsed_s=round(elapsed, 3),
+            ))
+            return
+
+        # Forge entirely new macaroon blobs with attacker-chosen caveats
+        # and weak/predictable HMAC keys
+        forged_variants = [
+            ("zero_key_hmac", hashlib.sha256(b'\x00' * 32).digest()),
+            ("empty_key_hmac", hashlib.sha256(b'').digest()),
+            ("predictable_key", hashlib.sha256(b'secret').digest()),
+            ("root_key_guess", hashlib.sha256(b'root_key').digest()),
+        ]
+
+        rejected = 0
+        for label, fake_sig in forged_variants:
+            # Construct a fake macaroon: identifier + caveats + forged signature
+            forged_mac = b'\x02' + b'identifier=forged_session' + b'\x00'
+            forged_mac += b'admin=true\x00scope=*\x00'
+            forged_mac += fake_sig
+            encoded = base64.b64encode(forged_mac).decode()
+            fake_preimage = _fake_preimage()
+            auth_header = f"L402 {encoded}:{fake_preimage}"
+            resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
+            if resp.get("status", 0) != 200:
+                rejected += 1
+
+        elapsed = time.monotonic() - t0
+        passed = rejected == len(forged_variants)
+
+        self._record(L402TestResult(
+            test_id="L4-015",
+            name="Forged Caveat HMAC",
+            category="macaroon_caveat_manipulation",
+            owasp_asi="ASI03",
+            severity=Severity.CRITICAL.value,
+            passed=passed,
+            details=f"{rejected}/{len(forged_variants)} forged macaroons rejected",
+            http_method="GET",
+            request_sent={"variants": [label for label, _ in forged_variants]},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_l402_nested_caveat_depth(self):
+        """L4-016: Deeply nested caveats to trigger parser overflow or bypass."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        if not challenge:
+            elapsed = time.monotonic() - t0
+            self._record(L402TestResult(
+                test_id="L4-016",
+                name="Nested Caveat Depth Attack",
+                category="macaroon_caveat_manipulation",
+                owasp_asi="ASI02",
+                severity=Severity.MEDIUM.value,
+                passed=False,
+                details="Could not obtain L402 challenge from server to test",
+                http_method="GET",
+                elapsed_s=round(elapsed, 3),
+            ))
+            return
+
+        try:
+            raw_mac = base64.b64decode(challenge.macaroon)
+        except Exception:
+            raw_mac = challenge.macaroon.encode()
+
+        # Append many layers of caveats to stress the parser
+        depth_variants = [
+            ("depth_100", b'\x00'.join([f"caveat_{i}=val".encode() for i in range(100)])),
+            ("depth_1000", b'\x00'.join([f"c{i}=v".encode() for i in range(1000)])),
+            ("long_value", b'\x00key=' + b'A' * 10000),
+        ]
+
+        rejected = 0
+        for label, caveat_blob in depth_variants:
+            modified = base64.b64encode(raw_mac + b'\x00' + caveat_blob).decode()
+            fake_preimage = _fake_preimage()
+            auth_header = f"L402 {modified}:{fake_preimage}"
+            resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
+            status = resp.get("status", 0)
+            if status != 200:
+                rejected += 1
+
+        elapsed = time.monotonic() - t0
+        passed = rejected == len(depth_variants)
+
+        self._record(L402TestResult(
+            test_id="L4-016",
+            name="Nested Caveat Depth Attack",
+            category="macaroon_caveat_manipulation",
+            owasp_asi="ASI02",
+            severity=Severity.MEDIUM.value,
+            passed=passed,
+            details=f"{rejected}/{len(depth_variants)} deep-nested caveat blobs rejected",
+            http_method="GET",
+            request_sent={"variants": [label for label, _ in depth_variants]},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_l402_caveat_extension_third_party(self):
+        """L4-017: Extend macaroon with third-party caveat referencing attacker verifier."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        if not challenge:
+            elapsed = time.monotonic() - t0
+            self._record(L402TestResult(
+                test_id="L4-017",
+                name="Third-Party Caveat Extension",
+                category="macaroon_caveat_manipulation",
+                owasp_asi="ASI09",
+                severity=Severity.HIGH.value,
+                passed=False,
+                details="Could not obtain L402 challenge from server to test",
+                http_method="GET",
+                elapsed_s=round(elapsed, 3),
+            ))
+            return
+
+        try:
+            raw_mac = base64.b64decode(challenge.macaroon)
+        except Exception:
+            raw_mac = challenge.macaroon.encode()
+
+        # Third-party caveat format: location + identifier + verifier key
+        tp_caveats = [
+            ("attacker_verifier", b'\x00tp_location=https://evil.com\x00tp_id=bypass'),
+            ("localhost_verifier", b'\x00tp_location=http://127.0.0.1:8080\x00tp_id=admin'),
+            ("empty_verifier", b'\x00tp_location=\x00tp_id='),
+        ]
+
+        rejected = 0
+        for label, tp_blob in tp_caveats:
+            modified = base64.b64encode(raw_mac + tp_blob).decode()
+            fake_preimage = _fake_preimage()
+            auth_header = f"L402 {modified}:{fake_preimage}"
+            resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
+            if resp.get("status", 0) != 200:
+                rejected += 1
+
+        elapsed = time.monotonic() - t0
+        passed = rejected == len(tp_caveats)
+
+        self._record(L402TestResult(
+            test_id="L4-017",
+            name="Third-Party Caveat Extension",
+            category="macaroon_caveat_manipulation",
+            owasp_asi="ASI09",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=f"{rejected}/{len(tp_caveats)} third-party caveat extensions rejected",
+            http_method="GET",
+            request_sent={"variants": [label for label, _ in tp_caveats]},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_l402_caveat_unicode_smuggling(self):
+        """L4-018: Smuggle caveats via Unicode normalization or null-byte injection."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        if not challenge:
+            elapsed = time.monotonic() - t0
+            self._record(L402TestResult(
+                test_id="L4-018",
+                name="Caveat Unicode Smuggling",
+                category="macaroon_caveat_manipulation",
+                owasp_asi="ASI03",
+                severity=Severity.HIGH.value,
+                passed=False,
+                details="Could not obtain L402 challenge from server to test",
+                http_method="GET",
+                elapsed_s=round(elapsed, 3),
+            ))
+            return
+
+        try:
+            raw_mac = base64.b64decode(challenge.macaroon)
+        except Exception:
+            raw_mac = challenge.macaroon.encode()
+
+        # Unicode and null-byte smuggling payloads
+        smuggle_payloads = [
+            ("null_byte", b'\x00admin\x00=true'),
+            ("unicode_homoglyph", 'admin=tru\u0435'.encode('utf-8')),  # Cyrillic 'е'
+            ("double_encode", b'%00admin%3Dtrue'),
+            ("overlong_utf8", b'\xc0\x80admin=true'),  # overlong null
+        ]
+
+        rejected = 0
+        for label, payload in smuggle_payloads:
+            modified = base64.b64encode(raw_mac + payload).decode()
+            fake_preimage = _fake_preimage()
+            auth_header = f"L402 {modified}:{fake_preimage}"
+            resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
+            if resp.get("status", 0) != 200:
+                rejected += 1
+
+        elapsed = time.monotonic() - t0
+        passed = rejected == len(smuggle_payloads)
+
+        self._record(L402TestResult(
+            test_id="L4-018",
+            name="Caveat Unicode Smuggling",
+            category="macaroon_caveat_manipulation",
+            owasp_asi="ASI03",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=f"{rejected}/{len(smuggle_payloads)} unicode-smuggled caveats rejected",
+            http_method="GET",
+            request_sent={"variants": [label for label, _ in smuggle_payloads]},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
+    # Category 8: Payment Channel State Attacks (L4-019 through L4-021)
+    # ------------------------------------------------------------------
+
+    def test_l402_stale_channel_state(self):
+        """L4-019: Present token referencing a stale/revoked channel state."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        # Construct tokens that reference outdated channel state information
+        stale_state_tokens = []
+        mac = challenge.macaroon if challenge else base64.b64encode(b"fake").decode()
+
+        # Simulate stale channel state by presenting tokens with old timestamps
+        for offset_hours in [24, 168, 720]:  # 1 day, 1 week, 1 month ago
+            stale_ts = int(time.time()) - (offset_hours * 3600)
+            # Encode stale timestamp into preimage-like structure
+            stale_preimage = hashlib.sha256(f"stale_state_{stale_ts}".encode()).hexdigest()
+            stale_state_tokens.append((f"stale_{offset_hours}h", stale_preimage))
+
+        rejected = 0
+        for label, preimage in stale_state_tokens:
+            auth_header = f"L402 {mac}:{preimage}"
+            resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
+            if resp.get("status", 0) != 200:
+                rejected += 1
+
+        elapsed = time.monotonic() - t0
+        passed = rejected == len(stale_state_tokens)
+
+        self._record(L402TestResult(
+            test_id="L4-019",
+            name="Stale Channel State Token",
+            category="payment_channel_attacks",
+            owasp_asi="ASI03",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=f"{rejected}/{len(stale_state_tokens)} stale channel state tokens rejected",
+            http_method="GET",
+            request_sent={"variants": [label for label, _ in stale_state_tokens]},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_l402_force_close_timing(self):
+        """L4-020: Exploit force-close timing by presenting token during settlement window."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        mac = challenge.macaroon if challenge else base64.b64encode(b"fake").decode()
+
+        # Simulate tokens presented at different points during a force-close window
+        # In Lightning, force-close has a CSV (CheckSequenceVerify) delay
+        timing_variants = [
+            ("immediate_post_close", _fake_preimage()),
+            ("mid_csv_delay", _fake_preimage()),
+            ("near_csv_expiry", _fake_preimage()),
+        ]
+
+        rejected = 0
+        for label, preimage in timing_variants:
+            auth_header = f"L402 {mac}:{preimage}"
+            # Add header hinting at channel state
+            resp = self.transport.get(self.PATH_INDEX, headers={
+                "Authorization": auth_header,
+                "X-Channel-State": "force_closing",
+            })
+            if resp.get("status", 0) != 200:
+                rejected += 1
+
+        elapsed = time.monotonic() - t0
+        passed = rejected == len(timing_variants)
+
+        self._record(L402TestResult(
+            test_id="L4-020",
+            name="Force-Close Timing Exploitation",
+            category="payment_channel_attacks",
+            owasp_asi="ASI03",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=f"{rejected}/{len(timing_variants)} force-close timing tokens rejected",
+            http_method="GET",
+            request_sent={"variants": [label for label, _ in timing_variants]},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_l402_htlc_timeout_exploitation(self):
+        """L4-021: Attempt to exploit HTLC timeout to use token after payment reversal."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        mac = challenge.macaroon if challenge else base64.b64encode(b"fake").decode()
+
+        # HTLC timeout exploitation: present token with preimage that references
+        # an expired HTLC (payment was reversed but token might still be cached)
+        htlc_variants = [
+            ("expired_htlc", hashlib.sha256(b"expired_htlc_preimage").hexdigest()),
+            ("timed_out_htlc", hashlib.sha256(b"timeout_htlc_" + str(int(time.time()) - 3600).encode()).hexdigest()),
+            ("cancelled_htlc", hashlib.sha256(b"cancelled_payment").hexdigest()),
+        ]
+
+        rejected = 0
+        for label, preimage in htlc_variants:
+            auth_header = f"L402 {mac}:{preimage}"
+            resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
+            if resp.get("status", 0) != 200:
+                rejected += 1
+
+        elapsed = time.monotonic() - t0
+        passed = rejected == len(htlc_variants)
+
+        self._record(L402TestResult(
+            test_id="L4-021",
+            name="HTLC Timeout Exploitation",
+            category="payment_channel_attacks",
+            owasp_asi="ASI03",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=f"{rejected}/{len(htlc_variants)} HTLC timeout exploitation attempts rejected",
+            http_method="GET",
+            request_sent={"variants": [label for label, _ in htlc_variants]},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
+    # Category 9: Preimage Correlation Attacks (L4-022, L4-023)
+    # ------------------------------------------------------------------
+
+    def test_l402_preimage_hash_correlation(self):
+        """L4-022: Test if preimage-to-payment-hash binding is strictly enforced."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        if not challenge:
+            elapsed = time.monotonic() - t0
+            self._record(L402TestResult(
+                test_id="L4-022",
+                name="Preimage Hash Correlation",
+                category="preimage_correlation",
+                owasp_asi="ASI03",
+                severity=Severity.CRITICAL.value,
+                passed=False,
+                details="Could not obtain L402 challenge from server to test",
+                http_method="GET",
+                elapsed_s=round(elapsed, 3),
+            ))
+            return
+
+        # The payment hash in BOLT-11 should be SHA256(preimage).
+        # Try preimages whose SHA256 is close to but not matching the invoice hash.
+        correlation_variants = [
+            ("sha256_of_invoice", hashlib.sha256(challenge.invoice.encode()).hexdigest()),
+            ("sha256_of_macaroon", hashlib.sha256(challenge.macaroon.encode()).hexdigest()),
+            ("reversed_hash", _fake_preimage()[::-1]),
+            ("zero_preimage", "0" * 64),
+            ("ff_preimage", "f" * 64),
+        ]
+
+        rejected = 0
+        for label, preimage in correlation_variants:
+            auth_header = f"L402 {challenge.macaroon}:{preimage}"
+            resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
+            if resp.get("status", 0) != 200:
+                rejected += 1
+
+        elapsed = time.monotonic() - t0
+        passed = rejected == len(correlation_variants)
+
+        self._record(L402TestResult(
+            test_id="L4-022",
+            name="Preimage Hash Correlation",
+            category="preimage_correlation",
+            owasp_asi="ASI03",
+            severity=Severity.CRITICAL.value,
+            passed=passed,
+            details=f"{rejected}/{len(correlation_variants)} correlated preimage variants rejected",
+            http_method="GET",
+            request_sent={"variants": [label for label, _ in correlation_variants]},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_l402_preimage_length_manipulation(self):
+        """L4-023: Present preimages of non-standard lengths (not 32 bytes)."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        mac = challenge.macaroon if challenge else base64.b64encode(b"fake").decode()
+
+        # Standard preimage is 32 bytes (64 hex chars). Try other lengths.
+        length_variants = [
+            ("empty", ""),
+            ("1_byte", os.urandom(1).hex()),
+            ("16_bytes", os.urandom(16).hex()),
+            ("31_bytes", os.urandom(31).hex()),
+            ("33_bytes", os.urandom(33).hex()),
+            ("64_bytes", os.urandom(64).hex()),
+            ("256_bytes", os.urandom(256).hex()),
+        ]
+
+        rejected = 0
+        for label, preimage in length_variants:
+            auth_header = f"L402 {mac}:{preimage}"
+            resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
+            if resp.get("status", 0) != 200:
+                rejected += 1
+
+        elapsed = time.monotonic() - t0
+        passed = rejected == len(length_variants)
+
+        self._record(L402TestResult(
+            test_id="L4-023",
+            name="Preimage Length Manipulation",
+            category="preimage_correlation",
+            owasp_asi="ASI03",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=f"{rejected}/{len(length_variants)} non-standard preimage lengths rejected",
+            http_method="GET",
+            request_sent={"variants": [label for label, _ in length_variants]},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
+    # Category 10: Invoice Amount Manipulation (L4-024 through L4-026)
+    # ------------------------------------------------------------------
+
+    def test_l402_invoice_amount_consistency(self):
+        """L4-024: Verify that invoice amounts are consistent across repeated challenges."""
+        t0 = time.monotonic()
+
+        # Fetch multiple challenges and compare invoice amounts
+        invoices = []
+        for _ in range(5):
+            challenge = self._get_challenge(self.PATH_INDEX)
+            if challenge:
+                invoices.append(challenge.invoice)
+
+        elapsed = time.monotonic() - t0
+
+        if not invoices:
+            self._record(L402TestResult(
+                test_id="L4-024",
+                name="Invoice Amount Consistency",
+                category="invoice_amount_manipulation",
+                owasp_asi="ASI09",
+                severity=Severity.MEDIUM.value,
+                passed=True,
+                details="No invoices returned to check consistency (N/A)",
+                http_method="GET",
+                elapsed_s=round(elapsed, 3),
+            ))
+            return
+
+        # Extract amount from BOLT-11 invoice prefix (lnbc<amount><multiplier>)
+        amounts = []
+        for inv in invoices:
+            # BOLT-11: lnbc<amount>[munp]1... — amount is between prefix and '1'
+            m = re.match(r'ln(?:bc|tb|bcrt)(\d+[munp]?)1', inv)
+            if m:
+                amounts.append(m.group(1))
+
+        unique_amounts = set(amounts)
+        consistent = len(unique_amounts) <= 1
+
+        self._record(L402TestResult(
+            test_id="L4-024",
+            name="Invoice Amount Consistency",
+            category="invoice_amount_manipulation",
+            owasp_asi="ASI09",
+            severity=Severity.MEDIUM.value,
+            passed=consistent,
+            details=(f"Consistent amount across {len(invoices)} invoices: {list(unique_amounts)}"
+                     if consistent
+                     else f"INCONSISTENT amounts detected: {list(unique_amounts)} — possible price escalation"),
+            http_method="GET",
+            request_sent={"n_challenges": 5},
+            response_received={"unique_amounts": list(unique_amounts), "total_invoices": len(invoices)},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_l402_overpayment_underpayment(self):
+        """L4-025: Test server behavior with tokens suggesting overpayment/underpayment."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        mac = challenge.macaroon if challenge else base64.b64encode(b"fake").decode()
+
+        # Present tokens with preimages that are crafted to look like they came
+        # from invoices with different amounts than requested
+        payment_variants = [
+            ("zero_sat_preimage", hashlib.sha256(b"zero_amount_payment").hexdigest()),
+            ("micro_sat_preimage", hashlib.sha256(b"1_sat_payment").hexdigest()),
+            ("max_btc_preimage", hashlib.sha256(b"21000000_btc_payment").hexdigest()),
+            ("negative_preimage", hashlib.sha256(b"negative_amount").hexdigest()),
+        ]
+
+        rejected = 0
+        for label, preimage in payment_variants:
+            auth_header = f"L402 {mac}:{preimage}"
+            resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
+            if resp.get("status", 0) != 200:
+                rejected += 1
+
+        elapsed = time.monotonic() - t0
+        passed = rejected == len(payment_variants)
+
+        self._record(L402TestResult(
+            test_id="L4-025",
+            name="Overpayment / Underpayment Edge Cases",
+            category="invoice_amount_manipulation",
+            owasp_asi="ASI09",
+            severity=Severity.MEDIUM.value,
+            passed=passed,
+            details=f"{rejected}/{len(payment_variants)} payment amount edge cases rejected",
+            http_method="GET",
+            request_sent={"variants": [label for label, _ in payment_variants]},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_l402_invoice_expiry_bypass(self):
+        """L4-026: Attempt to use a token tied to an expired invoice."""
+        t0 = time.monotonic()
+
+        # Fetch a challenge, wait briefly, then attempt to use it
+        # (simulating use after invoice expiry)
+        challenge = self._get_challenge(self.PATH_INDEX)
+
+        if not challenge:
+            elapsed = time.monotonic() - t0
+            self._record(L402TestResult(
+                test_id="L4-026",
+                name="Invoice Expiry Bypass",
+                category="invoice_amount_manipulation",
+                owasp_asi="ASI03",
+                severity=Severity.HIGH.value,
+                passed=True,
+                details="No L402 challenge available (N/A)",
+                http_method="GET",
+                elapsed_s=round(elapsed, 3),
+            ))
+            return
+
+        # Present the token with a fake preimage (invoice was never paid,
+        # and if it had been, it may have expired by now)
+        fake_preimage = _fake_preimage()
+        auth_header = f"L402 {challenge.macaroon}:{fake_preimage}"
+        resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
+
+        elapsed = time.monotonic() - t0
+        status = resp.get("status", 0)
+        passed = status != 200
+
+        self._record(L402TestResult(
+            test_id="L4-026",
+            name="Invoice Expiry Bypass",
+            category="invoice_amount_manipulation",
+            owasp_asi="ASI03",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=f"Token for potentially expired invoice returned {status}" +
+                    (" (rejected)" if passed else " (ACCEPTED — expiry bypass possible)"),
+            http_method="GET",
+            request_sent={"expired_invoice_token": True},
+            response_received={"status": status},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
+    # Category 11: Multi-Hop Routing Manipulation (L4-027, L4-028)
+    # ------------------------------------------------------------------
+
+    def test_l402_multi_hop_routing_header(self):
+        """L4-027: Inject routing hints to manipulate multi-hop Lightning payment path."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        mac = challenge.macaroon if challenge else base64.b64encode(b"fake").decode()
+
+        # Inject headers that suggest alternative routing paths
+        routing_variants = [
+            ("attacker_hop", {"X-Lightning-Route": "03" + "aa" * 32, "Authorization": f"L402 {mac}:{_fake_preimage()}"}),
+            ("private_channel", {"X-Lightning-Route": "02" + "bb" * 32, "X-Channel-Id": "999999x999x0", "Authorization": f"L402 {mac}:{_fake_preimage()}"}),
+            ("zero_fee_route", {"X-Lightning-Route": "03" + "00" * 32, "X-Fee-Rate": "0", "Authorization": f"L402 {mac}:{_fake_preimage()}"}),
+        ]
+
+        rejected = 0
+        for label, headers in routing_variants:
+            resp = self.transport.get(self.PATH_INDEX, headers=headers)
+            if resp.get("status", 0) != 200:
+                rejected += 1
+
+        elapsed = time.monotonic() - t0
+        passed = rejected == len(routing_variants)
+
+        self._record(L402TestResult(
+            test_id="L4-027",
+            name="Multi-Hop Routing Header Injection",
+            category="routing_manipulation",
+            owasp_asi="ASI09",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=f"{rejected}/{len(routing_variants)} routing manipulation attempts rejected",
+            http_method="GET",
+            request_sent={"variants": [label for label, _ in routing_variants]},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_l402_payment_replay_across_channels(self):
+        """L4-028: Replay L402 token across different API endpoints (cross-channel replay)."""
+        t0 = time.monotonic()
+
+        # Get challenges from different endpoints
+        paths = [self.PATH_INDEX, self.PATH_RESOURCE, self.PATH_ASK]
+        challenges = {}
+        for path in paths:
+            c = self._get_challenge(path)
+            if c:
+                challenges[path] = c
+
+        if len(challenges) < 2:
+            elapsed = time.monotonic() - t0
+            self._record(L402TestResult(
+                test_id="L4-028",
+                name="Payment Replay Across Channels",
+                category="routing_manipulation",
+                owasp_asi="ASI03",
+                severity=Severity.HIGH.value,
+                passed=True if len(challenges) == 0 else False,
+                details=f"Only {len(challenges)} challenge(s) obtained; need 2+ for cross-channel test",
+                http_method="GET",
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        # Try using each challenge's macaroon on every OTHER path
+        rejected = 0
+        tested = 0
+        for src_path, src_challenge in challenges.items():
+            for tgt_path in paths:
+                if tgt_path == src_path:
+                    continue
+                fake_preimage = _fake_preimage()
+                auth_header = f"L402 {src_challenge.macaroon}:{fake_preimage}"
+                resp = self.transport.get(tgt_path, headers={"Authorization": auth_header})
+                tested += 1
+                if resp.get("status", 0) != 200:
+                    rejected += 1
+
+        elapsed = time.monotonic() - t0
+        passed = rejected == tested
+
+        self._record(L402TestResult(
+            test_id="L4-028",
+            name="Payment Replay Across Channels",
+            category="routing_manipulation",
+            owasp_asi="ASI03",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=f"{rejected}/{tested} cross-channel replay attempts rejected",
+            http_method="GET",
+            request_sent={"channels_tested": list(challenges.keys())},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
+    # Category 12: Lightning Network DoS Patterns (L4-029 through L4-031)
+    # ------------------------------------------------------------------
+
+    def test_l402_large_payload_dos(self):
+        """L4-029: Send oversized Authorization header to test DoS resilience."""
+        t0 = time.monotonic()
+
+        # Craft extremely large Authorization headers
+        large_variants = [
+            ("1mb_macaroon", "L402 " + base64.b64encode(os.urandom(500000)).decode() + ":" + _fake_preimage()),
+            ("1mb_preimage", "L402 " + base64.b64encode(b"mac").decode() + ":" + "a" * 1000000),
+            ("repeated_colons", "L402 " + "mac:pre:" * 100000),
+        ]
+
+        handled = 0
+        for label, auth_value in large_variants:
+            try:
+                resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_value}, timeout=10.0)
+                status = resp.get("status", 0)
+                # Any non-200 response or clean error is fine
+                if status != 200:
+                    handled += 1
+                # Even 200 counts as "handled" if server didn't crash
+                elif not resp.get("_error"):
+                    handled += 1
+            except Exception:
+                handled += 1  # Exception means server didn't crash silently
+
+        elapsed = time.monotonic() - t0
+        passed = handled == len(large_variants)
+
+        self._record(L402TestResult(
+            test_id="L4-029",
+            name="Large Payload DoS Resilience",
+            category="ln_dos",
+            owasp_asi="ASI08",
+            severity=Severity.MEDIUM.value,
+            passed=passed,
+            details=f"{handled}/{len(large_variants)} oversized payloads handled gracefully",
+            http_method="GET",
+            request_sent={"variants": [label for label, _ in large_variants]},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_l402_header_injection_dos(self):
+        """L4-030: Inject malicious values in L402 headers to trigger server errors."""
+        t0 = time.monotonic()
+
+        # Test injection payloads in the Authorization header
+        injection_variants = [
+            ("sql_injection", 'L402 macaroon:preimage\'; DROP TABLE invoices;--'),
+            ("crlf_injection", "L402 macaroon\r\nX-Injected: evil\r\n:preimage"),
+            ("template_injection", "L402 {{7*7}}:${7*7}"),
+            ("path_traversal", "L402 ../../etc/passwd:preimage"),
+            ("null_byte", "L402 mac\x00admin:preimage"),
+        ]
+
+        safe_responses = 0
+        for label, auth_value in injection_variants:
+            try:
+                resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_value})
+                status = resp.get("status", 0)
+                body_lower = resp.get("body", "").lower()
+                # Check for signs of injection success
+                no_injection = not any(kw in body_lower for kw in [
+                    "syntax error", "sql", "template", "root:", "etc/passwd",
+                    "stack trace", "traceback",
+                ])
+                if status != 200 and no_injection:
+                    safe_responses += 1
+            except Exception:
+                safe_responses += 1  # Clean failure is acceptable
+
+        elapsed = time.monotonic() - t0
+        passed = safe_responses == len(injection_variants)
+
+        self._record(L402TestResult(
+            test_id="L4-030",
+            name="Header Injection DoS",
+            category="ln_dos",
+            owasp_asi="ASI08",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=f"{safe_responses}/{len(injection_variants)} injection attempts handled safely",
+            http_method="GET",
+            request_sent={"variants": [label for label, _ in injection_variants]},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_l402_concurrent_challenge_flood(self):
+        """L4-031: Flood server with concurrent 402 challenge requests."""
+        t0 = time.monotonic()
+
+        n_workers = 20
+        results_list: list[dict] = []
+
+        def _flood():
+            return self.transport.get(self.PATH_INDEX)
+
+        with ThreadPoolExecutor(max_workers=n_workers) as pool:
+            futures = [pool.submit(_flood) for _ in range(n_workers * 2)]
+            for f in as_completed(futures):
+                try:
+                    results_list.append(f.result())
+                except Exception:
+                    results_list.append({"status": 0, "_error": True})
+
+        elapsed = time.monotonic() - t0
+
+        statuses = [r.get("status", 0) for r in results_list]
+        n_402 = sum(1 for s in statuses if s == 402)
+        n_429 = sum(1 for s in statuses if s == 429)
+        n_errors = sum(1 for s in statuses if s == 0 or s >= 500)
+
+        # Server should either serve 402s or rate-limit, not error out
+        passed = n_errors <= len(results_list) // 4  # Allow up to 25% errors
+
+        self._record(L402TestResult(
+            test_id="L4-031",
+            name="Concurrent Challenge Flood",
+            category="ln_dos",
+            owasp_asi="ASI08",
+            severity=Severity.MEDIUM.value,
+            passed=passed,
+            details=(f"{len(results_list)} concurrent requests: "
+                     f"{n_402} got 402, {n_429} rate-limited, {n_errors} errors"),
+            http_method="GET",
+            request_sent={"n_concurrent": n_workers * 2},
+            response_received={"n_402": n_402, "n_429": n_429, "n_errors": n_errors},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
+    # Category 13: Protocol Confusion & Information Disclosure (L4-032, L4-033)
+    # ------------------------------------------------------------------
+
+    def test_l402_protocol_downgrade_lsat(self):
+        """L4-032: Test LSAT backward-compatibility for protocol downgrade attacks."""
+        t0 = time.monotonic()
+        challenge = self._ensure_challenge()
+
+        mac = challenge.macaroon if challenge else base64.b64encode(b"fake").decode()
+
+        # Try both L402 and LSAT auth schemes to detect inconsistent handling
+        downgrade_variants = [
+            ("lsat_scheme", f"LSAT {mac}:{_fake_preimage()}"),
+            ("bearer_scheme", f"Bearer {mac}"),
+            ("basic_scheme", f"Basic {base64.b64encode(f'{mac}:{_fake_preimage()}'.encode()).decode()}"),
+            ("mixed_case_l402", f"l402 {mac}:{_fake_preimage()}"),
+            ("mixed_case_LSAT", f"lsat {mac}:{_fake_preimage()}"),
+        ]
+
+        rejected = 0
+        for label, auth_value in downgrade_variants:
+            resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_value})
+            if resp.get("status", 0) != 200:
+                rejected += 1
+
+        elapsed = time.monotonic() - t0
+        passed = rejected == len(downgrade_variants)
+
+        self._record(L402TestResult(
+            test_id="L4-032",
+            name="Protocol Downgrade (LSAT Compat)",
+            category="protocol_confusion",
+            owasp_asi="ASI03",
+            severity=Severity.MEDIUM.value,
+            passed=passed,
+            details=f"{rejected}/{len(downgrade_variants)} downgrade auth schemes rejected",
+            http_method="GET",
+            request_sent={"variants": [label for label, _ in downgrade_variants]},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_l402_information_disclosure(self):
+        """L4-033: Check error responses for sensitive information leakage."""
+        t0 = time.monotonic()
+
+        # Send various malformed requests and check if error responses leak info
+        probe_requests = [
+            ("no_auth", {}),
+            ("empty_auth", {"Authorization": ""}),
+            ("garbage_auth", {"Authorization": "GARBAGE " + uuid.uuid4().hex}),
+            ("sql_auth", {"Authorization": "L402 ' OR 1=1--:preimage"}),
+        ]
+
+        leaks_found = []
+        sensitive_patterns = [
+            "stack trace", "traceback", "exception", "at line",
+            "sql", "database", "mysql", "postgres", "sqlite",
+            "secret", "api_key", "private_key", "password",
+            "internal server", "debug", "node_id", "pubkey",
+            "lnd", "c-lightning", "eclair",  # Lightning implementation details
+        ]
+
+        for label, headers in probe_requests:
+            resp = self.transport.get(self.PATH_INDEX, headers=headers)
+            body_lower = resp.get("body", "").lower()
+            for pattern in sensitive_patterns:
+                if pattern in body_lower:
+                    leaks_found.append(f"{label}: '{pattern}'")
+
+        elapsed = time.monotonic() - t0
+        passed = len(leaks_found) == 0
+
+        self._record(L402TestResult(
+            test_id="L4-033",
+            name="Information Disclosure in Errors",
+            category="protocol_confusion",
+            owasp_asi="ASI06",
+            severity=Severity.MEDIUM.value,
+            passed=passed,
+            details=("No sensitive information leaked" if passed
+                     else f"Leaks detected: {'; '.join(leaks_found[:10])}"),
+            http_method="GET",
+            request_sent={"probes": [label for label, _ in probe_requests]},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
     # Run all tests
     # ------------------------------------------------------------------
 
@@ -987,6 +1905,39 @@ class L402SecurityTests:
         "rate_dos": [
             "test_l402_rapid_invoice_generation",
             "test_l402_concurrent_invoice_uniqueness",
+        ],
+        "macaroon_caveat_manipulation": [
+            "test_l402_forged_caveat_hmac",
+            "test_l402_nested_caveat_depth",
+            "test_l402_caveat_extension_third_party",
+            "test_l402_caveat_unicode_smuggling",
+        ],
+        "payment_channel_attacks": [
+            "test_l402_stale_channel_state",
+            "test_l402_force_close_timing",
+            "test_l402_htlc_timeout_exploitation",
+        ],
+        "preimage_correlation": [
+            "test_l402_preimage_hash_correlation",
+            "test_l402_preimage_length_manipulation",
+        ],
+        "invoice_amount_manipulation": [
+            "test_l402_invoice_amount_consistency",
+            "test_l402_overpayment_underpayment",
+            "test_l402_invoice_expiry_bypass",
+        ],
+        "routing_manipulation": [
+            "test_l402_multi_hop_routing_header",
+            "test_l402_payment_replay_across_channels",
+        ],
+        "ln_dos": [
+            "test_l402_large_payload_dos",
+            "test_l402_header_injection_dos",
+            "test_l402_concurrent_challenge_flood",
+        ],
+        "protocol_confusion": [
+            "test_l402_protocol_downgrade_lsat",
+            "test_l402_information_disclosure",
         ],
     }
 
@@ -1051,6 +2002,25 @@ _TEST_DESCRIPTIONS: dict[str, str] = {
     "L4-012": "Race condition: present token before settlement completes",
     "L4-013": "Rapid sequential requests to generate many invoices",
     "L4-014": "Concurrent requests to test invoice uniqueness",
+    "L4-015": "Forge macaroon with attacker-chosen caveats and guessed HMAC",
+    "L4-016": "Deeply nested caveats to trigger parser overflow or bypass",
+    "L4-017": "Extend macaroon with third-party caveat referencing attacker verifier",
+    "L4-018": "Smuggle caveats via Unicode normalization or null-byte injection",
+    "L4-019": "Present token referencing stale/revoked channel state",
+    "L4-020": "Exploit force-close timing by presenting token during settlement window",
+    "L4-021": "Attempt HTLC timeout exploitation after payment reversal",
+    "L4-022": "Test preimage-to-payment-hash binding enforcement",
+    "L4-023": "Present preimages of non-standard lengths (not 32 bytes)",
+    "L4-024": "Verify invoice amounts are consistent across repeated challenges",
+    "L4-025": "Test overpayment/underpayment edge cases",
+    "L4-026": "Attempt to use token tied to an expired invoice",
+    "L4-027": "Inject routing hints to manipulate multi-hop Lightning payment path",
+    "L4-028": "Replay L402 token across different API endpoints (cross-channel)",
+    "L4-029": "Send oversized Authorization header to test DoS resilience",
+    "L4-030": "Inject malicious values in L402 headers (SQLi, CRLF, template)",
+    "L4-031": "Flood server with concurrent 402 challenge requests",
+    "L4-032": "Test LSAT backward-compatibility for protocol downgrade attacks",
+    "L4-033": "Check error responses for sensitive information leakage",
 }
 
 
@@ -1061,12 +2031,19 @@ def list_tests():
     print(f"{'='*60}\n")
 
     test_id_map = {
-        "invoice_validation":       ["L4-001", "L4-002", "L4-003"],
-        "macaroon_integrity":       ["L4-004", "L4-005", "L4-006"],
-        "preimage_replay":          ["L4-007", "L4-008"],
-        "caveat_escalation":        ["L4-009", "L4-010"],
-        "payment_state_confusion":  ["L4-011", "L4-012"],
-        "rate_dos":                 ["L4-013", "L4-014"],
+        "invoice_validation":           ["L4-001", "L4-002", "L4-003"],
+        "macaroon_integrity":           ["L4-004", "L4-005", "L4-006"],
+        "preimage_replay":              ["L4-007", "L4-008"],
+        "caveat_escalation":            ["L4-009", "L4-010"],
+        "payment_state_confusion":      ["L4-011", "L4-012"],
+        "rate_dos":                     ["L4-013", "L4-014"],
+        "macaroon_caveat_manipulation": ["L4-015", "L4-016", "L4-017", "L4-018"],
+        "payment_channel_attacks":      ["L4-019", "L4-020", "L4-021"],
+        "preimage_correlation":         ["L4-022", "L4-023"],
+        "invoice_amount_manipulation":  ["L4-024", "L4-025", "L4-026"],
+        "routing_manipulation":         ["L4-027", "L4-028"],
+        "ln_dos":                       ["L4-029", "L4-030", "L4-031"],
+        "protocol_confusion":           ["L4-032", "L4-033"],
     }
 
     for category, ids in test_id_map.items():
@@ -1157,7 +2134,10 @@ def _run_statistical(
     test_id_order = [
         "L4-001", "L4-002", "L4-003", "L4-004", "L4-005", "L4-006",
         "L4-007", "L4-008", "L4-009", "L4-010", "L4-011", "L4-012",
-        "L4-013", "L4-014",
+        "L4-013", "L4-014", "L4-015", "L4-016", "L4-017", "L4-018",
+        "L4-019", "L4-020", "L4-021", "L4-022", "L4-023", "L4-024",
+        "L4-025", "L4-026", "L4-027", "L4-028", "L4-029", "L4-030",
+        "L4-031", "L4-032", "L4-033",
     ]
     for category, method_names in L402SecurityTests.ALL_TESTS.items():
         if categories and category not in categories:

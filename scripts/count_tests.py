@@ -56,6 +56,7 @@ MODULE_NAMES = {
     "cve_2026_25253_harness.py": "CVE-2026-25253 Reproduction",
     "aiuc1_compliance_harness.py": "AIUC-1 Compliance",
     "cloud_agent_harness.py": "Cloud Agent Platforms",
+    "crewai_cve_harness.py": "CrewAI CVE Reproduction",
 }
 
 

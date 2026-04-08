@@ -65,7 +65,7 @@ agent-security-harness/
 ├── protocol_tests/           # Core test harnesses
 │   ├── mcp_harness.py       # MCP (JSON-RPC 2.0) - 10 tests
 │   ├── a2a_harness.py       # A2A (Agent-to-Agent) - 12 tests  
-│   ├── l402_harness.py      # L402 (Payment protocol) - 14 tests
+│   ├── l402_harness.py      # L402 (Payment protocol) - 33 tests
 │   ├── framework_adapters.py # LangChain, CrewAI, AutoGen - 21 tests
 │   ├── enterprise_adapters.py # SAP, Salesforce, etc. - 57 tests
 │   ├── gtg1002_simulation.py # GTG-1002 APT campaign - 17 tests
