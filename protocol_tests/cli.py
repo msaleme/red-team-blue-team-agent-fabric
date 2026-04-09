@@ -30,11 +30,11 @@ VERSION = "3.9.0"
 HARNESSES = {
     "mcp": {
         "module": "protocol_tests.mcp_harness",
-        "description": "MCP wire-protocol security tests (13 tests, JSON-RPC 2.0)",
+        "description": "MCP wire-protocol security tests (14 tests, JSON-RPC 2.0)",
     },
     "a2a": {
         "module": "protocol_tests.a2a_harness",
-        "description": "A2A wire-protocol security tests (12 tests, Agent Cards + tasks)",
+        "description": "A2A wire-protocol security tests (13 tests, Agent Cards + tasks)",
     },
     "l402": {
         "module": "protocol_tests.l402_harness",
@@ -42,7 +42,7 @@ HARNESSES = {
     },
     "x402": {
         "module": "protocol_tests.x402_harness",
-        "description": "x402 payment protocol security tests (25 tests, Coinbase/Stripe agent payments)",
+        "description": "x402 payment protocol security tests (52 tests, Coinbase/Stripe agent payments)",
     },
     "enterprise": {
         "module": "protocol_tests.enterprise_adapters",
@@ -54,7 +54,7 @@ HARNESSES = {
     },
     "framework": {
         "module": "protocol_tests.framework_adapters",
-        "description": "Framework adapters (24 tests, 5 frameworks)",
+        "description": "Framework adapters (11 tests, 5 frameworks)",
     },
     "identity": {
         "module": "protocol_tests.identity_harness",
@@ -126,7 +126,7 @@ HARNESSES = {
     },
     "crewai-cve": {
         "module": "protocol_tests.crewai_cve_harness",
-        "description": "CrewAI CVE reproduction suite (10 tests, CVE-2026-2275/2285/2286/2287 sandbox escape + SSRF + file read)",
+        "description": "CrewAI CVE reproduction suite (11 tests, CVE-2026-2275/2285/2286/2287 sandbox escape + SSRF + file read)",
     },
     "community": {
         "module": "protocol_tests.community_runner",
