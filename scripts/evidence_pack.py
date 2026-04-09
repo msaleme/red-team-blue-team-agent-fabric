@@ -431,8 +431,15 @@ def build_evidence_pack(
         sign_key = os.environ.get("AGENT_SECURITY_SIGN_KEY", "")
         if not sign_key:
             sign_key = secrets.token_hex(32)
-            print(f"No AGENT_SECURITY_SIGN_KEY set. Auto-generated key: {sign_key}", file=sys.stderr)
-            print("Store this key to verify the signature later.", file=sys.stderr)
+            key_path = pack_dir / "signing.key"
+            with open(key_path, "w") as kf:
+                kf.write(sign_key + "\n")
+            os.chmod(key_path, 0o600)
+            print(
+                f"WARNING: Auto-generated signing key saved to {key_path}. "
+                "For production use, set AGENT_SECURITY_SIGN_KEY environment variable.",
+                file=sys.stderr,
+            )
         attestation = sign_evidence(evidence_hash, sign_key)
 
     # Build evidence-summary.json
@@ -545,7 +552,8 @@ Examples:
     )
     parser.add_argument(
         "--sign", action="store_true",
-        help="Sign the evidence pack with HMAC-SHA256 (key from AGENT_SECURITY_SIGN_KEY env var or auto-generated)",
+        help="Sign the evidence pack with HMAC-SHA256. Uses AGENT_SECURITY_SIGN_KEY env var; "
+             "if unset, auto-generates a key and saves it as signing.key in the output directory",
     )
     parser.add_argument(
         "--zip", action="store_true", dest="create_zip",
