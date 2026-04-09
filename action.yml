@@ -72,14 +72,19 @@ runs:
       shell: bash
       run: |
         REPORT_FILE="security-report-$(date +%s).json"
-        CMD="python -m protocol_tests.mcp_harness --transport ${INPUT_TRANSPORT} --url ${INPUT_TARGET_URL} --report ${REPORT_FILE}"
 
         if [ -n "$INPUT_CATEGORIES" ]; then
-          CMD="${CMD} --categories ${INPUT_CATEGORIES}"
+          python -m protocol_tests.mcp_harness \
+            --transport "${INPUT_TRANSPORT}" \
+            --url "${INPUT_TARGET_URL}" \
+            --report "${REPORT_FILE}" \
+            --categories "${INPUT_CATEGORIES}" || true
+        else
+          python -m protocol_tests.mcp_harness \
+            --transport "${INPUT_TRANSPORT}" \
+            --url "${INPUT_TARGET_URL}" \
+            --report "${REPORT_FILE}" || true
         fi
-
-        echo "Running: ${CMD}"
-        ${CMD} || true
 
         echo "report_path=${REPORT_FILE}" >> "$GITHUB_OUTPUT"
       env:
