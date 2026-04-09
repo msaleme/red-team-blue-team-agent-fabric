@@ -8,11 +8,11 @@
 
 **Even if an agent is properly authenticated and authorized, can it still be manipulated into unsafe or policy-violating behavior?**
 
-430 executable security tests across 27 modules. MCP + A2A + L402 + x402 wire-protocol testing. Decision-layer attack scenarios. One `pip install` away.
+430 executable security tests across 29 modules. MCP + A2A + L402 + x402 wire-protocol testing. Decision-layer attack scenarios. One `pip install` away.
 
 ```
 $ agent-security test mcp --url http://localhost:8080/mcp
-Running MCP Protocol Security Tests v3.9...
+Running MCP Protocol Security Tests v3.10...
  MCP-001: Tool List Integrity Check [PASS] (0.234s)
  MCP-002: Tool Registration via Call Injection [PASS] (0.412s)
  MCP-003: Capability Escalation via Initialize [FAIL] (0.156s)
@@ -52,8 +52,8 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 |---|---|---|---|---|---|
 | **What it does** | Scans installed MCP configs for tool poisoning | YARA + LLM-as-judge for malicious tools | Scans agent configs for MCP/skill security | LLM model vulnerability testing | Active protocol exploitation + decision governance |
 | **Approach** | Static analysis | Static + LLM classification | Config scanning | Model-layer probing | **Wire-protocol adversarial testing** |
-| **MCP coverage** | Tool descriptions, config files | Tool descriptions, YARA rules | Config files | - | **13 tests: real JSON-RPC 2.0 attacks** |
-| **A2A coverage** | - | - | - | - | **12 tests** |
+| **MCP coverage** | Tool descriptions, config files | Tool descriptions, YARA rules | Config files | - | **14 tests: real JSON-RPC 2.0 attacks** |
+| **A2A coverage** | - | - | - | - | **13 tests** |
 | **L402/x402 coverage** | - | - | - | - | **85 tests** |
 | **Enterprise platforms** | - | - | - | - | **25 cloud + 20 enterprise** |
 | **APT simulation** | - | - | - | - | **GTG-1002 (17 tests)** |
