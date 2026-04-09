@@ -100,7 +100,7 @@ Five peer-reviewed preprints and three NIST submissions underpin the methodology
 
 ## Roadmap
 
-**v3.10 -- Prove It to Auditors** (before July 2026): AIUC-1 compliance suite, signed evidence packs, behavioral profiling, HTML dashboards. Full details in [ROADMAP.md](ROADMAP.md).
+**v3.10 -- Prove It to Auditors** ✅ Shipped. 430 tests, 29 modules, HTML dashboards, behavioral profiling, 2 independent security audits (R31/R32). **v4.0 -- Lock the Category** (H2 2026): benchmark corpus, schema standardization, longitudinal registry. Full details in [ROADMAP.md](ROADMAP.md).
 
 ---
 

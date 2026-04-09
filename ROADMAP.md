@@ -51,16 +51,18 @@ Identity and authorization controls answer *who* an agent is and *what* it can a
 | Release | Theme | Primary Outcomes | Target |
 |---------|-------|------------------|--------|
 | **v3.9 - Adopt in 15 Minutes** | CI integration and developer experience | `--json` output, error messages, scope docs, GitHub Action | **Shipped** (v3.9.0) |
-| **v3.10 - Prove It to Auditors** | Evidence format adoption + payment depth + drift scoring | Evidence packs accepted by auditors, payment tests doubled, behavioral profiling | Before July 2026 |
+| **v3.10 - Prove It to Auditors** | Evidence format adoption + payment depth + drift scoring | Evidence packs, payment tests doubled, behavioral profiling, HTML dashboards, 2 independent security audits | **Shipped** (v3.10.0) |
 | **v4.0 - Lock the Category** | Standard-setting: benchmark + schema standardization + registry | Named benchmark corpus, attestation schema to IETF/OASIS, longitudinal registry | H2 2026 |
 
 ## v3.9 - Adopt in 15 Minutes ✅ SHIPPED
 
 Released as v3.9.0. All issues closed: #103, #90, #92, #108, #109.
 
-## v3.10 - Prove It to Auditors
+## v3.10 - Prove It to Auditors ✅ SHIPPED
 
-**Goal:** A compliance lead can produce evidence that an auditor actually accepts, before the EU AI Act high-risk deadline (August 2, 2026).
+Released as v3.10.0. Shipped ahead of the EU AI Act high-risk deadline (August 2, 2026).
+
+**Goal:** A compliance lead can produce evidence that an auditor actually accepts.
 
 This is the release where the project transitions from a testing harness to a **verification standard**.
 
@@ -155,7 +157,7 @@ We are authoring a public corpus that highlights the gaps between metadata scann
 
 ```text
 v3.9  ✅ SHIPPED        -> "Find dangerous stuff in 15 minutes"
-v3.10 (before July)     -> "The evidence auditors accept"
+v3.10 ✅ SHIPPED        -> "The evidence auditors accept"
 v4.0  (H2 2026)         -> "The standard others reference"
 v4.x  (2027)            -> Network effects from registry + standard citations
 ```

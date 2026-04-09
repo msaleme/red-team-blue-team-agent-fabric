@@ -5,6 +5,70 @@ All notable changes to the Agent Security Harness will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.10.0] - 2026-04-08
+
+**Theme: Prove It to Auditors.** Evidence format adoption, payment protocol depth, behavioral drift scoring, and audit-ready reporting. The release where the project transitions from a testing harness to a verification standard.
+
+### Added — New Modules (5)
+
+- **Memory & Continuity Security** (`memory_harness.py`, 10 tests) — Cross-session leakage, RAG poisoning, context overflow, memory-based privilege escalation, cross-user contamination (#119)
+- **Multi-Agent Interaction Security** (`multi_agent_harness.py`, 12 tests) — Delegation chain poisoning, authority impersonation, consensus manipulation, capability leakage, agent replacement (#117)
+- **Intent Contract Validation** (`intent_contract_harness.py`, 8 tests) — Intent-action consistency, scope violation, implicit escalation, contract forgery, ambiguity exploitation (#116)
+- **CrewAI CVE Reproduction** (`crewai_cve_harness.py`, 10 tests) — CVE-2026-2275 (sandbox escape), CVE-2026-2285 (file read), CVE-2026-2286 (SSRF), CVE-2026-2287 (Docker bypass) (#144)
+- **MCP-014: Tool Description Injection** — Scans tool descriptions for injection patterns (URLs, base64, encoded commands, hidden instructions) (#91)
+- **A2A-013: Agent Card Limitations Field** — Verifies agents declare meaningful operational constraints (#93)
+
+### Added — New Tools
+
+- **HTML Reporting Dashboard** (`scripts/html_report.py`) — Self-contained audit-ready HTML from JSON output. Executive summary, per-module breakdown, OWASP/AIUC-1 coverage matrices. `--html` CLI flag. (#112)
+- **Top 10 Failure Summary** (`scripts/top10_failures.py`) — Ranked failure analysis across runs with severity, OWASP, and AIUC-1 mapping. Markdown and JSON output. (#113)
+- **`--simulate --json` for all harnesses** — Every harness now produces valid JSON in simulation mode without a live target. Critical for CI dry-runs and pipeline validation.
+- **End-to-end integration test** (`testing/test_integration.py`) — Automated test against bundled mock MCP server in CI.
+
+### Added — Test Expansion
+
+- **L402 Payment**: 14 → 33 tests. Macaroon caveat manipulation, payment channel state attacks, preimage correlation, invoice tampering, multi-hop routing, Lightning DoS (#135)
+- **x402 Payment**: 41 → 52 tests. Replay/double-spend, auth bypass, settlement attacks, cross-protocol confusion, metadata exfiltration
+- **Total: 358 → 430 tests across 29 modules**
+
+### Fixed — Security (from R31/R32 independent evaluations)
+
+- **CRITICAL: Unreachable server false pass** — `_is_conn_error()` helper; connection errors tracked separately; tests FAIL when target is unreachable (#145)
+- **HIGH: Dict-merge vulnerability** — Server responses namespaced under `"response"` key; internal metadata (`_status`, `_error`) can no longer be overwritten by malicious servers (#146)
+- **HIGH: GitHub Action shell injection** — All variables in `action.yml` properly double-quoted (#147)
+- **HIGH: MCP-008 always passes** — "No response" no longer counts as "handled correctly" (#148)
+- **HIGH: `_leak()` false positives** — Bare `"token"` keyword replaced with specific credential patterns (#149)
+- **MEDIUM: Stale test counts** — All counts synchronized across README, cli.py, pyproject.toml, free_scan.py, and docs (#150, #151)
+- **MEDIUM: CREW-ERR inflating count** — Synthetic error IDs excluded from test count (#154)
+- **MEDIUM: html_report.py blank Details column** — Field name corrected from `"detail"` to `"details"` (#155)
+- **MEDIUM: evidence_pack.py ephemeral signing key** — Auto-generated key now persisted to `signing.key` file with 0o600 permissions (#156)
+
+### Changed — Architecture
+
+- **Shared HTTP helpers** (`protocol_tests/http_helpers.py`) — Canonical `http_post()`, `_err()`, `_is_conn_error()`, `_leak()` extracted from 7 modules. ~285 lines of duplicated code removed. Prevents future regressions.
+- **README restructured** — 830 → 124 lines. Reference content moved to `docs/TEST-INVENTORY.md`, `docs/AIUC1-CROSSWALK.md`, `docs/ADVANCED.md`, `docs/QUICKSTART.md`.
+- **Documentation links table** in README points to all docs.
+
+### Changed — Quality
+
+- **Self-test suite: 164 tests, 0 failures, 55 subtests** (up from 160/23-failing)
+- **Two independent security evaluations** (R31: 7.5/10, R32: 9/10) with all CRITICAL and HIGH findings resolved
+- **Test pattern consistency** — All unit tests updated for response namespacing format
+
+## [3.9.0] - 2026-04-06
+
+### Added
+- **`--json` CLI output** — Structured JSON to stdout for CI pipelines and automation
+- **Improved connection error messages** — Distinguishes DNS failure, connection refused, timeout
+- **Scope & Limitations documentation** — Explicit section on what the framework does and does not test
+- **CI/CD quickstart** — GitHub Actions workflow example with service startup and output handling
+- **Audit-ready evidence packs** (`scripts/evidence_pack.py`) — Signed evidence with AIUC-1 mapping and HMAC-SHA256
+- **AIUC-1 test suite formalized** — `--json` output, per-requirement coverage summary, 19/20 requirements covered (95%)
+- **OATR v1.2.0 test fixtures** (community: @FransDevelopment) — 3 new Ed25519 tokens, 29 offline tests
+- **Behavioral profiling** (`scripts/behavioral_profile.py`) — Drift detection, stability scoring, trend analysis (#111)
+- **Agent Payment Security Attack Taxonomy** (APT-01 through APT-10) — First published taxonomy of AI agent payment attack vectors (#136)
+- **x402 expansion** — 16 new tests (X4-026 to X4-044) for OATR attestation verification
+
 ## [3.8.0] - 2026-03-28
 
 ### Added
@@ -29,10 +93,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Report format extended to attestation schema (backward-compatible; legacy format still emittable)
-
-### Planned
-- OATR test fixtures for x402 identity verification (#51)
-- Subliminal bias propagation tests (#60)
 
 ## [3.7.0] - 2026-03-25
 
