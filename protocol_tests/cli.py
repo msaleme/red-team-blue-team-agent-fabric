@@ -20,12 +20,151 @@ Usage:
 
 from __future__ import annotations
 
+import json as _json
 import os
+import re
 import sys
 import importlib
+from datetime import datetime, timezone
 
 
 VERSION = "3.9.0"
+
+# ---------------------------------------------------------------------------
+# Simulate-mode helpers  (#152 — R31)
+# ---------------------------------------------------------------------------
+
+# Regexes matching the patterns in count_tests.py
+_TEST_ID_RE = re.compile(r'test_id\s*=\s*["\']([^"\']+)["\']')
+_ARG_ID_RE = re.compile(
+    r'(?:self\._test_\w+|_test_\w+)\(\s*["\']'
+    r'([A-Z]+-[A-Z0-9]+[a-z]?)'
+    r'["\']'
+)
+_ERR_SUFFIX = "-ERR"
+
+# name= that immediately follows test_id= on the same line or nearby
+_TEST_ID_NAME_RE = re.compile(
+    r'test_id\s*=\s*["\']([^"\']+)["\']'
+    r'[^)]*?name\s*=\s*["\']([^"\']+)["\']'
+)
+
+# category= that follows test_id= in the same constructor call
+_TEST_ID_CATEGORY_RE = re.compile(
+    r'test_id\s*=\s*["\']([^"\']+)["\']'
+    r'[^)]*?(?:category|attack_pattern)\s*=\s*["\']([^"\']+)["\']'
+)
+
+
+def _extract_test_catalog(module_path: str) -> list[dict]:
+    """Extract test IDs, names, and categories from a harness source file.
+
+    Returns a list of dicts with keys: test_id, name, category.
+    Uses the same regex strategy as scripts/count_tests.py.
+    """
+    text = open(module_path).read()
+
+    # Collect unique test IDs (same logic as count_tests.py)
+    ids = set(_TEST_ID_RE.findall(text))
+    ids |= set(_ARG_ID_RE.findall(text))
+    ids = {i for i in ids if not i.endswith(_ERR_SUFFIX)}
+
+    # Build name/category lookups
+    id_to_name: dict[str, str] = {}
+    for tid, name in _TEST_ID_NAME_RE.findall(text):
+        if tid in ids:
+            id_to_name[tid] = name
+
+    id_to_cat: dict[str, str] = {}
+    for tid, cat in _TEST_ID_CATEGORY_RE.findall(text):
+        if tid in ids:
+            id_to_cat[tid] = cat
+
+    catalog: list[dict] = []
+    for tid in sorted(ids):
+        catalog.append({
+            "test_id": tid,
+            "name": id_to_name.get(tid, tid),
+            "category": id_to_cat.get(tid, "general"),
+        })
+    return catalog
+
+
+def _simulate_harness(harness_name: str, info: dict,
+                      json_output: bool, html_output: str | None) -> None:
+    """Generate synthetic results for a harness without a live target.
+
+    All tests are marked passed + simulated so downstream consumers
+    (html_report.py, top10_failures.py) receive valid data.
+    """
+    mod = importlib.import_module(info["module"])
+    catalog = _extract_test_catalog(mod.__file__)
+
+    if not catalog:
+        print(f"Warning: no test IDs found in {info['module']}", file=sys.stderr)
+        sys.exit(1)
+
+    timestamp = datetime.now(timezone.utc).isoformat()
+    results = []
+    for entry in catalog:
+        results.append({
+            "test_id": entry["test_id"],
+            "name": entry["name"],
+            "category": entry["category"],
+            "passed": True,
+            "details": "Simulated — no live target",
+            "simulated": True,
+        })
+
+    report = {
+        "suite": info["description"],
+        "harness": harness_name,
+        "timestamp": timestamp,
+        "mode": "simulation",
+        "summary": {
+            "total": len(results),
+            "passed": len(results),
+            "failed": 0,
+            "simulated": True,
+        },
+        "results": results,
+    }
+
+    if json_output:
+        print(_json.dumps(report, indent=2))
+    else:
+        print(f"{'=' * 60}")
+        print(f"SIMULATION: {harness_name.upper()} — {info['description']}")
+        print(f"{'=' * 60}")
+        print(f"Mode: SIMULATION (no live target)")
+        print(f"Tests: {len(results)}")
+        print()
+        for r in results:
+            print(f"  [SIM] {r['test_id']:12s} {r['name']}")
+        print()
+        print(f"Result: {len(results)}/{len(results)} passed (simulated)")
+
+    # --html support
+    if html_output:
+        try:
+            _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            if _repo_root not in sys.path:
+                sys.path.insert(0, _repo_root)
+            from scripts.html_report import generate_html as _gen_html
+            _html_out = _gen_html(report)
+            with open(html_output, "w") as _hf:
+                _hf.write(_html_out)
+            print(f"HTML report written to {html_output}", file=sys.stderr)
+        except Exception as e:
+            print(f"Warning: HTML report generation failed: {e}", file=sys.stderr)
+
+    # Telemetry
+    try:
+        from protocol_tests.telemetry import send_telemetry_event
+        send_telemetry_event(module=harness_name, tests=len(results),
+                             passed=len(results), failed=0)
+    except Exception:
+        pass
 
 HARNESSES = {
     "mcp": {
@@ -160,6 +299,7 @@ def print_usage():
     print("  agent-security test mcp --url http://localhost:8080 --trials 5")
     print("  agent-security test mcp --url http://localhost:8080 --delay 1000")
     print("  agent-security test mcp --url http://localhost:8080 --json")
+    print("  agent-security test mcp --simulate --json")
     print("  agent-security test mcp --url http://localhost:8080 --html report.html")
     print()
     print("Attestation & Configuration:")
@@ -309,11 +449,12 @@ def main():
             sys.exit(1)
 
         info = HARNESSES[harness_name]
-        # Extract --delay/--delay-ms, --no-telemetry, and --json before passing to harness
+        # Extract --delay/--delay-ms, --no-telemetry, --json, --simulate before passing to harness
         harness_args = args[2:]
         delay_ms = 0
         no_telemetry = False
         json_output = False
+        simulate = False
         html_output = None  # Path for --html report
         filtered_args = []
         i = 0
@@ -329,6 +470,9 @@ def main():
                 i += 1
             elif harness_args[i] == "--json":
                 json_output = True
+                i += 1
+            elif harness_args[i] == "--simulate":
+                simulate = True
                 i += 1
             elif harness_args[i] == "--html" and i + 1 < len(harness_args):
                 html_output = harness_args[i + 1]
@@ -352,6 +496,17 @@ def main():
             os.environ["AGENT_SECURITY_DELAY_MS"] = str(delay_ms)
             if not json_output:
                 print(f"[Delay: {delay_ms}ms between tests]")
+
+        # --simulate: generate synthetic output without a live server (#152)
+        # For aiuc1, pass --simulate through (it handles simulation natively).
+        # For all other harnesses, intercept here and produce synthetic JSON.
+        if simulate and harness_name != "aiuc1":
+            _simulate_harness(harness_name, info, json_output, html_output)
+            sys.exit(0)
+
+        # For aiuc1 with --simulate, pass the flag through to the module
+        if simulate and harness_name == "aiuc1":
+            filtered_args.append("--simulate")
 
         sys.argv = [info["module"]] + filtered_args
 
