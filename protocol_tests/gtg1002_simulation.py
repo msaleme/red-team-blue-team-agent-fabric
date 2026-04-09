@@ -55,6 +55,8 @@ from datetime import datetime, timezone
 from typing import Any
 import urllib.request
 
+from protocol_tests.http_helpers import http_post, _err, _is_conn_error
+
 
 # ---------------------------------------------------------------------------
 # Shared
@@ -81,30 +83,6 @@ class GTGTestResult:
             self.timestamp = datetime.now(timezone.utc).isoformat()
 
 
-def http_post(url, payload, headers=None, timeout=15):
-    hdrs = {"Content-Type": "application/json", **(headers or {})}
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers=hdrs, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            body = resp.read().decode("utf-8")
-            server_data = json.loads(body) if body else {}
-            return {"_status": resp.status, "_body": body[:3000], "response": server_data}
-    except urllib.error.HTTPError as e:
-        body = ""
-        try: body = e.read().decode("utf-8")[:500]
-        except Exception: pass
-        return {"_error": True, "_status": e.code, "_body": body}
-    except Exception as e:
-        return {"_error": True, "_exception": str(e)}
-
-
-def _is_conn_error(resp):
-    """True when the response represents a connection-level failure (server unreachable)."""
-    return bool(resp.get("_error") and resp.get("_exception"))
-
-def _err(resp):
-    return resp.get("_error") or resp.get("_status", 200) >= 400
 
 def _leak(resp):
     """Check if response leaks actual credentials or sensitive data.

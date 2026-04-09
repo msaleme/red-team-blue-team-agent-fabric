@@ -28,6 +28,8 @@ from datetime import datetime, timezone
 from enum import Enum
 import urllib.request
 
+from protocol_tests.http_helpers import http_post_json
+
 
 # ---------------------------------------------------------------------------
 # Wilson score CI (inlined for zero-dep)
@@ -60,39 +62,6 @@ def jsonrpc_request(method: str, params: dict | None = None,
     msg["id"] = id or str(uuid.uuid4())[:8]
     return msg
 
-
-def http_post_json(url: str, body: dict, headers: dict | None = None,
-                   timeout: int = 15) -> dict:
-    data = json.dumps(body).encode("utf-8")
-    hdrs = {
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/event-stream",
-        **(headers or {}),
-    }
-    req = urllib.request.Request(url, data=data, headers=hdrs, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            ct = resp.headers.get("Content-Type", "")
-            raw = resp.read().decode("utf-8")
-            if "application/json" in ct:
-                server_data = json.loads(raw) if raw else {}
-                return {"_status": resp.status, "response": server_data}
-            if "text/event-stream" in ct:
-                for line in reversed(raw.strip().split("\n")):
-                    if line.startswith("data: "):
-                        server_data = json.loads(line[6:])
-                        return {"_status": resp.status, "response": server_data}
-                return {"_raw_sse": raw[:500], "_status": resp.status, "response": {}}
-            return {"_raw": raw[:500], "_status": resp.status, "response": {}}
-    except urllib.error.HTTPError as e:
-        body_text = ""
-        try:
-            body_text = e.read().decode("utf-8")[:500]
-        except Exception:
-            pass
-        return {"_error": True, "_status": e.code, "_body": body_text}
-    except Exception as e:
-        return {"_error": True, "_exception": str(e)}
 
 
 # ---------------------------------------------------------------------------
