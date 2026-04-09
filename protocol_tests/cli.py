@@ -126,7 +126,7 @@ HARNESSES = {
     },
     "crewai-cve": {
         "module": "protocol_tests.crewai_cve_harness",
-        "description": "CrewAI CVE reproduction suite (11 tests, CVE-2026-2275/2285/2286/2287 sandbox escape + SSRF + file read)",
+        "description": "CrewAI CVE reproduction suite (10 tests, CVE-2026-2275/2285/2286/2287 sandbox escape + SSRF + file read)",
     },
     "community": {
         "module": "protocol_tests.community_runner",
@@ -141,7 +141,7 @@ HARNESSES = {
 
 def print_usage():
     print(f"Agent Security Harness v{VERSION}")
-    print(f"431 security tests for AI agent systems")
+    print(f"430 security tests for AI agent systems")
     print()
     print("Usage:")
     print("  agent-security test <harness> [options]    Run a test harness")
@@ -180,7 +180,7 @@ def main():
 
     if args[0] == "version":
         print(f"agent-security-harness v{VERSION}")
-        print(f"Tests: 431 across {len(HARNESSES)} harness modules")
+        print(f"Tests: 430 across {len(HARNESSES)} harness modules")
         print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402, x402")
         print(f"Platforms: 25 cloud + 20 enterprise adapters")
         print(f"Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF, AIUC-1")

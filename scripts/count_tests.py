@@ -30,8 +30,10 @@ ARG_ID_RE = re.compile(
     r'["\']'
 )
 
-# Synthetic / error-only IDs that should not count as real tests
-EXCLUDE_IDS = {"CVE-ERR"}
+# Synthetic / error-only IDs that should not count as real tests.
+# Any ID ending in "-ERR" is a synthetic error sentinel (CVE-ERR, CREW-ERR, etc.).
+EXCLUDE_IDS = {"CVE-ERR", "CREW-ERR"}
+_ERR_SUFFIX = "-ERR"
 
 # Map filenames to README module names
 MODULE_NAMES = {
@@ -73,6 +75,7 @@ def main():
         ids = set(TEST_ID_RE.findall(text))
         ids |= set(ARG_ID_RE.findall(text))
         ids -= EXCLUDE_IDS  # drop synthetic error IDs
+        ids = {i for i in ids if not i.endswith(_ERR_SUFFIX)}  # catch any *-ERR
         if not ids:
             continue
 

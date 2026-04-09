@@ -416,7 +416,7 @@ def generate_html(report_data: dict[str, Any]) -> str:
             severity = _esc(r.get("severity", ""))
             is_pass = r.get("passed", False)
             status_badge = _status_badge("PASS" if is_pass else "FAIL")
-            detail = _esc(r.get("detail", r.get("error", r.get("reason", ""))))
+            detail = _esc(r.get("details", r.get("detail", r.get("error", r.get("reason", "")))))
             parts.append(
                 f"<tr><td><code>{tid}</code></td><td>{name}</td>"
                 f"<td>{severity}</td><td>{status_badge}</td>"
