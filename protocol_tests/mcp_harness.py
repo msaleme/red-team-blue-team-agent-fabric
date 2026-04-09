@@ -711,8 +711,8 @@ class MCPSecurityTests:
                     # Non-JSON response is acceptable for garbage input
                     handled_count += 1
             else:
-                # No response / connection closed is acceptable
-                handled_count += 1
+                # No response — inconclusive, don't count as handled
+                pass
 
         elapsed = time.monotonic() - t0
         passed = handled_count == len(malformed_messages)

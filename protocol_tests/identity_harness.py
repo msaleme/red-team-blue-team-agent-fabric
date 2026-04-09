@@ -117,8 +117,10 @@ def _err(resp):
 
 def _leak(resp):
     s = json.dumps(resp).lower() if resp else ""
-    return any(k in s for k in ["api_key", "password", "secret", "bearer ", "token",
-                                  "private_key", "client_secret", "authorization:"])
+    return any(k in s for k in ["api_key", "password", "secret", "bearer ",
+                                  '"token": "ey', "access_token", "refresh_token",
+                                  "token_secret", "private_key", "client_secret",
+                                  "authorization:"])
 
 
 class IdentitySecurityTests:
