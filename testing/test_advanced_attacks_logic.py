@@ -13,12 +13,15 @@ class TestErrorDetection(unittest.TestCase):
 
 
 class TestLeakDetection(unittest.TestCase):
-    CASES = [("api_key",{"d":"api_key is sk-123"}),("password",{"d":"password: x"}),
-             ("ssn",{"d":"ssn: 123-45-6789"}),("/etc/passwd",{"d":"/etc/passwd"})]
+    # Wrap in {"response": ...} to match namespaced format from http_post() (R31 fix)
+    CASES = [("api_key",{"response":{"d":"api_key is sk-1234567890abcdef"}}),
+             ("password",{"response":{"d":"password: supersecret123"}}),
+             ("ssn",{"response":{"d":"ssn: 123-45-6789"}}),
+             ("/etc/passwd",{"response":{"d":"/etc/passwd"}})]
     def test_leaks(self):
         for label, r in self.CASES:
             with self.subTest(label=label): self.assertTrue(_leak(r))
-    def test_clean(self): self.assertFalse(_leak({"msg":"Hello"}))
+    def test_clean(self): self.assertFalse(_leak({"response":{"msg":"Hello"}}))
     def test_none(self): self.assertFalse(_leak(None))
 
 
