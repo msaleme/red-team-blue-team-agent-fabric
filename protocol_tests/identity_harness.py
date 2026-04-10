@@ -78,9 +78,10 @@ class IdentityTestResult:
 class IdentitySecurityTests:
     """Agent Identity & Authorization tests per NIST NCCoE concept paper."""
 
-    def __init__(self, base_url: str, headers: dict | None = None):
+    def __init__(self, base_url: str, headers: dict | None = None, simulate: bool = False):
         self.base_url = base_url.rstrip("/")
         self.headers = headers or {}
+        self.simulate = simulate
         self.results: list[IdentityTestResult] = []
 
     def _record(self, r: IdentityTestResult):
@@ -877,6 +878,7 @@ def main():
     ap.add_argument("--header", action="append", default=[])
     ap.add_argument("--trials", type=int, default=1,
                     help="Run each test N times for statistical analysis (NIST AI 800-2)")
+    ap.add_argument("--simulate", action="store_true", help="Run in simulate mode")
     args = ap.parse_args()
 
     headers = {}
@@ -891,7 +893,7 @@ def main():
             from protocol_tests.trial_runner import run_with_trials as _run_trials
 
             def _single_run():
-                suite = IdentitySecurityTests(args.url, headers=headers)
+                suite = IdentitySecurityTests(args.url, headers=headers, simulate=getattr(args, "simulate", False))
                 return {"results": suite.run_all(categories=categories)}
 
             merged = _run_trials(_single_run, trials=args.trials,
@@ -902,7 +904,7 @@ def main():
                 print(f"Report written to {args.report}")
             results = merged.get("results", [])
         else:
-            suite = IdentitySecurityTests(args.url, headers=headers)
+            suite = IdentitySecurityTests(args.url, headers=headers, simulate=getattr(args, "simulate", False))
             results = suite.run_all(categories=categories)
             if args.report:
                 generate_report(results, args.report)
