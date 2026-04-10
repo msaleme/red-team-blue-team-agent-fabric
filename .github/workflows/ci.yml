@@ -60,8 +60,24 @@ jobs:
           import protocol_tests.cloud_agent_harness
           import protocol_tests.statistical
           import protocol_tests.cli
-          print('All 21 modules import successfully')
+          import protocol_tests.kill_switch_harness
+          import protocol_tests.watermark_harness
+          import protocol_tests.memory_harness
+          import protocol_tests.multi_agent_harness
+          import protocol_tests.autogen_harness
+          import protocol_tests.intent_contract_harness
+          import protocol_tests.crewai_cve_harness
+          import scripts.auroc
+          import scripts.compliance_crosswalk
+          import scripts.fria_evidence
+          import scripts.compliance_report
+          print('All 32 modules import successfully')
           "
+
+      - name: Run pytest
+        run: |
+          pip install pytest pyyaml
+          python -m pytest tests/ -v --tb=short
 
       - name: Verify all harness --list commands
         run: |
@@ -109,6 +125,12 @@ jobs:
           python -m py_compile protocol_tests/gtg1002_simulation.py
           python -m py_compile protocol_tests/advanced_attacks.py
           python -m py_compile protocol_tests/statistical.py
+          python -m py_compile protocol_tests/kill_switch_harness.py
+          python -m py_compile protocol_tests/watermark_harness.py
+          python -m py_compile scripts/auroc.py
+          python -m py_compile scripts/compliance_crosswalk.py
+          python -m py_compile scripts/fria_evidence.py
+          python -m py_compile scripts/compliance_report.py
           echo "All modules pass syntax check"
 
       - name: Check for unique test IDs
@@ -125,7 +147,7 @@ jobs:
               for match in re.finditer(r'def (test_\w+)\(self\)(.*?)(?=\n    def |\Z)', content, re.DOTALL):
                   method_name = match.group(1)
                   method_body = match.group(2)
-                  ids_in_method = set(re.findall(r'test_id=[\"\\']([A-Z][A-Z0-9]*-\d{3})[\"\\']', method_body))
+                  ids_in_method = set(re.findall(r'test_id=[\"\\']([A-Z][A-Z0-9]*-[A-Z0-9]{3,}[a-z]?)[\"\\']', method_body))
                   for tid in ids_in_method:
                       if tid not in method_ids:
                           method_ids[tid] = set()
