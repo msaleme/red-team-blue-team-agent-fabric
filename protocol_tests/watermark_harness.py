@@ -403,7 +403,7 @@ class WatermarkTests:
             except Exception as e:
                 print(f"  ERROR ⚠️  {test_fn.__name__}: {e}")
                 self.results.append(WatermarkTestResult(
-                    test_id="ERROR", name=f"ERROR: {test_fn.__name__}",
+                    test_id="WM-ERR", name=f"ERROR: {test_fn.__name__}",
                     category="error", owasp_asi="ASI09", stride="Repudiation",
                     severity=Severity.HIGH.value, passed=False, details=str(e),
                 ))
