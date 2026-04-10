@@ -525,6 +525,48 @@ def generate_html(report_data: dict[str, Any]) -> str:
         elif not (stability_score or drift_risk_score):
             parts.append('<p style="color:#888">No behavioral profile data available for this report.</p>')
 
+    # --- AUROC Per-Module (issue #155) ---
+    auroc_data = report_data.get("auroc")
+    if not auroc_data:
+        # Compute on the fly if not pre-embedded
+        try:
+            from scripts.auroc import compute_all_auroc, auroc_color, auroc_label
+            auroc_data = compute_all_auroc(report_data)
+        except Exception:
+            auroc_data = None
+
+    if auroc_data and auroc_data.get("modules"):
+        parts.append("<h2>AUROC — Detection Effectiveness</h2>")
+        overall = auroc_data.get("overall", 0.5)
+        try:
+            from scripts.auroc import auroc_color as _ac, auroc_label as _al
+            oc = _ac(overall)
+            ol = _al(overall)
+        except Exception:
+            oc = "blue"
+            ol = ""
+        parts.append(f'<p>Overall AUROC: <strong class="{oc}">{overall:.4f}</strong> ({ol})'
+                     f' | Attack tests: {auroc_data.get("attack_tests_total", "?")} |'
+                     f' FPR tests: {auroc_data.get("fpr_tests_total", "?")}</p>')
+        parts.append("<table>")
+        parts.append("<tr><th>Module</th><th>AUROC</th><th>Rating</th></tr>")
+        for mod_name, score in sorted(auroc_data["modules"].items()):
+            try:
+                color = _ac(score)
+                label = _al(score)
+            except Exception:
+                color, label = "blue", ""
+            parts.append(
+                f'<tr><td>{_esc(mod_name)}</td>'
+                f'<td><strong style="color:{"#16a34a" if color == "green" else "#d97706" if color == "amber" else "#dc2626"}">'
+                f'{score:.4f}</strong></td>'
+                f'<td>{_esc(label)}</td></tr>'
+            )
+        parts.append("</table>")
+        meth = auroc_data.get("methodology", "")
+        if meth:
+            parts.append(f'<p style="color:#888;font-size:12px;margin-top:8px">{_esc(meth)}</p>')
+
     # --- Statistical Summary (if multi-trial) ---
     stat_summary = report_data.get("statistical_summary")
     if stat_summary:
