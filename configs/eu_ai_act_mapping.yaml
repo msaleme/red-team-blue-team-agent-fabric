@@ -1,0 +1,133 @@
+# EU AI Act Compliance Crosswalk
+# Maps harness test IDs to EU AI Act articles for high-risk AI systems
+# Regulation (EU) 2024/1689 — effective August 2, 2026
+#
+# Status: COVERED = tests exist, GAP = not yet implemented
+# Tracks GitHub issue #156
+
+version: "1.0.0"
+framework: "EU AI Act"
+framework_id: "eu-ai-act"
+regulation: "Regulation (EU) 2024/1689"
+effective_date: "2026-08-02"
+
+articles:
+  article_9:
+    title: "Risk Management System"
+    description: "Establish, implement, document and maintain a risk management system"
+    controls:
+      - id: "Art9.1"
+        description: "Risk identification and analysis"
+        test_ids: ["IR-001", "IR-002", "IR-006", "IR-008"]
+        status: COVERED
+      - id: "Art9.2a"
+        description: "Identification of known and reasonably foreseeable risks"
+        test_ids: ["MCP-001", "MCP-002", "MCP-003", "STATE-001", "STATE-002"]
+        status: COVERED
+      - id: "Art9.4"
+        description: "Testing for risk management"
+        test_ids: ["AUTH-001", "AUTH-002", "AUTH-003", "MCP-006"]
+        status: COVERED
+
+  article_10:
+    title: "Data and Data Governance"
+    description: "Training, validation and testing data sets"
+    controls:
+      - id: "Art10.2"
+        description: "Data quality and representativeness"
+        test_ids: ["MEM-002", "MEM-005", "CVE-001"]
+        status: COVERED
+      - id: "Art10.5"
+        description: "Bias examination and mitigation"
+        test_ids: []
+        status: GAP
+        gap_notes: "No dedicated bias testing harness yet"
+
+  article_13:
+    title: "Transparency and Provision of Information"
+    description: "Designed to ensure sufficient transparency for deployers"
+    controls:
+      - id: "Art13.1"
+        description: "Transparent operation and interpretable output"
+        test_ids: ["CP-001", "CP-009", "AUDIT-002"]
+        status: COVERED
+
+  article_14:
+    title: "Human Oversight"
+    description: "Designed to be effectively overseen by natural persons"
+    controls:
+      - id: "Art14.1"
+        description: "Human oversight design requirement"
+        test_ids: ["AUDIT-001", "AUDIT-002", "CP-009", "AIUC-E001"]
+        status: COVERED
+      - id: "Art14.4"
+        description: "Ability to stop the AI system"
+        test_ids: ["IR-009", "IR-010", "IR-011", "IR-012"]
+        status: COVERED
+        notes: "Kill-switch compliance tests (issue #157)"
+
+  article_15:
+    title: "Accuracy, Robustness and Cybersecurity"
+    description: "Resilient against attempts by unauthorised third parties"
+    controls:
+      - id: "Art15.1"
+        description: "Appropriate level of accuracy"
+        test_ids: ["AIUC-E001", "AIUC-E003"]
+        status: COVERED
+      - id: "Art15.4"
+        description: "Cybersecurity resilience"
+        test_ids: ["AUTH-001", "AUTH-002", "AUTH-003", "MCP-003", "MCP-006",
+                   "STATE-001", "STATE-002", "CVE-001", "CVE-005"]
+        status: COVERED
+      - id: "Art15.5"
+        description: "Resilient against adversarial attacks"
+        test_ids: ["MEM-002", "MEM-005", "MEM-010", "MCP-006", "AZR-002"]
+        status: COVERED
+
+  article_17:
+    title: "Quality Management System"
+    description: "Put in place a quality management system"
+    controls:
+      - id: "Art17.1c"
+        description: "Design and development procedures"
+        test_ids: ["PRV-010", "PRV-011", "PRV-012", "CVE-005", "CVE-008"]
+        status: COVERED
+      - id: "Art17.1i"
+        description: "Post-market monitoring system"
+        test_ids: ["AUDIT-001", "IR-006", "AIUC-E001"]
+        status: COVERED
+
+  article_27:
+    title: "Fundamental Rights Impact Assessment"
+    description: "Deployers shall perform a FRIA"
+    controls:
+      - id: "Art27.1"
+        description: "FRIA before deployment"
+        test_ids: []
+        status: GAP
+        gap_notes: "FRIA evidence collection module pending (issue #158)"
+
+  article_50:
+    title: "Transparency Obligations — AI-Generated Content"
+    description: "AI-generated content must be marked in machine-readable format"
+    controls:
+      - id: "Art50.2"
+        description: "Machine-detectable watermarking"
+        test_ids: ["WM-001", "WM-002", "WM-003", "WM-004", "WM-005"]
+        status: COVERED
+        notes: "Watermark adversarial tests (issue #159)"
+
+  article_72:
+    title: "Post-Market Monitoring"
+    description: "Providers shall establish and document a post-market monitoring system"
+    controls:
+      - id: "Art72.1"
+        description: "Post-market monitoring system"
+        test_ids: ["AUDIT-001", "AUDIT-002", "IR-006", "CP-009"]
+        status: COVERED
+
+coverage_summary:
+  total_controls: 16
+  covered: 14
+  gaps: 2
+  gap_list: ["Art10.5 (bias testing)", "Art27.1 (FRIA evidence)"]

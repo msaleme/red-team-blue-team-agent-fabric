@@ -1,0 +1,106 @@
+# ISO/IEC 42001:2023 Compliance Crosswalk
+# AI Management System — maps harness test IDs to ISO 42001 clauses
+# Tracks GitHub issue #156
+
+version: "1.0.0"
+framework: "ISO/IEC 42001:2023"
+framework_id: "iso-42001"
+standard: "ISO/IEC 42001:2023 — AI Management System"
+
+clauses:
+  clause_5:
+    title: "Leadership"
+    controls:
+      - id: "5.2"
+        description: "AI Policy"
+        test_ids: ["CP-001", "CP-009"]
+        status: COVERED
+        notes: "Capability profile validates declared AI policy alignment"
+
+  clause_6:
+    title: "Planning"
+    controls:
+      - id: "6.1.2"
+        description: "AI risk assessment"
+        test_ids: ["IR-001", "IR-002", "IR-006", "IR-008"]
+        status: COVERED
+      - id: "6.2"
+        description: "AI objectives and planning to achieve them"
+        test_ids: ["AIUC-E001", "AIUC-E003"]
+        status: COVERED
+
+  clause_7:
+    title: "Support"
+    controls:
+      - id: "7.4"
+        description: "Communication"
+        test_ids: ["AUDIT-002", "IR-007"]
+        status: COVERED
+        notes: "Non-repudiation and notification timeline"
+
+  clause_8:
+    title: "Operation"
+    controls:
+      - id: "8.2"
+        description: "AI risk assessment (operational)"
+        test_ids: ["MCP-001", "MCP-002", "MCP-003", "AUTH-001", "AUTH-002"]
+        status: COVERED
+      - id: "8.4"
+        description: "AI system impact assessment"
+        test_ids: ["AIUC-E001", "AIUC-E003", "IR-006"]
+        status: COVERED
+
+  clause_9:
+    title: "Performance Evaluation"
+    controls:
+      - id: "9.1"
+        description: "Monitoring, measurement, analysis and evaluation"
+        test_ids: ["AUDIT-001", "AUDIT-002", "IR-006", "CP-009"]
+        status: COVERED
+      - id: "9.2"
+        description: "Internal audit"
+        test_ids: ["AUDIT-001", "IR-006", "AIUC-E003"]
+        status: COVERED
+
+  clause_10:
+    title: "Improvement"
+    controls:
+      - id: "10.1"
+        description: "Nonconformity and corrective action"
+        test_ids: ["IR-001", "IR-005", "IR-008"]
+        status: COVERED
+
+  annex_a:
+    title: "Annex A — Reference Controls"
+    controls:
+      - id: "A.2.2"
+        description: "AI system lifecycle processes"
+        test_ids: ["CVE-001", "CVE-005", "CVE-008", "PRV-010", "PRV-011"]
+        status: COVERED
+      - id: "A.3.2"
+        description: "Data quality for AI systems"
+        test_ids: ["MEM-002", "MEM-005"]
+        status: COVERED
+      - id: "A.4.3"
+        description: "Information security for AI"
+        test_ids: ["AUTH-001", "AUTH-002", "AUTH-003", "MCP-003", "MCP-006"]
+        status: COVERED
+      - id: "A.5.4"
+        description: "Transparency of AI system capabilities"
+        test_ids: ["CP-001", "CP-009"]
+        status: COVERED
+      - id: "A.6.2"
+        description: "AI system logging and monitoring"
+        test_ids: ["AUDIT-001", "AUDIT-002", "IR-006"]
+        status: COVERED
+      - id: "A.8.2"
+        description: "Bias and fairness assessment"
+        test_ids: []
+        status: GAP
+        gap_notes: "No dedicated bias testing harness"
+
+coverage_summary:
+  total_controls: 15
+  covered: 14
+  gaps: 1
+  gap_list: ["A.8.2 (bias and fairness)"]
