@@ -118,17 +118,19 @@ def generate_compliance_html(
     parts.append("</div>")
 
     # AUROC section
+    section_num = 2
     try:
         from scripts.auroc import compute_all_auroc, auroc_label
         auroc = compute_all_auroc(report_data)
         if auroc.get("modules"):
-            parts.append("<h2>2. Detection Effectiveness (AUROC)</h2>")
+            parts.append(f"<h2>{section_num}. Detection Effectiveness (AUROC)</h2>")
             parts.append("<table><tr><th>Module</th><th>AUROC</th><th>Rating</th></tr>")
             for mod, score in sorted(auroc["modules"].items()):
                 parts.append(f"<tr><td>{_esc(mod)}</td><td><strong>{score:.4f}</strong></td>"
                              f"<td>{_esc(auroc_label(score))}</td></tr>")
             parts.append("</table>")
             parts.append(f'<p style="color:#888;font-size:11px">{_esc(auroc.get("methodology", ""))}</p>')
+            section_num += 1
     except Exception:
         pass
 
@@ -138,8 +140,6 @@ def generate_compliance_html(
             from scripts.compliance_crosswalk import load_crosswalk, apply_crosswalk
         except ImportError:
             frameworks = []
-
-    section_num = 3
     for fw in (frameworks or []):
         try:
             crosswalk = load_crosswalk(fw)
@@ -255,7 +255,7 @@ Examples:
     frameworks = []
     for fw in args.framework:
         if fw == "all":
-            frameworks = ["eu-ai-act", "iso-42001"]
+            frameworks = ["eu-ai-act", "iso-42001", "aiuc-1"]
             break
         frameworks.append(fw)
 

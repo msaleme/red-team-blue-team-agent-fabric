@@ -64,7 +64,7 @@ articles:
         description: "Ability to stop the AI system"
         test_ids: ["IR-009", "IR-010", "IR-011", "IR-012"]
         status: COVERED
-        notes: "Kill-switch compliance tests (issue #157)"
+        notes: "Kill-switch compliance tests in kill_switch_harness.py"
 
   article_15:
     title: "Accuracy, Robustness and Cybersecurity"
@@ -115,7 +115,7 @@ articles:
         description: "Machine-detectable watermarking"
         test_ids: ["WM-001", "WM-002", "WM-003", "WM-004", "WM-005"]
         status: COVERED
-        notes: "Watermark adversarial tests (issue #159)"
+        notes: "Watermark adversarial tests in watermark_harness.py"
 
   article_72:
     title: "Post-Market Monitoring"

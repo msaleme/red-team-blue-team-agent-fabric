@@ -103,7 +103,13 @@ def compute_all_auroc(harness_json: dict[str, Any]) -> dict[str, Any]:
     """
     results = harness_json.get("results", [])
     if not results:
-        return {"modules": {}, "methodology": _METHODOLOGY}
+        return {
+            "overall": 0.5,
+            "modules": {},
+            "methodology": _METHODOLOGY,
+            "attack_tests_total": 0,
+            "fpr_tests_total": 0,
+        }
 
     # Group by module
     modules: dict[str, list[dict]] = {}
