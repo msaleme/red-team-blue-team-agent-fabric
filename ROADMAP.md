@@ -24,7 +24,7 @@ Our harness is positioned around that fourth layer while pressure-testing the ot
 | Wire-protocol adversarial testing | Temporary | 6-12 months before major vendors add this |
 | Multi-protocol coverage | Temporary | 6-12 months |
 | AIUC-1 mapping | Temporary | One release cycle after competitors notice |
-| Test corpus depth (342 tests) | Temporary | Must maintain velocity lead |
+| Test corpus depth (440 tests) | Temporary | Must maintain velocity lead |
 
 The strategy sequences investment toward **sustained advantages** while defending temporary ones through speed.
 
@@ -52,6 +52,7 @@ Identity and authorization controls answer *who* an agent is and *what* it can a
 |---------|-------|------------------|--------|
 | **v3.9 - Adopt in 15 Minutes** | CI integration and developer experience | `--json` output, error messages, scope docs, GitHub Action | **Shipped** (v3.9.0) |
 | **v3.10 - Prove It to Auditors** | Evidence format adoption + payment depth + drift scoring | Evidence packs, payment tests doubled, behavioral profiling, HTML dashboards, 2 independent security audits | **Shipped** (v3.10.0) |
+| **v4.1 - Compliance Evidence** | EU AI Act + ISO 42001 mapping, AUROC, FRIA, kill-switch, watermark tests | 440 tests, 31 modules, compliance report generator, 31 framework controls mapped | **Shipped** (v4.1.0) |
 | **v4.0 - Lock the Category** | Standard-setting: benchmark + schema standardization + registry | Named benchmark corpus, attestation schema to IETF/OASIS, longitudinal registry | H2 2026 |
 
 ## v3.9 - Adopt in 15 Minutes ✅ SHIPPED
@@ -100,6 +101,31 @@ Without this, buyers cannot see the difference between your output and a static 
 
 - [#112](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/112) - HTML reporting dashboard
 - [#113](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/113) - Top 10 failure summary
+
+## v4.1 - Compliance Evidence ✅ SHIPPED
+
+Released as v4.1.0. Transforms the harness from a security testing tool into a compliance evidence platform.
+
+**Goal:** A compliance team can generate auditor-ready reports mapped to EU AI Act and ISO 42001 without leaving the CLI.
+
+### What shipped
+
+| Feature | Issue | Tests/Controls |
+|---------|-------|----------------|
+| AUROC per-module metrics | #155 | Detection effectiveness scoring |
+| EU AI Act crosswalk | #156 | 16 controls across Articles 9-72 |
+| ISO 42001 crosswalk | #156 | 15 controls across Clauses 5-10 + Annex A |
+| Kill-switch compliance (IR-009 to IR-012) | #157 | 4 tests, CA SB 942 + EU AI Act Art 14 |
+| FRIA evidence collection | #158 | 6 categories, EU AI Act Article 27 |
+| Watermark adversarial tests (WM-001 to WM-005) | #159 | 5 tests, EU AI Act Article 50 |
+| HTML compliance report generator | #160 | `--framework all --fria` one-command report |
+| Simulate mode expansion | F7 (R33) | MCP, A2A, Identity (39 new simulate tests) |
+
+**Total: 440 tests, 31 modules, 31 framework controls mapped.**
+
+### Independent review
+
+Audit R33 (`docs/AUDIT-R33-INDEPENDENT-REVIEW.md`): 7 findings, all resolved. 19/19 pytest passing. Zero import/compile errors across 31 modules.
 
 ## v4.0 - Lock the Category
 

@@ -62,7 +62,7 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 | **Research backing** | - | Cisco blog | - | Papers | **5 DOIs + 3 NIST submissions** |
 | **MCP server mode** | - | - | - | - | **Yes - invoke from any AI agent** |
 | **Statistical testing** | - | - | - | - | **Wilson CIs, multi-trial** |
-| **Total tests** | Pattern matching | YARA rules | Config checks | Model probes | **439 active tests** |
+| **Total tests** | Pattern matching | YARA rules | Config checks | Model probes | **440 active tests** |
 
 **Use both.** Scan with [Invariant MCP-Scan](https://github.com/invariantlabs-ai/mcp-scan) or [Cisco MCP Scanner](https://github.com/cisco-ai-defense/mcp-scanner) for static analysis. Test with this framework for active exploitation. They're complementary layers.
 
