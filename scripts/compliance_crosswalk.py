@@ -65,8 +65,10 @@ def _extract_controls(crosswalk: dict) -> list[dict]:
         for _sec_id, sec_data in sections.items():
             sec_title = sec_data.get("title", _sec_id)
             for ctrl in sec_data.get("controls", []):
-                ctrl["_section"] = sec_title
-                controls.append(ctrl)
+                # Copy to avoid mutating the original crosswalk dict
+                ctrl_copy = dict(ctrl)
+                ctrl_copy["_section"] = sec_title
+                controls.append(ctrl_copy)
 
     # AIUC-1 format: categories → requirements dict
     categories = crosswalk.get("categories", {})
