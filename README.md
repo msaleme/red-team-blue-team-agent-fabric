@@ -25,7 +25,15 @@ Results: 8/10 passed (80% pass rate) - see report.json
 ```bash
 pip install agent-security-harness
 
-# Test an MCP server
+# If 'agent-security' is not found, add ~/.local/bin to your PATH:
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+```bash
+# See it work immediately — no server needed:
+agent-security test mcp --simulate
+
+# Then test your real MCP server:
 agent-security test mcp --url http://localhost:8080/mcp
 
 # Test an x402 payment endpoint
