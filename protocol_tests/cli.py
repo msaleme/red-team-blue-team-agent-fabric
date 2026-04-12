@@ -275,12 +275,20 @@ HARNESSES = {
         "module": "protocol_tests.intent_contract_harness",
         "description": "Intent contract validation tests (8 tests, intent declaration + scope + escalation)",
     },
+    "kill-switch": {
+        "module": "protocol_tests.kill_switch_harness",
+        "description": "Kill-switch compliance tests (4 tests, termination latency + bypass resistance)",
+    },
+    "watermark": {
+        "module": "protocol_tests.watermark_harness",
+        "description": "Watermark adversarial tests (5 tests, forgery + stripping + extraction resistance)",
+    },
 }
 
 
 def print_usage():
     print(f"Agent Security Harness v{VERSION}")
-    print(f"440 security tests for AI agent systems")
+    print(f"439 security tests for AI agent systems")
     print()
     print("Usage:")
     print("  agent-security test <harness> [options]    Run a test harness")
@@ -320,7 +328,7 @@ def main():
 
     if args[0] == "version":
         print(f"agent-security-harness v{VERSION}")
-        print(f"Tests: 440 across {len(HARNESSES)} harness modules")
+        print(f"Tests: 439 across {len(HARNESSES)} harness modules")
         print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402, x402")
         print(f"Platforms: 25 cloud + 20 enterprise adapters")
         print(f"Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF, AIUC-1")

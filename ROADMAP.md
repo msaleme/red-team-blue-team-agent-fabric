@@ -24,7 +24,7 @@ Our harness is positioned around that fourth layer while pressure-testing the ot
 | Wire-protocol adversarial testing | Temporary | 6-12 months before major vendors add this |
 | Multi-protocol coverage | Temporary | 6-12 months |
 | AIUC-1 mapping | Temporary | One release cycle after competitors notice |
-| Test corpus depth (440 tests) | Temporary | Must maintain velocity lead |
+| Test corpus depth (439 tests) | Temporary | Must maintain velocity lead |
 
 The strategy sequences investment toward **sustained advantages** while defending temporary ones through speed.
 
@@ -52,7 +52,7 @@ Identity and authorization controls answer *who* an agent is and *what* it can a
 |---------|-------|------------------|--------|
 | **v3.9 - Adopt in 15 Minutes** | CI integration and developer experience | `--json` output, error messages, scope docs, GitHub Action | **Shipped** (v3.9.0) |
 | **v3.10 - Prove It to Auditors** | Evidence format adoption + payment depth + drift scoring | Evidence packs, payment tests doubled, behavioral profiling, HTML dashboards, 2 independent security audits | **Shipped** (v3.10.0) |
-| **v4.1 - Compliance Evidence** | EU AI Act + ISO 42001 mapping, AUROC, FRIA, kill-switch, watermark tests | 440 tests, 31 modules, compliance report generator, 31 framework controls mapped | **Shipped** (v4.1.0) |
+| **v4.1 - Compliance Evidence** | EU AI Act + ISO 42001 mapping, AUROC, FRIA, kill-switch, watermark tests | 439 tests, 29 modules, compliance report generator, 31 framework controls mapped | **Shipped** (v4.1.0) |
 | **v4.0 - Lock the Category** | Standard-setting: benchmark + schema standardization + registry | Named benchmark corpus, attestation schema to IETF/OASIS, longitudinal registry | H2 2026 |
 
 ## v3.9 - Adopt in 15 Minutes ✅ SHIPPED
@@ -121,11 +121,11 @@ Released as v4.1.0. Transforms the harness from a security testing tool into a c
 | HTML compliance report generator | #160 | `--framework all --fria` one-command report |
 | Simulate mode expansion | F7 (R33) | MCP, A2A, Identity (39 new simulate tests) |
 
-**Total: 440 tests, 31 modules, 31 framework controls mapped.**
+**Total: 439 tests, 29 modules, 31 framework controls mapped.**
 
 ### Independent review
 
-Audit R33 (`docs/AUDIT-R33-INDEPENDENT-REVIEW.md`): 7 findings, all resolved. 19/19 pytest passing. Zero import/compile errors across 31 modules.
+Audit R33 (`docs/AUDIT-R33-INDEPENDENT-REVIEW.md`): 7 findings, all resolved. 19/19 pytest passing. Zero import/compile errors across 29 modules.
 
 ## v4.0 - Lock the Category
 

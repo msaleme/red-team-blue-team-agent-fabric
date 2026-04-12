@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agent-security-harness"
 version = "4.1.0"
-description = "440 security tests for AI agent systems - MCP, A2A, L402, x402 wire-protocol testing, decision governance, AIUC-1 compliance, NIST AI 800-2 aligned"
+description = "439 security tests for AI agent systems - MCP, A2A, L402, x402 wire-protocol testing, decision governance, AIUC-1 compliance, NIST AI 800-2 aligned"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10"

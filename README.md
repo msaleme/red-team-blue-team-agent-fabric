@@ -4,11 +4,11 @@
 [![PyPI version](https://badge.fury.io/py/agent-security-harness.svg)](https://pypi.org/project/agent-security-harness/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/security%20tests-440-green.svg)](#three-layers-of-agent-decision-security)
+[![Tests](https://img.shields.io/badge/security%20tests-439-green.svg)](#three-layers-of-agent-decision-security)
 
 **Even if an agent is properly authenticated and authorized, can it still be manipulated into unsafe or policy-violating behavior?**
 
-440 executable security tests across 31 modules. MCP + A2A + L402 + x402 wire-protocol testing. Decision-layer attack scenarios. One `pip install` away.
+439 executable security tests across 29 modules. MCP + A2A + L402 + x402 wire-protocol testing. Decision-layer attack scenarios. One `pip install` away.
 
 ```
 $ agent-security test mcp --url http://localhost:8080/mcp
@@ -70,7 +70,7 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 | **Research backing** | - | Cisco blog | - | Papers | **5 DOIs + 3 NIST submissions** |
 | **MCP server mode** | - | - | - | - | **Yes - invoke from any AI agent** |
 | **Statistical testing** | - | - | - | - | **Wilson CIs, multi-trial** |
-| **Total tests** | Pattern matching | YARA rules | Config checks | Model probes | **440 active tests** |
+| **Total tests** | Pattern matching | YARA rules | Config checks | Model probes | **439 active tests** |
 
 **Use both.** Scan with [Invariant MCP-Scan](https://github.com/invariantlabs-ai/mcp-scan) or [Cisco MCP Scanner](https://github.com/cisco-ai-defense/mcp-scanner) for static analysis. Test with this framework for active exploitation. They're complementary layers.
 
@@ -108,7 +108,7 @@ Five peer-reviewed preprints and three NIST submissions underpin the methodology
 
 ## Roadmap
 
-**v3.10 -- Prove It to Auditors** ✅ Shipped. **v4.1 -- Compliance Evidence** ✅ Shipped. 439 tests, 31 modules, AUROC metrics, EU AI Act + ISO 42001 crosswalks, FRIA evidence, kill-switch compliance, watermark adversarial tests, HTML compliance report generator. **v4.0 -- Lock the Category** (H2 2026): benchmark corpus, schema standardization, longitudinal registry. Full details in [ROADMAP.md](ROADMAP.md).
+**v3.10 -- Prove It to Auditors** ✅ Shipped. **v4.1 -- Compliance Evidence** ✅ Shipped. 439 tests, 29 modules, AUROC metrics, EU AI Act + ISO 42001 crosswalks, FRIA evidence, kill-switch compliance, watermark adversarial tests, HTML compliance report generator. **v4.0 -- Lock the Category** (H2 2026): benchmark corpus, schema standardization, longitudinal registry. Full details in [ROADMAP.md](ROADMAP.md).
 
 ---
 
