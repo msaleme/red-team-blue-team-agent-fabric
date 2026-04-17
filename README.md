@@ -90,6 +90,14 @@ Five peer-reviewed preprints and three NIST submissions underpin the methodology
 
 ---
 
+## Related Projects
+
+### Constitutional Governance (WHY layer)
+
+The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutional-agent-governance) package provides the governance gates and hard constraints that complement this test harness. Six gates, 12 hard constraints, amendment protocol — enforced in code, not YAML policy files. `pip install constitutional-agent`.
+
+---
+
 ## Documentation
 
 | Resource | Link |
