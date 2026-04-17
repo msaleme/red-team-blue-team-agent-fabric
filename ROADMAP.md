@@ -54,7 +54,7 @@ Identity and authorization controls answer *who* an agent is and *what* it can a
 | **v3.10 - Prove It to Auditors** | Evidence format adoption + payment depth + drift scoring | Evidence packs, payment tests doubled, behavioral profiling, HTML dashboards, 2 independent security audits | **Shipped** (v3.10.0) |
 | **v4.1 - Compliance Evidence** | EU AI Act + ISO 42001 mapping, AUROC, FRIA, kill-switch, watermark tests | 466 tests, 32 modules, compliance report generator, 31 framework controls mapped | **Shipped** (v4.1.0) |
 | **v4.2 - Incident-Tested** | Tests mapped to named April 2026 security incidents | 466 tests, 32 modules | **Shipped** (v4.2.0) |
-| **v4.2 - Incident-Tested** | Tests mapped to named April 2026 security incidents | NEXT — 22 new tests mapped to OX Security MCP disclosure, UC Berkeley benchmark hacking, PraisonAI CVEs, lightningzero governance finding, OpenClaw April CVEs. 3 new modules (benchmark integrity, governance modification, PraisonAI adapter). Shared `_utils.py`. |
+| **v4.3 - Supply Chain + Corpus** | Skill Security Protocol harness, Decision Behavior Benchmark corpus, DRY infrastructure | 466 tests, 32 modules, 52 benchmark cases | **Shipped** (v4.3.0) |
 | **v5.0 - Lock the Category** | Standard-setting: benchmark + schema standardization + registry | H2 2026 — Benchmark corpus (#120), methodology paper (#138), IETF attestation schema (#137), longitudinal registry API, drift comparison. |
 
 ## v3.9 - Adopt in 15 Minutes ✅ SHIPPED
@@ -145,12 +145,22 @@ Also: shared `_utils.py` (SOLID/DRY), CLI registration, P0 bug fixes.
 
 **Total: 466 tests, 32 modules.**
 
-### v4.3 — Supply Chain + Research
+## v4.3 — Supply Chain + Corpus ✅ SHIPPED
 
-- Skill Security Protocol implementation (`skill_security_harness.py`) from RFC #99 — 341 malicious ClawHub skills
-- Publish DOIs #6-7 from #116 (intent contracts), #117 (multi-agent), #119 (memory security) research
-- Migrate all remaining harnesses to `_utils.py`
-- Dynamic test count in CLI
+Released as v4.3.0.
+
+### What shipped
+
+| Feature | Detail |
+|---------|--------|
+| Skill Security Protocol harness (SS-001 — SS-008) | Implements RFC #99. Skill manifest integrity, permission validation, prompt injection in SKILL.md files, exfiltration detection, Ed25519 provenance chain, capability escalation via composition, sandboxing tier enforcement, update tampering. Maps to ClawHub 341 malicious skills (12% of registry). |
+| Decision Behavior Benchmark corpus | 52 cases, 5 categories (escalation bypass, collusion, memory tampering, payment/tool chain, evidence fabrication). 84% scanner miss rate. Machine-readable, importable, citable. Closes #120. |
+| HIDDEN_INSTRUCTION_PATTERN extracted to _utils.py | DRY — was duplicated in mcp_harness and skill_security_harness. |
+| Dynamic test count in CLI | No more hardcoded numbers — derived from HARNESSES registry at runtime. |
+| P0 bug fixes | cli.py VERSION string, CVE description count, BI-001 pass logic, BI-006 assertion, CVE-009 exception handling. |
+| ASI07 corpus coverage | DBC-051, DBC-052 added. |
+
+**Total: 466 tests, 32 modules, 52 benchmark cases.**
 
 ## v5.0 — Lock the Category
 
@@ -207,7 +217,7 @@ We are authoring a public corpus that highlights the gaps between metadata scann
 ## Sequencing
 
 ```text
-v3.9  → v3.10 → v4.1 (shipped) → v4.2 (next) → v4.3 → v5.0 (H2 2026)
+v3.9  → v3.10 → v4.1 (shipped) → v4.2 (shipped) → v4.3 (shipped) → v5.0 (H2 2026)
 ```
 
 ## Sustained Advantage Trajectory

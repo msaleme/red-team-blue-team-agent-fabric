@@ -28,7 +28,7 @@ import importlib
 from datetime import datetime, timezone
 
 
-VERSION = "4.2.0"
+VERSION = "4.3.0"
 
 # ---------------------------------------------------------------------------
 # Simulate-mode helpers  (#152 — R31)
