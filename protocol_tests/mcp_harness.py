@@ -1307,6 +1307,276 @@ class MCPSecurityTests:
         ))
 
     # ------------------------------------------------------------------
+    # Category 9: SSRF via Tool Call URI Parameter (ASI02)
+    # ------------------------------------------------------------------
+
+    def test_mcp_ssrf_via_uri_parameter(self):
+        """MCP-015: SSRF via URI Parameter — test tool calls that accept URI args."""
+        t0 = time.monotonic()
+
+        ssrf_payloads = [
+            "http://169.254.169.254/latest/meta-data/iam/security-credentials",
+            "http://127.0.0.1",
+            "http://10.0.0.1",
+            "file:///etc/passwd",
+        ]
+
+        # Build one representative request up front so simulate validates it compiles
+        sample_msg = jsonrpc_request("tools/call", {
+            "name": "fetch",
+            "arguments": {"url": ssrf_payloads[0]},
+        })
+        if self.simulate:
+            # Validate all payloads compile
+            for payload in ssrf_payloads:
+                jsonrpc_request("tools/call", {"name": "fetch", "arguments": {"url": payload}})
+            self._record(MCPTestResult(
+                test_id="MCP-015", name="SSRF via URI Parameter",
+                category="ssrf", owasp_asi="ASI02",
+                severity=Severity.CRITICAL.value, passed=True,
+                details=f"[simulate] {len(ssrf_payloads)} SSRF payloads compiled; no HTTP call made",
+                mcp_method="tools/call", request_sent=sample_msg,
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        # Discover tools that accept URI/URL parameters
+        list_msg = jsonrpc_request("tools/list", {})
+        list_resp = self.transport.send(list_msg)
+
+        uri_tools = []
+        if list_resp and "result" in list_resp:
+            for tool in list_resp["result"].get("tools", []):
+                schema = tool.get("inputSchema", {})
+                props = schema.get("properties", {})
+                # Look for URL/URI parameter names
+                uri_param_names = [
+                    p for p in props
+                    if any(kw in p.lower() for kw in ["url", "uri", "endpoint", "target", "src", "href", "location"])
+                ]
+                if uri_param_names:
+                    uri_tools.append((tool["name"], uri_param_names[0]))
+
+        if not uri_tools:
+            elapsed = time.monotonic() - t0
+            self._record(MCPTestResult(
+                test_id="MCP-015",
+                name="SSRF via URI Parameter",
+                category="ssrf",
+                owasp_asi="ASI02",
+                severity=Severity.CRITICAL.value,
+                passed=True,
+                details="No tools with URI parameters found (not applicable)",
+                mcp_method="tools/call",
+                elapsed_s=round(elapsed, 3),
+            ))
+            return
+
+        ssrf_indicators = [
+            "iam", "security-credentials", "ami-id", "instance-id",  # AWS metadata
+            "root:", "daemon:", "nobody:",  # /etc/passwd content
+            "169.254", "10.0.0", "127.0.0.1",  # internal IP echoed back
+        ]
+
+        vulnerable_tools = []
+        for tool_name, param_name in uri_tools:
+            for payload in ssrf_payloads:
+                msg = jsonrpc_request("tools/call", {
+                    "name": tool_name,
+                    "arguments": {param_name: payload},
+                })
+                resp = self.transport.send(msg)
+                resp_str = json.dumps(resp).lower() if resp else ""
+                if any(ind in resp_str for ind in ssrf_indicators):
+                    vulnerable_tools.append({"tool": tool_name, "param": param_name, "payload": payload})
+
+        elapsed = time.monotonic() - t0
+        passed = len(vulnerable_tools) == 0
+
+        self._record(MCPTestResult(
+            test_id="MCP-015",
+            name="SSRF via URI Parameter",
+            category="ssrf",
+            owasp_asi="ASI02",
+            severity=Severity.CRITICAL.value,
+            passed=passed,
+            details=(
+                f"{len(vulnerable_tools)} tool(s) returned internal data for SSRF payloads: "
+                f"{[v['tool'] + '/' + v['param'] for v in vulnerable_tools]}"
+                if vulnerable_tools
+                else f"Tested {len(uri_tools)} URI-accepting tool(s), no SSRF response content detected"
+            ),
+            mcp_method="tools/call",
+            request_sent={"tools_tested": [t[0] for t in uri_tools], "payloads": ssrf_payloads},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
+    # Category 10: SSRF via Resource URI (ASI02)
+    # ------------------------------------------------------------------
+
+    def test_mcp_ssrf_via_resource_uri(self):
+        """MCP-016: SSRF via Resource URI — test resources/read with SSRF payloads."""
+        t0 = time.monotonic()
+
+        ssrf_uris = [
+            "http://169.254.169.254/latest/meta-data/iam/security-credentials",
+            "http://127.0.0.1:80/",
+            "http://10.0.0.1/",
+            "http://[::1]/",
+        ]
+
+        # Build request up front so simulate validates it compiles
+        sample_msg = jsonrpc_request("resources/read", {"uri": ssrf_uris[0]})
+        if self.simulate:
+            for uri in ssrf_uris:
+                jsonrpc_request("resources/read", {"uri": uri})
+            self._record(MCPTestResult(
+                test_id="MCP-016", name="SSRF via Resource URI",
+                category="ssrf", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details=f"[simulate] {len(ssrf_uris)} resource SSRF payloads compiled; no HTTP call made",
+                mcp_method="resources/read", request_sent=sample_msg,
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        aws_creds_indicators = [
+            "accesskeyid", "secretaccesskey", "token", "expiration",  # AWS creds JSON keys
+            "iam", "security-credentials",
+        ]
+        internal_content_indicators = [
+            "169.254", "localhost", "internal", "intranet",
+        ]
+
+        blocked_count = 0
+        ssrf_hits = []
+        for uri in ssrf_uris:
+            msg = jsonrpc_request("resources/read", {"uri": uri})
+            resp = self.transport.send(msg)
+            resp_str = json.dumps(resp).lower() if resp else ""
+
+            is_error = resp and ("error" in resp or resp.get("_error") or resp.get("_status", 200) >= 400)
+            has_sensitive = any(ind in resp_str for ind in aws_creds_indicators + internal_content_indicators)
+
+            if is_error and not has_sensitive:
+                blocked_count += 1
+            elif has_sensitive:
+                ssrf_hits.append(uri)
+
+        elapsed = time.monotonic() - t0
+        passed = len(ssrf_hits) == 0
+
+        self._record(MCPTestResult(
+            test_id="MCP-016",
+            name="SSRF via Resource URI",
+            category="ssrf",
+            owasp_asi="ASI02",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=(
+                f"SSRF: {len(ssrf_hits)} URI(s) returned AWS credentials or internal content: {ssrf_hits}"
+                if ssrf_hits
+                else f"{blocked_count}/{len(ssrf_uris)} SSRF resource URIs blocked"
+            ),
+            mcp_method="resources/read",
+            request_sent={"uris_tested": ssrf_uris},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
+    # Category 11: STDIO Pre-Handshake Command Execution (ASI04)
+    # ------------------------------------------------------------------
+
+    def test_mcp_stdio_pre_handshake_exec(self):
+        """MCP-017: STDIO Pre-Handshake Command Execution — commands run before handshake validation."""
+        t0 = time.monotonic()
+
+        canary_path = f"/tmp/mcp_prehandshake_canary_{os.getpid()}"
+        # Craft a payload that would be interpreted as a shell command if executed early
+        canary_cmd_payload = f"touch {canary_path}"
+
+        # Build the test message up front so simulate validates it compiles
+        test_msg = jsonrpc_request("initialize", {
+            "protocolVersion": "2025-03-26",
+            "capabilities": {},
+            "clientInfo": {
+                "name": canary_cmd_payload,
+                "version": "1.0.0"
+            }
+        })
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-017", name="STDIO Pre-Handshake Command Execution",
+                category="stdio_security", owasp_asi="ASI04",
+                severity=Severity.CRITICAL.value, passed=True,
+                details="[simulate] Pre-handshake canary payload compiled; no stdio transport launched",
+                mcp_method="initialize", request_sent=test_msg,
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        # Only meaningful on stdio transport
+        if not isinstance(self.transport, StdioTransport):
+            elapsed = time.monotonic() - t0
+            self._record(MCPTestResult(
+                test_id="MCP-017",
+                name="STDIO Pre-Handshake Command Execution",
+                category="stdio_security",
+                owasp_asi="ASI04",
+                severity=Severity.CRITICAL.value,
+                passed=True,
+                details="Not applicable — requires stdio transport (current transport is not stdio)",
+                mcp_method="initialize",
+                elapsed_s=round(elapsed, 3),
+            ))
+            return
+
+        # Clean up any prior canary
+        try:
+            os.remove(canary_path)
+        except FileNotFoundError:
+            pass
+
+        # Send the initialize message with canary string embedded in clientInfo.name.
+        # A vulnerable server that pipes clientInfo fields to a shell before
+        # completing handshake validation would execute `touch <canary_path>`.
+        resp = self.transport.send(test_msg)
+
+        # Allow a brief moment for async filesystem side-effects
+        time.sleep(0.3)
+
+        canary_exists = os.path.exists(canary_path)
+        elapsed = time.monotonic() - t0
+
+        # Clean up canary if it was created
+        try:
+            os.remove(canary_path)
+        except FileNotFoundError:
+            pass
+
+        passed = not canary_exists
+
+        self._record(MCPTestResult(
+            test_id="MCP-017",
+            name="STDIO Pre-Handshake Command Execution",
+            category="stdio_security",
+            owasp_asi="ASI04",
+            severity=Severity.CRITICAL.value,
+            passed=passed,
+            details=(
+                f"CRITICAL: canary file '{canary_path}' was created — server executed a command "
+                "from clientInfo before completing MCP handshake validation"
+                if canary_exists
+                else "Canary file was not created; no pre-handshake command execution detected"
+            ),
+            mcp_method="initialize",
+            request_sent=test_msg,
+            response_received=resp,
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
     # Run all tests
     # ------------------------------------------------------------------
 
@@ -1345,6 +1615,13 @@ class MCPSecurityTests:
             ],
             "description_injection": [
                 self.test_mcp_tool_description_injection_patterns,
+            ],
+            "ssrf": [
+                self.test_mcp_ssrf_via_uri_parameter,
+                self.test_mcp_ssrf_via_resource_uri,
+            ],
+            "stdio_security": [
+                self.test_mcp_stdio_pre_handshake_exec,
             ],
         }
 
