@@ -138,7 +138,7 @@ class FrameworkAdapter(ABC):
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     @abstractmethod
-    def run_tests(self) -> list[AdapterTestResult]:
+    def run_tests(self, simulate: bool = False) -> list[AdapterTestResult]:
         pass
 
     def _test_prompt_injection(self, endpoint: str, payload: dict, test_id: str, name: str):
@@ -1022,6 +1022,11 @@ class PraisonAIAdapter(FrameworkAdapter):
     # ------------------------------------------------------------------
 
     def run_tests(self, simulate: bool = False) -> list[AdapterTestResult]:
+        # PA-001 through PA-004 are CVE-specific tests that replace the generic
+        # _test_prompt_injection and _test_tool_overreach inherited from FrameworkAdapter.
+        # The inherited tests are intentionally excluded because the PraisonAI attack
+        # surface requires framework-specific payloads (YAML job execution, browser bridge,
+        # event streams, template injection).
         mode = "SIMULATE" if simulate else f"LIVE ({self.base_url})"
         print(f"\n[PRAISONAI — {mode}]")
 
@@ -1081,6 +1086,9 @@ def main():
     ap.add_argument("--export", help="Export test config to JSON")
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")
     ap.add_argument("--trials", type=int, default=1, help="Run N times for statistical analysis")
+    ap.add_argument("--simulate", action="store_true",
+                    help="Run in simulate mode (validate payloads without a live target; "
+                         "supported by PraisonAIAdapter, graceful fallback for others)")
     args = ap.parse_args()
 
     if args.list:
@@ -1128,7 +1136,11 @@ def main():
 
             def _single_run():
                 a = adapter_cls(args.url, headers=headers)
-                return {"results": a.run_tests()}
+                try:
+                    return {"results": a.run_tests(simulate=args.simulate)}
+                except TypeError:
+                    # Adapter does not support simulate yet — run normally
+                    return {"results": a.run_tests()}
 
             merged = _run_trials(_single_run, trials=args.trials,
                                  suite_name=f"Framework Adapter Tests - {adapter_cls.description}")
@@ -1144,7 +1156,11 @@ def main():
             print(f"Target: {args.url}")
             print(f"{'='*60}")
 
-            results = adapter.run_tests()
+            try:
+                results = adapter.run_tests(simulate=args.simulate)
+            except TypeError:
+                # Adapter does not support simulate yet — run normally
+                results = adapter.run_tests()
 
             total = len(results)
             passed = sum(1 for r in results if r.passed)
