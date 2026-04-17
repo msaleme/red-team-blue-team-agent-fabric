@@ -41,30 +41,11 @@ import os
 import re
 import sys
 import time
-import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from protocol_tests._utils import Severity, wilson_ci, http_post_json
-
-
-# ---------------------------------------------------------------------------
-# Injection/exfiltration pattern detectors  (compatible with mcp_harness.py)
-# ---------------------------------------------------------------------------
-
-#: Prompt injection markers — same pattern set as mcp_harness.py TP-006
-HIDDEN_INSTRUCTION_PATTERN = re.compile(
-    r'ignore\s+(?:all\s+)?previous\s+instructions'
-    r'|you\s+are\s+now\s+(?:unrestricted|unfiltered|DAN)'
-    r'|system\s*:\s*'
-    r'|<\s*(?:system|instruction|hidden|secret)\s*>'
-    r'|\bdo\s+not\s+tell\s+the\s+user\b'
-    r'|\bsend\s+(?:all|the)\s+(?:data|context|conversation)\s+to\b'
-    r'|\bexfiltrate\b'
-    r'|\bforward\s+(?:all|every)\b.*\bto\b',
-    re.IGNORECASE,
-)
+from protocol_tests._utils import Severity, wilson_ci, HIDDEN_INSTRUCTION_PATTERN
 
 _URL_PATTERN = re.compile(r'https?://[^\s"\'<>]{10,}', re.IGNORECASE)
 _BASE64_PATTERN = re.compile(r'[A-Za-z0-9+/]{40,}={0,2}')

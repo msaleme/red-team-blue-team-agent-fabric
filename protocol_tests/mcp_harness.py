@@ -1249,6 +1249,7 @@ class MCPSecurityTests:
             r'|\\x[0-9a-fA-F]{2}(?:\\x[0-9a-fA-F]{2}){4,}'  # hex-encoded
             r'|\\u[0-9a-fA-F]{4}(?:\\u[0-9a-fA-F]{4}){4,}',  # unicode-escaped
         )
+        # TODO: migrate to _utils.py HIDDEN_INSTRUCTION_PATTERN when mcp_harness adopts _utils
         HIDDEN_INSTRUCTION_PATTERN = re.compile(
             r'ignore\s+(?:all\s+)?previous\s+instructions'
             r'|you\s+are\s+now\s+(?:unrestricted|unfiltered|DAN)'

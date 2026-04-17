@@ -28,7 +28,7 @@ import importlib
 from datetime import datetime, timezone
 
 
-VERSION = "3.9.0"
+VERSION = "4.2.0"
 
 # ---------------------------------------------------------------------------
 # Simulate-mode helpers  (#152 — R31)
@@ -241,7 +241,7 @@ HARNESSES = {
     },
     "cve-2026-25253": {
         "module": "protocol_tests.cve_2026_25253_harness",
-        "description": "CVE-2026-25253 reproduction suite (8 tests, MCP supply chain poisoning)",
+        "description": "CVE-2026-25253 reproduction suite (10 tests, MCP supply chain poisoning)",
     },
     "aiuc1": {
         "module": "protocol_tests.aiuc1_compliance_harness",
@@ -298,9 +298,19 @@ HARNESSES = {
 }
 
 
+def _total_tests() -> int:
+    """Compute total test count by summing the leading number in each harness description."""
+    total = 0
+    for info in HARNESSES.values():
+        m = re.search(r'\((\d+)\s+tests', info["description"])
+        if m:
+            total += int(m.group(1))
+    return total
+
+
 def print_usage():
     print(f"Agent Security Harness v{VERSION}")
-    print(f"469 security tests for AI agent systems")
+    print(f"{_total_tests()} security tests for AI agent systems")
     print()
     print("Usage:")
     print("  agent-security test <harness> [options]    Run a test harness")
@@ -340,7 +350,7 @@ def main():
 
     if args[0] == "version":
         print(f"agent-security-harness v{VERSION}")
-        print(f"Tests: 469 across {len(HARNESSES)} harness modules")
+        print(f"Tests: {_total_tests()} across {len(HARNESSES)} harness modules")
         print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402, x402")
         print(f"Platforms: 25 cloud + 20 enterprise adapters")
         print(f"Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF, AIUC-1")
