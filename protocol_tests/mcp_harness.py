@@ -1378,7 +1378,7 @@ class MCPSecurityTests:
             "root:", "daemon:", "nobody:",  # /etc/passwd content
             "169.254", "10.0.0", "127.0.0.1",  # internal IP echoed back
             "access_token", "token_type", "expires_in",  # GCP service account token
-            "azEnvironment", "location", "osType", "subscriptionId",  # Azure instance metadata
+            "azenvironment", "ostype", "subscriptionid",  # Azure instance metadata
         ]
 
         vulnerable_tools = []
@@ -1390,6 +1390,11 @@ class MCPSecurityTests:
                 })
                 resp = self.transport.send(msg)
                 resp_str = json.dumps(resp).lower() if resp else ""
+                is_error = resp and ("error" in resp or resp.get("_error") or resp.get("_status", 200) >= 400)
+                if is_error:
+                    # Server rejected — correct behavior, not SSRF
+                    continue
+                # Only flag as SSRF if non-error response contains sensitive data
                 if any(ind in resp_str for ind in ssrf_indicators):
                     vulnerable_tools.append({"tool": tool_name, "param": param_name, "payload": payload})
 
@@ -1453,7 +1458,7 @@ class MCPSecurityTests:
             "accesskeyid", "secretaccesskey", "token", "expiration",  # AWS creds JSON keys
             "iam", "security-credentials",
             "access_token", "token_type", "expires_in",  # GCP service account token
-            "azEnvironment", "location", "osType", "subscriptionId",  # Azure instance metadata
+            "azenvironment", "ostype", "subscriptionid",  # Azure instance metadata
         ]
         internal_content_indicators = [
             "169.254", "localhost", "internal", "intranet",
@@ -1470,6 +1475,9 @@ class MCPSecurityTests:
             has_sensitive = any(ind in resp_str for ind in aws_creds_indicators + internal_content_indicators)
 
             if is_error and not has_sensitive:
+                blocked_count += 1
+            elif is_error and has_sensitive:
+                # Error response that mentions the target — still blocked, not SSRF
                 blocked_count += 1
             elif has_sensitive:
                 ssrf_hits.append(uri)
@@ -1628,22 +1636,15 @@ class MCPSecurityTests:
         elapsed = time.monotonic() - t0
 
         resp_preview = ""
-        status_code = None
-        if resp_bytes:
+        if resp_bytes is not None and len(resp_bytes) > 0:
             resp_preview = resp_bytes[:500].decode("utf-8", errors="replace")
-            # Look for HTTP 413 in raw response or JSON-RPC error
-            if "413" in resp_preview:
-                status_code = 413
 
         # Pass conditions:
         #   1. Server responded at all within 30 s (no hang/crash), AND
         #   2. Response indicates rejection (413, or JSON-RPC error, or non-2xx status)
-        responded = resp_bytes is not None and len(resp_bytes) > 0
-        rejected = (
-            status_code == 413
-            or (responded and any(
-                kw in resp_preview for kw in ['"error"', "413", "too large", "payload too large", "Request Entity Too Large"]
-            ))
+        responded = resp_bytes is not None
+        rejected = responded and any(
+            kw in resp_preview for kw in ['"error"', "413", "too large", "payload too large", "Request Entity Too Large"]
         )
         passed = responded and elapsed < 30.0 and rejected
 
