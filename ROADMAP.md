@@ -24,7 +24,7 @@ Our harness is positioned around that fourth layer while pressure-testing the ot
 | Wire-protocol adversarial testing | Temporary | 6-12 months before major vendors add this |
 | Multi-protocol coverage | Temporary | 6-12 months |
 | AIUC-1 mapping | Temporary | One release cycle after competitors notice |
-| Test corpus depth (439 tests) | Temporary | Must maintain velocity lead |
+| Test corpus depth (461 tests) | Temporary | Must maintain velocity lead |
 
 The strategy sequences investment toward **sustained advantages** while defending temporary ones through speed.
 
@@ -52,8 +52,9 @@ Identity and authorization controls answer *who* an agent is and *what* it can a
 |---------|-------|------------------|--------|
 | **v3.9 - Adopt in 15 Minutes** | CI integration and developer experience | `--json` output, error messages, scope docs, GitHub Action | **Shipped** (v3.9.0) |
 | **v3.10 - Prove It to Auditors** | Evidence format adoption + payment depth + drift scoring | Evidence packs, payment tests doubled, behavioral profiling, HTML dashboards, 2 independent security audits | **Shipped** (v3.10.0) |
-| **v4.1 - Compliance Evidence** | EU AI Act + ISO 42001 mapping, AUROC, FRIA, kill-switch, watermark tests | 439 tests, 29 modules, compliance report generator, 31 framework controls mapped | **Shipped** (v4.1.0) |
-| **v4.0 - Lock the Category** | Standard-setting: benchmark + schema standardization + registry | Named benchmark corpus, attestation schema to IETF/OASIS, longitudinal registry | H2 2026 |
+| **v4.1 - Compliance Evidence** | EU AI Act + ISO 42001 mapping, AUROC, FRIA, kill-switch, watermark tests | 461 tests, 31 modules, compliance report generator, 31 framework controls mapped | **Shipped** (v4.1.0) |
+| **v4.2 - Incident-Tested** | Tests mapped to named April 2026 security incidents | NEXT — 22 new tests mapped to OX Security MCP disclosure, UC Berkeley benchmark hacking, PraisonAI CVEs, lightningzero governance finding, OpenClaw April CVEs. 3 new modules (benchmark integrity, governance modification, PraisonAI adapter). Shared `_utils.py`. |
+| **v5.0 - Lock the Category** | Standard-setting: benchmark + schema standardization + registry | H2 2026 — Benchmark corpus (#120), methodology paper (#138), IETF attestation schema (#137), longitudinal registry API, drift comparison. |
 
 ## v3.9 - Adopt in 15 Minutes ✅ SHIPPED
 
@@ -121,17 +122,40 @@ Released as v4.1.0. Transforms the harness from a security testing tool into a c
 | HTML compliance report generator | #160 | `--framework all --fria` one-command report |
 | Simulate mode expansion | F7 (R33) | MCP, A2A, Identity (39 new simulate tests) |
 
-**Total: 439 tests, 29 modules, 31 framework controls mapped.**
+**Total: 461 tests, 31 modules, 31 framework controls mapped.**
 
 ### Independent review
 
-Audit R33 (`docs/AUDIT-R33-INDEPENDENT-REVIEW.md`): 7 findings, all resolved. 19/19 pytest passing. Zero import/compile errors across 29 modules.
+Audit R33 (`docs/AUDIT-R33-INDEPENDENT-REVIEW.md`): 7 findings, all resolved. 19/19 pytest passing. Zero import/compile errors across 31 modules.
 
-## v4.0 - Lock the Category
+### v4.2 — Incident-Tested
+
+Every new module maps to a named security incident from April 2026:
+
+| Module | Tests | Incident Source |
+|--------|-------|----------------|
+| `benchmark_integrity_harness.py` | BI-001 — BI-007 | UC Berkeley: all 8 AI benchmarks hackable for perfect scores |
+| `governance_modification_harness.py` | GM-001 — GM-006 | lightningzero: 9/12 agents disabled own gates within 48h |
+| PraisonAI adapter | PA-001 — PA-004 | CVE-2026-40288 (9.8), CVE-2026-40289 (9.1), CVE-2026-39889, CVE-2026-39891 (8.8) |
+| MCP SSRF + STDIO | MCP-015 — MCP-017 | OX Security MCP STDIO disclosure, BlueRock 36.7% SSRF finding |
+| OpenClaw CVE tests | CVE-009, CVE-010 | CVE-2026-35625 (privilege escalation), CVE-2026-35629 (SSRF) |
+
+Also: shared `_utils.py` (SOLID/DRY), CLI registration, P0 bug fixes.
+
+**Total: 461 tests, 31 modules.**
+
+### v4.3 — Supply Chain + Research
+
+- Skill Security Protocol implementation (`skill_security_harness.py`) from RFC #99 — 341 malicious ClawHub skills
+- Publish DOIs #6-7 from #116 (intent contracts), #117 (multi-agent), #119 (memory security) research
+- Migrate all remaining harnesses to `_utils.py`
+- Dynamic test count in CLI
+
+## v5.0 — Lock the Category
 
 **Goal:** Become the standard others reference, not just a tool others use.
 
-v4.0 is reframed around **standard-setting**, not feature shipping. The three moves that convert temporary advantages into sustained ones:
+v5.0 is reframed around **standard-setting**, not feature shipping. The three moves that convert temporary advantages into sustained ones:
 
 ### Move 1: Publish the benchmark (the thing others cite)
 
@@ -182,10 +206,7 @@ We are authoring a public corpus that highlights the gaps between metadata scann
 ## Sequencing
 
 ```text
-v3.9  ✅ SHIPPED        -> "Find dangerous stuff in 15 minutes"
-v3.10 ✅ SHIPPED        -> "The evidence auditors accept"
-v4.0  (H2 2026)         -> "The standard others reference"
-v4.x  (2027)            -> Network effects from registry + standard citations
+v3.9  → v3.10 → v4.1 (shipped) → v4.2 (next) → v4.3 → v5.0 (H2 2026)
 ```
 
 ## Sustained Advantage Trajectory
@@ -194,9 +215,9 @@ v4.x  (2027)            -> Network effects from registry + standard citations
 Now:     Research (5 DOIs)
 v3.10:   + Evidence format adoption
          + Payment protocol depth
-v4.0:    + Benchmark others cite
+v5.0:    + Benchmark others cite
          + Schema in standards body
-v4.x:    + Registry network effect
+v5.x:    + Registry network effect
 ```
 
 Each step converts a temporary advantage into a more durable one. Miss any step and the corresponding moat does not form.
