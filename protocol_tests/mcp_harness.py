@@ -1586,6 +1586,89 @@ class MCPSecurityTests:
                 os.unlink(canary_path)
 
     # ------------------------------------------------------------------
+    # Category 11: Unbounded Request Body DoS (ASI02) — CVE-2026-39313
+    # ------------------------------------------------------------------
+
+    def test_mcp_unbounded_request_body_dos(self):
+        """MCP-018: Unbounded Request Body DoS (CVE-2026-39313) — no body size limit in readRequestBody()."""
+        t0 = time.monotonic()
+
+        # Construct an oversized JSON-RPC request: a valid tools/call with a padded
+        # 'arguments' field totalling >10 MB.  mcp-framework <= 0.2.21 has no size
+        # limit in readRequestBody(), allowing a single unauthenticated POST to
+        # exhaust server memory.  Fixed in 0.2.22.
+        PADDING_BYTES = 10 * 1024 * 1024  # 10 MB
+        oversized_msg = jsonrpc_request("tools/call", {
+            "name": "any_tool",
+            "arguments": {
+                "padding": "A" * PADDING_BYTES,
+            },
+        })
+        oversized_payload = json.dumps(oversized_msg).encode("utf-8")
+
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-018", name="Unbounded Request Body DoS (CVE-2026-39313)",
+                category="dos", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details=(
+                    f"[simulate] Oversized payload compiled ({len(oversized_payload):,} bytes, "
+                    f"{len(oversized_payload)/1024/1024:.1f} MB); no HTTP call made"
+                ),
+                mcp_method="tools/call",
+                request_sent={"payload_bytes": len(oversized_payload), "cve": "CVE-2026-39313"},
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        # Live mode: send the oversized body and check the server's reaction.
+        # A patched server (>= 0.2.22) should return HTTP 413 or a JSON-RPC error.
+        # A vulnerable server may hang, crash, or return an unexpected 5xx.
+        resp_bytes = self.transport.send_raw(oversized_payload)
+        elapsed = time.monotonic() - t0
+
+        resp_preview = ""
+        status_code = None
+        if resp_bytes:
+            resp_preview = resp_bytes[:500].decode("utf-8", errors="replace")
+            # Look for HTTP 413 in raw response or JSON-RPC error
+            if "413" in resp_preview:
+                status_code = 413
+
+        # Pass conditions:
+        #   1. Server responded at all within 30 s (no hang/crash), AND
+        #   2. Response indicates rejection (413, or JSON-RPC error, or non-2xx status)
+        responded = resp_bytes is not None and len(resp_bytes) > 0
+        rejected = (
+            status_code == 413
+            or (responded and any(
+                kw in resp_preview for kw in ['"error"', "413", "too large", "payload too large", "Request Entity Too Large"]
+            ))
+        )
+        passed = responded and elapsed < 30.0 and rejected
+
+        self._record(MCPTestResult(
+            test_id="MCP-018",
+            name="Unbounded Request Body DoS (CVE-2026-39313)",
+            category="dos",
+            owasp_asi="ASI02",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=(
+                f"Server rejected {len(oversized_payload)/1024/1024:.1f} MB body in {elapsed:.1f}s (413/error)"
+                if passed
+                else (
+                    f"Server did not reject oversized body in {elapsed:.1f}s — "
+                    f"response: {resp_preview[:200]!r}" if responded
+                    else f"No response after {elapsed:.1f}s — server may have crashed or hung"
+                )
+            ),
+            mcp_method="tools/call",
+            request_sent={"payload_bytes": len(oversized_payload), "cve": "CVE-2026-39313"},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
     # Run all tests
     # ------------------------------------------------------------------
 
@@ -1631,6 +1714,9 @@ class MCPSecurityTests:
             ],
             "stdio_security": [
                 self.test_mcp_stdio_pre_handshake_exec,
+            ],
+            "dos": [
+                self.test_mcp_unbounded_request_body_dos,
             ],
         }
 

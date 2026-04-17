@@ -169,7 +169,7 @@ def _simulate_harness(harness_name: str, info: dict,
 HARNESSES = {
     "mcp": {
         "module": "protocol_tests.mcp_harness",
-        "description": "MCP wire-protocol security tests (14 tests, JSON-RPC 2.0)",
+        "description": "MCP wire-protocol security tests (18 tests, JSON-RPC 2.0)",
     },
     "a2a": {
         "module": "protocol_tests.a2a_harness",
