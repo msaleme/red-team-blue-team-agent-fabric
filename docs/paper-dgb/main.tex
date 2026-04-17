@@ -128,9 +128,13 @@ NIST AI 800-2~\cite{nist2024ai800} and the EU AI Act~\cite{euaiact2024}
 AI systems. AIUC-1~\cite{csa2026aiuc1} (CSA, 2026) defines 20 certification
 controls; the \texttt{agent-security-harness} maps to 19/20 AIUC-1 controls.
 The \texttt{constitutional-agent}~\cite{saleme2026constitutional} package
-implements six governance gates and 12 hard constraints. No prior work
-provides a benchmark corpus specifically designed to evaluate governance
-decision quality.
+implements six governance gates and 12 hard constraints. Related work by the
+same author introduces the Decision Load Index for quantifying agent autonomy
+risk~\cite{saleme2026dli}, normalization-of-deviance detection in
+multi-agent deployments~\cite{saleme2026deviance, saleme2026deviance2}, and
+cognitive style governance~\cite{saleme2026cognitive}. No prior work provides
+a benchmark corpus specifically designed to evaluate governance decision
+quality.
 
 % ---------------------------------------------------------------------------
 \section{The Decision Governance Benchmark}
@@ -164,9 +168,10 @@ against three criteria:
         that produces a binary pass/fail result.
 
   \item \textbf{Contrastive annotation:} Each case is annotated with
-        \texttt{scanner\_passes} indicating whether a metadata-only scanner
-        (tool description inspection, permission declaration check) would
-        detect the failure. This enables direct measurement of the detection
+        \texttt{scanner\_passes} indicating whether the failure \emph{passes
+        through} (evades) a metadata-only scanner---i.e.,
+        \texttt{scanner\_passes=True} means the scanner \emph{cannot} detect
+        the failure. This enables direct measurement of the detection
         gap.
 \end{enumerate}
 
