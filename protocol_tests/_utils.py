@@ -4,16 +4,32 @@ This module provides zero-dependency helpers that are used across multiple
 harness files.  Import from here instead of copy-pasting implementations.
 
     from protocol_tests._utils import Severity, wilson_ci, jsonrpc_request, http_post_json
+    from protocol_tests._utils import HIDDEN_INSTRUCTION_PATTERN
 """
 
 from __future__ import annotations
 
 import json
 import math
+import re
 import uuid
 import urllib.error
 import urllib.request
 from enum import Enum
+
+
+#: Prompt injection markers — shared across skill_security_harness.py and mcp_harness.py
+HIDDEN_INSTRUCTION_PATTERN = re.compile(
+    r'ignore\s+(?:all\s+)?previous\s+instructions'
+    r'|you\s+are\s+now\s+(?:unrestricted|unfiltered|DAN)'
+    r'|system\s*:\s*'
+    r'|<\s*(?:system|instruction|hidden|secret)\s*>'
+    r'|\bdo\s+not\s+tell\s+the\s+user\b'
+    r'|\bsend\s+(?:all|the)\s+(?:data|context|conversation)\s+to\b'
+    r'|\bexfiltrate\b'
+    r'|\bforward\s+(?:all|every)\b.*\bto\b',
+    re.IGNORECASE,
+)
 
 
 class Severity(Enum):
