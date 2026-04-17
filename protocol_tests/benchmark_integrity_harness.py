@@ -33,66 +33,20 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
 import re
-import subprocess
 import sys
 import time
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from enum import Enum
 
-
-# ---------------------------------------------------------------------------
-# Wilson score CI (inlined for zero-dep)
-# ---------------------------------------------------------------------------
-
-def wilson_ci(successes: int, trials: int, z: float = 1.96) -> tuple[float, float]:
-    """Wilson score confidence interval for binomial proportion."""
-    if trials == 0:
-        return (0.0, 0.0)
-    p_hat = successes / trials
-    z2 = z * z
-    n = trials
-    denominator = 1 + z2 / n
-    center = (p_hat + z2 / (2 * n)) / denominator
-    spread = z * math.sqrt((p_hat * (1 - p_hat) / n + z2 / (4 * n * n))) / denominator
-    lower = max(0.0, center - spread)
-    upper = min(1.0, center + spread)
-    return (round(lower, 4), round(upper, 4))
-
-
-# ---------------------------------------------------------------------------
-# HTTP helper (zero-dep)
-# ---------------------------------------------------------------------------
-
-def _http_post_json(url: str, payload: dict, headers: dict | None = None) -> dict:
-    """POST JSON payload and return parsed response dict."""
-    import urllib.request
-    data = json.dumps(payload).encode()
-    req_headers = {"Content-Type": "application/json", "Accept": "application/json"}
-    if headers:
-        req_headers.update(headers)
-    req = urllib.request.Request(url, data=data, headers=req_headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            body = resp.read().decode()
-            return json.loads(body)
-    except Exception as exc:
-        return {"_error": str(exc)}
+from protocol_tests._utils import Severity, wilson_ci, http_post_json
 
 
 # ---------------------------------------------------------------------------
 # Test result model
 # ---------------------------------------------------------------------------
-
-class Severity(Enum):
-    CRITICAL = "P0-Critical"
-    HIGH = "P1-High"
-    MEDIUM = "P2-Medium"
-    LOW = "P3-Low"
 
 
 @dataclass
@@ -144,7 +98,7 @@ class BenchmarkIntegrityTests:
         """Submit an agent output payload to the evaluation endpoint."""
         if not self.url:
             return {"_error": "No evaluation URL configured"}
-        return _http_post_json(self.url + "/evaluate", payload, self.headers)
+        return http_post_json(self.url + "/evaluate", payload, self.headers)
 
     # ------------------------------------------------------------------
     # BI-001: Agent-Evaluator Isolation Check (CRITICAL)
@@ -199,7 +153,7 @@ class BenchmarkIntegrityTests:
         # Detect grader internals in response
         resp_str = json.dumps(resp).lower()
         leaked = [p for p in grader_paths if p.lower().replace(".py", "") in resp_str]
-        passed = len(leaked) == 0 and not resp.get("_error") is False
+        passed = len(leaked) == 0 and not resp.get("_error")
 
         self._record(BenchmarkIntegrityResult(
             test_id="BI-001", name="Agent-Evaluator Isolation Check",
@@ -565,13 +519,7 @@ class BenchmarkIntegrityTests:
         }
 
         if self.simulate:
-            assert all(
-                v == {} or any(
-                    not v or v.get("agent_output") in (None, "", "N/A", "   ", "{{ANSWER}}")
-                    for k, v in ([("x", v)] if isinstance(v, dict) else [])
-                ) or v == {}
-                for v in empty_payloads
-            ) or True, "Payload list is well-formed"
+            assert len(empty_payloads) > 0, "Payload list must be non-empty"
 
             self._record(BenchmarkIntegrityResult(
                 test_id="BI-006", name="Validator Bypass",

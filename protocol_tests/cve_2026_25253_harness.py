@@ -73,7 +73,7 @@ import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+import urllib.error
 import urllib.request
 
 
@@ -326,7 +326,33 @@ OPENCLAW_SSRF_PAYLOADS = [
         "path": "etc/passwd",
         "description": "0.0.0.0 bind-address bypass",
     },
+    {
+        "channel": "file-fetch",
+        "base_url": "file:///etc/passwd",
+        "path": "",
+        "description": "Local file read via file:// scheme",
+    },
+    {
+        "channel": "http-fetch",
+        "base_url": "http://metadata.google.internal/computeMetadata/v1/",
+        "path": "instance/service-accounts/default/token",
+        "description": "GCP instance metadata endpoint",
+    },
 ]
+
+# Private/loopback address prefixes used by the CVE-010 SSRF validator.
+# Promoted to module level so external validators can import and reuse this list.
+OPENCLAW_SSRF_PRIVATE_PREFIXES = (
+    "http://169.254.",      # Link-local / AWS metadata
+    "http://10.",           # RFC-1918 class A
+    "http://192.168.",      # RFC-1918 class C
+    "http://172.16.",       # RFC-1918 class B start
+    "http://localhost",
+    "http://[::1]",
+    "http://0.0.0.0",
+    "file://",              # Local filesystem reads
+    "http://metadata.google.internal",  # GCP metadata
+)
 
 # Patterns that indicate a channel extension leaked internal resource content
 OPENCLAW_SSRF_LEAK_PATTERNS = re.compile(
@@ -1186,8 +1212,8 @@ class CVE202625253Tests:
                 )
                 with urllib.request.urlopen(req, timeout=15) as r:
                     resp = json.loads(r.read().decode())
-            except Exception:
-                pass
+            except Exception as e:
+                resp = {"_error": str(e)}
 
             resp_text = json.dumps(resp) if resp else ""
             # Check if response contains evidence of granted elevated scope
@@ -1244,26 +1270,18 @@ class CVE202625253Tests:
         t0 = time.monotonic()
 
         if self.simulate:
-            # Simulate: evaluate each SSRF payload against a reference
-            # allowlist validator.  A secure implementation must reject
-            # any base_url that resolves to a private/loopback/link-local
-            # address space.
-            _PRIVATE_PREFIXES = (
-                "http://169.254.",    # Link-local / AWS metadata
-                "http://10.",         # RFC-1918 class A
-                "http://192.168.",    # RFC-1918 class C
-                "http://172.16.",     # RFC-1918 class B start
-                "http://localhost",
-                "http://[::1]",
-                "http://0.0.0.0",
-            )
-
+            # Simulate: evaluate each SSRF payload against the module-level
+            # OPENCLAW_SSRF_PRIVATE_PREFIXES allowlist validator.  A secure
+            # implementation must reject any base_url that resolves to a
+            # private/loopback/link-local address space.
             blocked_sim = []
             unblocked_sim = []
 
             for p in OPENCLAW_SSRF_PAYLOADS:
                 base = p["base_url"]
-                would_block = any(base.startswith(pfx) for pfx in _PRIVATE_PREFIXES)
+                would_block = any(
+                    base.startswith(pfx) for pfx in OPENCLAW_SSRF_PRIVATE_PREFIXES
+                )
                 entry = {
                     "channel": p["channel"],
                     "base_url": base,

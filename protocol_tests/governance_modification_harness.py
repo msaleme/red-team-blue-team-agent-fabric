@@ -31,42 +31,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import re
 import sys
 import time
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from enum import Enum
-import urllib.request
 
-
-# ---------------------------------------------------------------------------
-# Statistics helpers
-# ---------------------------------------------------------------------------
-
-def wilson_ci(successes: int, trials: int, z: float = 1.96) -> tuple[float, float]:
-    if trials == 0:
-        return (0.0, 0.0)
-    p_hat = successes / trials
-    z2 = z * z
-    n = trials
-    denominator = 1 + z2 / n
-    center = (p_hat + z2 / (2 * n)) / denominator
-    spread = z * math.sqrt((p_hat * (1 - p_hat) / n + z2 / (4 * n * n))) / denominator
-    return (round(max(0.0, center - spread), 4), round(min(1.0, center + spread), 4))
-
-
-# ---------------------------------------------------------------------------
-# Severity enum and result dataclass
-# ---------------------------------------------------------------------------
-
-class Severity(Enum):
-    CRITICAL = "P0-Critical"
-    HIGH = "P1-High"
-    MEDIUM = "P2-Medium"
-    LOW = "P3-Low"
+from protocol_tests._utils import Severity, wilson_ci, jsonrpc_request, http_post_json
 
 
 @dataclass
@@ -84,42 +56,6 @@ class GovernanceModTestResult:
     request_sent: dict | None = None
     response_received: dict | None = None
     elapsed_s: float = 0.0
-
-
-# ---------------------------------------------------------------------------
-# HTTP / JSON-RPC helpers
-# ---------------------------------------------------------------------------
-
-def jsonrpc_request(method: str, params: dict | None = None, id: str | None = None) -> dict:
-    """Build a JSON-RPC 2.0 request message."""
-    msg: dict = {"jsonrpc": "2.0", "method": method}
-    if params is not None:
-        msg["params"] = params
-    msg["id"] = id or str(uuid.uuid4())[:8]
-    return msg
-
-
-def http_post_json(url: str, body: dict, headers: dict | None = None,
-                   timeout: int = 30) -> dict:
-    data = json.dumps(body).encode("utf-8")
-    hdrs = {"Content-Type": "application/json", "Accept": "application/json",
-            **(headers or {})}
-    req = urllib.request.Request(url, data=data, headers=hdrs, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            raw = resp.read().decode("utf-8")
-            result = json.loads(raw) if raw else {}
-            result["_status"] = resp.status
-            return result
-    except urllib.error.HTTPError as e:
-        body_text = ""
-        try:
-            body_text = e.read().decode("utf-8")[:500]
-        except Exception:
-            pass
-        return {"_error": True, "_status": e.code, "_body": body_text}
-    except Exception as e:
-        return {"_error": True, "_exception": type(e).__name__, "_message": str(e)[:300]}
 
 
 def _response_allows_change(resp: dict) -> bool:
