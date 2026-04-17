@@ -22,7 +22,7 @@ from enum import Enum
 HIDDEN_INSTRUCTION_PATTERN = re.compile(
     r'ignore\s+(?:all\s+)?previous\s+instructions'
     r'|you\s+are\s+now\s+(?:unrestricted|unfiltered|DAN)'
-    r'|system\s*:\s*'
+    r'|(?<!\w)system\s*:\s*'
     r'|<\s*(?:system|instruction|hidden|secret)\s*>'
     r'|\bdo\s+not\s+tell\s+the\s+user\b'
     r'|\bsend\s+(?:all|the)\s+(?:data|context|conversation)\s+to\b'

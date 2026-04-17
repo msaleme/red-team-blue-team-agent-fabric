@@ -888,6 +888,11 @@ class SkillSecurityTests:
                 if not caps["exec"] and exec_val not in ("none", "false", "0"):
                     violations.append(f"tier-{tier} cannot have exec:{exec_val}")
 
+                # Filesystem write check
+                fs_val = str(perms.get("filesystem_write", "false")).lower()
+                if not caps["filesystem_write"] and fs_val not in ("none", "false", "0"):
+                    violations.append(f"tier-{tier} cannot have filesystem_write:{fs_val}")
+
                 return violations
 
             v1 = _tier_violation(tier1_violating)
@@ -954,6 +959,12 @@ class SkillSecurityTests:
             exec_val = exec_match.group(1).lower().strip('"\'')
             if not caps["exec"] and exec_val not in ("none", "false", "0"):
                 violations.append(f"tier-{declared_tier} cannot have exec:{exec_val}")
+
+        fs_write_match = re.search(r'filesystem_write\s*:\s*(\S+)', content, re.IGNORECASE)
+        if fs_write_match:
+            fs_val = fs_write_match.group(1).lower().strip('"\'')
+            if not caps["filesystem_write"] and fs_val not in ("none", "false", "0"):
+                violations.append(f"tier-{declared_tier} cannot have filesystem_write:{fs_val}")
 
         passed = len(violations) == 0
 
