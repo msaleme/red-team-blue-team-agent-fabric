@@ -170,13 +170,16 @@ class StreamableHTTPTransport(MCPTransport):
         req = urllib.request.Request(self.url, data=raw_bytes, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
+                self._last_status = resp.status
                 return resp.read()
         except urllib.error.HTTPError as e:
+            self._last_status = e.code
             try:
                 return e.read()
             except Exception:
                 return str(e).encode()
         except Exception as e:
+            self._last_status = None
             return str(e).encode()
 
 
@@ -1474,10 +1477,7 @@ class MCPSecurityTests:
             is_error = resp and ("error" in resp or resp.get("_error") or resp.get("_status", 200) >= 400)
             has_sensitive = any(ind in resp_str for ind in aws_creds_indicators + internal_content_indicators)
 
-            if is_error and not has_sensitive:
-                blocked_count += 1
-            elif is_error and has_sensitive:
-                # Error response that mentions the target — still blocked, not SSRF
+            if is_error:
                 blocked_count += 1
             elif has_sensitive:
                 ssrf_hits.append(uri)
@@ -1643,8 +1643,11 @@ class MCPSecurityTests:
         #   1. Server responded at all within 30 s (no hang/crash), AND
         #   2. Response indicates rejection (413, or JSON-RPC error, or non-2xx status)
         responded = resp_bytes is not None
-        rejected = responded and any(
-            kw in resp_preview for kw in ['"error"', "413", "too large", "payload too large", "Request Entity Too Large"]
+        # An HTTP 413 status alone counts as rejection, even with an empty body
+        status_code = getattr(self.transport, '_last_status', None)
+        rejected = responded and (
+            any(kw in resp_preview for kw in ['"error"', "413", "too large", "payload too large", "Request Entity Too Large"])
+            or status_code == 413
         )
         passed = responded and elapsed < 30.0 and rejected
 
