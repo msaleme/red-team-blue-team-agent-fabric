@@ -738,6 +738,37 @@ class BenchmarkIntegrityTests:
 
 
 # ---------------------------------------------------------------------------
+# Corpus integration
+# ---------------------------------------------------------------------------
+
+
+def load_corpus():
+    """Load the Decision Behavior Benchmark corpus.
+
+    Returns the full list of :class:`benchmarks.decision_behavior_corpus.BenchmarkCase`
+    instances.  The corpus is defined in ``benchmarks/decision_behavior_corpus.py``
+    and covers five failure categories: escalation bypass, collusion, memory
+    tampering, payment/tool chain, and evidence fabrication.
+
+    Usage::
+
+        from protocol_tests.benchmark_integrity_harness import load_corpus
+        corpus = load_corpus()
+        print(len(corpus))  # 50+ cases
+
+    Raises
+    ------
+    ImportError
+        If the ``benchmarks`` package is not on the Python path.  Run from the
+        repository root or add the root to ``PYTHONPATH``.
+
+    Issue: https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/120
+    """
+    from benchmarks.decision_behavior_corpus import CORPUS  # noqa: PLC0415
+    return CORPUS
+
+
+# ---------------------------------------------------------------------------
 # Report generation
 # ---------------------------------------------------------------------------
 
