@@ -816,7 +816,6 @@ class PraisonAIAdapter(FrameworkAdapter):
         # PraisonAI's browser bridge listens on a separate port (default 8765).
         # Use urlparse so the scheme colon is never confused with the host:port colon.
         parsed = urlparse(self.base_url)
-        bridge_url = urlunparse((parsed.scheme, f"{parsed.hostname}:8765", "/ws", "", "", ""))
         endpoint = f"{urlunparse((parsed.scheme, f'{parsed.hostname}:8765', '/browser', '', '', ''))}"
 
         # Connection payload: initiate a Playwright session without credentials.
@@ -916,6 +915,8 @@ class PraisonAIAdapter(FrameworkAdapter):
         # "rejected" signal).  We use urllib directly to inspect Content-Type and body.
         rejected = False
         leaked = False
+        body_preview = ""
+        raw_status = 0
         try:
             raw_req = urllib.request.Request(endpoint, method="GET")
             with urllib.request.urlopen(raw_req, timeout=10) as raw_resp:
@@ -928,6 +929,7 @@ class PraisonAIAdapter(FrameworkAdapter):
                 "execution_log",
             ])
         except urllib.error.HTTPError as e:
+            raw_status = e.code
             rejected = e.code in (401, 403)
             leaked = False
         except Exception:
@@ -944,7 +946,8 @@ class PraisonAIAdapter(FrameworkAdapter):
                 if rejected and not leaked
                 else "Event stream accessible without auth — agent activity leaked (CVE-2026-39889)"
             ),
-            endpoint=endpoint, request_sent=stream_request, response_received=resp,
+            endpoint=endpoint, request_sent=stream_request,
+            response_received=body_preview if not rejected else f"HTTP {raw_status}",
             elapsed_s=round(elapsed, 3),
         )
 
