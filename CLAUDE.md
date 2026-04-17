@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Security testing framework for AI agent systems. 439 tests across 29 modules covering MCP, A2A, L402, x402, identity protocols, plus MCP server, telemetry, attestation registry, and community plugin system.
+Security testing framework for AI agent systems. 470 tests across 32 modules covering MCP, A2A, L402, x402, identity protocols, plus MCP server, telemetry, attestation registry, and community plugin system.
 
 ## Testing Procedures
 

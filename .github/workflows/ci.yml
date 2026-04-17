@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -67,11 +67,15 @@ jobs:
           import protocol_tests.autogen_harness
           import protocol_tests.intent_contract_harness
           import protocol_tests.crewai_cve_harness
+          import protocol_tests.benchmark_integrity_harness
+          import protocol_tests.governance_modification_harness
+          import protocol_tests.skill_security_harness
+          import protocol_tests.community_runner
           import scripts.auroc
           import scripts.compliance_crosswalk
           import scripts.fria_evidence
           import scripts.compliance_report
-          print('All 32 modules import successfully')
+          print('All 36 modules import successfully')
           "
 
       - name: Run pytest

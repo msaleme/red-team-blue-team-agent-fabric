@@ -24,7 +24,7 @@ Our harness is positioned around that fourth layer while pressure-testing the ot
 | Wire-protocol adversarial testing | Temporary | 6-12 months before major vendors add this |
 | Multi-protocol coverage | Temporary | 6-12 months |
 | AIUC-1 mapping | Temporary | One release cycle after competitors notice |
-| Test corpus depth (466 tests) | Temporary | Must maintain velocity lead |
+| Test corpus depth (470 tests) | Temporary | Must maintain velocity lead |
 
 The strategy sequences investment toward **sustained advantages** while defending temporary ones through speed.
 
@@ -52,9 +52,9 @@ Identity and authorization controls answer *who* an agent is and *what* it can a
 |---------|-------|------------------|--------|
 | **v3.9 - Adopt in 15 Minutes** | CI integration and developer experience | `--json` output, error messages, scope docs, GitHub Action | **Shipped** (v3.9.0) |
 | **v3.10 - Prove It to Auditors** | Evidence format adoption + payment depth + drift scoring | Evidence packs, payment tests doubled, behavioral profiling, HTML dashboards, 2 independent security audits | **Shipped** (v3.10.0) |
-| **v4.1 - Compliance Evidence** | EU AI Act + ISO 42001 mapping, AUROC, FRIA, kill-switch, watermark tests | 466 tests, 32 modules, compliance report generator, 31 framework controls mapped | **Shipped** (v4.1.0) |
-| **v4.2 - Incident-Tested** | Tests mapped to named April 2026 security incidents | 466 tests, 32 modules | **Shipped** (v4.2.0) |
-| **v4.3 - Supply Chain + Corpus** | Skill Security Protocol harness, Decision Behavior Benchmark corpus, DRY infrastructure | 466 tests, 32 modules, 52 benchmark cases | **Shipped** (v4.3.0) |
+| **v4.1 - Compliance Evidence** | EU AI Act + ISO 42001 mapping, AUROC, FRIA, kill-switch, watermark tests | 470 tests, 32 modules, compliance report generator, 31 framework controls mapped | **Shipped** (v4.1.0) |
+| **v4.2 - Incident-Tested** | Tests mapped to named April 2026 security incidents | 470 tests, 32 modules | **Shipped** (v4.2.0) |
+| **v4.3 - Supply Chain + Corpus** | Skill Security Protocol harness, Decision Behavior Benchmark corpus, DRY infrastructure | 470 tests, 32 modules, 52 benchmark cases | **Shipped** (v4.3.0) |
 | **v5.0 - Lock the Category** | Standard-setting: benchmark + schema standardization + registry | H2 2026 — Benchmark corpus (#120), methodology paper (#138), IETF attestation schema (#137), longitudinal registry API, drift comparison. |
 
 ## v3.9 - Adopt in 15 Minutes ✅ SHIPPED
@@ -123,7 +123,7 @@ Released as v4.1.0. Transforms the harness from a security testing tool into a c
 | HTML compliance report generator | #160 | `--framework all --fria` one-command report |
 | Simulate mode expansion | F7 (R33) | MCP, A2A, Identity (39 new simulate tests) |
 
-**Total: 466 tests, 32 modules, 31 framework controls mapped.**
+**Total: 470 tests, 32 modules, 31 framework controls mapped.**
 
 ### Independent review
 
@@ -143,7 +143,7 @@ Every new module maps to a named security incident from April 2026:
 
 Also: shared `_utils.py` (SOLID/DRY), CLI registration, P0 bug fixes.
 
-**Total: 466 tests, 32 modules.**
+**Total: 470 tests, 32 modules.**
 
 ## v4.3 — Supply Chain + Corpus ✅ SHIPPED
 
@@ -160,7 +160,7 @@ Released as v4.3.0.
 | P0 bug fixes | cli.py VERSION string, CVE description count, BI-001 pass logic, BI-006 assertion, CVE-009 exception handling. |
 | ASI07 corpus coverage | DBC-051, DBC-052 added. |
 
-**Total: 466 tests, 32 modules, 52 benchmark cases.**
+**Total: 470 tests, 32 modules, 52 benchmark cases.**
 
 ## v5.0 — Lock the Category
 

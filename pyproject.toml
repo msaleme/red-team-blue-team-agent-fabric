@@ -4,11 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-security-harness"
-version = "4.3.0"
-description = "466 security tests for AI agent systems - MCP, A2A, L402, x402 wire-protocol testing, decision governance, AIUC-1 compliance, NIST AI 800-2 aligned"
+version = "4.4.0"
+description = "470 security tests for AI agent systems - MCP, A2A, L402, x402 wire-protocol testing, decision governance, AIUC-1 compliance, NIST AI 800-2 aligned"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
+dependencies = ["pyyaml>=6.0"]
 authors = [
     {name = "Michael K. Saleme", email = "research@cognitivethoughtengine.com"},
 ]

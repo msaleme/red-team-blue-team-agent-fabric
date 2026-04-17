@@ -5,6 +5,93 @@ All notable changes to the Agent Security Harness will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0] - 2026-04-17
+
+**Theme: Accuracy + Infrastructure.** Bump to 470 tests, add pyyaml as core dependency, fix all stale test counts and module counts across docs, add missing CI imports, Python 3.13 to matrix.
+
+### Added
+
+- MCP-018: Unbounded request body DoS test (CVE-2026-39313)
+- DGB evaluation runner — 3 configs, 52 cases, Section 5 baseline data
+- Python 3.13 to CI matrix
+- `pyyaml>=6.0` as core dependency (was only installed ad hoc in CI)
+- 4 missing module imports in CI workflow (benchmark_integrity, governance_modification, skill_security, community_runner)
+
+### Fixed
+
+- All test counts updated from 466 to 470 across README, pyproject.toml, ROADMAP, docs, CLAUDE.md, free_scan.py
+- All stale "439 tests across 29 modules" updated to "470 tests across 32 modules" in docs, STRATEGY, QUICKSTART, submission docs
+- AIUC-1 crosswalk: "Maps to all 24 requirements" corrected to "Maps to 19 of 20 testable requirements"
+- AIUC-1 crosswalk: stale "431 executable tests" updated to 470
+- MCP comparison table: "14 tests" corrected to "18 tests"
+- Regex literal mismatch in HC-5 check and missing sanity-check failures
+- 10 Cursor Bugbot issues across 5 files (adapters, CVE, SSP, corpus)
+- MCP harness Bugbot issues (MCP-015/016/018)
+- Governance harness Bugbot issues (4 issues in GM harness)
+
+### Changed
+
+- `protocol_tests/__init__.py` version comment updated from v3.0 to v4.4
+- CI import count updated from 32 to 36 modules
+
+## [4.3.0] - 2026-04-15
+
+**Theme: Supply Chain + Corpus.** Skill Security Protocol harness, Decision Behavior Benchmark corpus, DRY infrastructure.
+
+### Added
+
+- Skill Security Protocol harness (SS-001 through SS-008) — RFC #99, manifest integrity, permission validation, prompt injection, exfiltration, Ed25519 provenance, capability escalation, sandboxing, update tampering
+- Decision Behavior Benchmark corpus — 52 cases, 5 categories (escalation bypass, collusion, memory tampering, payment/tool chain, evidence fabrication)
+- Cross-reference to constitutional-agent governance package
+
+### Changed
+
+- HIDDEN_INSTRUCTION_PATTERN extracted to `_utils.py` (DRY — was duplicated in mcp_harness and skill_security_harness)
+- Dynamic test count in CLI derived from HARNESSES registry at runtime
+
+### Fixed
+
+- P0/P1/P2 cleanup: stale VERSION string, dynamic test count, DRY pattern, corpus gaps
+- Test count synchronized to 466 across all files
+
+## [4.2.0] - 2026-04-12
+
+**Theme: Incident-Tested.** Every new module maps to a named April 2026 security incident.
+
+### Added
+
+- Benchmark Integrity harness (BI-001 through BI-007) — UC Berkeley: all 8 AI benchmarks hackable
+- Governance Modification harness (GM-001 through GM-006) — lightningzero: 9/12 agents disabled own gates
+- PraisonAI adapter (PA-001 through PA-004) — CVE-2026-40288 (9.8), CVE-2026-40289 (9.1), CVE-2026-39889, CVE-2026-39891
+- MCP-015/016/017: SSRF and STDIO pre-handshake tests — OX Security disclosure, BlueRock 36.7% SSRF finding
+- CVE-009, CVE-010: OpenClaw privilege escalation and SSRF tests
+- `ash` short alias for agent-security CLI
+
+### Changed
+
+- Shared `_utils.py` extracted (SOLID/DRY), CLI registration for new modules
+
+### Fixed
+
+- MCP harness: dead imports, GCP/Azure SSRF targets, canary finally block
+- PraisonAI adapter: simulate flag, base signature, docs
+- Harness count assertion updated
+
+## [4.1.0] - 2026-04-10
+
+**Theme: Compliance Evidence.** EU AI Act + ISO 42001 mapping, AUROC, FRIA, kill-switch, watermark tests.
+
+### Added
+
+- AUROC per-module metrics — detection effectiveness scoring
+- EU AI Act crosswalk — 16 controls across Articles 9-72
+- ISO 42001 crosswalk — 15 controls across Clauses 5-10 + Annex A
+- Kill-switch compliance tests (IR-009 through IR-012) — CA SB 942 + EU AI Act Art 14
+- FRIA evidence collection — 6 categories, EU AI Act Article 27
+- Watermark adversarial tests (WM-001 through WM-005) — EU AI Act Article 50
+- HTML compliance report generator — `--framework all --fria` one-command report
+- Simulate mode expansion for MCP, A2A, Identity (39 new simulate tests)
+
 ## [3.10.0] - 2026-04-08
 
 **Theme: Prove It to Auditors.** Evidence format adoption, payment protocol depth, behavioral drift scoring, and audit-ready reporting. The release where the project transitions from a testing harness to a verification standard.

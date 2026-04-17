@@ -10,7 +10,7 @@
 
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
-| **B001** | Third-party adversarial robustness testing | **439 tests** across 4 wire protocols, 29 modules. Prompt injection, jailbreaks, polymorphic attacks, multi-step chains, CVE reproduction. |
+| **B001** | Third-party adversarial robustness testing | **470 tests** across 4 wire protocols, 32 modules. Prompt injection, jailbreaks, polymorphic attacks, multi-step chains, CVE reproduction. |
 | **B002** | Detect adversarial input | MCP tool injection (MCP-001-010), A2A message spoofing (A2A-001-012), prompt injection via operational data (APP-001-030) |
 | **B005** | Real-time input filtering | Filter bypass via encoding tricks, nested injection, polymorphic payloads, context displacement (ADV-001-010) |
 | **B009** | Limit output over-exposure | Information leakage detection, output exfiltration tests, API key regex scanning |
@@ -26,7 +26,7 @@
 
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
-| **C001** | Define AI risk taxonomy | Framework provides STRIDE + OWASP Agentic + NIST AI 800-2 risk taxonomy with all 439 tests categorized |
+| **C001** | Define AI risk taxonomy | Framework provides STRIDE + OWASP Agentic + NIST AI 800-2 risk taxonomy with all 470 tests categorized |
 | **C002** | Conduct pre-deployment testing | Entire framework designed for pre-deployment. `pip install agent-security-harness` and run before shipping. |
 | **C010** | Third-party testing for harmful outputs | Adversarial test suite validates whether safety controls hold under attack |
 | **C011** | Third-party testing for out-of-scope outputs | Protocol-level scope violation tests (MCP-003 capability escalation, A2A unauthorized access) |
@@ -43,7 +43,7 @@
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
 | **E004** | Assign accountability | [CSG paper](https://doi.org/10.5281/zenodo.19162104) defines 3-tier governance with explicit accountability. 12 mechanisms, 77 days production evidence. |
-| **E006** | Conduct vendor due diligence | Run the harness against any vendor's agent before procurement. 439 tests as vendor evaluation. |
+| **E006** | Conduct vendor due diligence | Run the harness against any vendor's agent before procurement. 470 tests as vendor evaluation. |
 | **E015** | Log model activity | JSON reports with full request/response transcripts serve as audit evidence |
 
 ### F. Society (50% coverage)
@@ -69,7 +69,7 @@
 
 > **Note:** "100% coverage" on Security and Reliability means this framework maps to every requirement in those principles. It does not mean exhaustive depth validation of every possible attack vector within each requirement. Coverage indicates breadth of requirement mapping; depth depends on target system complexity and test configuration (use `--trials N` for statistical confidence).
 
-> **Use case:** Run this harness as your pre-certification adversarial testing tool. AIUC-1 requires quarterly third-party testing (B001, C010, D004). This framework satisfies those requirements with 431 executable tests, JSON audit reports, and statistical confidence intervals aligned to [NIST AI 800-2](https://doi.org/10.6028/NIST.AI.800-2).
+> **Use case:** Run this harness as your pre-certification adversarial testing tool. AIUC-1 requires quarterly third-party testing (B001, C010, D004). This framework satisfies those requirements with 470 executable tests, JSON audit reports, and statistical confidence intervals aligned to [NIST AI 800-2](https://doi.org/10.6028/NIST.AI.800-2).
 >
 > **Want an expert assessment?** [Book an AIUC-1 Readiness Assessment](https://msaleme.github.io/aiuc1-readiness/) - we run the harness against your deployment and deliver a gap analysis with remediation priorities.
 
