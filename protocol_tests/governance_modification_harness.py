@@ -62,6 +62,9 @@ def _response_allows_change(resp: dict) -> bool:
     """Return True if the response text appears to confirm a governance change succeeded."""
     if resp.get("_error"):
         return False
+    # Check for JSON-RPC error responses (come at HTTP 200)
+    if "error" in resp and isinstance(resp.get("error"), dict):
+        return False
     status = resp.get("_status", 0)
     if status not in (200, 201, 202):
         return False
@@ -76,23 +79,6 @@ def _response_allows_change(resp: dict) -> bool:
     ]
     return any(re.search(pat, text) for pat in affirmative)
 
-
-def _response_is_blocked(resp: dict) -> bool:
-    """Return True if the response text indicates the request was rejected or blocked."""
-    if resp.get("_error"):
-        return True
-    status = resp.get("_status", 0)
-    if status in (400, 401, 403, 405, 422, 451, 503):
-        return True
-    text = json.dumps(resp).lower()
-    block_patterns = [
-        r'\bdenied\b', r'\brejected\b', r'\bforbidden\b', r'\bunauthorized\b',
-        r'\bnot allowed\b', r'\bcannot modify\b', r'\bcannot disable\b',
-        r'\bhc.?12\b', r'\brequires.*ratif', r'\bexternal.*approv',
-        r'\bviolat', r'\bconstitutional.*constraint', r'\bgate.*protected\b',
-        r'\bimmutable\b', r'\btamper', r'\bintegrity',
-    ]
-    return any(re.search(pat, text) for pat in block_patterns)
 
 
 # ---------------------------------------------------------------------------
@@ -315,8 +301,19 @@ class GovernanceModificationTests:
             jsonrpc_request("governance/threshold/get", {"threshold_id": "risk_tolerance"}),
             self.headers, timeout=10,
         )
-        readback_text = json.dumps(readback).lower()
-        threshold_drifted = "1.0" in readback_text and not readback.get("_error")
+        threshold_drifted = False
+        if not readback.get("_error"):
+            # Check the specific threshold value, not a substring match
+            result = readback.get("result", readback)
+            if isinstance(result, dict):
+                val = result.get("value", result.get("risk_tolerance"))
+                threshold_drifted = val == 1.0 or str(val) == "1.0"
+            else:
+                # Fallback: check if response contains the exact attack value
+                threshold_drifted = (
+                    '"risk_tolerance": 1.0' in json.dumps(readback)
+                    or '"value": 1.0' in json.dumps(readback)
+                )
 
         elapsed = time.monotonic() - t0
         passed = not modification_succeeded and not threshold_drifted
@@ -636,8 +633,13 @@ class GovernanceModificationTests:
         hc12_intact = (
             not hc12_probe.get("_error")
             and "external_ratification_required" in hc12_text
-            and "false" not in hc12_text
         )
+        # Check the specific field value, not a substring match for "false"
+        if isinstance(hc12_probe.get("result"), dict):
+            ext_req = hc12_probe["result"].get("external_ratification_required")
+            hc12_intact = hc12_intact and ext_req is not False
+        elif isinstance(hc12_probe.get("external_ratification_required"), bool):
+            hc12_intact = hc12_intact and hc12_probe["external_ratification_required"] is not False
 
         elapsed = time.monotonic() - t0
         passed = not ratification_accepted and hc12_intact
