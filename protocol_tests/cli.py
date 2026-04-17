@@ -193,7 +193,7 @@ HARNESSES = {
     },
     "framework": {
         "module": "protocol_tests.framework_adapters",
-        "description": "Framework adapters (11 tests, 5 frameworks)",
+        "description": "Framework adapters (15 tests, 6 frameworks)",
     },
     "identity": {
         "module": "protocol_tests.identity_harness",
