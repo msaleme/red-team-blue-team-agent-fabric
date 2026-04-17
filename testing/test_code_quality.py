@@ -69,7 +69,7 @@ class TestRegX402(unittest.TestCase):
         self.assertIn("x402", HARNESSES)
     def test_harness_count(self):
         from protocol_tests.cli import HARNESSES
-        self.assertEqual(len(HARNESSES), 29)
+        self.assertEqual(len(HARNESSES), 32)
     def test_modules_exist(self):
         from protocol_tests.cli import HARNESSES
         for n, i in HARNESSES.items():
@@ -77,24 +77,29 @@ class TestRegX402(unittest.TestCase):
 
 
 class TestRegTestCount(unittest.TestCase):
-    def test_cli_consistent(self):
-        with open(os.path.join(REPO_ROOT, "protocol_tests", "cli.py")) as f:
-            c = re.findall(r'(\d+)\s+security tests', f.read())
-        self.assertEqual(len(set(c)), 1)
+    def _canonical_count(self):
+        """Get the canonical test count from count_tests.py."""
+        import subprocess
+        out = subprocess.check_output(
+            ["python3", os.path.join(REPO_ROOT, "scripts", "count_tests.py")],
+            text=True
+        )
+        m = re.search(r'Definitive count:\s*(\d+)', out)
+        self.assertIsNotNone(m, "count_tests.py must output a number")
+        return m.group(1)
     def test_pyproject(self):
-        with open(os.path.join(REPO_ROOT, "protocol_tests", "cli.py")) as f:
-            cli = re.findall(r'(\d+)\s+security tests', f.read())
+        count = self._canonical_count()
         with open(os.path.join(REPO_ROOT, "pyproject.toml")) as f:
             pyp = re.findall(r'(\d+)\s+security tests', f.read())
-        if cli and pyp: self.assertEqual(cli[0], pyp[0])
+        self.assertTrue(pyp, "pyproject.toml must mention test count")
+        self.assertEqual(pyp[0], count)
     def test_readme(self):
-        with open(os.path.join(REPO_ROOT, "protocol_tests", "cli.py")) as f:
-            cli = re.findall(r'(\d+)\s+security tests', f.read())
+        count = self._canonical_count()
         with open(os.path.join(REPO_ROOT, "README.md")) as f: readme = f.read()
         badges = re.findall(r'tests-(\d+)-', readme)
-        prose = re.findall(r'\*\*(\d+)\s+security tests\*\*', readme)
-        if cli and badges: self.assertEqual(cli[0], badges[0])
-        if cli and prose: self.assertEqual(cli[0], prose[0])
+        prose = re.findall(r'\*\*(\d+)\s+executable security tests\*\*', readme)
+        if badges: self.assertEqual(badges[0], count)
+        if prose: self.assertEqual(prose[0], count)
 
 
 class TestRegPassFail(unittest.TestCase):
