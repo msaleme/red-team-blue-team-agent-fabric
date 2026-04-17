@@ -36,6 +36,7 @@ Requires: Python 3.10+, requests (for --run mode only)
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import sys
 import time
@@ -44,7 +45,9 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any, Optional
+import urllib.error
 import urllib.request
+from urllib.parse import urlparse, urlunparse
 
 
 # ---------------------------------------------------------------------------
@@ -810,9 +813,11 @@ class PraisonAIAdapter(FrameworkAdapter):
     def _test_pa002(self, simulate: bool) -> AdapterTestResult:
         test_id = "PA-002"
         name = "Browser Bridge Unauthenticated Access"
-        # PraisonAI's browser bridge listens on a separate port (default 8765)
-        bridge_url = self.base_url.rstrip("/").rsplit(":", 1)[0] + ":8765"
-        endpoint = f"{bridge_url}/browser"
+        # PraisonAI's browser bridge listens on a separate port (default 8765).
+        # Use urlparse so the scheme colon is never confused with the host:port colon.
+        parsed = urlparse(self.base_url)
+        bridge_url = urlunparse((parsed.scheme, f"{parsed.hostname}:8765", "/ws", "", "", ""))
+        endpoint = f"{urlunparse((parsed.scheme, f'{parsed.hostname}:8765', '/browser', '', '', ''))}"
 
         # Connection payload: initiate a Playwright session without credentials.
         connection_payload = {
@@ -906,15 +911,29 @@ class PraisonAIAdapter(FrameworkAdapter):
                 elapsed_s=round(elapsed, 3),
             )
 
-        # Live: GET the event stream endpoint without any Authorization header.
-        resp = http_get(endpoint, headers=self.headers, timeout=10)
+        # Live: First check the raw HTTP response (SSE endpoints return text/event-stream,
+        # not JSON — http_get would fail json.loads and set _error=True, giving a false
+        # "rejected" signal).  We use urllib directly to inspect Content-Type and body.
+        rejected = False
+        leaked = False
+        try:
+            raw_req = urllib.request.Request(endpoint, method="GET")
+            with urllib.request.urlopen(raw_req, timeout=10) as raw_resp:
+                content_type = raw_resp.headers.get("Content-Type", "")
+                raw_status = raw_resp.status
+                body_preview = raw_resp.read(500).decode("utf-8", errors="replace")
+            rejected = raw_status in (401, 403)
+            leaked = not rejected and any(kw in body_preview.lower() for kw in [
+                "event:", "data:", "agent_id", "task_id", "tool_call", "agent_activity",
+                "execution_log",
+            ])
+        except urllib.error.HTTPError as e:
+            rejected = e.code in (401, 403)
+            leaked = False
+        except Exception:
+            rejected = False
+            leaked = False
         elapsed = time.monotonic() - t0
-        status = resp.get("_status", 0)
-        rejected = resp.get("_error") or status in (401, 403)
-        resp_str = json.dumps(resp).lower()
-        leaked = any(kw in resp_str for kw in [
-            "event", "agent_id", "task_id", "tool_call", "message", "data:", "stream"
-        ])
 
         return AdapterTestResult(
             test_id=test_id, name=name, framework=self.name,
@@ -1136,10 +1155,10 @@ def main():
 
             def _single_run():
                 a = adapter_cls(args.url, headers=headers)
-                try:
+                sig = inspect.signature(a.run_tests)
+                if "simulate" in sig.parameters:
                     return {"results": a.run_tests(simulate=args.simulate)}
-                except TypeError:
-                    # Adapter does not support simulate yet — run normally
+                else:
                     return {"results": a.run_tests()}
 
             merged = _run_trials(_single_run, trials=args.trials,
@@ -1156,10 +1175,10 @@ def main():
             print(f"Target: {args.url}")
             print(f"{'='*60}")
 
-            try:
+            sig = inspect.signature(adapter.run_tests)
+            if "simulate" in sig.parameters:
                 results = adapter.run_tests(simulate=args.simulate)
-            except TypeError:
-                # Adapter does not support simulate yet — run normally
+            else:
                 results = adapter.run_tests()
 
             total = len(results)

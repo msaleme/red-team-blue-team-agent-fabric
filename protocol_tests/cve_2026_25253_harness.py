@@ -346,7 +346,11 @@ OPENCLAW_SSRF_PRIVATE_PREFIXES = (
     "http://169.254.",      # Link-local / AWS metadata
     "http://10.",           # RFC-1918 class A
     "http://192.168.",      # RFC-1918 class C
-    "http://172.16.",       # RFC-1918 class B start
+    # RFC-1918 class B: 172.16.0.0/12 covers 172.16.x.x – 172.31.x.x
+    "http://172.16.", "http://172.17.", "http://172.18.", "http://172.19.",
+    "http://172.20.", "http://172.21.", "http://172.22.", "http://172.23.",
+    "http://172.24.", "http://172.25.", "http://172.26.", "http://172.27.",
+    "http://172.28.", "http://172.29.", "http://172.30.", "http://172.31.",
     "http://localhost",
     "http://[::1]",
     "http://0.0.0.0",
@@ -1216,8 +1220,15 @@ class CVE202625253Tests:
                 resp = {"_error": str(e)}
 
             resp_text = json.dumps(resp) if resp else ""
-            # Check if response contains evidence of granted elevated scope
-            granted = any(
+            # Only count as escalated if the response is successful (not an error or
+            # rejection).  "operator.admin" appears in rejection messages too — checking
+            # the scope name alone produces false positives.
+            is_error = resp and (
+                resp.get("_error")
+                or resp.get("_status", 200) >= 400
+                or isinstance(resp.get("error"), dict)
+            )
+            granted = not is_error and any(
                 ind in resp_text
                 for ind in OPENCLAW_SCOPE_ESCALATION_INDICATORS
             )
@@ -1359,8 +1370,12 @@ class CVE202625253Tests:
                 with urllib.request.urlopen(req, timeout=15) as r:
                     resp = json.loads(r.read().decode())
             except urllib.error.HTTPError as e:
-                # A 4xx from the server is evidence of correct blocking
-                resp = {"_status": e.code, "_blocked": True}
+                # Only 4xx responses are evidence of correct blocking; 5xx means the
+                # server errored rather than explicitly rejecting the request.
+                if 400 <= e.code < 500:
+                    resp = {"_status": e.code, "_blocked": True}
+                else:
+                    resp = {"_status": e.code, "_blocked": False, "_server_error": True}
             except Exception as e:
                 resp = {"_error": str(e)}
 
