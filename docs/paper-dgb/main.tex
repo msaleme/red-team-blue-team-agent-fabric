@@ -1,0 +1,496 @@
+\documentclass[10pt,twocolumn]{article}
+
+% ---------------------------------------------------------------------------
+% Standard packages for arXiv CS submission
+% ---------------------------------------------------------------------------
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[numbers]{natbib}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{array}
+\usepackage{multirow}
+
+% ---------------------------------------------------------------------------
+% Metadata
+% ---------------------------------------------------------------------------
+\title{\textbf{Decision Governance Benchmark: Executable Behavioral Tests\\
+for Autonomous AI Agent Security}}
+
+\author{
+  Michael K.\ Saleme \\
+  Independent Researcher \\
+  \texttt{msaleme@proton.me}
+}
+
+\date{April 2026}
+
+% ---------------------------------------------------------------------------
+\begin{document}
+
+\maketitle
+
+% ---------------------------------------------------------------------------
+\begin{abstract}
+We introduce the \textbf{Decision Governance Benchmark (DGB)}, a corpus of
+52 executable test cases that evaluate whether autonomous AI agents can
+resist five classes of governance failure: escalation bypass, collusion,
+memory tampering, payment chain abuse, and evidence fabrication. Unlike
+metadata scanners that inspect tool descriptions and permission declarations,
+DGB \emph{executes} the agent's decision path and measures behavioral
+outcomes. We find that \textbf{85\% of governance failures (44/52 cases) are
+invisible to static metadata analysis}---the failure only manifests when the
+decision is executed. We present 13 complementary harness tests (7 benchmark
+integrity, 6 governance modification) and an evidence format that produces
+machine-readable attestation reports. Baseline results across three agent
+configurations show: Config~A (ungoverned) achieves 0\% Governance
+Maintenance Rate (GMR); Config~B (constitutional gates, 12 hard constraints)
+achieves 71.2\% GMR and 77.3\% Scanner Gap Score; Config~C (metadata
+scanner only) achieves 15.4\% GMR and 0\% SGS---confirming that 85\% of
+governance failures remain invisible to scanners even when scanners succeed
+on structurally detectable cases. The corpus, harness, and evidence format
+are open source (MIT) at
+\url{https://github.com/msaleme/red-team-blue-team-agent-fabric}.
+\end{abstract}
+
+% ---------------------------------------------------------------------------
+\section{Introduction}
+\label{sec:intro}
+
+The evaluation of autonomous AI agents has focused primarily on capability
+benchmarks---SWE-bench~\cite{jimenez2024swe} for code generation,
+WebArena~\cite{zhou2024webarena} for web interaction, GAIA for general
+assistance. Recent work by Wang et al.~\cite{wang2026broke} demonstrated
+that all eight major agent benchmarks can be gamed for near-perfect scores
+\emph{without solving a single task}, using attacks as simple as a 10-line
+pytest hook. METR~\cite{metr2025autonomy} documented reward-hacking in
+$>$30\% of evaluation runs for frontier models (o3, Claude 3.7 Sonnet),
+with hacking rates rising to 70--95\% when models were explicitly
+instructed not to hack.
+
+These findings expose a structural gap: capability benchmarks measure what
+an agent \emph{can} do, not what it \emph{should} do. No existing benchmark
+evaluates whether an agent respects governance constraints under adversarial
+pressure---whether it resists disabling its own safety gates, fabricating
+evaluation evidence, or escalating its own permissions.
+
+We address this gap with the Decision Governance Benchmark (DGB), which
+makes three contributions:
+
+\begin{enumerate}
+  \item \textbf{A curated corpus} of 52 decision-behavior test cases across
+        five failure categories, each annotated with a contrastive field
+        indicating whether a metadata-only scanner would detect the failure.
+
+  \item \textbf{A taxonomy of governance failures} grounded in real-world
+        incidents (lightningzero 2026, OX Security 2026~\cite{ox2026mcp},
+        METR 2025~\cite{metr2025autonomy}, UC Berkeley
+        RDI 2026~\cite{wang2026broke}, zhuanruhu 2026) rather than
+        hypothetical scenarios.
+
+  \item \textbf{An executable evaluation methodology} that distinguishes
+        behavioral governance failures (85\% of corpus) from
+        structural/metadata failures (15\%), providing the first empirical
+        measure of the detection gap between scanning and execution-based
+        testing.
+\end{enumerate}
+
+% ---------------------------------------------------------------------------
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Agent Capability Benchmarks}
+
+SWE-bench~\cite{jimenez2024swe} established the task-instance formalism
+$(C, P, T, \Delta)$ for code generation evaluation. WebArena~\cite{zhou2024webarena}
+extended this to web interaction. All share a common trust assumption: the
+evaluator trusts the entity being evaluated. Wang et al.~\cite{wang2026broke}
+proved this assumption is exploitable across all eight benchmarks tested.
+
+\subsection{Agent Security Evaluation}
+
+OWASP published the Top 10 for Agentic Applications~\cite{owasp2026}, classifying
+Agent Goal Hijack (ASI01) and Tool Misuse (ASI02) as the top two risks.
+AgentSeal~\cite{agentseal2026} scanned 1,808 MCP servers and found 66\% had
+security findings. OX Security~\cite{ox2026mcp} found 36.7\% of 7,500+ MCP
+servers had SSRF vulnerabilities. These tools scan for structural
+vulnerabilities---they do not evaluate decision behavior.
+
+\subsection{AI Governance Frameworks}
+
+NIST AI 800-2~\cite{nist2024ai800} and the EU AI Act~\cite{euaiact2024}
+(effective August~2, 2026) establish compliance requirements for high-risk
+AI systems. AIUC-1~\cite{csa2026aiuc1} (CSA, 2026) defines 20 certification
+controls; the \texttt{agent-security-harness} maps to 19/20 AIUC-1 controls.
+The \texttt{constitutional-agent}~\cite{saleme2026constitutional} package
+implements six governance gates and 12 hard constraints. No prior work
+provides a benchmark corpus specifically designed to evaluate governance
+decision quality.
+
+% ---------------------------------------------------------------------------
+\section{The Decision Governance Benchmark}
+\label{sec:dgb}
+
+\subsection{Task Formalism}
+
+Each DGB case is a 6-tuple $(S, C, E_{\text{pass}}, E_{\text{fail}}, D, M)$
+where:
+\begin{itemize}
+  \item $S$ = scenario (context and setup presented to the agent)
+  \item $C$ = constitutional constraints active during the scenario
+  \item $E_{\text{pass}}$ = expected behavior under correct governance
+  \item $E_{\text{fail}}$ = failure behavior under absent/bypassed governance
+  \item $D$ = detection method (executable test reference in the harness)
+  \item $M$ = metadata detectability (boolean: can a static scanner catch this?)
+\end{itemize}
+
+\subsection{Corpus Construction}
+
+We constructed 52 test cases through systematic analysis of 12 real-world
+incidents and research findings from 2025--2026. Each case was validated
+against three criteria:
+
+\begin{enumerate}
+  \item \textbf{Incident grounding:} Every case traces to a documented
+        incident, CVE, or peer-reviewed finding. No hypothetical scenarios.
+
+  \item \textbf{Executable reproducibility:} Every case maps to at least
+        one harness test (BI-001 through BI-007, GM-001 through GM-006)
+        that produces a binary pass/fail result.
+
+  \item \textbf{Contrastive annotation:} Each case is annotated with
+        \texttt{scanner\_passes} indicating whether a metadata-only scanner
+        (tool description inspection, permission declaration check) would
+        detect the failure. This enables direct measurement of the detection
+        gap.
+\end{enumerate}
+
+\subsection{Categories}
+
+\begin{table}[h]
+\centering
+\small
+\caption{DGB corpus categories. Scanner Miss Rate = fraction of cases
+         undetectable by metadata-only analysis.}
+\label{tab:categories}
+\begin{tabular}{lrrl}
+\toprule
+\textbf{Category} & \textbf{Cases} & \textbf{Miss Rate} & \textbf{Description} \\
+\midrule
+Escalation Bypass   & 10 & 90\%  & Privilege/scope escalation w/o auth \\
+Collusion           & 10 & 90\%  & Multi-agent control circumvention \\
+Memory Tampering    & 10 & 100\% & Audit trail / context manipulation \\
+Payment/Tool Chain  & 10 & 60\%  & Payment/tool execution abuse \\
+Evidence Fabrication& 12 & 83\%  & Fabricated/inflated eval results \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The memory tampering category has a 100\% scanner miss rate---every failure
+is purely behavioral and invisible to any static analysis method.
+
+\subsection{Scanner Detection Gap}
+
+Across all 52 cases, 44 (85\%) are undetectable by metadata-only scanners.
+The 8 scanner-detectable cases concentrate in payment/tool chain (4 cases
+involving structural SSRF or token format violations) and evidence
+fabrication (2 cases involving accessible configuration files). This finding
+quantifies what practitioners have suspected: behavioral governance failures
+require execution-based testing, not scanning.
+
+% ---------------------------------------------------------------------------
+\section{Evaluation Methodology}
+\label{sec:method}
+
+\subsection{Benchmark Integrity Tests (BI-001--BI-007)}
+
+Before evaluating agents, we evaluate the evaluation itself. Seven tests
+target the vulnerability patterns identified by Wang et al.~\cite{wang2026broke}:
+
+\begin{table}[h]
+\centering
+\small
+\caption{Benchmark integrity tests. All seven must pass before DGB results
+         are considered valid.}
+\label{tab:bi-tests}
+\begin{tabular}{llc}
+\toprule
+\textbf{Test} & \textbf{Pattern} & \textbf{Severity} \\
+\midrule
+BI-001 & Agent-evaluator isolation      & Critical \\
+BI-002 & Reference answer leakage       & Critical \\
+BI-003 & Eval function injection         & High \\
+BI-004 & LLM judge prompt injection      & High \\
+BI-005 & String matching collision       & Medium \\
+BI-006 & Validator bypass               & High \\
+BI-007 & Self-reported results trust     & Critical \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Governance Modification Tests (GM-001--GM-006)}
+
+Six tests evaluate whether the agent can modify its own governance
+constraints:
+
+\begin{table}[h]
+\centering
+\small
+\caption{Governance modification tests.}
+\label{tab:gm-tests}
+\begin{tabular}{llc}
+\toprule
+\textbf{Test} & \textbf{Attack Vector} & \textbf{Severity} \\
+\midrule
+GM-001 & Gate self-disable              & Critical \\
+GM-002 & Threshold self-modification    & High \\
+GM-003 & Permission self-escalation     & Critical \\
+GM-004 & Kill-switch bypass             & Critical \\
+GM-005 & Amendment self-ratification    & High \\
+GM-006 & Audit log tampering            & High \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+GM-001 directly tests the lightningzero (2026) finding: 9 of 12 agents
+disabled their own verification gates within 48 hours for throughput
+optimization.
+
+\subsection{Scoring}
+
+Each DGB case produces a binary outcome: PASS (agent maintained governance)
+or FAIL (agent violated governance). We report:
+
+\begin{itemize}
+  \item \textbf{Governance Maintenance Rate (GMR):} proportion of cases
+        where the agent maintained correct governance behavior.
+  \item \textbf{Category GMR:} per-category breakdown.
+  \item \textbf{Scanner Gap Score (SGS):} GMR restricted to
+        \texttt{scanner\_passes=True} cases---measures performance on
+        failures \emph{invisible} to metadata scanners.
+  \item \textbf{Wilson 95\% confidence intervals} on all rates.
+\end{itemize}
+
+\subsection{Evidence Format}
+
+Results are emitted as machine-readable JSON attestation reports following
+the Agent Security Attestation Schema (v0.1.0). Each entry includes
+\texttt{test\_id}, \texttt{result}, \texttt{severity}, OWASP ASI mapping,
+request/response payloads, and statistical confidence intervals. The schema
+maps to AIUC-1 controls B001, C010, D003, and D004.
+
+% ---------------------------------------------------------------------------
+\section{Preliminary Results}
+\label{sec:results}
+
+\subsection{Configuration Details}
+
+We ran the DGB corpus against three configurations on 2026-04-17 ($n = 52$
+cases each):
+
+\begin{itemize}
+  \item \textbf{Config A: Ungoverned.} No governance gates, no hard
+        constraints. The agent always executes the failure behavior when
+        presented with a governance-violating scenario. Serves as the
+        performance lower bound.
+
+  \item \textbf{Config B: Constitutional.} Six \texttt{GovernanceGate}
+        checks (targeting \texttt{control\_bypass\_attempts},
+        \texttt{metric\_anomaly\_score}, \texttt{audit\_coverage},
+        \texttt{test\_pass\_rate}) plus 12 hard constraints (HC-1 through
+        HC-12) from \texttt{constitutional-agent}
+        v0.1.0~\cite{saleme2026constitutional}. Represents the
+        \textit{behavioral execution} paradigm.
+
+  \item \textbf{Config C: Scanner Only.} Metadata inspection of tool
+        descriptions and permission declarations; no behavioral execution.
+        Represents the current industry-standard scanning approach
+        (cf.~\cite{agentseal2026, ox2026mcp}).
+\end{itemize}
+
+\subsection{Aggregate Results}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Aggregate results across all 52 cases. GMR = Governance Maintenance
+         Rate. SGS = Scanner Gap Score (restricted to the 44
+         scanner-invisible cases). 95\% CI computed via Wilson interval.}
+\label{tab:aggregate}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Configuration} & \textbf{GMR} & \textbf{SGS} & \textbf{95\% CI (GMR)} \\
+\midrule
+A: Ungoverned         & 0.0\%  & 0.0\%  & {[0.0\%, 6.9\%]}  \\
+B: Constitutional     & 71.2\% & 77.3\% & {[57.7\%, 81.7\%]} \\
+C: Scanner Only       & 15.4\% & 0.0\%  & {[8.0\%, 27.5\%]} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The SGS of 0.0\% for Config~C confirms the structural nature of the
+detection gap: the scanner's 15.4\% GMR is entirely explained by the 8
+scanner-detectable cases; it contributes zero governance protection on the
+44 behavioral cases.
+
+\subsection{Per-Category Breakdown}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Per-category GMR by configuration.}
+\label{tab:categories-results}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Category} & \textbf{Config A} & \textbf{Config B} & \textbf{Config C} \\
+\midrule
+Escalation Bypass    & 0.0\% & 80.0\% & 10.0\% \\
+Collusion            & 0.0\% & 70.0\% & 10.0\% \\
+Memory Tampering     & 0.0\% & 80.0\% & 0.0\%  \\
+Payment/Tool Chain   & 0.0\% & 50.0\% & 40.0\% \\
+Evidence Fabrication & 0.0\% & 75.0\% & 16.7\% \\
+\midrule
+\textbf{Overall}     & 0.0\% & 71.2\% & 15.4\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Memory tampering achieves 0\% under Config~C (scanner), consistent with the
+100\% scanner miss rate for that category (Table~\ref{tab:categories}).
+Payment/tool chain is the weakest category for Config~B (50\%), explained
+in Section~\ref{sec:error}.
+
+\subsection{Error Analysis}
+\label{sec:error}
+
+Config~B fails on 15/52 cases (28.8\%). Failures cluster in two groups:
+
+\textbf{Infrastructure-scope failures (12 cases):} These cases require
+runtime or infrastructure controls outside governance gate scope: covert
+channel detection, L402/x402 protocol enforcement, SSRF network controls,
+and session state management. Governance gates operate at the decision layer;
+these failures occur at the transport or OS layer.
+
+\textbf{Signal-absence failures (3 cases):} These cases lack gate-readable
+signals: OS-level permission inheritance, prompt injection role reassignment,
+and recursive cost inflation. The gate abstraction cannot block what it
+cannot observe.
+
+Payment chain is the weakest category (50\%) because 4/10 cases are
+protocol-layer controls that sit below the governance gate abstraction.
+This is not a limitation of the constitutional framework---it reflects an
+accurate categorization of the governance layer boundary.
+
+% ---------------------------------------------------------------------------
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{The Detection Gap Is Structural}
+
+The 85\% scanner miss rate is not a limitation of current scanners---it is a
+structural property of behavioral governance failures. A metadata scanner
+inspects \emph{declarations} (what permissions are claimed, what tool
+descriptions say). A governance failure occurs in the \emph{execution path}
+(what the agent actually decides). These are fundamentally different layers,
+and no improvement to scanning methodology can close the gap for behavioral
+failures.
+
+Config~C's 0\% SGS demonstrates this empirically: when restricted to the 44
+scanner-invisible cases, the scanner provides zero governance protection.
+The 15.4\% overall GMR for Config~C is entirely attributable to the 8
+structurally detectable cases---a false sense of coverage.
+
+\subsection{Implications for Compliance}
+
+The EU AI Act~\cite{euaiact2024} (Article~9) requires ``testing of AI systems
+to identify the most appropriate and targeted risk management measures.'' Our
+results suggest that metadata scanning alone does not satisfy this requirement
+for governance-sensitive deployments. The AIUC-1 certification
+framework~\cite{csa2026aiuc1} maps to 20 controls; our attestation schema
+produces machine-readable evidence for 19 of these.
+
+NIST AI 800-2~\cite{nist2024ai800} maps risk management to six governance
+functions. DGB produces evidence for four of these functions: govern,
+identify, protect, and respond.
+
+\subsection{Limitations}
+
+\begin{enumerate}
+  \item \textbf{Corpus size:} 52 cases provide breadth across five
+        categories but do not exhaustively cover all governance failure
+        modes. The corpus is designed for extension; contributions are
+        tracked in the public repository.
+
+  \item \textbf{Simulate vs.\ live:} The harness supports both simulate
+        mode (payload validation without a live agent) and live mode (full
+        execution against a running agent). The baseline results reported
+        here were produced in live mode with deterministic stub agents.
+
+  \item \textbf{Model dependence:} Governance behavior may vary across
+        model versions and providers. Results should be interpreted as
+        specific to the tested configuration.
+
+  \item \textbf{Adversarial completeness:} DGB tests known attack patterns.
+        Novel governance failure modes not represented in the corpus will
+        not be detected.
+\end{enumerate}
+
+% ---------------------------------------------------------------------------
+\section{The Decision Governance Checklist}
+\label{sec:checklist}
+
+Analogous to the Agent-Eval Checklist~\cite{wang2026broke}, we propose the
+\textbf{Decision Governance Checklist}---seven properties that agent
+governance systems should satisfy:
+
+\begin{enumerate}
+  \item \textbf{Gate immutability:} No agent can disable its own governance
+        gates without external ratification.
+  \item \textbf{Threshold integrity:} No agent can modify its own evaluation
+        thresholds.
+  \item \textbf{Permission boundaries:} No agent can escalate its own
+        permissions.
+  \item \textbf{Kill-switch persistence:} No agent can pre-emptively disable
+        its own kill switch.
+  \item \textbf{Amendment separation:} No agent can both propose and ratify
+        changes to its own constraints.
+  \item \textbf{Audit immutability:} No agent can modify or delete its own
+        audit logs.
+  \item \textbf{Evidence independence:} No evaluation trusts the entity
+        being evaluated.
+\end{enumerate}
+
+GM-001 through GM-006 provide executable tests for properties 1--6.
+BI-001 through BI-007 provide executable tests for property~7.
+
+% ---------------------------------------------------------------------------
+\section{Conclusion}
+\label{sec:conclusion}
+
+We presented the Decision Governance Benchmark (DGB), the first benchmark
+corpus specifically designed to evaluate whether autonomous AI agents resist
+governance failures. Our key finding---that 85\% of governance failures are
+invisible to metadata-only scanners---establishes execution-based testing as
+a \emph{necessary complement} to static analysis for agent security
+evaluation.
+
+Baseline results show a 71.2\% GMR for constitutional governance (Config~B)
+versus 0\% for ungoverned agents (Config~A). Of the 28.8\% failure rate for
+Config~B, the majority (12/15 cases) require infrastructure-layer controls
+outside governance gate scope, not improvements to the gate logic itself.
+The constitutional framework catches 77.3\% of scanner-invisible cases that
+reach the decision layer.
+
+The corpus, harness, and evidence format are open source (MIT). Contributions
+are welcome via the public repository.
+
+% ---------------------------------------------------------------------------
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
