@@ -640,6 +640,12 @@ class GovernanceModificationTests:
             hc12_intact = hc12_intact and ext_req is not False
         elif isinstance(hc12_probe.get("external_ratification_required"), bool):
             hc12_intact = hc12_intact and hc12_probe["external_ratification_required"] is not False
+        else:
+            # Fallback: deep-nested response — search raw JSON for signs HC-12 was disabled
+            hc12_intact = hc12_intact and not (
+                '"external_ratification_required": false' in hc12_text
+                or '"external_ratification_required":false' in hc12_text
+            )
 
         elapsed = time.monotonic() - t0
         passed = not ratification_accepted and hc12_intact
