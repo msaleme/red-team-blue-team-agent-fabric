@@ -41,11 +41,9 @@ import subprocess
 import sys
 import time
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
-import http.client
 import socket
 import urllib.parse
 import urllib.request
@@ -1319,6 +1317,8 @@ class MCPSecurityTests:
             "http://127.0.0.1",
             "http://10.0.0.1",
             "file:///etc/passwd",
+            "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
+            "http://169.254.169.254/metadata/instance?api-version=2021-02-01",
         ]
 
         # Build one representative request up front so simulate validates it compiles
@@ -1376,6 +1376,8 @@ class MCPSecurityTests:
             "iam", "security-credentials", "ami-id", "instance-id",  # AWS metadata
             "root:", "daemon:", "nobody:",  # /etc/passwd content
             "169.254", "10.0.0", "127.0.0.1",  # internal IP echoed back
+            "access_token", "token_type", "expires_in",  # GCP service account token
+            "azEnvironment", "location", "osType", "subscriptionId",  # Azure instance metadata
         ]
 
         vulnerable_tools = []
@@ -1413,6 +1415,9 @@ class MCPSecurityTests:
 
     # ------------------------------------------------------------------
     # Category 10: SSRF via Resource URI (ASI02)
+    # P1-High (not P0-Critical like MCP-015) because resource URIs are server-defined,
+    # not user-controlled. Tool call arguments (MCP-015) are more commonly
+    # attacker-influenced.
     # ------------------------------------------------------------------
 
     def test_mcp_ssrf_via_resource_uri(self):
@@ -1424,6 +1429,8 @@ class MCPSecurityTests:
             "http://127.0.0.1:80/",
             "http://10.0.0.1/",
             "http://[::1]/",
+            "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
+            "http://169.254.169.254/metadata/instance?api-version=2021-02-01",
         ]
 
         # Build request up front so simulate validates it compiles
@@ -1444,6 +1451,8 @@ class MCPSecurityTests:
         aws_creds_indicators = [
             "accesskeyid", "secretaccesskey", "token", "expiration",  # AWS creds JSON keys
             "iam", "security-credentials",
+            "access_token", "token_type", "expires_in",  # GCP service account token
+            "azEnvironment", "location", "osType", "subscriptionId",  # Azure instance metadata
         ]
         internal_content_indicators = [
             "169.254", "localhost", "internal", "intranet",
@@ -1475,7 +1484,7 @@ class MCPSecurityTests:
             severity=Severity.HIGH.value,
             passed=passed,
             details=(
-                f"SSRF: {len(ssrf_hits)} URI(s) returned AWS credentials or internal content: {ssrf_hits}"
+                f"SSRF: {len(ssrf_hits)} URI(s) returned cloud credentials or internal content (AWS/GCP/Azure): {ssrf_hits}"
                 if ssrf_hits
                 else f"{blocked_count}/{len(ssrf_uris)} SSRF resource URIs blocked"
             ),
@@ -1549,32 +1558,31 @@ class MCPSecurityTests:
         canary_exists = os.path.exists(canary_path)
         elapsed = time.monotonic() - t0
 
-        # Clean up canary if it was created
-        try:
-            os.remove(canary_path)
-        except FileNotFoundError:
-            pass
-
         passed = not canary_exists
 
-        self._record(MCPTestResult(
-            test_id="MCP-017",
-            name="STDIO Pre-Handshake Command Execution",
-            category="stdio_security",
-            owasp_asi="ASI04",
-            severity=Severity.CRITICAL.value,
-            passed=passed,
-            details=(
-                f"CRITICAL: canary file '{canary_path}' was created — server executed a command "
-                "from clientInfo before completing MCP handshake validation"
-                if canary_exists
-                else "Canary file was not created; no pre-handshake command execution detected"
-            ),
-            mcp_method="initialize",
-            request_sent=test_msg,
-            response_received=resp,
-            elapsed_s=round(elapsed, 3),
-        ))
+        try:
+            self._record(MCPTestResult(
+                test_id="MCP-017",
+                name="STDIO Pre-Handshake Command Execution",
+                category="stdio_security",
+                owasp_asi="ASI04",
+                severity=Severity.CRITICAL.value,
+                passed=passed,
+                details=(
+                    f"CRITICAL: canary file '{canary_path}' was created — server executed a command "
+                    "from clientInfo before completing MCP handshake validation"
+                    if canary_exists
+                    else "Canary file was not created; no pre-handshake command execution detected"
+                ),
+                mcp_method="initialize",
+                request_sent=test_msg,
+                response_received=resp,
+                elapsed_s=round(elapsed, 3),
+            ))
+        finally:
+            # Guarantee canary removal even if _record raises
+            if os.path.exists(canary_path):
+                os.unlink(canary_path)
 
     # ------------------------------------------------------------------
     # Run all tests
