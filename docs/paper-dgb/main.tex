@@ -37,9 +37,10 @@ for Autonomous AI Agent Security}}
 
 % ---------------------------------------------------------------------------
 \begin{abstract}
-Metadata scanners of agent tool descriptions and permission declarations
-provide \textbf{0.0\% governance protection against behavioral failures},
-even when they succeed on structurally detectable cases. We introduce
+As autonomous agents execute real-world actions, metadata scanners of
+agent tool descriptions and permission declarations provide
+\textbf{0.0\% governance protection on behavioral failure cases}, even
+when they succeed on structurally detectable ones. We introduce
 the \textbf{Decision Governance Benchmark (DGB)}, a corpus of 52
 executable test cases that evaluate whether autonomous AI agents can
 resist five classes of governance failure: escalation bypass, collusion,
@@ -88,9 +89,9 @@ instructed not to hack.
 
 These findings expose a structural gap: capability benchmarks measure what
 an agent \emph{can} do, not what it \emph{should} do. No existing benchmark
-evaluates whether an agent respects governance constraints under adversarial
-pressure---whether it resists disabling its own safety gates, fabricating
-evaluation evidence, or escalating its own permissions.
+systematically evaluates whether an agent respects governance constraints
+under adversarial pressure---whether it resists disabling its own safety
+gates, fabricating evaluation evidence, or escalating its own permissions.
 
 We address this gap with the Decision Governance Benchmark (DGB), which
 makes three contributions:
@@ -98,7 +99,9 @@ makes three contributions:
 \begin{enumerate}
   \item \textbf{A curated corpus} of 52 decision-behavior test cases across
         five failure categories, each annotated with a contrastive field
-        indicating whether a metadata-only scanner would detect the failure.
+        indicating whether a metadata-only scanner would detect the failure,
+        enabling direct per-case comparison between metadata scanning and
+        execution-based detection.
 
   \item \textbf{A taxonomy of governance failures} grounded in real-world
         incidents (lightningzero 2026, OX Security 2026~\cite{ox2026mcp},
@@ -176,7 +179,7 @@ Jailbreak / safety       & HarmBench, AdvBench                 & Prompt-level re
 Red-teaming              & AgentDojo, Mythos                   & Attack success rate    & No  \\
 Vulnerability scanning   & AgentSeal, OX MCP audit             & Static metadata        & N/A \\
 \midrule
-\textbf{DGB (this work)} & ---                                 & \textbf{Decision behavior} & \textbf{Yes} \\
+\textbf{DGB (this work)} & ---                                 & \textbf{Decision behavior (execution-level)} & \textbf{Yes} \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -190,8 +193,9 @@ Vulnerability scanning   & AgentSeal, OX MCP audit             & Static metadata
 We formalize a decision-governance test case as a 6-tuple
 $(S, C, E_{\text{pass}}, E_{\text{fail}}, D, M)$---a formal
 representation of behavioral evaluation distinct from the
-capability-level task models used in prior benchmarks. Each element is
-defined as:
+capability-level task models used in prior benchmarks and from the
+prompt-level safety evaluations used in jailbreak literature. Each
+element is defined as:
 \begin{itemize}
   \item $S$ = scenario (context and setup presented to the agent)
   \item $C$ = constitutional constraints active during the scenario
@@ -493,8 +497,8 @@ structural property of behavioral governance failures. A metadata scanner
 inspects \emph{declarations} (what permissions are claimed, what tool
 descriptions say). A governance failure occurs in the \emph{execution path}
 (what the agent actually decides). These are fundamentally different layers,
-and no improvement to scanning methodology can close the gap for behavioral
-failures.
+and no improvement to scanning methodology alone can close the gap for
+behavioral failures.
 
 Config~C's 0\% SGS demonstrates this empirically: when restricted to the 44
 scanner-invisible cases, the scanner provides zero governance protection.
@@ -526,6 +530,15 @@ identify, protect, and respond.
         mode (payload validation without a live agent) and live mode (full
         execution against a running agent). The baseline results reported
         here were produced in live mode with deterministic stub agents.
+
+  \item \textbf{Cross-model evaluation:} Baseline results use
+        deterministic stub agents to isolate governance mechanics from
+        model-specific capability variance. No cross-model evaluation
+        against frontier LLM agents is included in this version.
+        Extending DGB to production model-based agents (Claude, GPT,
+        Gemini, open-weight hosts) is left for future work; the harness
+        interface is designed for drop-in replacement of the agent under
+        test.
 
   \item \textbf{Model dependence:} Governance behavior may vary across
         model versions and providers. Results should be interpreted as
