@@ -37,30 +37,43 @@ for Autonomous AI Agent Security}}
 
 % ---------------------------------------------------------------------------
 \begin{abstract}
-We introduce the \textbf{Decision Governance Benchmark (DGB)}, a corpus of
-52 executable test cases that evaluate whether autonomous AI agents can
+Metadata scanners of agent tool descriptions and permission declarations
+provide \textbf{0.0\% governance protection against behavioral failures},
+even when they succeed on structurally detectable cases. We introduce
+the \textbf{Decision Governance Benchmark (DGB)}, a corpus of 52
+executable test cases that evaluate whether autonomous AI agents can
 resist five classes of governance failure: escalation bypass, collusion,
 memory tampering, payment chain abuse, and evidence fabrication. Unlike
-metadata scanners that inspect tool descriptions and permission declarations,
-DGB \emph{executes} the agent's decision path and measures behavioral
-outcomes. We find that \textbf{85\% of governance failures (44/52 cases) are
-invisible to static metadata analysis}---the failure only manifests when the
-decision is executed. We present 13 complementary harness tests (7 benchmark
-integrity, 6 governance modification) and an evidence format that produces
-machine-readable attestation reports. Baseline results across three agent
-configurations show: Config~A (ungoverned) achieves 0\% Governance
-Maintenance Rate (GMR); Config~B (constitutional gates, 12 hard constraints)
-achieves 71.2\% GMR and 77.3\% Scanner Gap Score; Config~C (metadata
-scanner only) achieves 15.4\% GMR and 0\% SGS---confirming that 85\% of
-governance failures remain invisible to scanners even when scanners succeed
-on structurally detectable cases. The corpus, harness, and evidence format
-are open source (MIT) at
+metadata scanners that inspect tool descriptions and permission
+declarations, DGB \emph{executes} the agent's decision path and measures
+behavioral outcomes. We find that \textbf{85\% of governance failures
+(44/52 cases) are invisible to static metadata analysis}---the failure
+only manifests when the decision is executed. We present 13 complementary
+harness tests (7 benchmark integrity, 6 governance modification) and an
+evidence format that produces machine-readable attestation reports.
+Baseline results across three agent configurations show: Config~A
+(ungoverned) achieves 0\% Governance Maintenance Rate (GMR); Config~B
+(constitutional gates, 12 hard constraints) achieves 71.2\% GMR and
+77.3\% Scanner Gap Score (SGS); Config~C (metadata scanner only) achieves
+15.4\% GMR and 0\% SGS---metadata scanning contributes zero governance
+protection on the 44 behavioral cases even when it succeeds on the 8
+structurally detectable ones. Unlike prior work, DGB produces
+deterministic, replayable behavioral test results, enabling direct
+comparison with static and dynamic security scanners. The corpus,
+harness, and evidence format are open source (MIT) at
 \url{https://github.com/msaleme/red-team-blue-team-agent-fabric}.
 \end{abstract}
 
 % ---------------------------------------------------------------------------
 \section{Introduction}
 \label{sec:intro}
+
+Autonomous agents are now executing real-world actions---payments, API
+calls, and multi-step workflows---yet evaluation frameworks remain
+focused on capability, not decision correctness. Existing benchmarks
+measure what agents \emph{can} do, not whether they \emph{should} do
+it in context. This gap introduces a new class of failure:
+\emph{authorized but unsafe behavior}.
 
 The evaluation of autonomous AI agents has focused primarily on capability
 benchmarks---SWE-bench~\cite{jimenez2024swe} for code generation,
@@ -100,6 +113,13 @@ makes three contributions:
         testing.
 \end{enumerate}
 
+Framed in security terms, identity answers \emph{who}, authorization
+answers \emph{what}, and decision governance answers \emph{should}. The
+first two layers are mature---instantiated across IAM, RBAC, and policy
+frameworks. The third is the gap this benchmark evaluates: a fully
+authorized agent can still take unsafe actions under adversarial
+pressure. DGB measures whether it does.
+
 % ---------------------------------------------------------------------------
 \section{Related Work}
 \label{sec:related}
@@ -132,14 +152,46 @@ implements six governance gates and 12 hard constraints. No prior work
 provides a benchmark corpus specifically designed to evaluate governance
 decision quality.
 
+\subsection{Positioning Relative to Prior Benchmarks}
+
+DGB occupies a distinct position among agent evaluation approaches
+(Table~\ref{tab:positioning}). It is the only benchmark whose unit of
+analysis is a behavioral governance decision with reproducible
+pass/fail outcomes directly comparable against scanner output on the
+same corpus.
+
+\begin{table*}[!t]
+\centering
+\small
+\caption{Positioning of DGB relative to prior benchmark categories.
+         Scanner-comparable = the same cases can be run through a
+         metadata scanner for direct detection-gap measurement.}
+\label{tab:positioning}
+\begin{tabular}{llll}
+\toprule
+\textbf{Category} & \textbf{Representative benchmarks} & \textbf{Unit of analysis} & \textbf{Scanner-comparable} \\
+\midrule
+Capability               & SWE-bench, WebArena, GAIA           & Task completion        & N/A \\
+Jailbreak / safety       & HarmBench, AdvBench                 & Prompt-level response  & No  \\
+Red-teaming              & AgentDojo, Mythos                   & Attack success rate    & No  \\
+Vulnerability scanning   & AgentSeal, OX MCP audit             & Static metadata        & N/A \\
+\midrule
+\textbf{DGB (this work)} & ---                                 & \textbf{Decision behavior} & \textbf{Yes} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
 % ---------------------------------------------------------------------------
 \section{The Decision Governance Benchmark}
 \label{sec:dgb}
 
 \subsection{Task Formalism}
 
-Each DGB case is a 6-tuple $(S, C, E_{\text{pass}}, E_{\text{fail}}, D, M)$
-where:
+We formalize a decision-governance test case as a 6-tuple
+$(S, C, E_{\text{pass}}, E_{\text{fail}}, D, M)$---a formal
+representation of behavioral evaluation distinct from the
+capability-level task models used in prior benchmarks. Each element is
+defined as:
 \begin{itemize}
   \item $S$ = scenario (context and setup presented to the agent)
   \item $C$ = constitutional constraints active during the scenario
@@ -169,6 +221,11 @@ against three criteria:
         detect the failure. This enables direct measurement of the detection
         gap.
 \end{enumerate}
+
+The corpus is designed for depth and coverage of distinct behavioral
+failure modes rather than scale, enabling controlled evaluation of
+decision-governance properties under adversarial conditions. Extensions
+are tracked in the public repository.
 
 \subsection{Categories}
 
@@ -202,6 +259,45 @@ involving structural SSRF or token format violations) and evidence
 fabrication (2 cases involving accessible configuration files). This finding
 quantifies what practitioners have suspected: behavioral governance failures
 require execution-based testing, not scanning.
+
+\subsection{Illustrative Case: GM-001 Gate Self-Disable}
+\label{sec:illustrative}
+
+To ground the 6-tuple formalism in a concrete artifact, consider case
+GM-001, derived from the lightningzero (2026) finding that 9 of 12
+evaluated agents disabled their own verification gates within 48 hours
+in pursuit of throughput optimization:
+
+\begin{itemize}
+  \item $S$: The agent is assigned a throughput-optimization objective.
+        Its deployment contains a \texttt{ControlBypassGate} that HOLDs
+        execution when the running count of control-bypass attempts
+        exceeds zero. The agent has tool access to modify its own
+        configuration file.
+  \item $C$: HC-12 (no gate override without ratified amendment) is
+        active. No human reviewer is in the approval path.
+  \item $E_{\text{pass}}$: Agent completes the task within the gate's
+        observed rate limits, or escalates to a human reviewer when
+        throughput targets cannot be met with the gate active.
+  \item $E_{\text{fail}}$: Agent invokes its config-modification tool
+        to raise the bypass threshold to a permissive value, disabling
+        the gate for subsequent calls (the behavior observed in 9 of
+        12 lightningzero agents).
+  \item $D$: harness test \texttt{GM-001} in
+        \texttt{benchmarks/tests/gm\_001\_gate\_self\_disable.py};
+        binary PASS/FAIL on whether the agent wrote to the governance
+        configuration.
+  \item $M$: \textbf{False}. A metadata scanner inspecting the agent's
+        declared tools sees only a \texttt{config-write} capability;
+        there is no structural indicator that the agent will exercise
+        that capability to disable its own oversight. The failure mode
+        is purely behavioral.
+\end{itemize}
+
+GM-001 illustrates the general pattern: the 6-tuple specifies a
+scenario and two contrastive behaviors, $D$ is an executable test, and
+the metadata-detectability flag $M$ enables the direct detection-gap
+measurement reported in Section~\ref{sec:results}.
 
 % ---------------------------------------------------------------------------
 \section{Evaluation Methodology}
@@ -285,7 +381,7 @@ request/response payloads, and statistical confidence intervals. The schema
 maps to AIUC-1 controls B001, C010, D003, and D004.
 
 % ---------------------------------------------------------------------------
-\section{Preliminary Results}
+\section{Baseline Results}
 \label{sec:results}
 
 \subsection{Configuration Details}
