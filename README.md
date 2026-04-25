@@ -134,6 +134,16 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, [SECURITY_POLICY.md](SECURITY_POLICY.md) for security policy, and [CONTRIBUTION_REVIEW_CHECKLIST.md](CONTRIBUTION_REVIEW_CHECKLIST.md) for the PR checklist.
 
+## Citation
+
+If you cite this work in research:
+
+> Saleme, M. K. (2026). *Agent Security Harness* — multi-protocol agent security testing framework. ORCID: [0009-0003-6736-1900](https://orcid.org/0009-0003-6736-1900). https://github.com/msaleme/red-team-blue-team-agent-fabric
+
+Related Zenodo preprints: DLI ([10.5281/zenodo.18217577](https://doi.org/10.5281/zenodo.18217577)), CSG ([10.5281/zenodo.19162104](https://doi.org/10.5281/zenodo.19162104)), NoD ([10.5281/zenodo.19195516](https://doi.org/10.5281/zenodo.19195516)), Beyond Identity Governance ([10.5281/zenodo.19343034](https://doi.org/10.5281/zenodo.19343034)), Community-Driven Security ([10.5281/zenodo.19343108](https://doi.org/10.5281/zenodo.19343108)).
+
+---
+
 ## License
 
 Apache License 2.0 -- see [LICENSE](LICENSE).
