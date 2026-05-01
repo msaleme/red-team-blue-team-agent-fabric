@@ -1,10 +1,12 @@
 # Agent Security Harness
 
-[![SafeSkill 85/100](https://img.shields.io/badge/SafeSkill-85%2F100_Passes%20with%20Notes-yellow)](https://safeskill.dev/scan/msaleme-red-team-blue-team-agent-fabric)
 [![PyPI version](https://badge.fury.io/py/agent-security-harness.svg)](https://pypi.org/project/agent-security-harness/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/security%20tests-470-green.svg)](#three-layers-of-agent-decision-security)
+[![ClawScan](https://img.shields.io/badge/ClawScan-Benign-brightgreen)](https://clawhub.ai/msaleme/agent-security-harness)
+[![Static Analysis](https://img.shields.io/badge/Static%20Analysis-Benign-brightgreen)](https://clawhub.ai/msaleme/agent-security-harness)
+[![VirusTotal](https://img.shields.io/badge/VirusTotal-0%2F92_Clean-brightgreen)](https://www.virustotal.com/gui/url/37318967b56cd3cc1678972ebf0c53dbd37868b67ba3f6891447d53d51767cd2)
 
 **Even if an agent is properly authenticated and authorized, can it still be manipulated into unsafe or policy-violating behavior?**
 
