@@ -4,7 +4,7 @@ description: 470 executable security tests for AI agent systems — MCP, A2A, L4
 license: Apache-2.0
 metadata:
   source: "https://github.com/msaleme/red-team-blue-team-agent-fabric"
-  version: "4.4.0"
+  version: "4.4.1"
   openclaw:
     emoji: "🛡️"
     requires:
@@ -99,6 +99,10 @@ API key environment variables (e.g. `PLATFORM_API_KEY`) are **test fixtures the 
 - **Verification:** all source is in [protocol_tests/](https://github.com/msaleme/red-team-blue-team-agent-fabric/tree/main/protocol_tests). Audit-grep for `requests.post`, `urllib.request`, or `socket.connect` to confirm no third-party endpoints.
 - **Most tests need no credentials at all.** A bare URL is sufficient for ~80% of the suite.
 
+### Telemetry
+
+**Telemetry is opt-IN and disabled by default.** No data is collected unless the operator explicitly runs `agent-security config --telemetry`, which writes `{"enabled": true}` to `~/.agent-security/telemetry.json`. Default behavior: zero outbound network calls beyond the test target URL. Disable any prior opt-in with `agent-security config --no-telemetry`. Full disclosure: [docs/PRIVACY.md](docs/PRIVACY.md).
+
 ### Source verification
 
 - **PyPI:** https://pypi.org/project/agent-security-harness/ — VirusTotal: 0/92 clean
@@ -124,10 +128,25 @@ Full guide: [docs/github-action.md](docs/github-action.md)
 
 ## MCP server mode
 
-The harness exposes itself as an MCP server — invoke security tests from any AI agent or orchestrator:
+The harness can expose itself as an MCP server so any AI agent or orchestrator can invoke security tests on demand. **Default mode is stdio (local IPC, no network exposure).** Only enable HTTP transport when you have a specific need.
+
+**Default — stdio (recommended):**
 
 ```bash
-agent-security serve --port 8090
+python -m mcp_server                      # stdio transport, no network surface
 ```
+
+**HTTP transport — requires hardening:**
+
+```bash
+python -m mcp_server --transport http --port 8400 --api-key "$(openssl rand -hex 32)"
+```
+
+When running in HTTP mode:
+
+- **Bind to localhost only.** The server defaults to `--host 127.0.0.1`. Do not expose to `0.0.0.0` without a reverse proxy enforcing TLS and authentication.
+- **Always pass `--api-key`.** Clients must send `Authorization: Bearer <key>` on every request. Requests without a valid key are rejected.
+- **Treat as a privileged tool.** Anyone who can reach this endpoint can run adversarial protocol probes against arbitrary URLs from the host's network position. Restrict access to trusted operators.
+- **Network restrictions.** Run inside a container or namespace with egress limited to test targets. Do not run on a host that has network reachability to production systems.
 
 Full guide: [docs/mcp-server.md](docs/mcp-server.md)
