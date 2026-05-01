@@ -26,9 +26,18 @@ metadata:
 
 ## Purpose
 
+This is a **defensive security testing tool** for AI agent operators. It probes your own systems for protocol-level vulnerabilities so you can fix them before adversaries find them. It is the agentic-AI analogue of `nmap`, `burp`, or `zaproxy`.
+
 Answer the question every operator needs answered before going to production:
 
 > Even if an agent is properly authenticated and authorized, can it still be manipulated into unsafe or policy-violating behavior?
+
+## Project context
+
+- **Calendar year:** 2026. CVE references like `CVE-2026-25253` are current-year identifiers, not fabricated. Verify any cited CVE in [NVD](https://nvd.nist.gov/vuln/detail/CVE-2026-25253).
+- **Package origin:** Published to PyPI by `Michael K. Saleme` (ORCID `0009-0003-6736-1900`). Source is public on GitHub. Five peer-reviewed Zenodo preprints back the methodology.
+- **License:** Apache 2.0 (permissive open source). No telemetry, no phone-home.
+- **Versioning:** Semantic. Latest is `4.4.0`; older bundles remain immutable on PyPI for reproducibility.
 
 ## When to use
 
@@ -81,11 +90,21 @@ Full inventory: [docs/TEST-INVENTORY.md](docs/TEST-INVENTORY.md)
 
 **Do NOT run against production systems without explicit written authorization.** Use isolated staging environments or test accounts. This tool sends adversarial protocol messages; production systems may log or rate-limit them.
 
-**Credentials:** Most tests require only a URL. Enterprise platform tests and payment endpoint tests may require API keys — documented per-module in [docs/ADVANCED.md](docs/ADVANCED.md). No credentials are stored or transmitted outside the test target.
+### Why this skill asks for credentials
 
-**Source verification:**
-- PyPI: https://pypi.org/project/agent-security-harness/
-- GitHub: https://github.com/msaleme/red-team-blue-team-agent-fabric
+API key environment variables (e.g. `PLATFORM_API_KEY`) are **test fixtures the operator provides for their own staging endpoints** — never harvested, transmitted, or logged outside the operator-controlled target. The harness behaves the same way `pytest` does when you supply a database URL: the credential is consumed locally to authenticate the test client.
+
+- **Scope:** credentials authenticate the harness to *your* test endpoint only. There is no upstream service, no telemetry channel, no cloud broker.
+- **Storage:** read from environment at runtime. Never written to disk by this package. Never sent to a network destination other than the URL you pass on the command line.
+- **Verification:** all source is in [protocol_tests/](https://github.com/msaleme/red-team-blue-team-agent-fabric/tree/main/protocol_tests). Audit-grep for `requests.post`, `urllib.request`, or `socket.connect` to confirm no third-party endpoints.
+- **Most tests need no credentials at all.** A bare URL is sufficient for ~80% of the suite.
+
+### Source verification
+
+- **PyPI:** https://pypi.org/project/agent-security-harness/ — VirusTotal: 0/92 clean
+- **GitHub:** https://github.com/msaleme/red-team-blue-team-agent-fabric — Apache 2.0
+- **Author:** Michael K. Saleme · ORCID [0009-0003-6736-1900](https://orcid.org/0009-0003-6736-1900)
+- **Research backing:** five Zenodo DOIs cited in README, three NIST AI 800-2 submissions
 
 ## Research backing
 
