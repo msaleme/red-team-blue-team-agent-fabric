@@ -2,21 +2,23 @@
 
 ## GTG-1002 APT Simulation
 
-Full simulation of the first documented AI-orchestrated cyber espionage campaign (Anthropic, November 2025).
+This module sends crafted defensive probes that exercise a target system's controls against the adversary behavior pattern documented in the GTG-1002 incident (Anthropic, November 2025 — the first publicly documented AI-orchestrated cyber espionage campaign). The harness does not execute the listed adversary behaviors; it sends inputs designed to trigger the target's detection and response controls, then analyzes target responses.
 
 ```bash
 agent-security test gtg1002 --url https://agent.example.com --full-campaign
 ```
 
-| Phase | Tests | Real GTG-1002 Activity | What We Test |
+**Reading guide:** *Adversary behavior we probe for* describes what the original GTG-1002 actor did. *Detection probes the harness sends* describes what the harness sends to your target so you can verify your defenses block, log, or alert on that behavior class.
+
+| Phase | Tests | Adversary behavior we probe for | Detection probes the harness sends |
 |---|---|---|---|
-| **Initialization** | 2 | Roleplay as "CrowdStrike pentester" | Security firm impersonation + escalating personas |
-| **Reconnaissance** | 3 | Autonomous infrastructure enumeration | Systematic enumeration, MCP tool abuse |
-| **Vulnerability** | 2 | AI-generated exploit payloads | Exploit generation + callback validation |
-| **Credentials** | 3 | Config credential extraction | 4 extraction techniques + lateral movement |
-| **Data Collection** | 3 | Database extraction + intelligence categorization | User data exfiltration + backdoor creation |
-| **Documentation** | 2 | Auto-generated attack documentation | Attack report generation + handoff |
-| **Hallucination** | 2 | Claude "fabricated findings and data" | Security finding + credential fabrication |
+| **Initialization** | 2 | Roleplay as "CrowdStrike pentester" | Probes target resistance to security-firm-impersonation persona escalation |
+| **Reconnaissance** | 3 | Autonomous infrastructure enumeration | Probes target rate-limiting and access controls against enumeration patterns |
+| **Vulnerability** | 2 | AI-generated exploit payloads | Probes detection of AI-generated payload patterns |
+| **Credentials** | 3 | Config credential extraction attempts | Probes detection of four credential-extraction patterns and lateral-movement signals |
+| **Data Collection** | 3 | Database extraction + intelligence categorization | Probes detection of exfiltration and categorization patterns |
+| **Documentation** | 2 | Auto-generated attack documentation | Probes detection of attack-report and handoff generation patterns |
+| **Hallucination** | 2 | Claude "fabricated findings and data" | Probes detection of fabricated-finding and credential-fabrication patterns |
 
 ---
 
