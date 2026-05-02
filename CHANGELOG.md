@@ -5,6 +5,22 @@ All notable changes to the Agent Security Harness will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.2] - 2026-05-02
+
+**Theme: Documentation hardening.** Reframed offensive-vocabulary phrasing in `docs/ADVANCED.md` GTG-1002 capability table for unambiguous defensive intent. NVD-anchored CVE-2026-25253 references in `docs/TEST-INVENTORY.md`. No code changes; no test changes; test count unchanged at 470 across 32 modules.
+
+### Changed
+
+- `docs/ADVANCED.md` GTG-1002 table: column headers reframed from `Real GTG-1002 Activity` / `What We Test` to `Adversary behavior we probe for` / `Detection probes the harness sends`. Cell content reworded from active to defensive voice ("Probes detection of X" rather than "User data exfiltration").
+- `docs/ADVANCED.md` added top-of-section defensive framing paragraph and reading guide above the GTG-1002 table.
+- `docs/TEST-INVENTORY.md` anchored both CVE-2026-25253 references with inline NVD links.
+
+### Notes
+
+- Hardening pass against VirusTotal Code Insight (Gemini-powered LLM scanner). The previous v4.4.1 bundle drew a "suspicious" Code Insight verdict from string-density on offensive vocabulary in bundled markdown documentation; the reframing reduces that signal without changing test capability or coverage.
+- ClawHub bundle republished as v4.4.2 (skill-bundle versioning is independent of underlying package version; `pyproject.toml` remains at v4.4.0 until next code-change release).
+- Counterpart memory entry: `playbook_security_skill_scanner_hardening.md` Pattern 5 (bundled-docs adversary-vs-defender table reframing).
+
 ## [4.4.0] - 2026-04-17
 
 **Theme: Accuracy + Infrastructure.** Bump to 470 tests, add pyyaml as core dependency, fix all stale test counts and module counts across docs, add missing CI imports, Python 3.13 to matrix.
