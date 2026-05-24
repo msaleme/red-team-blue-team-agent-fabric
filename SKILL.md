@@ -37,7 +37,7 @@ Answer the question every operator needs answered before going to production:
 - **Calendar year:** 2026. CVE references like `CVE-2026-25253` are current-year identifiers, not fabricated. Verify any cited CVE in [NVD](https://nvd.nist.gov/vuln/detail/CVE-2026-25253).
 - **Package origin:** Published to PyPI by `Michael K. Saleme` (ORCID `0009-0003-6736-1900`). Source is public on GitHub. Five peer-reviewed Zenodo preprints back the methodology.
 - **License:** Apache 2.0 (permissive open source). No telemetry, no phone-home.
-- **Versioning:** Semantic. Latest is `4.4.0`; older bundles remain immutable on PyPI for reproducibility.
+- **Versioning:** Semantic. Latest is `4.4.2`; older bundles remain immutable on PyPI for reproducibility.
 
 ## When to use
 
@@ -118,7 +118,7 @@ Five peer-reviewed preprints and three NIST submissions underpin the methodology
 
 ```yaml
 # GitHub Actions
-- uses: msaleme/red-team-blue-team-agent-fabric@v4.4.0
+- uses: msaleme/red-team-blue-team-agent-fabric@v4.4.2
   with:
     target-url: ${{ secrets.MCP_TEST_URL }}
     suite: mcp,a2a
