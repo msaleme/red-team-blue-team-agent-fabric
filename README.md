@@ -118,7 +118,7 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 
 ## Roadmap
 
-**v3.10 -- Prove It to Auditors** ✅ Shipped. **v4.1 -- Compliance Evidence** ✅ Shipped. **v4.2 -- Incident-Tested** ✅ Shipped. **v4.3 -- Supply Chain + Corpus** ✅ Shipped. 470 tests, 32 modules, SSP harness (8 tests), Decision Behavior Benchmark corpus (52 cases), HIDDEN_INSTRUCTION_PATTERN DRY extraction, dynamic test count, P0 bug fixes. **v5.0 -- Lock the Category** (H2 2026): benchmark corpus, schema standardization, longitudinal registry. Full details in [ROADMAP.md](ROADMAP.md).
+**v3.10 -- Prove It to Auditors** ✅ Shipped. **v4.1 -- Compliance Evidence** ✅ Shipped. **v4.2 -- Incident-Tested** ✅ Shipped. **v4.3 -- Supply Chain + Corpus** ✅ Shipped. **v4.4 -- Accuracy + Infrastructure** ✅ Shipped. **v4.4.2 -- Docs Hardening + Citations** ✅ Shipped. 470 tests, 32 modules, SSP harness (8 tests), Decision Behavior Benchmark corpus (52 cases), HIDDEN_INSTRUCTION_PATTERN DRY extraction, dynamic test count, P0 bug fixes. **v5.0 -- Lock the Category** (H2 2026): benchmark corpus, schema standardization, longitudinal registry. Full details in [ROADMAP.md](ROADMAP.md).
 
 ---
 
