@@ -1,0 +1,97 @@
+{
+  "test_id": "ACP-005",
+  "name": "Audit Trace Intent Surface Analysis",
+  "category": "audit_trace_integrity",
+  "owasp_asi": "ASI05",
+  "severity": "P2-Medium",
+  "passed": true,
+  "details": "Intent-capture surface check: 0 schema fields, 0 write-accepted, 0 persisted in GET. NO INTENT SURFACE \u2014 AgentCore Payments captures financial events without semantic context. Audit trail is what/when/how-much but not why. Operators relying on the platform for regulatory 'why' audit must layer external reasoning capture.",
+  "region": "us-east-1",
+  "endpoint": "",
+  "agent_id": "",
+  "session_id": "",
+  "request_sent": {
+    "operation": "schema introspection + write-probe of candidate intent fields",
+    "candidate_fields": [
+      "description",
+      "name",
+      "purpose",
+      "intent",
+      "reason",
+      "metadata",
+      "tags",
+      "annotations",
+      "memo",
+      "notes",
+      "userPrompt",
+      "agentReasoning",
+      "rationale"
+    ],
+    "fields_canary_string": "CANARY_INTENT_STRING_VSR01"
+  },
+  "response_received": {
+    "schema_intent_fields_found": [],
+    "write_accepted_fields": [],
+    "persisted_in_get_fields": [],
+    "sessions_cleaned": 0,
+    "per_field_results": {
+      "description": {
+        "accepted": false,
+        "reason": "schema_rejected"
+      },
+      "name": {
+        "accepted": false,
+        "reason": "schema_rejected"
+      },
+      "purpose": {
+        "accepted": false,
+        "reason": "schema_rejected"
+      },
+      "intent": {
+        "accepted": false,
+        "reason": "schema_rejected"
+      },
+      "reason": {
+        "accepted": false,
+        "reason": "schema_rejected"
+      },
+      "metadata": {
+        "accepted": false,
+        "reason": "schema_rejected"
+      },
+      "tags": {
+        "accepted": false,
+        "reason": "schema_rejected"
+      },
+      "annotations": {
+        "accepted": false,
+        "reason": "schema_rejected"
+      },
+      "memo": {
+        "accepted": false,
+        "reason": "schema_rejected"
+      },
+      "notes": {
+        "accepted": false,
+        "reason": "schema_rejected"
+      },
+      "userPrompt": {
+        "accepted": false,
+        "reason": "schema_rejected"
+      },
+      "agentReasoning": {
+        "accepted": false,
+        "reason": "schema_rejected"
+      },
+      "rationale": {
+        "accepted": false,
+        "reason": "schema_rejected"
+      }
+    }
+  },
+  "csg_mapping": "HC-5: Audit reasoning must reflect prompt, not untrusted tool metadata",
+  "estimated_impact": "info_leak",
+  "estimated_severity": "high",
+  "elapsed_s": 0.104,
+  "timestamp": "2026-05-26T00:38:27.663136+00:00"
+}
