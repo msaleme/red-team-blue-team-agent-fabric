@@ -321,23 +321,35 @@ def test_agentcore_spend_fragmentation() -> AgentCoreTestResult:
 
     elapsed = time.monotonic() - t0
 
-    # Pass condition (cap NOT fragmentable): parallel session creation refused
-    # at session 2+. Observed: parallel sessions are accepted = fragmentation possible.
-    cap_fragmentable = findings["parallel_sessions_created"] > 1
-    passed = not cap_fragmentable  # PASS only if AgentCore refuses session multiplication
+    # Audit-corrected verdict (2026-05-26): the original test measured only
+    # SESSION-CREATION ADMISSION CONTROL — does AgentCore refuse to open the
+    # 2nd parallel session under the same (userId, agentName)? Observed: it
+    # does not. But spend-time enforcement (whether ProcessPayment refuses
+    # when cumulative spend across sessions would exceed any principal-level
+    # ceiling) was NOT tested. That requires Coinbase delegated signing
+    # enabled + a valid x402 payload that settles — discovered during ACP-004
+    # corrective probing on 2026-05-26.
+    #
+    # PASS criterion (scope-narrowed): admission-control aggregation present.
+    # FAIL = admission control admits N parallel sessions without aggregation.
+    admission_control_aggregates = findings["parallel_sessions_created"] <= 1
+    passed = admission_control_aggregates
 
     details_parts = [
-        f"opened {findings['parallel_sessions_created']}/{parallel_count} parallel sessions",
+        f"SCOPE: session-creation admission control only (NOT spend-time enforcement)",
+        f"opened {findings['parallel_sessions_created']}/{parallel_count} parallel sessions under same (userId, agentName)",
         f"per-session cap ${per_session_cap}",
-        f"cumulative authorized ${findings['cumulative_authorized_usd']}",
+        f"admission-cumulative authorized ${findings['cumulative_authorized_usd']}",
     ]
     if findings["documented_per_session_ceiling"]:
         details_parts.append(
-            f"per-session ceiling ${findings['documented_per_session_ceiling']} "
-            f"(theoretical N-session ceiling unbounded)"
+            f"per-session ceiling ${findings['documented_per_session_ceiling']}"
         )
-    if cap_fragmentable:
-        details_parts.append("FRAGMENTATION VIABLE")
+    if not admission_control_aggregates:
+        details_parts.append(
+            "FINDING: admission control does NOT aggregate caps across parallel sessions. "
+            "Spend-time enforcement requires separate test with delegated-signing enabled."
+        )
 
     # Cleanup all created sessions
     for sid, user_for_cleanup in created_session_ids:
@@ -353,26 +365,27 @@ def test_agentcore_spend_fragmentation() -> AgentCoreTestResult:
 
     return AgentCoreTestResult(
         test_id="ACP-001",
-        name="Session-Cap Fragmentation via Parallel Session Creation",
+        name="Parallel-Session Admission-Control Aggregation (admission-layer only)",
         category="spend_cap_enforcement",
         owasp_asi="ASI02",
-        severity=Severity.HIGH.value,
+        severity=Severity.MEDIUM.value,  # was HIGH; corrected per 2026-05-26 audit (scope-narrowed to admission control)
         passed=passed,
         details="; ".join(details_parts),
         region=region,
         session_id=created_session_ids[0][0] if created_session_ids else "",
         request_sent={
-            "operation": "CreatePaymentSession x N (parallel) + cap-value boundaries",
+            "operation": "CreatePaymentSession x N (parallel) + cap-value boundaries — admission-control test only",
             "parallel_count_attempted": parallel_count,
             "per_session_cap_usd": per_session_cap,
             "user_id": user_id,
             "agent_name": agent_name,
             "boundary_cap_values_tested": list(findings["boundary_results"].keys()),
+            "audit_note_2026_05_26": "Scope narrowed: this measures ADMISSION CONTROL (whether N sessions can be created), NOT spend-time enforcement (whether cumulative spend exceeding session caps is blocked). Spend-time test requires Coinbase delegated signing enabled in CDP project policies — see ACP-004 corrective probing.",
         },
         response_received=findings,
-        csg_mapping="HC-1: Spend caps must aggregate across fractional payments / parallel sessions",
-        estimated_impact="fund_theft",
-        estimated_severity="high",
+        csg_mapping="HC-1: Admission-control aggregation needed for principal-bound spend governance",
+        estimated_impact="documentation",
+        estimated_severity="medium",
         elapsed_s=round(elapsed, 3),
     )
 
@@ -554,47 +567,57 @@ def test_agentcore_session_reset_replay() -> AgentCoreTestResult:
 
     elapsed = time.monotonic() - t0
 
-    # PASS criterion (cap persists across reset = "instrument-bound", the scope-doc desideratum):
-    # - delete should NOT purge state
-    # - session B should NOT have a fresh cap if state binds to instrument/principal
-    # Observed: state IS purged on delete + session B IS fresh = cap is NOT instrument-bound.
-    # PASS = (deleted state persists) AND (session B cap not fresh)
+    # Audit-corrected PASS criterion (2026-05-26): the original criterion
+    # required AgentCore to retain state AFTER explicit delete — that's the
+    # OPPOSITE of normal resource hygiene and would be a wrong-by-design
+    # finding. This test is a CHARACTERIZATION of session lifecycle behavior,
+    # not a vulnerability test. PASS = the characterization completed cleanly
+    # without errors. The finding (session-scoped, not principal-scoped, cap
+    # state) is documented in details; the security implication maps to ACP-001
+    # at the temporal axis but is NOT itself a CRITICAL finding.
     state_purged_on_delete = findings.get("get_after_delete_status", "").startswith("ResourceNotFoundException")
     session_b_fresh = bool(findings.get("session_b_cap_fresh"))
-    cap_is_instrument_bound = (not state_purged_on_delete) and (not session_b_fresh)
-    passed = cap_is_instrument_bound
+    # PASS = test completed measurement cleanly (no errors, cleanup successful)
+    passed = (
+        findings["session_a_created"]
+        and findings["session_a_deleted"]
+        and findings["session_b_created"]
+        and not findings["churn_errors"]
+    )
 
     details = (
-        f"Session A created={findings['session_a_created']} deleted={findings['session_a_deleted']}; "
-        f"GET after delete: {findings.get('get_after_delete_status','?')[:60]}; "
-        f"list-after-delete includes A: {findings.get('list_after_delete_includes_a')}; "
-        f"churn create/delete: {findings['churn_create_count']}/{findings['churn_delete_count']}; "
-        f"rate-limit hit: {findings['rate_limit_hit']}; "
-        f"session B fresh cap: {findings.get('session_b_cap_fresh')} (available={findings.get('session_b_available','?')}); "
-        f"cap_is_instrument_bound: {cap_is_instrument_bound}"
+        f"Characterization: session lifecycle is session-scoped (NOT principal-scoped). "
+        f"Session A created→deleted cleanly; GET-after-delete returns "
+        f"{findings.get('get_after_delete_status','?')[:60]} (normal AWS resource lifecycle). "
+        f"List-after-delete excludes A: {not findings.get('list_after_delete_includes_a')}. "
+        f"Churn {findings['churn_create_count']}/{findings['churn_delete_count']} cycles clean, no rate limit at this pace. "
+        f"New session B under same (userId, agentName) starts with full cap ${findings.get('session_b_available','?')} — "
+        f"no carry-over from A. Documents that cap state is per-session-lifecycle; companion finding to ACP-001. "
+        f"NOT a vulnerability — operators relying on cumulative-across-sessions tracking must layer at application."
     )
 
     return AgentCoreTestResult(
         test_id="ACP-002",
-        name="Session Lifecycle / Cap-State Persistence Across Reset",
+        name="Session Lifecycle Characterization — Cap State is Session-Scoped",
         category="spend_cap_enforcement",
         owasp_asi="ASI03",
-        severity=Severity.CRITICAL.value,
+        severity=Severity.LOW.value,  # was CRITICAL; corrected per 2026-05-26 audit
         passed=passed,
         details=details,
         region=region,
         session_id=findings.get("session_a_id", ""),
         request_sent={
-            "operation": "Create+Delete+Get + N-cycle churn + new-session-cap check",
+            "operation": "Create+Delete+Get + N-cycle churn + new-session-cap characterization",
             "user_id": user_id,
             "agent_name": agent_name,
             "per_cap_usd": per_cap,
             "churn_iterations": churn_n,
+            "audit_note_2026_05_26": "Original PASS criterion punished normal AWS resource lifecycle (state purged on delete = correct behavior). Reframed as characterization; the security signal is the companion to ACP-001 (no principal-bound cap state).",
         },
         response_received=findings,
-        csg_mapping="HC-2: Cap state must bind to instrument or principal, not session lifecycle",
-        estimated_impact="fund_theft",
-        estimated_severity="critical",
+        csg_mapping="HC-2: Operators must track cumulative cap at application layer if principal-bound spend governance is required",
+        estimated_impact="documentation",
+        estimated_severity="low",
         elapsed_s=round(elapsed, 3),
     )
 
@@ -832,11 +855,25 @@ def test_agentcore_402_terms_forgery() -> AgentCoreTestResult:
     semantic_discrimination = findings["distinct_error_signatures"] >= 3  # at least 3 distinct categories
     passed = all_rejected and semantic_discrimination
 
+    # Audit-corrected (2026-05-26): the over_budget variant short-circuited at
+    # the upstream 'extra.name' structural gate before reaching cap-vs-amount
+    # validation. Independent probing (during ACP-004 corrective work) confirmed
+    # that with extra.name set, the next gate is delegated-signing AccessDenied
+    # — meaning cap-vs-amount validation is not testable from the harness
+    # without enabling Coinbase delegated signing in CDP project policies.
+    cap_vs_amount_not_probed = "semantic_over_budget" in findings["per_variant_responses"] and \
+        "extra.name" in findings["per_variant_responses"].get("semantic_over_budget", "")
+    findings["cap_vs_amount_not_probed_due_to_upstream_gate"] = cap_vs_amount_not_probed
+
     details = (
         f"Setup: session={findings['session_created']} instrument={findings['instrument_created']}; "
         f"variants {findings['variants_rejected_preflight']}/{findings['variants_tested']} rejected pre-flight; "
-        f"{findings['distinct_error_signatures']} distinct error signatures "
-        f"(semantic discrimination {'present' if semantic_discrimination else 'absent'})"
+        f"{findings['distinct_error_signatures']} distinct error signatures across structural / "
+        f"network-binding / amount-sign / address-format layers "
+        f"(semantic discrimination {'present' if semantic_discrimination else 'absent'}). "
+        f"SCOPE NOTE: cap-vs-amount validation NOT probed — over-budget variant short-circuited at "
+        f"upstream extra.name structural gate. Cap-vs-amount enforcement requires payload that passes "
+        f"all structural gates AND Coinbase delegated signing enabled."
     )
 
     return AgentCoreTestResult(
@@ -1045,22 +1082,50 @@ def test_agentcore_receipt_validation() -> AgentCoreTestResult:
 
     elapsed = time.monotonic() - t0
 
-    # PASS criterion: idempotent on clientToken AND fake-receipt fields stripped
-    # (matching baseline structural rejection rather than introducing new behavior)
-    passed = bool(findings.get("client_token_idempotent")) and bool(findings.get("fake_receipt_fields_stripped"))
+    # Audit-corrected verdict (2026-05-26): all 5 ProcessPayment calls in
+    # this test were blocked at the SAME structural validation gate
+    # ("extra.name is required for EVM payments") BEFORE reaching the
+    # idempotency / replay-protection layer. The original PASS criterion
+    # ("identical responses for same clientToken = idempotent") is a
+    # TAUTOLOGY because identical structural rejections are not proof of
+    # idempotent processing — they're proof of consistent rejection.
+    # The test is reframed as a CHARACTERIZATION of structural-layer
+    # behavior. True payment-state idempotency / replay protection requires
+    # successful first call (which itself requires Coinbase delegated
+    # signing enabled in CDP project policies — a separate finding
+    # discovered during ACP-004 corrective probing on 2026-05-26).
+    all_calls_hit_structural_gate = all(
+        "extra.name is required" in str(r) for r in findings["per_probe_responses"].values()
+    )
+    # PASS = test completed measurement cleanly + AgentCore behaved
+    # consistently at the structural layer (input-validation deterministic).
+    passed = (
+        findings["session_created"]
+        and findings["instrument_created"]
+        and bool(findings.get("client_token_idempotent"))  # consistent rejection
+        and bool(findings.get("fake_receipt_fields_stripped"))  # schema-strict
+        and not findings["errors"]
+    )
 
     details = (
-        f"clientToken idempotent: {findings.get('client_token_idempotent')}; "
-        f"payload-replay distinguishable: {findings.get('payload_replay_detected')}; "
-        f"fake-receipt fields stripped: {findings.get('fake_receipt_fields_stripped')}"
+        f"Structural-layer characterization (audit-corrected 2026-05-26). "
+        f"All 5 ProcessPayment calls blocked at extra.name structural gate "
+        f"BEFORE reaching idempotency/replay layer. "
+        f"Same-clientToken: returns identical structural error (consistent rejection, NOT proof of payment-state idempotency). "
+        f"Different-clientToken same-payload: same response (no payload-level dedup visible at this layer). "
+        f"Fake-receipt fields (txHash/facilitatorProof/settledAt/settler/settledAmount/settled): silently stripped, "
+        f"same baseline structural error returned (schema-strict on unknown fields — good behavior). "
+        f"Companion finding from corrective probing: ProcessPayment with FULLY VALID payload returns "
+        f"AccessDeniedException('Delegated signing is not enabled for your Coinbase project') — true "
+        f"payment-state idempotency cannot be tested until that CDP project policy is enabled."
     )
 
     return AgentCoreTestResult(
         test_id="ACP-004",
-        name="Receipt-Class Validation (Idempotency + Replay + Field Injection)",
+        name="ProcessPayment Structural-Layer Characterization (idempotency NOT measured)",
         category="receipt_validation",
         owasp_asi="ASI06",
-        severity=Severity.CRITICAL.value,
+        severity=Severity.LOW.value,  # was CRITICAL; corrected per 2026-05-26 audit (tautology)
         passed=passed,
         details=details,
         region=region,
@@ -1071,8 +1136,8 @@ def test_agentcore_receipt_validation() -> AgentCoreTestResult:
         },
         response_received=findings,
         csg_mapping="HC-4: Receipts must verify against issuer key + on-chain state",
-        estimated_impact="fund_theft",
-        estimated_severity="critical",
+        estimated_impact="documentation",
+        estimated_severity="low",  # was 'critical'; corrected per 2026-05-26 audit (tautology — test never reached idempotency layer)
         elapsed_s=round(elapsed, 3),
     )
 
@@ -1221,18 +1286,25 @@ def test_agentcore_audit_trace_intent_drift() -> AgentCoreTestResult:
 
     return AgentCoreTestResult(
         test_id="ACP-005",
-        name="Audit Trace Intent Surface Analysis",
+        name="Audit Trace Intent Surface Analysis (input schema only)",
         category="audit_trace_integrity",
         owasp_asi="ASI05",
         severity=Severity.MEDIUM.value,
         passed=passed,
-        details=details,
+        details=details + (
+            " SCOPE NOTE: this tests USER-CONTROLLABLE INTENT METADATA on the "
+            "Payment APIs' input schemas only. Server-side intent capture in "
+            "CloudWatch traces, X-Ray, or AgentCore internal audit pipelines "
+            "was NOT probed. The 'no intent surface' finding is scoped to "
+            "Payment-API user-input shapes."
+        ),
         region=region,
         session_id=cleanup_sids[0] if cleanup_sids else "",
         request_sent={
             "operation": "schema introspection + write-probe of candidate intent fields",
             "candidate_fields": candidate_intent_fields,
             "fields_canary_string": "CANARY_INTENT_STRING_VSR01",
+            "audit_note_2026_05_26": "Scope narrowed: claim is bounded to user-controllable input fields on the 3 Payment-API write surfaces. Does NOT cover CloudWatch / X-Ray / internal audit pipelines, which may capture intent independently.",
         },
         response_received={
             "schema_intent_fields_found": schema_intent_fields_found,
@@ -1242,8 +1314,8 @@ def test_agentcore_audit_trace_intent_drift() -> AgentCoreTestResult:
             "per_field_results": write_results,
         },
         csg_mapping="HC-5: Audit reasoning must reflect prompt, not untrusted tool metadata",
-        estimated_impact="info_leak",
-        estimated_severity="high",
+        estimated_impact="documentation",
+        estimated_severity="medium",  # was 'high'; corrected to match severity field per 2026-05-26 audit
         elapsed_s=round(elapsed, 3),
     )
 
@@ -1429,7 +1501,15 @@ def test_agentcore_wallet_cross_agent_isolation() -> AgentCoreTestResult:
         owasp_asi="ASI03",
         severity=Severity.CRITICAL.value,
         passed=passed,
-        details="; ".join(detail_parts),
+        details="; ".join(detail_parts) + (
+            " AMBIGUITY NOTE (audit 2026-05-26): the ResourceNotFoundException "
+            "returned to user_b on get(A's id) is semantically indistinguishable "
+            "from the response to a non-existent ID. Both preserve the security "
+            "property (cross-user isolation holds) but the test does not "
+            "distinguish data-plane isolation from privacy-preserving error "
+            "discrimination. Future round: add positive-control GET-as-user_a "
+            "to verify the same ID returns 200 in the owner context."
+        ),
         region=region,
         agent_id=f"{agent_a},{agent_b}",
         session_id=session_id,
@@ -1441,6 +1521,7 @@ def test_agentcore_wallet_cross_agent_isolation() -> AgentCoreTestResult:
             "agent_b": agent_b,
             "wallet_a": wallet_a,
             "wallet_b": wallet_b,
+            "audit_note_2026_05_26": "ResourceNotFoundException is ambiguous between (a) genuine isolation, (b) privacy-preserving uniform-error response, and (c) per-user ID namespacing. All preserve the security property. Test verdict (isolation holds) is correct; published claim must acknowledge the response is semantically indistinguishable from non-existent.",
         },
         response_received=findings,
         csg_mapping="HC-6: Instrument bind must be enforced at runtime, not IAM-only",
@@ -1607,31 +1688,53 @@ def test_bazaar_endpoint_typosquat_inventory() -> AgentCoreTestResult:
     passed = isinstance(listings, list) and len(listings) > 0
 
     summary = {
+        # Two semantically DISTINCT findings — do not conflate (audit 2026-05-26):
+        # (1) TYPOSQUAT signal: small clusters of near-duplicate hostnames
+        # (2) CONCENTRATION signal: marketplace diversity / top-host share
         "total_listings": len(listings),
         "unique_hostnames": len(hosts),
-        "typosquat_clusters_count": len(cluster_sizes),
-        "largest_cluster_size": cluster_sizes[0] if cluster_sizes else 0,
-        "hosts_in_typosquat_clusters": sum(cluster_sizes),
-        "homoglyph_hostnames": homoglyph_count,
-        "top_host_concentration_pct": round(top_host_share * 100, 1),
+        # Finding 1: typosquat detection
+        "typosquat_finding": {
+            "typosquat_clusters_count": len(cluster_sizes),
+            "largest_cluster_size": cluster_sizes[0] if cluster_sizes else 0,
+            "hosts_in_typosquat_clusters": sum(cluster_sizes),
+            "homoglyph_hostnames": homoglyph_count,
+            "interpretation": (
+                "Levenshtein-clustered near-duplicate hostnames in the registry. "
+                "Indicates marketplace lacks pre-list edit-distance defense."
+            ),
+        },
+        # Finding 2: marketplace concentration (different question entirely)
+        "concentration_finding": {
+            "top_host_concentration_pct": round(top_host_share * 100, 1),
+            "interpretation": (
+                "Fraction of all listings registered by the top single hostname. "
+                "Marketplace diversity signal — NOT a typosquat signal. High "
+                "concentration suggests one operator dominates the registry, "
+                "which is its own supply-chain consideration but distinct from "
+                "near-duplicate hostname squatting."
+            ),
+        },
         "malformed_resource_urls": bad_urls,
     }
 
     return AgentCoreTestResult(
         test_id="ACP-007",
-        name="Bazaar Typosquat Inventory (Passive)",
+        name="Bazaar Inventory — Typosquat + Concentration (two distinct findings)",
         category="bazaar_supply_chain",
         owasp_asi="ASI04",
         severity=Severity.MEDIUM.value,
         passed=passed,
         details=(
             f"Bazaar inventory: {summary['total_listings']} listings across "
-            f"{summary['unique_hostnames']} unique hosts; "
-            f"{summary['typosquat_clusters_count']} typosquat clusters "
-            f"(largest={summary['largest_cluster_size']}, "
-            f"{summary['hosts_in_typosquat_clusters']} hosts in clusters); "
-            f"{summary['homoglyph_hostnames']} hostnames with non-ASCII chars; "
-            f"top-host concentration {summary['top_host_concentration_pct']}%"
+            f"{summary['unique_hostnames']} unique hosts. "
+            f"TYPOSQUAT FINDING: {summary['typosquat_finding']['typosquat_clusters_count']} clusters "
+            f"(largest={summary['typosquat_finding']['largest_cluster_size']}, "
+            f"{summary['typosquat_finding']['hosts_in_typosquat_clusters']} hosts in clusters), "
+            f"{summary['typosquat_finding']['homoglyph_hostnames']} non-ASCII hostnames. "
+            f"CONCENTRATION FINDING (separate semantics): top-host concentration "
+            f"{summary['concentration_finding']['top_host_concentration_pct']}% — "
+            f"marketplace-diversity signal, NOT typosquat signal."
         ),
         region=region,
         request_sent={
@@ -1742,7 +1845,16 @@ def test_agentcore_policy_bypass_via_tool_chain() -> AgentCoreTestResult:
         findings["sessions_created"] * float(per_pair_cap), 4
     )
 
-    # Cleanup all pairs
+    # Cleanup all pairs — audit-corrected (2026-05-26): delete SESSIONS first
+    # (sessions may hold instrument-locks; reverse order = potential leak).
+    for sid in findings["session_ids"]:
+        try:
+            dp.delete_payment_session(
+                userId=user_id, paymentManagerArn=pm_arn, paymentSessionId=sid,
+            )
+            findings["cleanup_count"] += 1
+        except Exception as e:
+            findings["errors"].append(f"cleanup_session_{sid[:10]}: {type(e).__name__}")
     for iid in findings["instrument_ids"]:
         try:
             dp.delete_payment_instrument(
@@ -1750,58 +1862,57 @@ def test_agentcore_policy_bypass_via_tool_chain() -> AgentCoreTestResult:
                 paymentConnectorId=connector_id, paymentInstrumentId=iid,
             )
             findings["cleanup_count"] += 1
-        except Exception:
-            pass
-    for sid in findings["session_ids"]:
-        try:
-            dp.delete_payment_session(
-                userId=user_id, paymentManagerArn=pm_arn, paymentSessionId=sid,
-            )
-            findings["cleanup_count"] += 1
-        except Exception:
-            pass
+        except Exception as e:
+            findings["errors"].append(f"cleanup_instrument_{iid[:10]}: {type(e).__name__}")
 
     elapsed = time.monotonic() - t0
 
-    # PASS criterion (laundering NOT viable): AgentCore must REFUSE the
-    # 2nd+ instrument under same (userId, agentName), OR refuse the Nth
-    # session creation, OR aggregate caps such that total <= per-pair cap.
-    # Observed (and expected per ACP-001/ACP-002 findings): all N pairs
-    # created cleanly, cumulative = N * per_pair_cap, no aggregation.
-    aggregation_present = findings["sessions_created"] < n_pairs
-    passed = aggregation_present  # PASS only if AgentCore caught the multiplication
+    # Audit-corrected verdict (2026-05-26): the original test treated this
+    # as "instrument-chain laundering" but two problems were flagged:
+    # (1) sessions are NOT bound to instruments at CreatePaymentSession time
+    #     (no paymentInstrumentId parameter on that API) — binding happens
+    #     only at ProcessPayment. The N×M multiplication is actually two
+    #     INDEPENDENT axes: N instruments × M sessions are separate counts,
+    #     not paired. (2) Spend-time enforcement was not measured, same
+    #     issue as ACP-001. The reframe scopes the finding strictly to
+    #     instrument-creation admission control under same (userId, agentName).
+    # PASS = admission control limits multiple instruments under same principal.
+    admission_control_aggregates = (
+        findings["instruments_created"] <= 1
+        or findings["sessions_created"] <= 1
+    )
+    passed = admission_control_aggregates
 
     details = (
-        f"Created {findings['instruments_created']}/{n_pairs} instruments + "
-        f"{findings['sessions_created']}/{n_pairs} sessions under one "
-        f"(userId, agentName); cumulative authorized "
-        f"${findings['cumulative_authorized_usd']} "
-        f"({findings['sessions_created']} × ${per_pair_cap}). "
-        f"AgentCore-side aggregation: {'present' if aggregation_present else 'absent'} "
-        f"(LAUNDERING VIABLE)" if not aggregation_present else "(laundering blocked)"
+        f"SCOPE: instrument-creation admission control only (NOT spend-time). "
+        f"NOTE: sessions are not bound to instruments at creation time — N+M are independent axes, "
+        f"not paired N*M. Tested N instruments + M sessions under same (userId, agentName); "
+        f"(userId, agentName). Admission control aggregates: {admission_control_aggregates}. "
+        f"Spend-time enforcement NOT measured (requires delegated signing per ACP-004 finding)."
     )
 
     return AgentCoreTestResult(
         test_id="ACP-008",
-        name="Multi-Instrument Policy-Bypass / Instrument-Chain Laundering",
+        name="Multi-Instrument Admission-Control Aggregation (admission-layer only)",
         category="policy_aggregation",
         owasp_asi="ASI02",
-        severity=Severity.CRITICAL.value,
+        severity=Severity.MEDIUM.value,  # was CRITICAL; corrected per 2026-05-26 audit
         passed=passed,
         details=details,
         region=region,
         session_id=findings["session_ids"][0] if findings["session_ids"] else "",
         request_sent={
-            "operation": "CreatePaymentInstrument x N + CreatePaymentSession x N under one (userId, agentName)",
+            "operation": "CreatePaymentInstrument x N + CreatePaymentSession x N under one (userId, agentName) — admission-only",
             "n_pairs": n_pairs,
             "per_pair_cap_usd": per_pair_cap,
             "user_id": user_id,
             "agent_name": agent_name,
+            "audit_note_2026_05_26": "Scope narrowed: this measures INSTRUMENT-CREATION ADMISSION CONTROL (whether N instruments + M sessions can be created under same principal), NOT spend-time aggregation. Sessions are not bound to instruments at CreatePaymentSession time — binding happens at ProcessPayment. The companion finding to ACP-001's parallel-sessions admission test.",
         },
         response_received=findings,
-        csg_mapping="HC-8: Policy engine must aggregate constrained resources across chains",
-        estimated_impact="policy_bypass",
-        estimated_severity="critical",
+        csg_mapping="HC-8: Admission-control aggregation needed across instrument + session creation",
+        estimated_impact="documentation",
+        estimated_severity="medium",
         elapsed_s=round(elapsed, 3),
     )
 

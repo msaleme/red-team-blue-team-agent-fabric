@@ -1,17 +1,17 @@
 {
   "test_id": "ACP-001",
-  "name": "Session-Cap Fragmentation via Parallel Session Creation",
+  "name": "Parallel-Session Admission-Control Aggregation (admission-layer only)",
   "category": "spend_cap_enforcement",
   "owasp_asi": "ASI02",
-  "severity": "P1-High",
+  "severity": "P2-Medium",
   "passed": false,
-  "details": "opened 5/5 parallel sessions; per-session cap $0.50; cumulative authorized $2.5; per-session ceiling $10000. (theoretical N-session ceiling unbounded); FRAGMENTATION VIABLE",
+  "details": "SCOPE: session-creation admission control only (NOT spend-time enforcement); opened 5/5 parallel sessions under same (userId, agentName); per-session cap $0.50; admission-cumulative authorized $2.5; per-session ceiling $10000.; FINDING: admission control does NOT aggregate caps across parallel sessions. Spend-time enforcement requires separate test with delegated-signing enabled.",
   "region": "us-east-1",
   "endpoint": "",
   "agent_id": "",
-  "session_id": "payment-session-ye49ZH6QcyuraCz",
+  "session_id": "payment-session-sauRvlzTvxKTGnI",
   "request_sent": {
-    "operation": "CreatePaymentSession x N (parallel) + cap-value boundaries",
+    "operation": "CreatePaymentSession x N (parallel) + cap-value boundaries \u2014 admission-control test only",
     "parallel_count_attempted": 5,
     "per_session_cap_usd": "0.50",
     "user_id": "vsr01-fragmenter",
@@ -22,7 +22,8 @@
       "0.001",
       "10000.01",
       "9999.99"
-    ]
+    ],
+    "audit_note_2026_05_26": "Scope narrowed: this measures ADMISSION CONTROL (whether N sessions can be created), NOT spend-time enforcement (whether cumulative spend exceeding session caps is blocked). Spend-time test requires Coinbase delegated signing enabled in CDP project policies \u2014 see ACP-004 corrective probing."
   },
   "response_received": {
     "parallel_sessions_created": 5,
@@ -40,9 +41,9 @@
     "errors": [],
     "session_ids_cleaned": 7
   },
-  "csg_mapping": "HC-1: Spend caps must aggregate across fractional payments / parallel sessions",
-  "estimated_impact": "fund_theft",
-  "estimated_severity": "high",
-  "elapsed_s": 2.972,
-  "timestamp": "2026-05-26T00:18:32.930471+00:00"
+  "csg_mapping": "HC-1: Admission-control aggregation needed for principal-bound spend governance",
+  "estimated_impact": "documentation",
+  "estimated_severity": "medium",
+  "elapsed_s": 3.379,
+  "timestamp": "2026-05-26T13:32:10.154598+00:00"
 }

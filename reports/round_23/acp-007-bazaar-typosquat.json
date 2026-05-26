@@ -1,11 +1,11 @@
 {
   "test_id": "ACP-007",
-  "name": "Bazaar Typosquat Inventory (Passive)",
+  "name": "Bazaar Inventory \u2014 Typosquat + Concentration (two distinct findings)",
   "category": "bazaar_supply_chain",
   "owasp_asi": "ASI04",
   "severity": "P2-Medium",
   "passed": true,
-  "details": "Bazaar inventory: 50560 listings across 761 unique hosts; 10 typosquat clusters (largest=8, 28 hosts in clusters); 0 hostnames with non-ASCII chars; top-host concentration 71.9%",
+  "details": "Bazaar inventory: 50536 listings across 762 unique hosts. TYPOSQUAT FINDING: 10 clusters (largest=8, 28 hosts in clusters), 0 non-ASCII hostnames. CONCENTRATION FINDING (separate semantics): top-host concentration 71.9% \u2014 marketplace-diversity signal, NOT typosquat signal.",
   "region": "us-east-1",
   "endpoint": "",
   "agent_id": "",
@@ -17,18 +17,24 @@
     "pagination": "limit=1000, offset paginated"
   },
   "response_received": {
-    "total_listings": 50560,
-    "unique_hostnames": 761,
-    "typosquat_clusters_count": 10,
-    "largest_cluster_size": 8,
-    "hosts_in_typosquat_clusters": 28,
-    "homoglyph_hostnames": 0,
-    "top_host_concentration_pct": 71.9,
+    "total_listings": 50536,
+    "unique_hostnames": 762,
+    "typosquat_finding": {
+      "typosquat_clusters_count": 10,
+      "largest_cluster_size": 8,
+      "hosts_in_typosquat_clusters": 28,
+      "homoglyph_hostnames": 0,
+      "interpretation": "Levenshtein-clustered near-duplicate hostnames in the registry. Indicates marketplace lacks pre-list edit-distance defense."
+    },
+    "concentration_finding": {
+      "top_host_concentration_pct": 71.9,
+      "interpretation": "Fraction of all listings registered by the top single hostname. Marketplace diversity signal \u2014 NOT a typosquat signal. High concentration suggests one operator dominates the registry, which is its own supply-chain consideration but distinct from near-duplicate hostname squatting."
+    },
     "malformed_resource_urls": 0
   },
   "csg_mapping": "HC-7: Marketplace inventory must be auditable for typosquats",
   "estimated_impact": "info_leak",
   "estimated_severity": "medium",
-  "elapsed_s": 35.882,
-  "timestamp": "2026-05-26T00:02:04.730869+00:00"
+  "elapsed_s": 35.541,
+  "timestamp": "2026-05-26T13:33:01.154246+00:00"
 }

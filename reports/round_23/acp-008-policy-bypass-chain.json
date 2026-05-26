@@ -1,44 +1,45 @@
 {
   "test_id": "ACP-008",
-  "name": "Multi-Instrument Policy-Bypass / Instrument-Chain Laundering",
+  "name": "Multi-Instrument Admission-Control Aggregation (admission-layer only)",
   "category": "policy_aggregation",
   "owasp_asi": "ASI02",
-  "severity": "P0-Critical",
+  "severity": "P2-Medium",
   "passed": false,
-  "details": "Created 3/3 instruments + 3/3 sessions under one (userId, agentName); cumulative authorized $0.3 (3 \u00d7 $0.10). AgentCore-side aggregation: absent (LAUNDERING VIABLE)",
+  "details": "SCOPE: instrument-creation admission control only (NOT spend-time). NOTE: sessions are not bound to instruments at creation time \u2014 N+M are independent axes, not paired N*M. Tested N instruments + M sessions under same (userId, agentName); (userId, agentName). Admission control aggregates: False. Spend-time enforcement NOT measured (requires delegated signing per ACP-004 finding).",
   "region": "us-east-1",
   "endpoint": "",
   "agent_id": "",
-  "session_id": "payment-session-QMzvIZBeaA8VzDp",
+  "session_id": "payment-session-mhIs3KASBNYNIA3",
   "request_sent": {
-    "operation": "CreatePaymentInstrument x N + CreatePaymentSession x N under one (userId, agentName)",
+    "operation": "CreatePaymentInstrument x N + CreatePaymentSession x N under one (userId, agentName) \u2014 admission-only",
     "n_pairs": 3,
     "per_pair_cap_usd": "0.10",
     "user_id": "vsr01-chain-user",
-    "agent_name": "vsr01-chain-agent"
+    "agent_name": "vsr01-chain-agent",
+    "audit_note_2026_05_26": "Scope narrowed: this measures INSTRUMENT-CREATION ADMISSION CONTROL (whether N instruments + M sessions can be created under same principal), NOT spend-time aggregation. Sessions are not bound to instruments at CreatePaymentSession time \u2014 binding happens at ProcessPayment. The companion finding to ACP-001's parallel-sessions admission test."
   },
   "response_received": {
     "n_pairs_attempted": 3,
     "instruments_created": 3,
     "sessions_created": 3,
     "instrument_ids": [
-      "payment-instrument-85f2fOFWxoqT8v2",
-      "payment-instrument-CEY4fmY27Tc6Exn",
-      "payment-instrument-1fQdeQ0hx7oEDru"
+      "payment-instrument-0JqlwXhWnbLUjqR",
+      "payment-instrument-W0ACyx1kG79rsYX",
+      "payment-instrument-xWc2TT5kUKYh8b7"
     ],
     "session_ids": [
-      "payment-session-QMzvIZBeaA8VzDp",
-      "payment-session-ac0KtcEqZeaSGg1",
-      "payment-session-SOeEZRbo7u2B3Vr"
+      "payment-session-mhIs3KASBNYNIA3",
+      "payment-session-v22g7URB3Dceunr",
+      "payment-session-f3tGS3Q74eXFKVx"
     ],
     "per_pair_cap_usd": "0.10",
     "cumulative_authorized_usd": 0.3,
     "errors": [],
     "cleanup_count": 6
   },
-  "csg_mapping": "HC-8: Policy engine must aggregate constrained resources across chains",
-  "estimated_impact": "policy_bypass",
-  "estimated_severity": "critical",
-  "elapsed_s": 5.102,
-  "timestamp": "2026-05-26T13:14:19.211108+00:00"
+  "csg_mapping": "HC-8: Admission-control aggregation needed across instrument + session creation",
+  "estimated_impact": "documentation",
+  "estimated_severity": "medium",
+  "elapsed_s": 7.044,
+  "timestamp": "2026-05-26T13:33:08.360064+00:00"
 }

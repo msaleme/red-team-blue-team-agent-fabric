@@ -5,11 +5,11 @@
   "owasp_asi": "ASI09",
   "severity": "P1-High",
   "passed": true,
-  "details": "Setup: session=True instrument=True; variants 8/8 rejected pre-flight; 7 distinct error signatures (semantic discrimination present)",
+  "details": "Setup: session=True instrument=True; variants 8/8 rejected pre-flight; 7 distinct error signatures across structural / network-binding / amount-sign / address-format layers (semantic discrimination present). SCOPE NOTE: cap-vs-amount validation NOT probed \u2014 over-budget variant short-circuited at upstream extra.name structural gate. Cap-vs-amount enforcement requires payload that passes all structural gates AND Coinbase delegated signing enabled.",
   "region": "us-east-1",
   "endpoint": "",
   "agent_id": "",
-  "session_id": "payment-session-7Le9y1ymRkuj3bX",
+  "session_id": "payment-session-wmgvThijNEpDyHP",
   "request_sent": {
     "operation": "ProcessPayment x N with crafted payloads",
     "session_cap_usd": "0.10",
@@ -26,9 +26,9 @@
   },
   "response_received": {
     "session_created": true,
-    "session_id": "payment-session-7Le9y1ymRkuj3bX",
+    "session_id": "payment-session-wmgvThijNEpDyHP",
     "instrument_created": true,
-    "instrument_id": "payment-instrument-LssbFl6BW04yNmp",
+    "instrument_id": "payment-instrument-TIF1ruh6a18ah7T",
     "variants_tested": 8,
     "variants_rejected_preflight": 8,
     "per_variant_responses": {
@@ -51,11 +51,12 @@
       "Network mismatch 'ETHEREUM' is not supported for paymentNetwork 'fake-chain-vsr0",
       "Payment amount must be a positive number. Received: -50000",
       "Payment extra.name is required for EVM payments"
-    ]
+    ],
+    "cap_vs_amount_not_probed_due_to_upstream_gate": true
   },
   "csg_mapping": "HC-3: 402 terms must be validated against instrument policy",
   "estimated_impact": "fund_theft",
   "estimated_severity": "high",
-  "elapsed_s": 4.459,
-  "timestamp": "2026-05-26T13:07:22.857428+00:00"
+  "elapsed_s": 3.929,
+  "timestamp": "2026-05-26T13:32:17.678745+00:00"
 }

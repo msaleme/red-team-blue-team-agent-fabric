@@ -5,11 +5,11 @@
   "owasp_asi": "ASI03",
   "severity": "P0-Critical",
   "passed": true,
-  "details": "created 2 instruments (a=payment-in, b=payment-in); list_userA_isolated=True; list_userB_isolated=True; get_A_as_userB_denied=True",
+  "details": "created 2 instruments (a=payment-in, b=payment-in); list_userA_isolated=True; list_userB_isolated=True; get_A_as_userB_denied=True AMBIGUITY NOTE (audit 2026-05-26): the ResourceNotFoundException returned to user_b on get(A's id) is semantically indistinguishable from the response to a non-existent ID. Both preserve the security property (cross-user isolation holds) but the test does not distinguish data-plane isolation from privacy-preserving error discrimination. Future round: add positive-control GET-as-user_a to verify the same ID returns 200 in the owner context.",
   "region": "us-east-1",
   "endpoint": "",
   "agent_id": "vsr01-agent-a,vsr01-agent-b",
-  "session_id": "xagent-c0e94d91464c",
+  "session_id": "xagent-4761f68b17f9",
   "request_sent": {
     "operation": "CreatePaymentInstrument x2 + ListPaymentInstruments x2 + GetPaymentInstrument cross-context",
     "user_a": "vsr01-user-a",
@@ -17,7 +17,8 @@
     "agent_a": "vsr01-agent-a",
     "agent_b": "vsr01-agent-b",
     "wallet_a": "0x0E88cF39132336a4A9a7C0D37C1253Fa321F557B",
-    "wallet_b": "0x9b3090cf65c568B5961F2aC27af8Ae35CaeCE536"
+    "wallet_b": "0x9b3090cf65c568B5961F2aC27af8Ae35CaeCE536",
+    "audit_note_2026_05_26": "ResourceNotFoundException is ambiguous between (a) genuine isolation, (b) privacy-preserving uniform-error response, and (c) per-user ID namespacing. All preserve the security property. Test verdict (isolation holds) is correct; published claim must acknowledge the response is semantically indistinguishable from non-existent."
   },
   "response_received": {
     "instrument_a_created": true,
@@ -39,6 +40,6 @@
   "csg_mapping": "HC-6: Instrument bind must be enforced at runtime, not IAM-only",
   "estimated_impact": "fund_theft",
   "estimated_severity": "critical",
-  "elapsed_s": 3.954,
-  "timestamp": "2026-05-26T00:09:39.657014+00:00"
+  "elapsed_s": 4.206,
+  "timestamp": "2026-05-26T13:32:25.612473+00:00"
 }

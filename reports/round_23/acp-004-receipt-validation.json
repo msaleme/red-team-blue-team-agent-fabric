@@ -1,15 +1,15 @@
 {
   "test_id": "ACP-004",
-  "name": "Receipt-Class Validation (Idempotency + Replay + Field Injection)",
+  "name": "ProcessPayment Structural-Layer Characterization (idempotency NOT measured)",
   "category": "receipt_validation",
   "owasp_asi": "ASI06",
-  "severity": "P0-Critical",
+  "severity": "P3-Low",
   "passed": true,
-  "details": "clientToken idempotent: True; payload-replay distinguishable: False; fake-receipt fields stripped: True",
+  "details": "Structural-layer characterization (audit-corrected 2026-05-26). All 5 ProcessPayment calls blocked at extra.name structural gate BEFORE reaching idempotency/replay layer. Same-clientToken: returns identical structural error (consistent rejection, NOT proof of payment-state idempotency). Different-clientToken same-payload: same response (no payload-level dedup visible at this layer). Fake-receipt fields (txHash/facilitatorProof/settledAt/settler/settledAmount/settled): silently stripped, same baseline structural error returned (schema-strict on unknown fields \u2014 good behavior). Companion finding from corrective probing: ProcessPayment with FULLY VALID payload returns AccessDeniedException('Delegated signing is not enabled for your Coinbase project') \u2014 true payment-state idempotency cannot be tested until that CDP project policy is enabled.",
   "region": "us-east-1",
   "endpoint": "",
   "agent_id": "",
-  "session_id": "payment-session-sWS1pBnlXJygCcz",
+  "session_id": "payment-session-EQp6FdrJiXh9qqp",
   "request_sent": {
     "operation": "ProcessPayment 5 calls (same-CT x2, diff-CT x2, fake-receipt-fields x1)",
     "session_cap_usd": "0.10"
@@ -28,12 +28,12 @@
       "fake_receipt_fields_injection": "{'_err': 'ValidationException', '_msg': 'An error occurred (ValidationException) when calling the ProcessPayment operation: Payment extra.name is required for EVM payments'}"
     },
     "errors": [],
-    "session_id": "payment-session-sWS1pBnlXJygCcz",
-    "instrument_id": "payment-instrument-q1sh6ATJUPgZr0g"
+    "session_id": "payment-session-EQp6FdrJiXh9qqp",
+    "instrument_id": "payment-instrument-QOspFcw6aNQ1yGj"
   },
   "csg_mapping": "HC-4: Receipts must verify against issuer key + on-chain state",
-  "estimated_impact": "fund_theft",
-  "estimated_severity": "critical",
-  "elapsed_s": 3.762,
-  "timestamp": "2026-05-26T13:12:55.260734+00:00"
+  "estimated_impact": "documentation",
+  "estimated_severity": "low",
+  "elapsed_s": 3.481,
+  "timestamp": "2026-05-26T13:32:21.161258+00:00"
 }

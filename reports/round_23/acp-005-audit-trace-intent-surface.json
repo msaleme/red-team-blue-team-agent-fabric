@@ -1,11 +1,11 @@
 {
   "test_id": "ACP-005",
-  "name": "Audit Trace Intent Surface Analysis",
+  "name": "Audit Trace Intent Surface Analysis (input schema only)",
   "category": "audit_trace_integrity",
   "owasp_asi": "ASI05",
   "severity": "P2-Medium",
   "passed": true,
-  "details": "Intent-capture surface check: 0 schema fields, 0 write-accepted, 0 persisted in GET. NO INTENT SURFACE \u2014 AgentCore Payments captures financial events without semantic context. Audit trail is what/when/how-much but not why. Operators relying on the platform for regulatory 'why' audit must layer external reasoning capture.",
+  "details": "Intent-capture surface check: 0 schema fields, 0 write-accepted, 0 persisted in GET. NO INTENT SURFACE \u2014 AgentCore Payments captures financial events without semantic context. Audit trail is what/when/how-much but not why. Operators relying on the platform for regulatory 'why' audit must layer external reasoning capture. SCOPE NOTE: this tests USER-CONTROLLABLE INTENT METADATA on the Payment APIs' input schemas only. Server-side intent capture in CloudWatch traces, X-Ray, or AgentCore internal audit pipelines was NOT probed. The 'no intent surface' finding is scoped to Payment-API user-input shapes.",
   "region": "us-east-1",
   "endpoint": "",
   "agent_id": "",
@@ -27,7 +27,8 @@
       "agentReasoning",
       "rationale"
     ],
-    "fields_canary_string": "CANARY_INTENT_STRING_VSR01"
+    "fields_canary_string": "CANARY_INTENT_STRING_VSR01",
+    "audit_note_2026_05_26": "Scope narrowed: claim is bounded to user-controllable input fields on the 3 Payment-API write surfaces. Does NOT cover CloudWatch / X-Ray / internal audit pipelines, which may capture intent independently."
   },
   "response_received": {
     "schema_intent_fields_found": [],
@@ -90,8 +91,8 @@
     }
   },
   "csg_mapping": "HC-5: Audit reasoning must reflect prompt, not untrusted tool metadata",
-  "estimated_impact": "info_leak",
-  "estimated_severity": "high",
-  "elapsed_s": 0.104,
-  "timestamp": "2026-05-26T00:38:27.663136+00:00"
+  "estimated_impact": "documentation",
+  "estimated_severity": "medium",
+  "elapsed_s": 0.004,
+  "timestamp": "2026-05-26T13:32:21.166812+00:00"
 }
