@@ -583,36 +583,172 @@ def test_agentcore_wallet_cross_agent_isolation() -> AgentCoreTestResult:
     )
 
 
-@pytest.mark.skip(reason=VS_R01_SKIP_REASON)
+def _bazaar_fetch_inventory(timeout_s: int = 30) -> list[dict]:
+    """Paginate CDP x402 Bazaar discovery (read-only, no auth required)."""
+    import urllib.request, json as _json
+    base = "https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources"
+    items: list[dict] = []
+    offset = 0
+    while True:
+        url = f"{base}?limit=1000&offset={offset}"
+        with urllib.request.urlopen(url, timeout=timeout_s) as r:
+            page_data = _json.loads(r.read())
+        page = page_data.get("items", [])
+        if not page:
+            break
+        items.extend(page)
+        if len(page) < 1000:
+            break
+        offset += 1000
+    return items
+
+
+def _bazaar_levenshtein(a: str, b: str) -> int:
+    """Stdlib Levenshtein distance — sufficient for hostname-length strings."""
+    if len(a) < len(b):
+        a, b = b, a
+    if not b:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a):
+        curr = [i + 1]
+        for j, cb in enumerate(b):
+            curr.append(min(curr[-1] + 1, prev[j + 1] + 1, prev[j] + (ca != cb)))
+        prev = curr
+    return prev[-1]
+
+
+def _bazaar_typosquat_clusters(hosts: list[str], max_distance: int = 2) -> list[int]:
+    """Cluster hostnames by Levenshtein <= max_distance (union-find).
+    Returns aggregate cluster sizes only — no individual hostnames per
+    VS-R01 publishable-artifact rules."""
+    n = len(hosts)
+    if n < 2:
+        return []
+    parent = list(range(n))
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            if abs(len(hosts[i]) - len(hosts[j])) > max_distance:
+                continue
+            if _bazaar_levenshtein(hosts[i], hosts[j]) <= max_distance:
+                ri, rj = find(i), find(j)
+                if ri != rj:
+                    parent[ri] = rj
+    sizes: dict[int, int] = {}
+    for i in range(n):
+        r = find(i)
+        sizes[r] = sizes.get(r, 0) + 1
+    return sorted([s for s in sizes.values() if s > 1], reverse=True)
+
+
+def _bazaar_homoglyph_count(hosts: list[str]) -> int:
+    """Count hostnames containing any non-ASCII char (Cyrillic-Latin
+    substitution heuristic — over-approximation, acceptable for inventory)."""
+    return sum(1 for h in hosts if any(ord(c) > 127 for c in h))
+
+
 def test_bazaar_endpoint_typosquat_inventory() -> AgentCoreTestResult:
-    """ACP-007: Passive inventory of AgentCore Bazaar listings for typosquats.
+    """ACP-007: Passive inventory of x402 Bazaar listings for typosquats.
 
     Attack pattern:
-        Pull the AgentCore Bazaar public listing (no payment, no install).
-        Fingerprint duplicate/near-duplicate names by Levenshtein <= 2,
-        homoglyph substitution (cyrillic 'a' for latin 'a'), and
-        prefix/suffix variants ("stripe-pay" vs "stripe_pay" vs "stripe-pay-v2").
+        Pull the public x402 Bazaar listing (no payment, no install).
+        Fingerprint duplicate/near-duplicate hostnames by Levenshtein <= 2
+        and detect homoglyph substitutions (Cyrillic chars in Latin
+        hostnames). Marketplace supply-chain provenance audit.
 
     In-scope behavior:
-        This is a PASSIVE listing read — no install, no invoke, no payment.
-        Output is an inventory dict suitable for downstream takedown reporting.
+        PASSIVE listing read against the public CDP discovery endpoint
+        (no auth required, no payment, no AgentCore invocation). Output
+        is aggregate cluster sizes only — no individual hostnames per
+        VS-R01 publishable-artifact rules.
 
     Expected detection by AgentCore:
-        N/A — this test reports inventory; AgentCore itself does not detect
-        typosquats today. Result data feeds a follow-on disclosure workflow.
+        N/A — AgentCore does not detect Bazaar typosquats today. This
+        test surfaces inventory data for downstream disclosure workflow.
+        Finding non-zero clusters indicates marketplace lacks pre-list
+        homoglyph/edit-distance defenses.
     """
+    import urllib.parse
+    from collections import Counter
+
     t0 = time.monotonic()
-    client = _get_agentcore_client(service="bedrock-agent")  # control-plane
     region = os.environ.get(ENV_REGION, "us-east-1")
 
-    # TODO(VS-R01): list Bazaar endpoints (ListAgentListings or equivalent);
-    # bucket by normalized name; flag near-duplicates.
-    listings: list[dict] = []
-    typosquat_clusters: list[dict] = []
+    try:
+        listings = _bazaar_fetch_inventory()
+    except Exception as exc:
+        elapsed = time.monotonic() - t0
+        return AgentCoreTestResult(
+            test_id="ACP-007",
+            name="Bazaar Typosquat Inventory (Passive)",
+            category="bazaar_supply_chain",
+            owasp_asi="ASI04",
+            severity=Severity.MEDIUM.value,
+            passed=False,
+            details=f"Bazaar fetch failed: {type(exc).__name__}: {exc!s:.200}",
+            region=region,
+            request_sent={
+                "operation": "GET",
+                "endpoint": "api.cdp.coinbase.com/platform/v2/x402/discovery/resources",
+                "mode": "passive",
+            },
+            response_received={"error": str(exc)[:300]},
+            csg_mapping="HC-7: Marketplace inventory must be auditable for typosquats",
+            estimated_impact="info_leak",
+            estimated_severity="medium",
+            elapsed_s=round(elapsed, 3),
+        )
+
+    # Extract unique hostnames from resource URLs
+    host_counts: Counter = Counter()
+    bad_urls = 0
+    for item in listings:
+        res = (item.get("resource") or "").strip()
+        if not res:
+            bad_urls += 1
+            continue
+        try:
+            host = (urllib.parse.urlparse(res).hostname or "").lower()
+        except Exception:
+            bad_urls += 1
+            continue
+        if host:
+            host_counts[host] += 1
+        else:
+            bad_urls += 1
+
+    hosts = list(host_counts.keys())
+    cluster_sizes = _bazaar_typosquat_clusters(hosts, max_distance=2)
+    homoglyph_count = _bazaar_homoglyph_count(hosts)
+
+    # Endpoints concentrated on a single hostname (top-1 share) is itself a
+    # supply-chain signal: a few hosts running 100s of listings means the
+    # marketplace is concentrated, not diverse.
+    top_host_share = (host_counts.most_common(1)[0][1] / sum(host_counts.values())) if host_counts else 0.0
 
     elapsed = time.monotonic() - t0
-    # Passive-inventory tests pass when inventory completed (not when N==0).
-    passed = isinstance(listings, list)
+
+    # Pass criterion: inventory completed cleanly. Test is informational —
+    # finding clusters is the expected outcome, not a failure.
+    passed = isinstance(listings, list) and len(listings) > 0
+
+    summary = {
+        "total_listings": len(listings),
+        "unique_hostnames": len(hosts),
+        "typosquat_clusters_count": len(cluster_sizes),
+        "largest_cluster_size": cluster_sizes[0] if cluster_sizes else 0,
+        "hosts_in_typosquat_clusters": sum(cluster_sizes),
+        "homoglyph_hostnames": homoglyph_count,
+        "top_host_concentration_pct": round(top_host_share * 100, 1),
+        "malformed_resource_urls": bad_urls,
+    }
 
     return AgentCoreTestResult(
         test_id="ACP-007",
@@ -622,15 +758,22 @@ def test_bazaar_endpoint_typosquat_inventory() -> AgentCoreTestResult:
         severity=Severity.MEDIUM.value,
         passed=passed,
         details=(
-            f"Inventoried {len(listings)} listings; "
-            f"flagged {len(typosquat_clusters)} typosquat clusters"
+            f"Bazaar inventory: {summary['total_listings']} listings across "
+            f"{summary['unique_hostnames']} unique hosts; "
+            f"{summary['typosquat_clusters_count']} typosquat clusters "
+            f"(largest={summary['largest_cluster_size']}, "
+            f"{summary['hosts_in_typosquat_clusters']} hosts in clusters); "
+            f"{summary['homoglyph_hostnames']} hostnames with non-ASCII chars; "
+            f"top-host concentration {summary['top_host_concentration_pct']}%"
         ),
         region=region,
-        request_sent={"operation": "list_bazaar_listings", "mode": "passive"},
-        response_received={
-            "listings_count": len(listings),
-            "typosquat_clusters": typosquat_clusters,
+        request_sent={
+            "operation": "GET",
+            "endpoint": "api.cdp.coinbase.com/platform/v2/x402/discovery/resources",
+            "mode": "passive",
+            "pagination": "limit=1000, offset paginated",
         },
+        response_received=summary,
         csg_mapping="HC-7: Marketplace inventory must be auditable for typosquats",
         estimated_impact="info_leak",
         estimated_severity="medium",
