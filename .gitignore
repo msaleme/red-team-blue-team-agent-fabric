@@ -43,3 +43,7 @@ november-meeting-extracted.txt
 !package.json
 !pyproject.json
 !schemas/*.json
+
+# VS-R01 vendor surface eval results (publishable artifacts)
+!reports/round_23/
+!reports/round_23/*.json

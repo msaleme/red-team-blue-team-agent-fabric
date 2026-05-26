@@ -1,0 +1,34 @@
+{
+  "test_id": "ACP-007",
+  "name": "Bazaar Typosquat Inventory (Passive)",
+  "category": "bazaar_supply_chain",
+  "owasp_asi": "ASI04",
+  "severity": "P2-Medium",
+  "passed": true,
+  "details": "Bazaar inventory: 50560 listings across 761 unique hosts; 10 typosquat clusters (largest=8, 28 hosts in clusters); 0 hostnames with non-ASCII chars; top-host concentration 71.9%",
+  "region": "us-east-1",
+  "endpoint": "",
+  "agent_id": "",
+  "session_id": "",
+  "request_sent": {
+    "operation": "GET",
+    "endpoint": "api.cdp.coinbase.com/platform/v2/x402/discovery/resources",
+    "mode": "passive",
+    "pagination": "limit=1000, offset paginated"
+  },
+  "response_received": {
+    "total_listings": 50560,
+    "unique_hostnames": 761,
+    "typosquat_clusters_count": 10,
+    "largest_cluster_size": 8,
+    "hosts_in_typosquat_clusters": 28,
+    "homoglyph_hostnames": 0,
+    "top_host_concentration_pct": 71.9,
+    "malformed_resource_urls": 0
+  },
+  "csg_mapping": "HC-7: Marketplace inventory must be auditable for typosquats",
+  "estimated_impact": "info_leak",
+  "estimated_severity": "medium",
+  "elapsed_s": 35.882,
+  "timestamp": "2026-05-26T00:02:04.730869+00:00"
+}
