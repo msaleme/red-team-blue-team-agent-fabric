@@ -11,7 +11,21 @@
 
 ## Headline
 
-VS-R01 identifies an **admission-time spend-governance gap** and **registry-shape risks** in early AWS Bedrock AgentCore Payments / Coinbase x402 Bazaar infrastructure, while confirming **strong input validation** and **cross-context instrument isolation** at the data-plane layer. Spend-settlement-layer behavior was not measured in this round (gated by a Coinbase project policy toggle); a follow-up round is required before any broader claim about settlement-time enforcement.
+VS-R01 identifies an **admission-time spend-governance characteristic** and **registry-shape observations** in early AWS Bedrock AgentCore Payments / Coinbase x402 Bazaar infrastructure, while confirming **strong input validation** and **cross-context instrument isolation** at the data-plane layer. Settlement-time behavior was not measured in this round (gated by a Coinbase project policy toggle). Public characterization remains bounded to admission-time observations until settlement-time evidence exists.
+
+## Evidence taxonomy
+
+To keep claims aligned with what was measured, every finding in this package is tagged with one of the following evidence classes:
+
+| Class | Definition |
+|---|---|
+| **E1** | Static / documentation observation — derived from public docs, schemas, or passive registry inspection |
+| **E2** | Admission-time runtime observation — derived from live API calls at the admission/input gate, before any settlement |
+| **E3** | Settlement-time runtime observation — derived from calls that actually settled (post-admission) |
+| **E4** | Adversarial replay / persistence validated — settlement + replay or persistence behavior characterized |
+| **E5** | Cross-context isolation confirmed with positive controls — isolation verified against both negative AND positive controls |
+
+This round produces only E1 and E2 evidence. E3, E4, and E5 are deferred to a follow-up round once Coinbase delegated signing is enabled and positive-control test variants are added. Each finding's class is stated inline below.
 
 ---
 
@@ -21,19 +35,19 @@ This package documents the first vendor-surface evaluation (VS-R01) of AWS Bedro
 
 Four characterizations result from this round, organized by what they affirm versus what they observe:
 
-### Positive controls verified
+### Validation observations (positive controls)
 
-- **C1. Strong input validation present.** AgentCore's `ProcessPayment` enforces layered semantic checks on x402 payload structure, network–instrument binding, amount sign, and address format. Eight crafted payloads produced seven distinct error classes pre-flight. Cap-vs-amount validation was not exercised in this round (upstream short-circuit).
-- **C2. Cross-context instrument isolation holds at data-plane.** PaymentInstruments created under different `(userId, agentName)` pairs are mutually invisible at list and get; cross-context get returns `ResourceNotFoundException`. The response is semantically indistinguishable from a non-existent ID, which preserves the security property under either interpretation but was not disambiguated by a positive-control test.
+- **C1. Strong input validation observed.** [E2 — admission-time] AgentCore's `ProcessPayment` enforces layered semantic checks on x402 payload structure, network–instrument binding, amount sign, and address format. Eight crafted payloads produced seven distinct error classes pre-flight. Cap-vs-amount validation was not exercised in this round (upstream short-circuit).
+- **C2. Cross-context instrument isolation observed.** [E2 — admission-time; **E5 deferred**] PaymentInstruments created under different `(userId, agentName)` pairs are mutually invisible at list and get; cross-context get returns `ResourceNotFoundException`. The response is semantically indistinguishable from a non-existent ID, which preserves the security property under either interpretation but was not disambiguated by a positive-control test. Promotion to E5 requires a positive-control GET-as-owner variant in a follow-up round.
 
-### Narrow observations (admission-layer; not security bypasses)
+### Architectural characteristics (admission-layer observations)
 
-- **O1. Admission-control aggregation gap.** AgentCore Payments does not aggregate authorized session caps across N parallel sessions or N instruments created under the same `(userId, agentName)`. Each admission succeeds with its own configured cap; the platform applies no principal-bound ceiling at admission time. Operators implementing principal-level spend governance must layer cumulative tracking at the application layer. *Scope:* admission-time only — spend-time enforcement was not measured this round.
-- **O2. Bazaar registry shape: two distinct signals.** The CDP x402 Bazaar discovery endpoint catalogues 50,560 listings across 761 unique hostnames. Two separate properties of the registry surfaced: (a) 10 **near-duplicate hostname clusters** by Levenshtein ≤ 2 (signal of near-duplicates; not validated as deliberate typosquatting in this round), and (b) **71.9% top-host concentration** as a marketplace-diversity signal distinct from the near-duplicate signal.
+- **O1. Admission-control aggregation characteristic.** [E2 — admission-time] AgentCore Payments does not aggregate authorized session caps across N parallel sessions or N instruments created under the same `(userId, agentName)`. Each admission succeeds with its own configured cap; the platform applies no principal-bound ceiling at admission time. Operators implementing principal-level spend governance need to layer cumulative tracking at the application layer. *Scope:* admission-time only — settlement-time enforcement was not measured this round.
+- **O2. Bazaar registry shape: two distinct signals.** [E1 — static/documentation] The CDP x402 Bazaar discovery endpoint catalogues 50,560 listings across 761 unique hostnames. Two separate properties of the registry surfaced: (a) 10 **near-duplicate hostname clusters** by Levenshtein ≤ 2 (signal of near-duplicates; not validated as deliberate typosquatting in this round), and (b) **71.9% top-host concentration** as a marketplace-diversity signal distinct from the near-duplicate signal.
 
-### Operational discovery (not a security finding)
+### Operational prerequisite (documentation observation)
 
-- **D1. Coinbase CDP delegated-signing prerequisite.** With the full AWS-documented setup chain in place + a valid x402 payload, the first `ProcessPayment` call returns an `AccessDeniedException` requiring delegated signing to be enabled at the CDP project policy level. This gate is not surfaced in the AWS launch documentation reviewed during this evaluation, and it blocks any settlement-layer testing.
+- **D1. Coinbase CDP delegated-signing prerequisite.** [E1 — documentation observation surfaced via admission-time call] With the full AWS-documented setup chain in place + a valid x402 payload, the first `ProcessPayment` call returns an `AccessDeniedException` requiring delegated signing to be enabled at the CDP project policy level. This prerequisite is not surfaced in the AWS launch documentation reviewed during this evaluation, and it blocks any settlement-layer testing.
 
 ---
 
@@ -209,18 +223,28 @@ This is a CDP-project-level policy toggle, configured in the Coinbase Developer 
 
 ## Maturity assessment
 
-**Narrow but reproducible; payment-settlement layer untested.**
+**Narrow but reproducible; settlement-layer untested.**
 
-The evidence base is admission-time AgentCore Payments behavior + input-validation behavior + cross-context visibility behavior + public Bazaar registry shape. The corresponding observations and positive controls are reproducible from the linked branch state by any reviewer with their own AWS Bedrock preview + Coinbase CDP testnet enrollment.
+Evidence collected this round: E1 and E2 only.
 
-The evidence base does NOT yet include settlement-time behavior on any axis. Any broader claim about payment-time spend governance, principal-bound enforcement, idempotency, or replay protection would require a follow-up round with delegated signing enabled (see Recommendation 1 below).
+| Class | Coverage this round |
+|---|---|
+| E1 | Bazaar registry inventory (O2); operational prerequisite (D1) |
+| E2 | Input validation (C1); cross-context isolation (C2, with E5 deferred); admission-control aggregation (O1) |
+| E3 | Not collected (gated by D1) |
+| E4 | Not collected (gated by D1) |
+| E5 | Not collected (positive-control variants deferred to follow-up round) |
+
+The observations and validation results above are reproducible from the linked branch state by any reviewer with their own AWS Bedrock preview + Coinbase CDP testnet enrollment.
+
+The evidence base does NOT yet include settlement-time behavior on any axis. Any characterization beyond admission-time admits / refusals would require a follow-up round with delegated signing enabled (see Recommendation 1 below).
 
 ---
 
 ## Recommendations
 
 ### Immediate (this package)
-- Coordinated disclosure of D1 (delegated-signing prerequisite documentation gap) and O1 (admission-time aggregation gap) to AWS Bedrock security through the standard preview-feedback channel. Neither is a vulnerability requiring embargo; both are architectural / documentation observations.
+- Coordinated disclosure of D1 (operational prerequisite documentation gap) and O1 (admission-time architectural characteristic) to AWS Bedrock security through the standard preview-feedback channel. Both are characterized as architectural and documentation observations rather than security vulnerabilities; no embargo timer applies. The disclosure sequence establishes reproducibility, calibration discipline, and good-faith vendor coordination.
 
 ### Next round (VS-R02 scope)
 1. **Enable Coinbase delegated signing** in the CDP project policies. Re-run the settlement-time variants of O1 (cap aggregation), C1 (cap-vs-amount validation), and the original receipt-validation tests against actual `ProcessPayment` settlements on Base Sepolia testnet.
@@ -230,7 +254,7 @@ The evidence base does NOT yet include settlement-time behavior on any axis. Any
 
 ### Publication path
 - This package is appropriate for **coordinated disclosure** (AWS Bedrock security; arxiv reviewer as a methodology / characterization paper; NIST CAISI artifact submission).
-- A broader **public security claim** (Moltbook post, dev.to follow-on, conference talk) should wait for VS-R02 settlement-time evidence to either confirm or refute settlement-layer aggregation. The current admission-time characterization is publishable as documentation but is too narrow for a bold public security framing.
+- Public characterization should remain bounded to admission-time observations (E1, E2) until settlement-time evidence (E3, E4) exists. A broader public characterization should wait for VS-R02 settlement-time evidence to either confirm or refute settlement-layer aggregation.
 
 ---
 
@@ -281,4 +305,6 @@ Saleme, M. K. (2026). *VS-R01 Vendor Surface Evaluation: AWS Bedrock AgentCore P
 
 ---
 
-*This package is review-ready for coordinated disclosure. Findings are scoped to admission-time behavior, input validation, cross-context visibility, and public registry shape. Settlement-time enforcement is deferred to a follow-up round contingent on Coinbase CDP delegated signing being enabled. All test code, result JSONs, audit report, and corrections are available in the linked repository branch.*
+*This package is review-ready for coordinated disclosure. Observations are scoped to admission-time behavior (E2), input validation (E2), cross-context visibility (E2 with E5 deferred), and public registry shape (E1). Settlement-time enforcement (E3, E4) is deferred to a follow-up round contingent on Coinbase CDP delegated signing being enabled. All test code, result JSONs, audit report, and corrections are available in the linked repository branch.*
+
+*This evaluation program emphasizes disclosure-and-calibration discipline: narrow claims tied to specific evidence classes, audit cycles before publication, explicit downgrades of findings after skeptical review, and preserved audit lineage. Adversarial coverage is the input; calibrated evidentiary boundaries are the output.*

@@ -45,16 +45,28 @@ Setup encountered ~7 IAM permission gates (each a legitimate AWS guardrail). All
 
 All severities and verdicts reflect **post-audit-correction** state. The audit (`~/vault/projects/vs-r01-acp-audit-2026-05-26.md`) flagged 4 BLOCK + 1 FIX + 3 NOTE issues prior to publication; all corrections were applied in commit `88ecff7` and tests re-run.
 
-| Test | Verdict | Class | Scope |
+### Evidence taxonomy (used throughout)
+
+| Class | Definition |
+|---|---|
+| **E1** | Static / documentation observation (passive registry, docs, schemas) |
+| **E2** | Admission-time runtime observation (live API at admission gate, pre-settlement) |
+| **E3** | Settlement-time runtime observation (post-admission, real settlement) |
+| **E4** | Adversarial replay / persistence validated |
+| **E5** | Cross-context isolation confirmed with positive controls |
+
+This round produces E1 and E2 only. E3+ deferred to a follow-up round once Coinbase delegated signing is enabled.
+
+| Test | Verdict | Evidence | Scope |
 |---|---|---|---|
-| ACP-001 Parallel-Session Admission-Control Aggregation | Observation | admission-time | Admission control admits 5 parallel sessions under same (userId, agentName). **Scope: admission only, NOT spend-time.** Not a confirmed bypass on this round's evidence. |
-| ACP-002 Session Lifecycle Characterization | Pass — characterization | informational | Documents that cap state is session-scoped, not principal-scoped. Companion to ACP-001 (temporal axis). Not a vulnerability. |
-| ACP-003 Client-Side Payload Validation | **Positive assurance — strong input validation observed** | positive control | 8 crafted x402 variants → 7 distinct error classes across structural, network-binding, amount-sign, address-format layers. **Scope note: cap-vs-amount validation not probed (variant short-circuited upstream).** |
-| ACP-004 ProcessPayment Structural-Layer Characterization | Pass — characterization | informational | Tests reached structural validation only; idempotency layer NOT measured. Documents the delegated-signing prerequisite. |
-| ACP-005 Audit Trace Intent Surface Analysis (input schema only) | Pass — characterization | informational | 0 of 13 candidate intent-capture fields exist on the 3 Payment-API input schemas. **Scope note: server-side audit pipelines (CloudWatch / X-Ray / internal) not probed.** |
-| ACP-006 Cross-Agent Wallet/Instrument Isolation | **Positive assurance — cross-context isolation verified** | positive control | List + Get cross-context returns ResourceNotFoundException; isolation holds at data-plane. **Ambiguity note: RNF semantically indistinguishable from non-existent ID; published claim must acknowledge.** |
-| ACP-007 Bazaar Inventory (split findings) | Observation | informational | Two distinct findings: (a) 10 **near-duplicate hostname clusters** / 28 hosts (Levenshtein ≤ 2; typosquat attribution requires manual validation); (b) 71.9% top-host concentration (marketplace-diversity signal, distinct from the near-duplicate signal). |
-| ACP-008 Multi-Instrument Admission-Control Aggregation | Observation | admission-time | 3 instruments + 3 sessions created under same (userId, agentName). **Scope: admission only, NOT spend-time. Note: sessions are NOT bound to instruments at CreatePaymentSession (no `paymentInstrumentId` param) — N+M are independent axes, not paired.** |
+| ACP-001 Parallel-Session Admission-Control Aggregation | Observation (architectural characteristic) | **E2** | Admission control admits 5 parallel sessions under same (userId, agentName). Scope: admission only, NOT settlement-time. Not a confirmed bypass on this round's evidence. |
+| ACP-002 Session Lifecycle Characterization | Pass — characterization | **E2** | Cap state is session-scoped, not principal-scoped. Companion to ACP-001 on the temporal axis. Not a vulnerability. |
+| ACP-003 Client-Side Payload Validation | Positive assurance — strong input validation observed | **E2** | 8 crafted x402 variants → 7 distinct error classes across structural, network-binding, amount-sign, address-format layers. Scope: cap-vs-amount validation not probed (variant short-circuited upstream). |
+| ACP-004 ProcessPayment Structural-Layer Characterization | Pass — characterization | **E2** | Tests reached structural validation only; idempotency layer NOT measured. Documents the delegated-signing prerequisite. |
+| ACP-005 Audit Trace Intent Surface Analysis (input schema only) | Pass — characterization | **E1** | 0 of 13 candidate intent-capture fields exist on the 3 Payment-API input schemas. Scope: server-side audit pipelines (CloudWatch / X-Ray / internal) not probed. |
+| ACP-006 Cross-Agent Wallet/Instrument Isolation | Positive assurance — cross-context isolation observed | **E2** (E5 deferred) | List + Get cross-context returns ResourceNotFoundException; isolation holds at data-plane. Ambiguity: RNF semantically indistinguishable from non-existent ID. Promotion to E5 requires positive-control GET-as-owner. |
+| ACP-007 Bazaar Inventory (split findings) | Observation | **E1** | Two distinct findings: (a) 10 near-duplicate hostname clusters / 28 hosts (Levenshtein ≤ 2; typosquat attribution requires manual validation); (b) 71.9% top-host concentration (marketplace-diversity signal, distinct from the near-duplicate signal). |
+| ACP-008 Multi-Instrument Admission-Control Aggregation | Observation (architectural characteristic) | **E2** | 3 instruments + 3 sessions created under same (userId, agentName). Scope: admission only, NOT settlement-time. Note: sessions are NOT bound to instruments at CreatePaymentSession — N+M are independent axes, not paired. |
 
 ### Per-test result artifacts
 
@@ -240,8 +252,8 @@ This round is publishable for coordinated disclosure. It is not yet strong enoug
 
 ## Cumulative assessment
 
-VS-R01 is the first round in the vendor-surface evaluation lineage. The lineage convention (`R{N}` for internal harness audits, `VS-R{NN}` for vendor surfaces) is now codified in memory (`reference_harness_round_lineages.md`) and the disclosure-discipline playbook (`playbook_vendor_surface_disclosure.md`) governs the publication path.
+VS-R01 is the first round in the vendor-surface evaluation lineage. The lineage convention (`R{N}` for internal harness audits, `VS-R{NN}` for vendor surfaces) is codified in memory (`reference_harness_round_lineages.md`) and the disclosure-discipline playbook (`playbook_vendor_surface_disclosure.md`) governs the publication path.
 
-The strategic-positioning thesis (test new vendor surfaces faster than competitors, build a track record of disciplined disclosure) is operational. The four publishable findings + the operational discovery (delegated-signing gate) are within ~3 weeks of AWS Bedrock AgentCore Payments' May 7 preview launch. The audit-and-correct cycle proves the discipline that compounds the brand-equity moat.
+The evaluation program is structured around **disclosure-and-calibration discipline**, not bug-finding. The differentiating practices are: narrow claims tied to specific evidence classes (E1–E5), audit cycles before publication, explicit downgrades of findings after skeptical review, separation of tested vs inferred behavior, and preserved audit lineage on a frozen branch.
 
-Net: VS-R01 ships as **narrow but defensible** rather than **wide but indefensible**. That's the trade the audit forced and the right trade for the harness's authority signal.
+Net: VS-R01 ships as **narrow but reproducible** rather than wide-but-overclaimed. Three review cycles (initial execution → independent code audit → external feedback calibration) have been applied before any external citation; each cycle narrowed the published claims and tightened the framing.
