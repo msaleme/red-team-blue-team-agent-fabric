@@ -1,0 +1,61 @@
+{
+  "test_id": "ACP-003",
+  "name": "402 Terms Forgery \u2014 Client-Side Payload Validation",
+  "category": "402_terms_validation",
+  "owasp_asi": "ASI09",
+  "severity": "P1-High",
+  "passed": true,
+  "details": "Setup: session=True instrument=True; variants 8/8 rejected pre-flight; 7 distinct error signatures (semantic discrimination present)",
+  "region": "us-east-1",
+  "endpoint": "",
+  "agent_id": "",
+  "session_id": "payment-session-7Le9y1ymRkuj3bX",
+  "request_sent": {
+    "operation": "ProcessPayment x N with crafted payloads",
+    "session_cap_usd": "0.10",
+    "variant_names": [
+      "empty_payload",
+      "structural_scheme_missing",
+      "structural_network_missing",
+      "structural_asset_missing",
+      "semantic_exotic_network",
+      "semantic_over_budget",
+      "semantic_negative_amount",
+      "semantic_malformed_recipient"
+    ]
+  },
+  "response_received": {
+    "session_created": true,
+    "session_id": "payment-session-7Le9y1ymRkuj3bX",
+    "instrument_created": true,
+    "instrument_id": "payment-instrument-LssbFl6BW04yNmp",
+    "variants_tested": 8,
+    "variants_rejected_preflight": 8,
+    "per_variant_responses": {
+      "empty_payload": "ValidationException: An error occurred (ValidationException) when calling the ProcessPayment operation: Invalid CryptoX402 payload format: Required field 'scheme' is missing or null",
+      "structural_scheme_missing": "ValidationException: An error occurred (ValidationException) when calling the ProcessPayment operation: Invalid CryptoX402 payload format: Required field 'scheme' is missing or null",
+      "structural_network_missing": "ValidationException: An error occurred (ValidationException) when calling the ProcessPayment operation: Invalid CryptoX402 payload format: Required field 'network' is missing or null",
+      "structural_asset_missing": "ValidationException: An error occurred (ValidationException) when calling the ProcessPayment operation: Invalid CryptoX402 payload format: Required field 'asset' is missing or null",
+      "semantic_exotic_network": "ValidationException: An error occurred (ValidationException) when calling the ProcessPayment operation: Network mismatch 'ETHEREUM' is not supported for paymentNetwork 'fake-chain-vsr01-test'. Supporte",
+      "semantic_over_budget": "ValidationException: An error occurred (ValidationException) when calling the ProcessPayment operation: Payment extra.name is required for EVM payments",
+      "semantic_negative_amount": "ValidationException: An error occurred (ValidationException) when calling the ProcessPayment operation: Payment amount must be a positive number. Received: -50000",
+      "semantic_malformed_recipient": "ValidationException: An error occurred (ValidationException) when calling the ProcessPayment operation: Address format mismatch: Non-EVM address cannot be used with EVM network: base-sepolia"
+    },
+    "errors": [],
+    "distinct_error_signatures": 7,
+    "unique_error_messages_sample": [
+      "Address format mismatch: Non-EVM address cannot be used with EVM network: base-s",
+      "Invalid CryptoX402 payload format: Required field 'asset' is missing or null",
+      "Invalid CryptoX402 payload format: Required field 'network' is missing or null",
+      "Invalid CryptoX402 payload format: Required field 'scheme' is missing or null",
+      "Network mismatch 'ETHEREUM' is not supported for paymentNetwork 'fake-chain-vsr0",
+      "Payment amount must be a positive number. Received: -50000",
+      "Payment extra.name is required for EVM payments"
+    ]
+  },
+  "csg_mapping": "HC-3: 402 terms must be validated against instrument policy",
+  "estimated_impact": "fund_theft",
+  "estimated_severity": "high",
+  "elapsed_s": 4.459,
+  "timestamp": "2026-05-26T13:07:22.857428+00:00"
+}

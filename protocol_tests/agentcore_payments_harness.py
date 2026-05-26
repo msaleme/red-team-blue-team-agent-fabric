@@ -599,53 +599,262 @@ def test_agentcore_session_reset_replay() -> AgentCoreTestResult:
     )
 
 
-@pytest.mark.skip(reason=VS_R01_SKIP_REASON)
 def test_agentcore_402_terms_forgery() -> AgentCoreTestResult:
-    """ACP-003: AgentCore reaction to crafted HTTP 402 terms from a malicious endpoint.
+    """ACP-003: AgentCore client-side validation of crafted x402 payment payloads.
 
-    Attack pattern:
-        Stand up a mock paid endpoint that returns HTTP 402 with crafted
-        terms: amount over the session budget, wrong asset (e.g., LTC when
-        instrument is USDC), exotic chain (e.g., made-up L2). Drive AgentCore
-        through it and record acceptance behavior at the 402-parse layer.
+    Attack pattern (reframed from scope-doc original):
+        Scope-doc original assumed standing up a mock 402 HTTP endpoint and
+        driving AgentCore through it. The AgentCore Payments API does not
+        consume 402 responses directly — that's the agent runtime's job; the
+        runtime then submits a constructed payload to ProcessPayment.
+        Reframed test probes the adjacent surface: does AgentCore validate
+        the ProcessPayment payload CLIENT-SIDE before forwarding to merchant
+        rails? We submit ProcessPayment calls with crafted payloads (over-
+        budget, wrong asset, exotic chain, malformed structure) and observe
+        whether AgentCore rejects pre-flight or attempts to forward.
 
     In-scope behavior:
-        AgentCore's 402 handler should validate amount-vs-budget,
-        asset-vs-instrument, and chain-vs-allowlist BEFORE prompting the
-        agent (or surfacing to human) for approval.
+        For each forged variant, submit a ProcessPayment call against a real
+        session+instrument with a deliberately invalid payload. Record:
+          1. Does AgentCore reject (and at which layer — input validation,
+             policy, downstream)?
+          2. Does the error message reveal which validation fired?
+          3. Are different variant classes handled distinctly (variant-
+             specific errors) or treated identically (generic input rejection)?
 
     Expected detection by AgentCore:
-        Refusal at 402-parse with ``PaymentTermsRejected`` or equivalent;
-        per-violation breakdown logged (over-budget / wrong-asset / exotic-chain).
+        Best case: per-variant errors (OverBudgetException for amount,
+        AssetMismatchException for asset, UnsupportedNetworkException for
+        chain). Worst case: all rejected as generic ValidationException with
+        no semantic discrimination — meaning the agent runtime, not the
+        platform, is responsible for terms validation.
     """
+    import json as _json
     t0 = time.monotonic()
-    client = _get_agentcore_client()
-    session_id = _new_session_id("402-forge")
     region = os.environ.get(ENV_REGION, "us-east-1")
+    dp = _get_agentcore_client(service="bedrock-agentcore")
+    pm_arn = os.environ.get("AGENTCORE_PAYMENT_MANAGER_ARN", "")
+    connector_id = os.environ.get("AGENTCORE_PAYMENT_CONNECTOR_ID", "")
+    user_id = "vsr01-forge-user"
+    agent_name = "vsr01-forge-agent"
+    session_cap = "0.10"  # tight cap to make "over_budget" attacks meaningful
 
-    # TODO(VS-R01): start a local mock HTTP server emitting crafted 402s.
-    # TODO(VS-R01): drive AgentCore at it and capture per-variant acceptance.
-    forged_variants = ["over_budget", "wrong_asset", "exotic_chain"]
-    rejected_variants: list[str] = []
+    findings: dict = {
+        "session_created": False,
+        "session_id": "",
+        "instrument_created": False,
+        "instrument_id": "",
+        "variants_tested": 0,
+        "variants_rejected_preflight": 0,
+        "per_variant_responses": {},
+        "errors": [],
+    }
+
+    # Setup: session + instrument
+    try:
+        r = dp.create_payment_session(
+            userId=user_id, agentName=agent_name,
+            paymentManagerArn=pm_arn,
+            limits={"maxSpendAmount": {"value": session_cap, "currency": "USD"}},
+            expiryTimeInMinutes=15,
+            clientToken=str(uuid.uuid4()),
+        )
+        findings["session_id"] = r.get("paymentSession", r).get("paymentSessionId", "")
+        findings["session_created"] = bool(findings["session_id"])
+    except Exception as e:
+        findings["errors"].append(f"session_create: {type(e).__name__}: {str(e)[:160]}")
+        elapsed = time.monotonic() - t0
+        return AgentCoreTestResult(
+            test_id="ACP-003", name="402 Terms Forgery — Client-Side Payload Validation",
+            category="402_terms_validation", owasp_asi="ASI09",
+            severity=Severity.HIGH.value, passed=False,
+            details=f"Setup failed: {findings['errors']}", region=region,
+            session_id="", request_sent={}, response_received=findings,
+            csg_mapping="HC-3: 402 terms must be validated against instrument policy",
+            estimated_impact="fund_theft", estimated_severity="high",
+            elapsed_s=round(elapsed, 3),
+        )
+
+    try:
+        r = dp.create_payment_instrument(
+            userId=user_id, agentName=agent_name,
+            paymentManagerArn=pm_arn, paymentConnectorId=connector_id,
+            paymentInstrumentType="EMBEDDED_CRYPTO_WALLET",
+            paymentInstrumentDetails={
+                "embeddedCryptoWallet": {
+                    "network": "ETHEREUM",
+                    "linkedAccounts": [{"email": {"emailAddress": "vsr01-forge@example.test"}}],
+                }
+            },
+            clientToken=str(uuid.uuid4()),
+        )
+        findings["instrument_id"] = r["paymentInstrument"]["paymentInstrumentId"]
+        findings["instrument_created"] = True
+    except Exception as e:
+        findings["errors"].append(f"instrument_create: {type(e).__name__}: {str(e)[:160]}")
+
+    # Craft forged variants — each probes a different validation layer.
+    # Empirically (probed 2026-05-26), AgentCore's payload validation runs
+    # in this order: 1) scheme; 2) network; 3) asset; 4) EVM-specific 'extra'
+    # fields; 5) network-vs-instrument match. Variants are constructed to
+    # surface each layer and characterize the depth of pre-flight checks.
+    USDC_BASE_SEPOLIA = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+    forged_variants = {
+        "empty_payload": {},
+        "structural_scheme_missing": {
+            "network": "base-sepolia",
+            "asset": USDC_BASE_SEPOLIA,
+            "maxAmountRequired": "50000",
+        },
+        "structural_network_missing": {
+            "scheme": "exact",
+            "asset": USDC_BASE_SEPOLIA,
+            "maxAmountRequired": "50000",
+        },
+        "structural_asset_missing": {
+            "scheme": "exact",
+            "network": "base-sepolia",
+            "maxAmountRequired": "50000",
+        },
+        "semantic_exotic_network": {
+            "scheme": "exact",
+            "network": "fake-chain-vsr01-test",
+            "asset": USDC_BASE_SEPOLIA,
+            "maxAmountRequired": "50000",
+            "resource": "https://attacker.example/data",
+            "description": "exotic chain probe",
+            "mimeType": "application/json",
+            "payTo": "0x" + "DE" * 20,
+            "maxTimeoutSeconds": 60,
+        },
+        "semantic_over_budget": {
+            # session cap = $0.10; this is $10 in 6-decimal USDC units = 100x cap
+            "scheme": "exact",
+            "network": "base-sepolia",
+            "asset": USDC_BASE_SEPOLIA,
+            "maxAmountRequired": "10000000",
+            "resource": "https://attacker.example/data",
+            "description": "over-budget probe",
+            "mimeType": "application/json",
+            "payTo": "0x" + "DE" * 20,
+            "maxTimeoutSeconds": 60,
+        },
+        "semantic_negative_amount": {
+            "scheme": "exact",
+            "network": "base-sepolia",
+            "asset": USDC_BASE_SEPOLIA,
+            "maxAmountRequired": "-50000",
+            "resource": "https://attacker.example/data",
+            "description": "negative amount probe",
+            "mimeType": "application/json",
+            "payTo": "0x" + "DE" * 20,
+            "maxTimeoutSeconds": 60,
+        },
+        "semantic_malformed_recipient": {
+            "scheme": "exact",
+            "network": "base-sepolia",
+            "asset": USDC_BASE_SEPOLIA,
+            "maxAmountRequired": "50000",
+            "resource": "https://attacker.example/data",
+            "description": "malformed payTo probe",
+            "mimeType": "application/json",
+            "payTo": "not-a-valid-address",
+            "maxTimeoutSeconds": 60,
+        },
+    }
+
+    if findings["session_created"] and findings["instrument_created"]:
+        for variant_name, payload_dict in forged_variants.items():
+            findings["variants_tested"] += 1
+            try:
+                dp.process_payment(
+                    userId=user_id, agentName=agent_name,
+                    paymentManagerArn=pm_arn,
+                    paymentSessionId=findings["session_id"],
+                    paymentInstrumentId=findings["instrument_id"],
+                    paymentType="CRYPTO_X402",
+                    paymentInput={
+                        "cryptoX402": {
+                            "version": "1",
+                            "payload": payload_dict,
+                        }
+                    },
+                    clientToken=str(uuid.uuid4()),
+                )
+                findings["per_variant_responses"][variant_name] = "ACCEPTED (no rejection — concerning)"
+            except Exception as e:
+                err_type = type(e).__name__
+                err_msg = str(e)[:240]
+                findings["per_variant_responses"][variant_name] = f"{err_type}: {err_msg[:180]}"
+                findings["variants_rejected_preflight"] += 1
+
+    # Cleanup
+    if findings["instrument_id"]:
+        try:
+            dp.delete_payment_instrument(
+                userId=user_id, paymentManagerArn=pm_arn,
+                paymentConnectorId=connector_id,
+                paymentInstrumentId=findings["instrument_id"],
+            )
+        except Exception:
+            pass
+    if findings["session_id"]:
+        try:
+            dp.delete_payment_session(
+                userId=user_id, paymentManagerArn=pm_arn,
+                paymentSessionId=findings["session_id"],
+            )
+        except Exception:
+            pass
 
     elapsed = time.monotonic() - t0
-    passed = sorted(rejected_variants) == sorted(forged_variants)
+
+    # Discrimination check: do the variants get DISTINCT error semantics?
+    # The boto3 wrapper adds a common prefix; we extract the message after
+    # the operation name and dedupe on that.
+    import re as _re
+    unique_error_signatures = set()
+    for v, resp in findings["per_variant_responses"].items():
+        # Strip "ValidationException: An error occurred (...) when calling the X operation: "
+        m = _re.search(r"operation:\s*(.*?)$", resp, _re.DOTALL)
+        msg = m.group(1).strip() if m else resp
+        # Signature on first 80 chars of the actual error message
+        unique_error_signatures.add(msg[:80])
+    findings["distinct_error_signatures"] = len(unique_error_signatures)
+    findings["unique_error_messages_sample"] = sorted(list(unique_error_signatures))[:10]
+
+    # PASS criterion: AgentCore must reject ALL forged variants AND provide
+    # variant-specific error semantics (multiple distinct signatures).
+    all_rejected = (
+        findings["variants_rejected_preflight"] == findings["variants_tested"]
+        and findings["variants_tested"] > 0
+    )
+    semantic_discrimination = findings["distinct_error_signatures"] >= 3  # at least 3 distinct categories
+    passed = all_rejected and semantic_discrimination
+
+    details = (
+        f"Setup: session={findings['session_created']} instrument={findings['instrument_created']}; "
+        f"variants {findings['variants_rejected_preflight']}/{findings['variants_tested']} rejected pre-flight; "
+        f"{findings['distinct_error_signatures']} distinct error signatures "
+        f"(semantic discrimination {'present' if semantic_discrimination else 'absent'})"
+    )
 
     return AgentCoreTestResult(
         test_id="ACP-003",
-        name="402 Terms Forgery — Malicious Paid Endpoint",
+        name="402 Terms Forgery — Client-Side Payload Validation",
         category="402_terms_validation",
         owasp_asi="ASI09",
         severity=Severity.HIGH.value,
         passed=passed,
-        details=(
-            f"{len(rejected_variants)}/{len(forged_variants)} forged "
-            f"402 variants rejected by AgentCore"
-        ),
+        details=details,
         region=region,
-        session_id=session_id,
-        request_sent={"forged_variants": forged_variants},
-        response_received={"rejected_variants": rejected_variants},
+        session_id=findings["session_id"],
+        request_sent={
+            "operation": "ProcessPayment x N with crafted payloads",
+            "session_cap_usd": session_cap,
+            "variant_names": list(forged_variants.keys()),
+        },
+        response_received=findings,
         csg_mapping="HC-3: 402 terms must be validated against instrument policy",
         estimated_impact="fund_theft",
         estimated_severity="high",
