@@ -1,0 +1,48 @@
+{
+  "test_id": "ACP-001",
+  "name": "Session-Cap Fragmentation via Parallel Session Creation",
+  "category": "spend_cap_enforcement",
+  "owasp_asi": "ASI02",
+  "severity": "P1-High",
+  "passed": false,
+  "details": "opened 5/5 parallel sessions; per-session cap $0.50; cumulative authorized $2.5; per-session ceiling $10000. (theoretical N-session ceiling unbounded); FRAGMENTATION VIABLE",
+  "region": "us-east-1",
+  "endpoint": "",
+  "agent_id": "",
+  "session_id": "payment-session-ye49ZH6QcyuraCz",
+  "request_sent": {
+    "operation": "CreatePaymentSession x N (parallel) + cap-value boundaries",
+    "parallel_count_attempted": 5,
+    "per_session_cap_usd": "0.50",
+    "user_id": "vsr01-fragmenter",
+    "agent_name": "vsr01-frag-agent",
+    "boundary_cap_values_tested": [
+      "0",
+      "-1.00",
+      "0.001",
+      "10000.01",
+      "9999.99"
+    ]
+  },
+  "response_received": {
+    "parallel_sessions_created": 5,
+    "parallel_sessions_attempted": 5,
+    "per_session_cap_usd": "0.50",
+    "cumulative_authorized_usd": 2.5,
+    "boundary_results": {
+      "0": "REJECTED: An error occurred (ValidationException) when calling the CreatePaymentSession operation: MaxSpendAmount value must be positive",
+      "-1.00": "REJECTED: An error occurred (ValidationException) when calling the CreatePaymentSession operation: MaxSpendAmount value must be positive",
+      "0.001": "ACCEPTED",
+      "10000.01": "REJECTED: An error occurred (ValidationException) when calling the CreatePaymentSession operation: MaxSpendAmount value must not exceed 10000. Received: 10000.01",
+      "9999.99": "ACCEPTED"
+    },
+    "documented_per_session_ceiling": "10000.",
+    "errors": [],
+    "session_ids_cleaned": 7
+  },
+  "csg_mapping": "HC-1: Spend caps must aggregate across fractional payments / parallel sessions",
+  "estimated_impact": "fund_theft",
+  "estimated_severity": "high",
+  "elapsed_s": 2.972,
+  "timestamp": "2026-05-26T00:18:32.930471+00:00"
+}
