@@ -1,0 +1,44 @@
+{
+  "test_id": "ACP-006",
+  "name": "Cross-Agent Wallet/Instrument Isolation",
+  "category": "instrument_isolation",
+  "owasp_asi": "ASI03",
+  "severity": "P0-Critical",
+  "passed": true,
+  "details": "created 2 instruments (a=payment-in, b=payment-in); list_userA_isolated=True; list_userB_isolated=True; get_A_as_userB_denied=True",
+  "region": "us-east-1",
+  "endpoint": "",
+  "agent_id": "vsr01-agent-a,vsr01-agent-b",
+  "session_id": "xagent-c0e94d91464c",
+  "request_sent": {
+    "operation": "CreatePaymentInstrument x2 + ListPaymentInstruments x2 + GetPaymentInstrument cross-context",
+    "user_a": "vsr01-user-a",
+    "user_b": "vsr01-user-b",
+    "agent_a": "vsr01-agent-a",
+    "agent_b": "vsr01-agent-b",
+    "wallet_a": "0x0E88cF39132336a4A9a7C0D37C1253Fa321F557B",
+    "wallet_b": "0x9b3090cf65c568B5961F2aC27af8Ae35CaeCE536"
+  },
+  "response_received": {
+    "instrument_a_created": true,
+    "instrument_b_created": true,
+    "list_userA_sees_only_A": true,
+    "list_userB_sees_only_B": true,
+    "get_A_as_userB_denied": true,
+    "errors": [],
+    "list_userA_count": 1,
+    "list_userA_leak_of_B": false,
+    "list_userB_count": 1,
+    "list_userB_leak_of_A": false,
+    "get_A_as_userB_error": "ResourceNotFoundException",
+    "cleanup": [
+      "deleted payment-in",
+      "deleted payment-in"
+    ]
+  },
+  "csg_mapping": "HC-6: Instrument bind must be enforced at runtime, not IAM-only",
+  "estimated_impact": "fund_theft",
+  "estimated_severity": "critical",
+  "elapsed_s": 3.954,
+  "timestamp": "2026-05-26T00:09:39.657014+00:00"
+}
