@@ -55,7 +55,17 @@ All severities and verdicts reflect **post-audit-correction** state. The audit (
 | **E4** | Adversarial replay / persistence validated |
 | **E5** | Cross-context isolation confirmed with positive controls |
 
-This round produces E1 and E2 only. E3+ deferred to a follow-up round once Coinbase delegated signing is enabled.
+**Claim-strength mapping (normative):**
+
+| Evidence | Permitted claim strength |
+|---|---|
+| **E1** | Observational / descriptive only |
+| **E2** | Runtime characterization (admission layer) |
+| **E3** | Enforcement / transactional characterization |
+| **E4** | Persistence / replay-resistance claims |
+| **E5** | Isolation / security-boundary claims |
+
+Each level subsumes the prior. Claims stronger than the evidence class supports are disallowed for this evaluation program. This round produces E1 and E2 only; E3+ deferred to a follow-up round once Coinbase delegated signing is enabled.
 
 | Test | Verdict | Evidence | Scope |
 |---|---|---|---|

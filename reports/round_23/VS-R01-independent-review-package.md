@@ -25,7 +25,21 @@ To keep claims aligned with what was measured, every finding in this package is 
 | **E4** | Adversarial replay / persistence validated — settlement + replay or persistence behavior characterized |
 | **E5** | Cross-context isolation confirmed with positive controls — isolation verified against both negative AND positive controls |
 
-This round produces only E1 and E2 evidence. E3, E4, and E5 are deferred to a follow-up round once Coinbase delegated signing is enabled and positive-control test variants are added. Each finding's class is stated inline below.
+### Evidence → claim-strength mapping (normative)
+
+To prevent inferential drift, each evidence class maps to a maximum permitted claim strength. Claims stronger than the evidence class supports are disallowed for this evaluation program; weaker framing is always permitted.
+
+| Evidence | Permitted claim strength |
+|---|---|
+| **E1** | Observational / descriptive only. May describe what is present in documentation or a public registry; may not claim runtime behavior. |
+| **E2** | Runtime characterization at the admission/input layer. May describe how the API responds to crafted inputs at admission; may not claim settlement, enforcement, or transactional behavior. |
+| **E3** | Settlement / transactional characterization. May describe how settlement-time calls complete or refuse; may not claim repeatability under adversarial replay. |
+| **E4** | Persistence / replay-resistance claims. May characterize replay protection, idempotency, or state persistence properties under adversarial repetition. |
+| **E5** | Isolation / security-boundary claims. May characterize cross-context isolation as a security property when verified against both negative AND positive controls. |
+
+Each level subsumes the prior. E5 isolation claims require E3 settlement evidence + E4 replay-resistance + positive controls. The most common failure mode in early-stage security writeups is making E3-class claims (enforcement) from E2-class evidence (admission). This mapping makes that drift visible during review.
+
+This round produces E1 and E2 evidence only. E3, E4, and E5 are deferred to a follow-up round once Coinbase delegated signing is enabled and positive-control variants are added. Each finding's class is stated inline below.
 
 ---
 
