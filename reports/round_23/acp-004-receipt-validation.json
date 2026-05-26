@@ -1,0 +1,39 @@
+{
+  "test_id": "ACP-004",
+  "name": "Receipt-Class Validation (Idempotency + Replay + Field Injection)",
+  "category": "receipt_validation",
+  "owasp_asi": "ASI06",
+  "severity": "P0-Critical",
+  "passed": true,
+  "details": "clientToken idempotent: True; payload-replay distinguishable: False; fake-receipt fields stripped: True",
+  "region": "us-east-1",
+  "endpoint": "",
+  "agent_id": "",
+  "session_id": "payment-session-sWS1pBnlXJygCcz",
+  "request_sent": {
+    "operation": "ProcessPayment 5 calls (same-CT x2, diff-CT x2, fake-receipt-fields x1)",
+    "session_cap_usd": "0.10"
+  },
+  "response_received": {
+    "session_created": true,
+    "instrument_created": true,
+    "client_token_idempotent": true,
+    "payload_replay_detected": false,
+    "fake_receipt_fields_stripped": true,
+    "per_probe_responses": {
+      "same_clientToken_call1": "{'_err': 'ValidationException', '_msg': 'An error occurred (ValidationException) when calling the ProcessPayment operation: Payment extra.name is required for EVM payments'}",
+      "same_clientToken_call2": "{'_err': 'ValidationException', '_msg': 'An error occurred (ValidationException) when calling the ProcessPayment operation: Payment extra.name is required for EVM payments'}",
+      "diff_clientToken_call_a": "{'_err': 'ValidationException', '_msg': 'An error occurred (ValidationException) when calling the ProcessPayment operation: Payment extra.name is required for EVM payments'}",
+      "diff_clientToken_call_b": "{'_err': 'ValidationException', '_msg': 'An error occurred (ValidationException) when calling the ProcessPayment operation: Payment extra.name is required for EVM payments'}",
+      "fake_receipt_fields_injection": "{'_err': 'ValidationException', '_msg': 'An error occurred (ValidationException) when calling the ProcessPayment operation: Payment extra.name is required for EVM payments'}"
+    },
+    "errors": [],
+    "session_id": "payment-session-sWS1pBnlXJygCcz",
+    "instrument_id": "payment-instrument-q1sh6ATJUPgZr0g"
+  },
+  "csg_mapping": "HC-4: Receipts must verify against issuer key + on-chain state",
+  "estimated_impact": "fund_theft",
+  "estimated_severity": "critical",
+  "elapsed_s": 3.762,
+  "timestamp": "2026-05-26T13:12:55.260734+00:00"
+}

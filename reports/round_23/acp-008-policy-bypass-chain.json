@@ -1,0 +1,44 @@
+{
+  "test_id": "ACP-008",
+  "name": "Multi-Instrument Policy-Bypass / Instrument-Chain Laundering",
+  "category": "policy_aggregation",
+  "owasp_asi": "ASI02",
+  "severity": "P0-Critical",
+  "passed": false,
+  "details": "Created 3/3 instruments + 3/3 sessions under one (userId, agentName); cumulative authorized $0.3 (3 \u00d7 $0.10). AgentCore-side aggregation: absent (LAUNDERING VIABLE)",
+  "region": "us-east-1",
+  "endpoint": "",
+  "agent_id": "",
+  "session_id": "payment-session-QMzvIZBeaA8VzDp",
+  "request_sent": {
+    "operation": "CreatePaymentInstrument x N + CreatePaymentSession x N under one (userId, agentName)",
+    "n_pairs": 3,
+    "per_pair_cap_usd": "0.10",
+    "user_id": "vsr01-chain-user",
+    "agent_name": "vsr01-chain-agent"
+  },
+  "response_received": {
+    "n_pairs_attempted": 3,
+    "instruments_created": 3,
+    "sessions_created": 3,
+    "instrument_ids": [
+      "payment-instrument-85f2fOFWxoqT8v2",
+      "payment-instrument-CEY4fmY27Tc6Exn",
+      "payment-instrument-1fQdeQ0hx7oEDru"
+    ],
+    "session_ids": [
+      "payment-session-QMzvIZBeaA8VzDp",
+      "payment-session-ac0KtcEqZeaSGg1",
+      "payment-session-SOeEZRbo7u2B3Vr"
+    ],
+    "per_pair_cap_usd": "0.10",
+    "cumulative_authorized_usd": 0.3,
+    "errors": [],
+    "cleanup_count": 6
+  },
+  "csg_mapping": "HC-8: Policy engine must aggregate constrained resources across chains",
+  "estimated_impact": "policy_bypass",
+  "estimated_severity": "critical",
+  "elapsed_s": 5.102,
+  "timestamp": "2026-05-26T13:14:19.211108+00:00"
+}
