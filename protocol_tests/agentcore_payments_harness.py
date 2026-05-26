@@ -377,59 +377,222 @@ def test_agentcore_spend_fragmentation() -> AgentCoreTestResult:
     )
 
 
-@pytest.mark.skip(reason=VS_R01_SKIP_REASON)
 def test_agentcore_session_reset_replay() -> AgentCoreTestResult:
-    """ACP-002: Session drop+reopen does not reset the cap counter.
+    """ACP-002: Session lifecycle — does delete+recreate preserve any cap state?
 
-    Attack pattern:
-        Spend ``DEFAULT_SESSION_CAP_USD`` in session A, terminate session A,
-        immediately open session B against the same instrument / agent /
-        wallet, and attempt to spend the full cap again. Re-evaluate whether
-        cap is per-session (replayable) or per-instrument (sticky).
+    Attack pattern (reframed from scope-doc original):
+        Scope-doc original assumed spending the cap in session A via real
+        ProcessPayment calls, deleting session A, opening session B, and
+        checking whether the cap is re-evaluated. Real spend requires a
+        merchant + valid x402 payloads. Reframed test probes the adjacent
+        attack surface: rapid session churn under same (userId, agentName).
+        If the platform retains NO cross-session state, then session reset
+        is a no-op attack vector — but it confirms ACP-001's finding that
+        cap state is bound to the session lifecycle, not to the principal.
 
     In-scope behavior:
-        AgentCore Identity should bind cap state to the instrument (or wallet
-        or principal), not the session id. A naive per-session cap is
-        trivially defeated by churning sessions.
+        (1) Create session A, capture state
+        (2) Delete A explicitly
+        (3) Try GetPaymentSession(A_id) — observe response (404 vs DELETED status)
+        (4) List active sessions — confirm A is absent
+        (5) Rapid-churn N create+delete cycles, measure rate limits and any
+            cumulative tracking
+        (6) Create session B under same (userId, agentName) and confirm cap
+            is fresh, no link to A
 
     Expected detection by AgentCore:
-        Session B's first cap-breaching payment is refused with the same
-        ``SpendCapExceeded`` as if the session had not been reset.
+        For the cap to be "instrument-bound" (the scope-doc desideratum),
+        deleted-session metadata would have to persist across the lifecycle
+        and bind to the user/instrument context. Observed: this test reveals
+        whether AgentCore retains ANY cross-session state for the cap.
     """
     t0 = time.monotonic()
-    client = _get_agentcore_client()
-    session_a = _new_session_id("reset-a")
-    session_b = _new_session_id("reset-b")
     region = os.environ.get(ENV_REGION, "us-east-1")
+    dp = _get_agentcore_client(service="bedrock-agentcore")
+    pm_arn = os.environ.get("AGENTCORE_PAYMENT_MANAGER_ARN", "")
+    user_id = "vsr01-churn-user"
+    agent_name = "vsr01-churn-agent"
+    per_cap = "0.10"
 
-    # TODO(VS-R01): exhaust cap in session_a; terminate; open session_b;
-    # attempt to spend again; record whether cap state persisted.
-    cap_persisted_across_reset: bool | None = None
+    findings: dict = {
+        "session_a_created": False,
+        "session_a_id": "",
+        "session_a_deleted": False,
+        "get_after_delete_status": None,
+        "list_after_delete_includes_a": None,
+        "churn_create_count": 0,
+        "churn_delete_count": 0,
+        "churn_errors": [],
+        "session_b_created": False,
+        "session_b_cap_fresh": None,
+        "rate_limit_hit": False,
+    }
+
+    # Step 1: create session A
+    try:
+        r = dp.create_payment_session(
+            userId=user_id,
+            agentName=agent_name,
+            paymentManagerArn=pm_arn,
+            limits={"maxSpendAmount": {"value": per_cap, "currency": "USD"}},
+            expiryTimeInMinutes=15,
+            clientToken=str(uuid.uuid4()),
+        )
+        sa = r.get("paymentSession", r)
+        findings["session_a_id"] = sa.get("paymentSessionId", "")
+        findings["session_a_created"] = bool(findings["session_a_id"])
+    except Exception as e:
+        findings["churn_errors"].append(f"create_a: {type(e).__name__}: {str(e)[:160]}")
+
+    # Step 2: delete A
+    if findings["session_a_id"]:
+        try:
+            dp.delete_payment_session(
+                userId=user_id,
+                paymentManagerArn=pm_arn,
+                paymentSessionId=findings["session_a_id"],
+            )
+            findings["session_a_deleted"] = True
+        except Exception as e:
+            findings["churn_errors"].append(f"delete_a: {type(e).__name__}: {str(e)[:160]}")
+
+    # Step 3: GetPaymentSession(A_id) after delete — does state persist?
+    if findings["session_a_deleted"]:
+        try:
+            detail = dp.get_payment_session(
+                userId=user_id,
+                paymentManagerArn=pm_arn,
+                paymentSessionId=findings["session_a_id"],
+            )
+            findings["get_after_delete_status"] = "RETURNED (state persists after delete)"
+            findings["get_after_delete_payload"] = str(detail)[:300]
+        except dp.exceptions.ResourceNotFoundException:
+            findings["get_after_delete_status"] = "ResourceNotFoundException (state purged)"
+        except Exception as e:
+            findings["get_after_delete_status"] = f"{type(e).__name__}: {str(e)[:160]}"
+
+    # Step 4: list active — A should be absent
+    try:
+        active = dp.list_payment_sessions(
+            userId=user_id, paymentManagerArn=pm_arn,
+        ).get("paymentSessions", [])
+        active_ids = {s.get("paymentSessionId") for s in active}
+        findings["list_after_delete_includes_a"] = findings["session_a_id"] in active_ids
+        findings["list_after_delete_count"] = len(active)
+    except Exception as e:
+        findings["churn_errors"].append(f"list: {type(e).__name__}: {str(e)[:160]}")
+
+    # Step 5: rapid churn — N create+delete cycles
+    churn_n = 5
+    cleanup_left = []
+    for i in range(churn_n):
+        try:
+            r = dp.create_payment_session(
+                userId=user_id,
+                agentName=agent_name,
+                paymentManagerArn=pm_arn,
+                limits={"maxSpendAmount": {"value": per_cap, "currency": "USD"}},
+                expiryTimeInMinutes=15,
+                clientToken=str(uuid.uuid4()),
+            )
+            sid = r.get("paymentSession", r).get("paymentSessionId", "")
+            findings["churn_create_count"] += 1
+            if sid:
+                try:
+                    dp.delete_payment_session(
+                        userId=user_id, paymentManagerArn=pm_arn, paymentSessionId=sid,
+                    )
+                    findings["churn_delete_count"] += 1
+                except Exception as e:
+                    cleanup_left.append(sid)
+                    findings["churn_errors"].append(f"churn_delete[{i}]: {type(e).__name__}")
+        except Exception as e:
+            msg = str(e)
+            if "Throttling" in msg or "RateExceeded" in msg or "TooManyRequests" in msg:
+                findings["rate_limit_hit"] = True
+                findings["rate_limit_at_iteration"] = i
+                break
+            findings["churn_errors"].append(f"churn_create[{i}]: {type(e).__name__}: {msg[:120]}")
+
+    # Step 6: create session B and check cap is fresh
+    try:
+        r = dp.create_payment_session(
+            userId=user_id,
+            agentName=agent_name,
+            paymentManagerArn=pm_arn,
+            limits={"maxSpendAmount": {"value": per_cap, "currency": "USD"}},
+            expiryTimeInMinutes=15,
+            clientToken=str(uuid.uuid4()),
+        )
+        sb = r.get("paymentSession", r)
+        sb_id = sb.get("paymentSessionId", "")
+        findings["session_b_created"] = bool(sb_id)
+        # Compare available balance against cap — fresh session should have full cap
+        avail = sb.get("availableLimits", {}).get("availableSpendAmount", {}).get("value", "0")
+        findings["session_b_cap_fresh"] = avail == per_cap
+        findings["session_b_id"] = sb_id
+        findings["session_b_available"] = avail
+        # Cleanup
+        if sb_id:
+            try:
+                dp.delete_payment_session(
+                    userId=user_id, paymentManagerArn=pm_arn, paymentSessionId=sb_id,
+                )
+            except Exception:
+                cleanup_left.append(sb_id)
+    except Exception as e:
+        findings["churn_errors"].append(f"create_b: {type(e).__name__}: {str(e)[:160]}")
+
+    # Final cleanup of stragglers
+    for sid in cleanup_left:
+        try:
+            dp.delete_payment_session(
+                userId=user_id, paymentManagerArn=pm_arn, paymentSessionId=sid,
+            )
+        except Exception:
+            pass
 
     elapsed = time.monotonic() - t0
-    passed = bool(cap_persisted_across_reset)
+
+    # PASS criterion (cap persists across reset = "instrument-bound", the scope-doc desideratum):
+    # - delete should NOT purge state
+    # - session B should NOT have a fresh cap if state binds to instrument/principal
+    # Observed: state IS purged on delete + session B IS fresh = cap is NOT instrument-bound.
+    # PASS = (deleted state persists) AND (session B cap not fresh)
+    state_purged_on_delete = findings.get("get_after_delete_status", "").startswith("ResourceNotFoundException")
+    session_b_fresh = bool(findings.get("session_b_cap_fresh"))
+    cap_is_instrument_bound = (not state_purged_on_delete) and (not session_b_fresh)
+    passed = cap_is_instrument_bound
+
+    details = (
+        f"Session A created={findings['session_a_created']} deleted={findings['session_a_deleted']}; "
+        f"GET after delete: {findings.get('get_after_delete_status','?')[:60]}; "
+        f"list-after-delete includes A: {findings.get('list_after_delete_includes_a')}; "
+        f"churn create/delete: {findings['churn_create_count']}/{findings['churn_delete_count']}; "
+        f"rate-limit hit: {findings['rate_limit_hit']}; "
+        f"session B fresh cap: {findings.get('session_b_cap_fresh')} (available={findings.get('session_b_available','?')}); "
+        f"cap_is_instrument_bound: {cap_is_instrument_bound}"
+    )
 
     return AgentCoreTestResult(
         test_id="ACP-002",
-        name="Session Reset Replay — Cap State Persistence",
+        name="Session Lifecycle / Cap-State Persistence Across Reset",
         category="spend_cap_enforcement",
         owasp_asi="ASI03",
         severity=Severity.CRITICAL.value,
         passed=passed,
-        details=(
-            "Cap persisted across session reset (instrument-bound)"
-            if passed
-            else "Cap reset with session — replayable for unbounded spend"
-        ),
+        details=details,
         region=region,
-        session_id=f"{session_a},{session_b}",
+        session_id=findings.get("session_a_id", ""),
         request_sent={
-            "session_a": session_a,
-            "session_b": session_b,
-            "cap_usd": DEFAULT_SESSION_CAP_USD,
+            "operation": "Create+Delete+Get + N-cycle churn + new-session-cap check",
+            "user_id": user_id,
+            "agent_name": agent_name,
+            "per_cap_usd": per_cap,
+            "churn_iterations": churn_n,
         },
-        response_received={"cap_persisted": cap_persisted_across_reset},
-        csg_mapping="HC-2: Cap state must bind to instrument, not session",
+        response_received=findings,
+        csg_mapping="HC-2: Cap state must bind to instrument or principal, not session lifecycle",
         estimated_impact="fund_theft",
         estimated_severity="critical",
         elapsed_s=round(elapsed, 3),
