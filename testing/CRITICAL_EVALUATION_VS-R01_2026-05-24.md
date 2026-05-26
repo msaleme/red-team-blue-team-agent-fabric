@@ -45,16 +45,16 @@ Setup encountered ~7 IAM permission gates (each a legitimate AWS guardrail). All
 
 All severities and verdicts reflect **post-audit-correction** state. The audit (`~/vault/projects/vs-r01-acp-audit-2026-05-26.md`) flagged 4 BLOCK + 1 FIX + 3 NOTE issues prior to publication; all corrections were applied in commit `88ecff7` and tests re-run.
 
-| Test | Severity | Verdict | Scope |
+| Test | Verdict | Class | Scope |
 |---|---|---|---|
-| ACP-001 Parallel-Session Admission-Control Aggregation | **P2-Medium** | FAIL | Admission control admits 5 parallel sessions under same (userId, agentName). **Scope: admission only, NOT spend-time.** |
-| ACP-002 Session Lifecycle Characterization | P3-Low | PASS | Documents that cap state is session-scoped, not principal-scoped. Companion to ACP-001 (temporal axis). Not a vulnerability. |
-| ACP-003 Client-Side Payload Validation | **P1-High** | PASS | 8 crafted x402 variants → 7 distinct error classes across structural, network-binding, amount-sign, address-format layers. **Scope note: cap-vs-amount validation not probed (variant short-circuited upstream).** |
-| ACP-004 ProcessPayment Structural-Layer Characterization | P3-Low | PASS | Tests reached structural validation only; idempotency layer NOT measured. Documents the delegated-signing prerequisite. |
-| ACP-005 Audit Trace Intent Surface Analysis (input schema only) | **P2-Medium** | PASS | 0 of 13 candidate intent-capture fields exist on the 3 Payment-API input schemas. **Scope note: server-side audit pipelines (CloudWatch / X-Ray / internal) not probed.** |
-| ACP-006 Cross-Agent Wallet/Instrument Isolation | **P0-Critical** | PASS | List + Get cross-context returns ResourceNotFoundException; isolation holds at data-plane. **Ambiguity note: RNF semantically indistinguishable from non-existent ID; published claim must acknowledge.** |
-| ACP-007 Bazaar Inventory (split findings) | **P2-Medium** | PASS | Two distinct findings: (a) 10 typosquat clusters / 28 hosts; (b) 71.9% top-host concentration (marketplace-diversity signal, distinct from typosquat). |
-| ACP-008 Multi-Instrument Admission-Control Aggregation | **P2-Medium** | FAIL | 3 instruments + 3 sessions created under same (userId, agentName). **Scope: admission only, NOT spend-time. Note: sessions are NOT bound to instruments at CreatePaymentSession (no `paymentInstrumentId` param) — N+M are independent axes, not paired.** |
+| ACP-001 Parallel-Session Admission-Control Aggregation | Observation | admission-time | Admission control admits 5 parallel sessions under same (userId, agentName). **Scope: admission only, NOT spend-time.** Not a confirmed bypass on this round's evidence. |
+| ACP-002 Session Lifecycle Characterization | Pass — characterization | informational | Documents that cap state is session-scoped, not principal-scoped. Companion to ACP-001 (temporal axis). Not a vulnerability. |
+| ACP-003 Client-Side Payload Validation | **Positive assurance — strong input validation observed** | positive control | 8 crafted x402 variants → 7 distinct error classes across structural, network-binding, amount-sign, address-format layers. **Scope note: cap-vs-amount validation not probed (variant short-circuited upstream).** |
+| ACP-004 ProcessPayment Structural-Layer Characterization | Pass — characterization | informational | Tests reached structural validation only; idempotency layer NOT measured. Documents the delegated-signing prerequisite. |
+| ACP-005 Audit Trace Intent Surface Analysis (input schema only) | Pass — characterization | informational | 0 of 13 candidate intent-capture fields exist on the 3 Payment-API input schemas. **Scope note: server-side audit pipelines (CloudWatch / X-Ray / internal) not probed.** |
+| ACP-006 Cross-Agent Wallet/Instrument Isolation | **Positive assurance — cross-context isolation verified** | positive control | List + Get cross-context returns ResourceNotFoundException; isolation holds at data-plane. **Ambiguity note: RNF semantically indistinguishable from non-existent ID; published claim must acknowledge.** |
+| ACP-007 Bazaar Inventory (split findings) | Observation | informational | Two distinct findings: (a) 10 **near-duplicate hostname clusters** / 28 hosts (Levenshtein ≤ 2; typosquat attribution requires manual validation); (b) 71.9% top-host concentration (marketplace-diversity signal, distinct from the near-duplicate signal). |
+| ACP-008 Multi-Instrument Admission-Control Aggregation | Observation | admission-time | 3 instruments + 3 sessions created under same (userId, agentName). **Scope: admission only, NOT spend-time. Note: sessions are NOT bound to instruments at CreatePaymentSession (no `paymentInstrumentId` param) — N+M are independent axes, not paired.** |
 
 ### Per-test result artifacts
 
@@ -70,11 +70,17 @@ All captured to `reports/round_23/`:
 
 ---
 
-## Findings (publishable)
+## Findings (publishable, post-audit + post-feedback calibration)
 
-After audit-correction, four findings are defensible for external citation:
+After audit-correction AND the 2026-05-26 external feedback pass, four characterizations result from this round, organized by what they **affirm** versus what they **observe**:
 
-### Finding 1 — Admission-control aggregation gap (ACP-001 + ACP-008, P2-Medium)
+- **Positive controls verified:** C1 strong input validation present; C2 cross-context instrument isolation holds at data-plane
+- **Narrow observations (admission-layer; not confirmed bypasses):** O1 admission-control aggregation gap; O2 Bazaar registry shape (two distinct signals)
+- **Operational discovery:** D1 delegated-signing prerequisite
+
+The detail below uses the audit-corrected verdicts and the calibrated framing (positive controls labeled as such; observations bounded to what was measured; near-duplicate vs typosquat language separated).
+
+### O1 — Admission-control aggregation gap (ACP-001 + ACP-008)
 
 **Claim (narrow, defensible):**
 AgentCore Payments admission control does NOT aggregate authorized session caps across N parallel sessions under the same (userId, agentName), nor across N instruments under the same (userId, agentName). Each session creation succeeds with its own `maxSpendAmount`; the platform applies no per-principal ceiling at admission time. Operators relying on AgentCore for principal-bound spend governance must layer cumulative spend tracking at the application layer.
@@ -91,7 +97,7 @@ Spend-time enforcement. To prove that processing N × X aggregate spend actually
 **Affected components:** `bedrock-agentcore:CreatePaymentSession`, `bedrock-agentcore:CreatePaymentInstrument`.
 **Recommendation:** Operators must implement application-layer cumulative spend tracking keyed by `(userId, agentName)` if principal-bound spend governance is required.
 
-### Finding 2 — Semantic input validation present (ACP-003, P1-High, PASS)
+### C1 — Strong input validation observed (ACP-003 — positive control)
 
 **Claim:**
 AgentCore Payments performs meaningful client-side validation on x402 payment payloads. 8 crafted payload variants produced 7 distinct error classes across:
@@ -106,7 +112,7 @@ AgentCore Payments performs meaningful client-side validation on x402 payment pa
 
 **Scope note:** Cap-vs-amount validation was NOT probed in this round — the `semantic_over_budget` variant short-circuited at the upstream `extra.name` structural gate. Independent corrective probing established that ProcessPayment with all structural gates passed next reaches an `AccessDeniedException` requiring Coinbase delegated signing. Cap-vs-amount enforcement, if present, lives beyond that gate.
 
-### Finding 3 — Cross-agent instrument isolation (ACP-006, P0-Critical, PASS)
+### C2 — Cross-context instrument isolation verified (ACP-006 — positive control)
 
 **Claim:**
 AgentCore Payments enforces (userId, agentName)-scoped visibility on PaymentInstruments at the data-plane layer (not just at the IAM layer). Two instruments created under different (userId, agentName) pairs were each invisible to the other context: `ListPaymentInstruments(userId=A)` did not return instrument B (and vice versa); `GetPaymentInstrument(A's id)` under userId=B returned `ResourceNotFoundException`.
@@ -114,15 +120,17 @@ AgentCore Payments enforces (userId, agentName)-scoped visibility on PaymentInst
 **Ambiguity note (audit-flagged):**
 `ResourceNotFoundException` is semantically indistinguishable from the response a non-existent instrument ID would produce. The security property (cross-user isolation) is preserved in either interpretation: (a) genuine data-plane isolation, (b) privacy-preserving uniform-error response, (c) per-user ID namespacing. A future round should add a positive-control GET-as-owner to disambiguate.
 
-### Finding 4 — Bazaar registry shape: two distinct findings (ACP-007, P2-Medium)
+### O2 — Bazaar registry shape: two distinct signals (ACP-007)
 
 The CDP x402 Bazaar (`api.cdp.coinbase.com/platform/v2/x402/discovery/resources`) is publicly indexed; 50,560 listings catalogued.
 
-**Finding 4a — Typosquat detection:**
-10 Levenshtein-clustered near-duplicate hostname clusters detected. Largest cluster: 8 hosts. 28 hosts total in typosquat clusters (3.7% of 761 unique hostnames). 0 non-ASCII (homoglyph) hostnames. Suggests marketplace lacks pre-list edit-distance / homoglyph defenses.
+**O2a — Near-duplicate hostname clusters:**
+10 hostname clusters detected by Levenshtein-distance ≤ 2 (union-find). Largest cluster: 8 hosts. 28 hosts total in clusters (3.7% of 761 unique hostnames). 0 non-ASCII (homoglyph) hostnames.
 
-**Finding 4b — Marketplace concentration:**
-Top single host accounts for 71.9% of all listings. This is a **marketplace-diversity signal, distinct from the typosquat signal.** High concentration indicates one operator dominates the registry, a separate supply-chain consideration.
+**Calibration note (per 2026-05-26 feedback pass):** Levenshtein ≤ 2 is a near-duplicate signal, not by itself proof of deliberate typosquatting — some clusters may be legitimate organizational variants (subdomain conventions, region codes, version suffixes). Manual validation of representative cluster members would be required to characterize the clusters as typosquats vs. benign variants; that validation is deferred to a follow-up round. The published claim is bounded to "near-duplicate clusters detected" with "possible typosquat" reserved for post-validation.
+
+**O2b — Marketplace concentration:**
+Top single host accounts for 71.9% of all listings. This is a **marketplace-diversity signal, distinct from the near-duplicate signal.** High concentration indicates one operator dominates the registry, a separate supply-chain consideration with its own failure mode.
 
 Per VS-R01 publishable-artifact rules, aggregate counts only — no naming of individual hostnames.
 
@@ -182,17 +190,32 @@ Per round_23 discipline (`CLAUDE.md`):
 
 ---
 
-## Score
+## Maturity assessment
 
-**6.5/10.** Calibration:
-- 4 publishable findings (1 P0-Critical PASS, 1 P1-High PASS, 2 P2-Medium).
-- 1 substantive operational discovery (delegated-signing prerequisite).
-- 6 of 8 stubs were reframed from scope-doc originals because original attack patterns required merchant/agent-runtime infrastructure out of scope for this round. Each reframe documented honestly in code + JSON.
-- 4 BLOCK issues from independent audit caught BEFORE external citation. Brand-equity intact, no published claim damaged.
-- Surface 1 deferred (Anthropic preview access not yet requested).
-- Surface 3 ships as documentation comparison only.
+**Narrow but reproducible; payment-settlement layer untested.**
 
-The score reflects: substantive Surface 2 coverage at honest narrow scope; clean infrastructure and cleanup hygiene; the audit-and-correct cycle worked as designed. The cap is at 6.5 because the deepest spend-time findings (which would have promoted ACP-001/008 to defensible HIGH/CRITICAL) require a follow-up round with delegated signing enabled.
+The evidence base from this round is:
+- 2 positive controls verified (input validation; cross-context isolation)
+- 2 narrow admission-time observations (admission-control aggregation; Bazaar registry shape)
+- 1 operational discovery (delegated-signing prerequisite, not a security finding)
+
+What this round does NOT establish:
+- Settlement-time behavior on any axis (cap aggregation at spend, cap-vs-amount enforcement, idempotency, replay protection)
+- Whether the near-duplicate hostname clusters represent deliberate typosquatting vs. benign organizational variants
+- Whether `ResourceNotFoundException` in cross-context get is data-plane isolation, privacy-preserving uniform error, or per-user namespacing
+
+What's working well in this round:
+- Audit-and-correct discipline caught 4 BLOCK + 1 FIX + 3 NOTE issues before publication.
+- All 8 ACP stubs ran end-to-end with clean cleanup (0 leftover resources).
+- Reproducibility is real: any reviewer with their own AWS Bedrock preview + CDP testnet enrollment can re-run from the branch state.
+- The reframes (6 of 8 stubs adjusted from scope-doc originals because original attacks required infrastructure out of scope) are documented honestly in code + JSON.
+
+What gates the next round:
+- Coinbase delegated signing must be enabled in the CDP project policies before settlement-time variants can run.
+- Anthropic MCP Tunnels research-preview access must be requested before Surface 1 stubs can execute.
+- Manual hostname-cluster validation must be performed before any "typosquat" claim is published.
+
+This round is publishable for coordinated disclosure. It is not yet strong enough for a bold public security claim — that requires settlement-time evidence from VS-R02.
 
 ---
 
