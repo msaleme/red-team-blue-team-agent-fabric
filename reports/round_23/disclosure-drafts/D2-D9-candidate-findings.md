@@ -10,19 +10,29 @@ All eight findings are observation-class (E1: descriptive, reproducible). None a
 - **Coinbase Developer Platform team** receives D6, D7, D8, D9 (CDP Portal policy creation form and the public policy docs they own)
 - **Meta-finding for both:** the integration path documented as a happy-path cannot be completed end-to-end without a Coinbase-side preview-allowlist intervention (see D2's revised form)
 
-## D2 — AWS error string is misleading; the actual gate is not in CDP project policies
+## D2 — Misleading AWS error string + UI-flag-gated CDP toggle: documented setup path is not completable in the default Portal UI
 
 **Observation:** `ProcessPayment` returns `AccessDeniedException: Delegated signing is not enabled for your Coinbase project. Please enable delegated signing in your Coinbase project policies.`
 
-The error string instructs the developer to enable delegated signing in the CDP project policies. A developer follows the instruction and creates a maximally permissive CDP project policy (accepts `signEndUserEvmTransaction`, `sendEndUserEvmTransaction`, `signEvmTransaction`, `sendEvmTransaction`, all with `ethValue <= 1 ETH` criteria on `base-sepolia`). The wall persists with identical error text.
+The error directs developers to a CDP **project policies** surface (Server Wallet → Policies). A developer who follows that instruction and creates a maximally permissive CDP project policy (accepting `signEndUserEvmTransaction`, `sendEndUserEvmTransaction`, `signEvmTransaction`, `sendEvmTransaction` with permissive `ethValue` criteria on `base-sepolia`) finds the wall persists with identical error text. Project-policy contents have no effect on this gate.
 
-Empirically: project-level CDP policy contents do not affect the AgentCore-side `Delegated signing is not enabled` check. The actual gate is a CDP project-level preview-feature flag that requires Coinbase Developer Support to enable per-project. The docs do not surface this requirement.
+**The actual mechanism, verified 2026-06-08:** delegated signing is gated by a two-step end-user-consent flow that lives on different product surfaces than the error string indicates:
 
-**Why this matters:** the error directs developers to a surface that does not control the outcome. Time-to-resolution for a first-time integrator is dominated by debugging the wrong surface.
+1. **CDP project-level toggle** at `Non-custodial Wallet → Security → Delegated signing`. The toggle is **only visible in the "Try new experience" UI flag** of the CDP Portal. In the default Portal UI the toggle does not render — the Non-custodial Wallet → Security page shows only a "Client configuration" panel for Web/Mobile domain authorization. The toggle becomes reachable only after enabling the new-experience UI via the link at the bottom of the left sidebar. (Terminology note: docs call the product "Non-custodial Wallets"; current Portal UI labels the same product "Embedded Wallets" in the default UI and "Non-custodial Wallet" in the new-experience UI.)
 
-**Suggested fix:** either (a) reframe the error string to point at the actual gate (e.g., `Delegated signing is not enabled for project {projectId}. Contact Coinbase Developer Support to enable the AgentCore Payments preview feature flag for your project.`), or (b) surface a project-level feature-flag check that returns a more specific error when the flag is unset versus when policies are missing or restrictive.
+2. **WalletHub per-wallet permission grant** by the end user. After step 1, the WalletHub UI accessed via `paymentInstrumentDetails.embeddedCryptoWallet.redirectUrl` renders a Permissions section at the bottom that did not exist before the toggle was on. The end user clicks "Grant permission" with an automatic 30-day expiry. Without this per-wallet grant, ProcessPayment still fails — but with a different error message: `Delegated signing grant is not active for the end user wallet. Please redirect end user to the WalletHub to grant the permissions.`
 
-**Evidence class:** E1 (reproducible error-string defect; root-caused by exhaustive elimination of project-policy contents as the controlling variable).
+**The error-string asymmetry:** before step 1, the error misleadingly points at "project policies" (a surface that does not control the outcome). After step 1 but before step 2, the error correctly points at WalletHub. The error string's quality depends on how far the operator has progressed through the gates — not on the actual gate's nature.
+
+**Why this matters:** the docs at `docs.cdp.coinbase.com/wallets/using-wallets/delegated-signing` reference the Non-custodial Wallet → Security navigation path but do not state that the toggle is only visible in the new-experience UI flag. A first-time integrator who reads the docs, navigates to Non-custodial Wallet → Security in the default UI, and sees only a Client configuration section concludes the toggle does not exist for their project. Coinbase support correctly cites the path; the path renders only in the new-experience UI; the docs do not state this precondition.
+
+**Suggested fix (three parts):**
+
+1. **Reframe the pre-toggle error string** to match the post-toggle error: `Delegated signing grant is not active for the end user wallet. Project may also require the project-level Delegated Signing toggle at Non-custodial Wallet → Security (currently in the new-experience UI).` This eliminates the misdirection toward project policies.
+2. **Make the Delegated Signing toggle visible in the default Portal UI** for any project that has an AgentCore Payments connector provisioned, or at minimum surface a banner in the default UI pointing at the new-experience UI when an AgentCore connector is detected.
+3. **Update the docs at `docs.cdp.coinbase.com/wallets/using-wallets/delegated-signing`** to state the new-experience UI precondition explicitly, and align the product terminology (Non-custodial Wallet vs Embedded Wallets) between docs and live Portal UI.
+
+**Evidence class:** E1 (reproducible error-string defect + UI-discoverability defect + docs-precondition defect; root-caused by the diagnostic chain 2026-05-27 through 2026-06-08, with Coinbase Developer Support engagement on 2026-06-08 09:02 UTC as the unblock signal).
 
 ## D3 — CreatePaymentInstrument network enum lacks BASE_SEPOLIA while balance query supports it
 
@@ -121,38 +131,73 @@ The accepted-versus-rejected boundary appears to require natural-language form (
 
 **Evidence class:** E1 (docs/runtime drift, reproducible against the live form on 2026-05-27).
 
+## D11 — WalletHub permission grant UX does not surface agent identity, scope, or spend limit
+
+**Observation:** when the end user clicks "Grant permission ▼" on the WalletHub Permissions panel and approves, the grant is recorded with a 30-day automatic expiry. The pre-grant UI message reads: *"The app that sent you here can't trade or make payments from this wallet. You can grant permission for a limited time if you trust this app."*
+
+The end user is NOT shown:
+
+- **The agent's name** (e.g., `vs-r01-cdp-grant-probe`) — they do not see which agent they are granting access to
+- **The asset scope** — is the grant for ETH, USDC, or both?
+- **A spend limit** — is there a per-transaction cap, a session cap, an aggregate cap?
+- **An option to set a custom expiry** — the 30-day default appears to be the only option
+
+After granting, the WalletHub UI displays only: *"This app can pay on your behalf from this wallet. Permission expires on July 8, 2026."* No agent name, no scope, no limit, no list of which apps currently hold delegations against this wallet.
+
+**Why this matters:** for testnet integration testing this works (single integrator, known agent). For production user-consent flow this is a meaningful UX gap. A user who has authorized multiple agents from different applications cannot review what they have authorized, has no way to scope grants to specific assets or transaction limits, and cannot distinguish a malicious agent from a legitimate one because no agent identity is surfaced at grant time.
+
+**Suggested fix:** surface the agent name, asset scope, and spend limit in the grant flow. Allow user-selected expiry from a list (1h, 24h, 7d, 30d, custom). Replace the single "Revoke permission" button with a per-wallet "Active permissions" panel that lists all current delegations by agent name with per-delegation revoke buttons.
+
+**Evidence class:** E1 (UX defect, reproducible 2026-06-08; not a security vulnerability but a meaningful gap for any production deployment involving multiple agent providers).
+
 ## Aggregate observation
 
-D2 through D9 are individually small. Together they describe a documented integration happy-path that cannot be completed end-to-end without out-of-band intervention from Coinbase Developer Support. An integration tester following the public docs precisely will:
+D2 through D11 are individually small. Together they describe a documented integration happy-path that is not completable in the default Portal UI and is not completable on testnet through the documented flows. An integration tester following the public docs precisely will:
 
 1. Hit the WalletHub mainnet-only funding gap (D4, D5)
 2. Discover the chain enum inconsistency at instrument creation (D3)
 3. Spend an hour fighting CDP policy form validation (D6, D7, D8, D9) on the assumption that the AWS error message is accurate (D2)
 4. Discover empirically that the CDP project policy is not the controlling surface (D2)
-5. Escalate to Coinbase support for the actual fix
+5. Open a Coinbase support ticket, receive a navigation path that does not render in the default Portal UI (D2 — the new-experience UI gate)
+6. Enable the new-experience UI flag, find and enable the Delegated Signing toggle
+7. Discover the WalletHub Permissions section has now appeared (it was silently absent before the toggle was on)
+8. Grant the per-wallet permission via a UI that surfaces no agent identity, scope, or spend limit (D11)
+9. Re-test ProcessPayment and succeed
 
-The integration tester's first-success path is dominated by debugging surfaces that do not control the outcome. This is the meta-finding worth surfacing to both teams: the documented setup procedure does not produce a working integration on testnet without a Coinbase-side preview-allowlist toggle the docs do not mention.
+That is a 12-day diagnostic chain across 5+ navigation paths to complete what the docs describe as a standard setup. The meta-finding worth surfacing to both teams: the documented setup procedure has multiple seam-points where developers can get stuck, and several of those seams are silently empty in the default Portal UI — they require either the new-experience flag, a Coinbase-side toggle response, or an end-user grant action that the operator must guide.
 
 ## Reproducibility
 
 All findings reproduce against the live AWS Bedrock AgentCore Payments preview and the live CDP Portal as of 2026-05-27. Recovery requires no special privileges beyond a standard CDP project and a standard AWS account with Bedrock AgentCore Payments preview enabled. The PaymentManager, PaymentConnector, CredentialProvider, PaymentInstrument, and PaymentSession resources used during this walkthrough are listed in `~/clawd/red-team-blue-team-agent-fabric/scripts/vs-r01-env.sh` and the active CDP project policy is `fa4712b5-7283-4dd7-9c7f-3ea04c97488e`.
 
-## Re-validation footer — 2026-06-06
+## Re-validation footer — 2026-06-08 (wall dropped, integration verified end-to-end)
 
-Ten days after the initial walkthrough, the integration state was re-probed against the same resources:
+Twelve days after the initial walkthrough, the documented happy-path was completed end-to-end after engaging Coinbase Developer Support. The full diagnostic chain on disclosure-send day:
 
-- `ProcessPayment` still returns `AccessDeniedException: Delegated signing is not enabled for your Coinbase project. Please enable delegated signing in your Coinbase project policies.` — identical error string. The wall is still up.
-- The CDP project policy `fa4712b5-7283-4dd7-9c7f-3ea04c97488e` remains active with permissive ethValue criteria. Policy contents continue to have no effect on the wall, confirming D2.
-- `GetPaymentInstrumentBalance` against the Base Sepolia chain returns `4.0 USDC` (up from `1.0` and `2.0` during the initial walkthrough, consistent with additional faucet drops). The chain-level integration remains functional.
-- A Coinbase Developer Support contact was opened via the CDP Discord channel on 2026-06-06. Pending acknowledgment.
+- **2026-06-08 08:24 UTC:** Coinbase support case opened with subject *"AgentCore Payments: Delegated signing error despite CDP project policy configuration"* via the CDP Portal support widget. Body included project ID `fdc6d46c-a5e3-49b2-8fae-0e1c42569ba7`, policy ID `fa4712b5-7283-4dd7-9c7f-3ea04c97488e`, wallet address, the verbatim error, and a precise question about whether server-side delegation grant exists or if browser-only via `createDelegationForAccount` is the only path.
+- **2026-06-08 09:02 UTC:** Coinbase support responded with the navigation path `Products → Wallets → Non-custodial Wallet → Security → Delegated Signing toggle` and a link to the docs at `docs.cdp.coinbase.com/wallets/using-wallets/delegated-signing`.
+- **2026-06-08 09:54-09:58 UTC:** the cited nav path was unreachable in the default Portal UI. Both Server Wallet and Embedded Wallet products' Security tabs showed no Delegated Signing toggle. Authentication and Policies tabs on Embedded Wallets also did not contain the toggle. Three screenshots saved.
+- **2026-06-08 10:01 UTC:** the "Try new experience" UI flag was enabled via the bottom-left sidebar link. The Non-custodial Wallet product surface then rendered with a Security tab containing the Delegated Signing toggle (plus Generate Wallet Secret + Project policies preview). Toggle was clicked to enable.
+- **2026-06-08 15:02 UTC:** ProcessPayment re-probed. Error changed from `Delegated signing is not enabled for your Coinbase project. Please enable delegated signing in your Coinbase project policies.` to `Delegated signing grant is not active for the end user wallet. Please redirect end user to the WalletHub to grant the permissions.` Project-level gate cleared.
+- **2026-06-08 15:05 UTC:** WalletHub URL `https://hub.cdp.coinbase.com/5e6b880c1f09` revisited. The Permissions section now rendered (it had been silently absent in the 2026-05-27 walkthrough) with the message *"The app that sent you here can't trade or make payments from this wallet. You can grant permission for a limited time if you trust this app."* "Grant permission" approved with the default 30-day expiry (expires 2026-07-08).
+- **2026-06-08 15:07 UTC:** ProcessPayment re-probed. **Status: `PROOF_GENERATED`.** End-to-end x402 payment signing flow verified. Real EIP-3009 USDC transfer authorization returned with `from=0x7889454DF1EB44B2fA0878179A1845F5b4649286`, `to=0x000000000000000000000000000000000000dEaD`, `value=10000` (0.01 USDC), `validBefore=1780931609`, `nonce=0x000...01440`, `signature=0x393bae...956d911b`. Request ID `2520a0d5-b121-4ece-ba27-b457367fd091`. ProcessPayment ID `3ffb5e2f-4d1f-40c4-a8bc-ffabd1533e50`.
 
-**Relevant external signal in the intervening 10 days:**
+**Net diagnostic-chain length:** 12 days, 5+ navigation paths attempted in the default UI, 1 Coinbase support ticket, 1 UI flag toggle, 1 project-level toggle, 1 WalletHub end-user grant — to complete what the docs describe as the standard setup procedure for AgentCore Payments + CDP integration.
 
-- AWS blog post 2026-06-01: ["Enable safe agentic payments with built-in guardrails using Amazon Bedrock AgentCore payments"](https://aws.amazon.com/blogs/machine-learning/enable-safe-agentic-payments-with-built-in-guardrails-using-amazon-bedrock-agentcore-payments/) — frames the integration's five-safety-risk model and four-role IAM separation. Does not mention delegated signing, the Coinbase project preview flag, the WalletHub mainnet-only constraint, or any of the D-findings. Orthogonal scope; the gaps documented here remain unaddressed.
-- CDP public changelog: last entry remains 2026-04-14 (delegated signing announcement). No updates in May or June, including no fixes for any D-finding.
+**External signal in the resolution window:**
 
-**Aggregate state:** ten days post initial diagnosis, the documented integration path remains incomplete for any developer attempting testnet validation of AgentCore Payments + CDP. No CDP or AWS docs revision has surfaced the project-allowlist requirement or any of the D2-D9 gaps. Disclosure remains appropriate.
+- AWS blog post 2026-06-01: ["Enable safe agentic payments with built-in guardrails using Amazon Bedrock AgentCore payments"](https://aws.amazon.com/blogs/machine-learning/enable-safe-agentic-payments-with-built-in-guardrails-using-amazon-bedrock-agentcore-payments/) — orthogonal scope; the gaps documented here remain unaddressed by AWS as of disclosure send.
+- CDP public changelog: last entry remains 2026-04-14. The new-experience-UI precondition for the Delegated Signing toggle is not in the changelog.
+- Coinbase Developer Support (2026-06-08): engaged and responsive within ~24h of case creation; correctly cited the docs path; the path renders only in the new-experience UI.
+
+**Aggregate state at disclosure send:** the wall has dropped, the integration is verified working end-to-end, and VS-R02 settlement-time tests are now unblocked. All eleven findings (D2-D11) reproduce against the live integration and document the path from `default Portal UI + AWS docs` to `working integration`. The findings are no longer blocking VS-R01 evaluation execution, but the documentation/UX gaps remain for any subsequent integrator.
 
 ## Restraint
 
-No public claims about these findings until disclosure has been acknowledged by both AWS Bedrock security and Coinbase Developer Platform support. The findings are observation-class (E1) and pose no security risk to end users; the disclosure routing reflects coordinated-disclosure norms, not embargo on a vulnerability.
+The findings are observation-class (E1) and pose no security risk to end users. The disclosure timing reflects coordinated-disclosure norms rather than vulnerability embargo:
+
+- **Coinbase Developer Support** has been engaged via support channel (case opened 2026-06-08 08:24 UTC, response received 09:02 UTC, integration unblocked by 15:07 UTC).
+- **AWS Bedrock security** disclosure is sent in parallel with this artifact going live (commit hash and timestamp in `vs-r01/disclosure` branch HEAD).
+- No public posts, social media, or blog content referencing these findings until both AWS and Coinbase have had a reasonable window (suggested 30 days) to act on the documentation, UX, and error-string fixes outlined here.
+
+Branch `vs-r01/skeleton @ 7515831` remains the cite-from-here state for the underlying VS-R01 evaluation. This `vs-r01/disclosure` branch is the public artifact for the disclosure correspondence.
