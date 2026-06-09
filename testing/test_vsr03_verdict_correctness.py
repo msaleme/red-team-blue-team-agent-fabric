@@ -270,5 +270,41 @@ class TestX402Liveness(unittest.TestCase):
         self.assertFalse(_x402_rejected({"status": 200}))
 
 
+class _L402ChallengeTransport:
+    """Serves a distinct 402 L402 challenge per unauthenticated GET; returns a fixed
+    response to any request carrying an Authorization header."""
+
+    def __init__(self, attack_resp):
+        self._attack = attack_resp
+        self.base_url = "http://fixture.invalid"
+        self._n = 0
+
+    def get(self, path, headers=None, timeout=15.0):
+        if headers and "Authorization" in headers:
+            return dict(self._attack)
+        self._n += 1
+        return {"status": 402,
+                "headers": {"WWW-Authenticate": f'L402 macaroon="mac{self._n}", invoice="lnbc{self._n}fake"'},
+                "body": ""}
+
+    def post(self, *a, **k):
+        return dict(self._attack)
+
+
+class TestL402HappyPathDoesNotCrash(unittest.TestCase):
+    def test_l4008_completes_with_status_bound(self):
+        # Drives L4-008 past the N/A guard (two distinct challenges obtained) so the
+        # verdict _record runs. Guards the undefined-`status` NameError class that the
+        # live-server-free CI suite would otherwise miss entirely (VS-R03 follow-up;
+        # the happy path is exactly the under-tested evidence-producing code path).
+        from protocol_tests.l402_harness import L402SecurityTests
+        suite = L402SecurityTests(
+            _L402ChallengeTransport({"status": 401, "headers": {}, "body": "unauthorized"}))
+        suite.test_l402_cross_session_preimage()
+        r = next(x for x in suite.results if x.test_id == "L4-008")
+        self.assertFalse(r.not_evaluated)  # both challenges obtained -> actually evaluated
+        self.assertTrue(r.passed)          # 401 on the cross-session attack -> rejected
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -641,6 +641,7 @@ class L402SecurityTests:
         resp = self.transport.get(self.PATH_RESOURCE, headers={"Authorization": auth_header})
 
         elapsed = time.monotonic() - t0
+        status = resp.get("status", 0)
         rejected = _rejected(resp)
 
         self._record(L402TestResult(
