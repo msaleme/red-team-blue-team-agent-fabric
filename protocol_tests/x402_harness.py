@@ -123,6 +123,19 @@ def _fake_jwt() -> str:
 # HTTP transport for x402 endpoints
 # ---------------------------------------------------------------------------
 
+def _x402_rejected(resp: dict) -> bool:
+    """True only when the server actively rejected the attack (non-200, sub-500 status).
+
+    A transport failure (status 0 / ``_error``) or a 5xx server fault is observe-failure,
+    not a rejection — scoring those as "rejected" let an unreachable or erroring server
+    pass forged-attestation / stale-manifest checks (VS-R03 X2).
+    """
+    if not resp or resp.get("_error") or resp.get("status", 0) == 0:
+        return False
+    status = resp.get("status", 0)
+    return status != 200 and status < 500
+
+
 class X402Transport:
     """HTTP transport for x402-gated APIs."""
 
@@ -1521,15 +1534,13 @@ class X402SecurityTests:
         status = resp.get("status", 0)
         body_lower = resp.get("body", "").lower()
 
-        # PASS if the server rejects the stale manifest (non-200, or body indicates staleness)
-        stale_rejected = (
-            status != 200
-            or "stale" in body_lower
-            or "expired" in body_lower
-            or "refresh" in body_lower
-            or "cache" in body_lower
-            or "ttl" in body_lower
-        )
+        # PASS if the server ACTIVELY rejects the stale manifest (4xx) or a 200 body
+        # explicitly signals staleness detection. A transport failure / 5xx is
+        # observe-failure, not a rejection, and generic "cache"/"ttl" mentions in a benign
+        # 200 no longer count (VS-R03 X2).
+        stale_rejected = _x402_rejected(resp) or (
+            status == 200 and any(s in body_lower for s in (
+                "stale", "expired", "manifest expired", "too old", "refresh required")))
 
         passed = stale_rejected
 
@@ -1585,17 +1596,14 @@ class X402SecurityTests:
         status = resp.get("status", 0)
         body_lower = resp.get("body", "").lower()
 
-        # PASS if the forged attestation is rejected
-        rejection_indicators = (
-            status != 200
-            or "unknown_issuer" in body_lower
-            or "invalid_signature" in body_lower
-            or "invalid" in body_lower
-            or "unauthorized" in body_lower
-            or "forbidden" in body_lower
-            or "rejected" in body_lower
-            or "untrusted" in body_lower
-        )
+        # PASS only if the server ACTIVELY rejects the forged attestation (4xx) or a 200
+        # body carries a specific rejection signal. A transport failure / 5xx is
+        # observe-failure (a forged attestation against a DOWN server is not a "pass"), and
+        # the bare substring "invalid" no longer counts (VS-R03 X2).
+        rejection_indicators = _x402_rejected(resp) or (
+            status == 200 and any(s in body_lower for s in (
+                "unknown_issuer", "invalid_signature", "invalid attestation",
+                "unauthorized", "forbidden", "rejected", "untrusted")))
 
         passed = rejection_indicators
         self._autonomy_signals["rejects_forged_attestation"] = passed
@@ -3456,16 +3464,15 @@ def _run_statistical(
     """Run tests multiple times and compute Wilson score confidence intervals."""
     from protocol_tests.statistical import wilson_ci, enhance_report, TrialResult
 
-    all_tests_flat: list[tuple[str, str, str]] = []
-    test_id_order = [f"X4-{i:03d}" for i in range(1, 26)]
-    id_idx = 0
+    # Flatten to (category, method) — the real test_id comes from each executed result,
+    # not a positional list. The old hardcoded range(1, 26) had 25 IDs for 52 tests and
+    # ran off the end (crash / mislabel) once a later category executed (VS-R03 X1).
+    all_tests_flat: list[tuple[str, str]] = []
     for category, method_names in X402SecurityTests.ALL_TESTS.items():
         if categories and category not in categories:
-            id_idx += len(method_names)
             continue
         for method_name in method_names:
-            all_tests_flat.append((category, method_name, test_id_order[id_idx]))
-            id_idx += 1
+            all_tests_flat.append((category, method_name))
 
     print(f"\n{'='*60}")
     print(f"x402 STATISTICAL MODE \u2014 {n_trials} trials per test")
@@ -3477,9 +3484,10 @@ def _run_statistical(
 
     aggregated_autonomy_signals: dict[str, bool] = {}
 
-    for category, method_name, test_id in all_tests_flat:
+    for category, method_name in all_tests_flat:
         passes = 0
         elapsed_times: list[float] = []
+        test_id = method_name  # fallback label until the test reports its own id
 
         for trial in range(n_trials):
             suite = X402SecurityTests(transport)
@@ -3488,6 +3496,7 @@ def _run_statistical(
                 test_fn()
                 result = suite.results[-1] if suite.results else None
                 if result:
+                    test_id = result.test_id  # the test's OWN id, never a positional guess
                     if result.passed:
                         passes += 1
                     elapsed_times.append(result.elapsed_s)

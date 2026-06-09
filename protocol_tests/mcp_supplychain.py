@@ -68,6 +68,25 @@ INSTALL_SCRIPT_FS_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Install scripts that hand off to an external script file — the payload then lives
+# outside the manifest, so the network/fs regexes above never see it (VS-R03 E1).
+INSTALL_SCRIPT_REF_RE = re.compile(
+    r"\bnode\s+[^\s|;&]+\.[cm]?js\b"
+    r"|\b(?:python3?|ruby|perl)\s+[^\s|;&]+\.(?:py|rb|pl)\b"
+    r"|\b(?:bash|sh|zsh|dash)\s+[^\s|;&]+\.sh\b"
+    r"|(?:^|[\s;&|])\.{0,2}/[^\s;&|]+\.(?:sh|js|cjs|mjs|py|rb|pl)\b",
+    re.IGNORECASE,
+)
+
+# Install scripts that decode-and-execute (obfuscated payload) (VS-R03 E1).
+INSTALL_SCRIPT_ENCODED_RE = re.compile(
+    r"\bbase64\s+-{0,2}d\b|\bbase64\s+--decode\b"
+    r"|\b-enc(?:odedcommand)?\b"
+    r"|\batob\s*\(|\bbuffer\.from\([^)]*base64"
+    r"|\beval\s*\(|\bexec\s*\(",
+    re.IGNORECASE,
+)
+
 # npm lifecycle hooks that run on install.
 NPM_INSTALL_HOOKS = ("preinstall", "install", "postinstall", "prepare", "prepublish")
 
@@ -184,9 +203,16 @@ def resolve_binary_candidates(name: str, project_root: str | None,
                 world_writable = bool(os.stat(directory).st_mode & 0o002)
             except OSError:
                 world_writable = False
+            try:
+                # A world-writable launcher FILE is overwritable in place even inside a
+                # safe directory — anyone can replace the binary before it runs (VS-R03 E3).
+                file_world_writable = bool(os.stat(target).st_mode & 0o002)
+            except OSError:
+                file_world_writable = False
             return [{"path": target, "source": "explicit path",
                      "executable": os.access(target, os.X_OK),
-                     "dir_world_writable": world_writable}]
+                     "dir_world_writable": world_writable,
+                     "file_world_writable": file_world_writable}]
         return []
 
     name = os.path.basename(name)
@@ -216,11 +242,17 @@ def resolve_binary_candidates(name: str, project_root: str | None,
                 world_writable = bool(os.stat(directory).st_mode & 0o002)
             except OSError:
                 world_writable = False
+            try:
+                # A world-writable launcher FILE is overwritable in place (VS-R03 E3).
+                file_world_writable = bool(os.stat(cand).st_mode & 0o002)
+            except OSError:
+                file_world_writable = False
             candidates.append({
                 "path": cand,
                 "source": source,
                 "executable": executable,
                 "dir_world_writable": world_writable,
+                "file_world_writable": file_world_writable,
             })
     return candidates
 
@@ -251,7 +283,9 @@ def inspect_npm_install_scripts(package: str | None, project_root: str | None) -
             continue
         entry = {"hook": hook, "script": body,
                  "network": bool(INSTALL_SCRIPT_NETWORK_RE.search(body)),
-                 "fs_mutating": bool(INSTALL_SCRIPT_FS_RE.search(body))}
+                 "fs_mutating": bool(INSTALL_SCRIPT_FS_RE.search(body)),
+                 "script_ref": bool(INSTALL_SCRIPT_REF_RE.search(body)),
+                 "encoded": bool(INSTALL_SCRIPT_ENCODED_RE.search(body))}
         findings.append(entry)
     return {"found": True, "manifest": manifest, "hooks": findings}
 
@@ -311,21 +345,26 @@ class MCPSupplyChainTests:
             # Shadowing: the first match sits in a world-writable or project-local
             # dir while a later $PATH match also exists for the same name.
             later_path = [c for c in cands[1:] if c["source"] == "$PATH"]
-            risky_first = first["dir_world_writable"] or first["source"] != "$PATH"
+            # Tamperable if either the containing dir OR the launcher file itself is
+            # world-writable — anyone can replace what runs (VS-R03 E3).
+            tamperable = first["dir_world_writable"] or first.get("file_world_writable")
+            risky_first = tamperable or first["source"] != "$PATH"
             shadowing = len(cands) > 1 and risky_first and later_path
             if shadowing:
                 flagged.append(s["server_name"])
                 details_lines.append(
                     f"{s['server_name']}: '{launcher}' resolves to {first['path']} "
-                    f"({first['source']}, world_writable={first['dir_world_writable']}) "
+                    f"({first['source']}, dir_world_writable={first['dir_world_writable']}, "
+                    f"file_world_writable={first.get('file_world_writable')}) "
                     f"SHADOWING {later_path[0]['path']}")
-            elif first["dir_world_writable"]:
-                # Even without a second candidate, a world-writable binary dir is
+            elif tamperable:
+                # Even without a second candidate, a world-writable binary dir or file is
                 # tamperable — anyone can replace the binary before it runs.
                 flagged.append(s["server_name"])
+                where = "DIR" if first["dir_world_writable"] else "FILE"
                 details_lines.append(
                     f"{s['server_name']}: '{launcher}' -> {first['path']} "
-                    f"({first['source']}) WORLD-WRITABLE DIR (tamperable)")
+                    f"({first['source']}) WORLD-WRITABLE {where} (tamperable)")
             else:
                 details_lines.append(
                     f"{s['server_name']}: '{launcher}' -> {first['path']} ({first['source']})")
@@ -348,12 +387,23 @@ class MCPSupplyChainTests:
                 "framework_install_scripts", "ASI06", Severity.CRITICAL.value))
             return
         risky = []
+        uninspectable = []
         details_lines = []
         for s in self.servers:
             # Look up by BARE package name — npm installs `evil@1.2.3` under `evil`.
             info = inspect_npm_install_scripts(s.get("package_name"), self.project_root)
             if not info["found"]:
-                details_lines.append(f"{s['server_name']}: not inspectable ({info['reason']})")
+                # An auto-confirmed package-launcher (e.g. `npx -y pkg`) downloads and runs
+                # code that is never on disk at pre-flight, so "not installed" is precisely
+                # the un-inspectable download-and-run case — it must not earn a PASS on this
+                # CRITICAL gate (VS-R03 E2).
+                if s.get("launcher_base") in PKG_LAUNCHERS and s.get("auto_yes"):
+                    uninspectable.append(s["server_name"])
+                    details_lines.append(
+                        f"{s['server_name']}: NEEDS-REVIEW — auto-run package not inspectable "
+                        f"pre-flight ({info['reason']})")
+                else:
+                    details_lines.append(f"{s['server_name']}: not inspectable ({info['reason']})")
                 continue
             for hook in info["hooks"]:
                 tag = []
@@ -361,21 +411,26 @@ class MCPSupplyChainTests:
                     tag.append("NETWORK")
                 if hook["fs_mutating"]:
                     tag.append("FS-MUTATING")
+                if hook.get("script_ref"):
+                    tag.append("SCRIPT-REF")
+                if hook.get("encoded"):
+                    tag.append("ENCODED")
                 marker = f"[{','.join(tag)}]" if tag else "[benign]"
-                # Both network-callable AND filesystem-mutating install hooks are
-                # findings — an install-time `rm -rf` or `~/.ssh` write is as much
-                # a supply-chain risk as an exfil call.
-                if hook["network"] or hook["fs_mutating"]:
+                # A hook that reaches the network, mutates the filesystem, hands off to an
+                # external script file, or decode-and-executes is a finding — the latter two
+                # hide the payload from inline inspection (VS-R03 E1).
+                if hook["network"] or hook["fs_mutating"] or hook.get("script_ref") or hook.get("encoded"):
                     risky.append(f"{s['server_name']}:{hook['hook']}{marker}")
                 details_lines.append(
                     f"{s['server_name']}:{hook['hook']} {marker} -> {hook['script'][:80]}")
-        passed = not risky
+        passed = not risky and not uninspectable
         self._record(MCPTestResult(
             test_id="MCP-F-002", name="Install-Script Inspection",
             category="framework_install_scripts", owasp_asi="ASI06",
             severity=Severity.CRITICAL.value, passed=passed,
             details=("; ".join(details_lines) or "no installed packages to inspect")
-                    + (f" | RISKY INSTALL SCRIPTS: {risky}" if risky else ""),
+                    + (f" | RISKY INSTALL SCRIPTS: {risky}" if risky else "")
+                    + (f" | UNINSPECTABLE AUTO-RUN: {uninspectable}" if uninspectable else ""),
             mcp_method="N/A (static pre-flight)",
             elapsed_s=round(time.monotonic() - t0, 3)))
 

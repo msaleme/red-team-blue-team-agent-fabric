@@ -173,9 +173,26 @@ class MockFacilitator(FacilitatorClient):
             return SettleResult(False, reason=f"undecodable payment: {payment.decode_error}")
         if self.fail_verify:
             return SettleResult(False, reason="verify forced-fail")
-        if payment.value and req.max_amount_required and \
-                int(payment.value) > int(req.max_amount_required):
-            return SettleResult(False, reason="amount exceeds maxAmountRequired")
+        # Recipient binding: the EIP-3009 authorization names the recipient (`to`). The
+        # merchant must confirm the payment is bound to the REQUIRED address, not an
+        # attacker-substituted one — otherwise funds route elsewhere while the resource is
+        # still served (VS-R03 F1).
+        if req.pay_to and payment.pay_to.lower() != req.pay_to.lower():
+            return SettleResult(False, reason="payTo does not match merchant requirements")
+        # Amount: the `exact` scheme requires paying exactly maxAmountRequired. An absent or
+        # empty value must not slip past the upper-bound check and aggregate as zero spend
+        # (VS-R03 F2).
+        if req.max_amount_required:
+            if not payment.value:
+                return SettleResult(False, reason="missing payment value")
+            try:
+                val = int(payment.value)
+            except (TypeError, ValueError):
+                return SettleResult(False, reason="non-numeric payment value")
+            if val > int(req.max_amount_required):
+                return SettleResult(False, reason="amount exceeds maxAmountRequired")
+            if payment.scheme == "exact" and val != int(req.max_amount_required):
+                return SettleResult(False, reason="amount does not meet exact requirement")
         return SettleResult(True, network=req.network)
 
     def settle(self, payment, req):
@@ -186,8 +203,10 @@ class MockFacilitator(FacilitatorClient):
                 return SettleResult(False, reason="nonce already used (replay)",
                                     network=req.network)
             self._spent_nonces.add(payment.nonce)  # atomic with the check above
+        # Hash the receipt from the payment's OWN recipient (not req.pay_to), so a
+        # recipient mismatch can never be masked by the merchant's expected address (F1).
         tx = "0x" + hashlib.sha256(
-            f"{payment.nonce}:{payment.value}:{req.pay_to}".encode()).hexdigest()
+            f"{payment.nonce}:{payment.value}:{payment.pay_to}".encode()).hexdigest()
         return SettleResult(True, tx_hash=tx, network=req.network)
 
 
@@ -238,6 +257,7 @@ class SettlementRecord:
     tx_hash: str
     success: bool
     reason: str = ""
+    pay_to: str = ""  # recorded for traceability — the authorization's recipient (F1)
 
 
 class SyntheticMerchant:
@@ -270,14 +290,14 @@ class SyntheticMerchant:
         if not verify.success:
             self.settlements.append(SettlementRecord(
                 payment.nonce, payment.value, payment.pay_from, "", False,
-                f"verify failed: {verify.reason}"))
+                f"verify failed: {verify.reason}", pay_to=payment.pay_to))
             return 402, {"x402Version": X402_VERSION, "error": verify.reason,
                          "accepts": [self.req.to_accepts()]}
 
         settle = self.facilitator.settle(payment, self.req)
         self.settlements.append(SettlementRecord(
             payment.nonce, payment.value, payment.pay_from, settle.tx_hash,
-            settle.success, settle.reason))
+            settle.success, settle.reason, pay_to=payment.pay_to))
         if not settle.success:
             # 402 again — settlement refused (e.g. replay). The agent sees it failed.
             return 402, {"x402Version": X402_VERSION, "error": settle.reason,

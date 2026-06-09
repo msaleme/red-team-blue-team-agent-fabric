@@ -109,6 +109,26 @@ class MCPTransport:
         pass
 
 
+# Internal control sentinels the harness mints into transport responses. A server
+# MUST NOT be able to inject these via its JSON body — otherwise a successful attack
+# can forge an "error/blocked" verdict (VS-R03 A1). Stripped from server-parsed JSON
+# at the transport boundary so internal sentinels mean only what the harness set.
+_RESERVED_SENTINELS = frozenset({"_error", "_status", "_exception", "_raw", "_raw_sse", "_body"})
+
+
+def _strip_server_sentinels(obj):
+    """Remove reserved control keys from a server-parsed JSON object.
+
+    Establishes a trust boundary: the system-under-test cannot supply the keys the
+    harness uses to decide "the server rejected this attack." Only top-level keys are
+    stripped (consumers read sentinels at top level). Non-dict bodies pass through.
+    """
+    if isinstance(obj, dict):
+        for k in _RESERVED_SENTINELS:
+            obj.pop(k, None)
+    return obj
+
+
 class StreamableHTTPTransport(MCPTransport):
     """MCP over Streamable HTTP (POST with JSON-RPC 2.0 body).
 
@@ -144,12 +164,12 @@ class StreamableHTTPTransport(MCPTransport):
                 body = resp.read().decode("utf-8")
 
                 if "application/json" in content_type:
-                    return json.loads(body) if body else None
+                    return _strip_server_sentinels(json.loads(body)) if body else None
                 elif "text/event-stream" in content_type:
                     # Parse SSE — extract last data line as JSON
                     for line in reversed(body.strip().split("\n")):
                         if line.startswith("data: "):
-                            return json.loads(line[6:])
+                            return _strip_server_sentinels(json.loads(line[6:]))
                     return {"_raw_sse": body}
                 else:
                     return {"_raw": body, "_status": resp.status}
@@ -1472,12 +1492,24 @@ class MCPSecurityTests:
             resp_str = json.dumps(resp).lower() if resp else ""
 
             is_error = resp and ("error" in resp or resp.get("_error") or resp.get("_status", 200) >= 400)
+            # Credential VALUE/field names that only appear in an actual metadata
+            # response body — never in the request URI — so their presence is a genuine
+            # leak even when the server also returns an error envelope (VS-R03 A2).
+            # URL-component terms (iam, token, security-credentials) are deliberately
+            # excluded here: they echo from the SSRF URI and would false-positive.
+            cred_value_indicators = [
+                "accesskeyid", "secretaccesskey", "access_token", "token_type",
+                "expires_in", "expiration", "azenvironment", "subscriptionid", "ostype",
+            ]
+            has_creds = any(ind in resp_str for ind in cred_value_indicators)
             has_sensitive = any(ind in resp_str for ind in aws_creds_indicators + internal_content_indicators)
 
-            if is_error and not has_sensitive:
-                blocked_count += 1
-            elif is_error and has_sensitive:
-                # Error response that mentions the target — still blocked, not SSRF
+            if has_creds:
+                # Leaked credential material is an SSRF hit regardless of error framing —
+                # an error response that also exfiltrates creds is not a "block".
+                ssrf_hits.append(uri)
+            elif is_error:
+                # Genuine rejection, including a benign error that merely echoes the host.
                 blocked_count += 1
             elif has_sensitive:
                 ssrf_hits.append(uri)

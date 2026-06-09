@@ -99,6 +99,22 @@ class L402Challenge:
         return None
 
 
+def _rejected(resp: dict) -> bool:
+    """True only when the server actively rejected the attack (a non-200, sub-500 status).
+
+    A transport failure (status 0 / ``_error``) or a 5xx server fault is NOT a rejection:
+    the attack outcome was never observed, and a 5xx may itself be the attack succeeding
+    (e.g. a parser fault from a malformed-caveat payload). Scoring those as "rejected"
+    lets an unreachable or erroring server earn a perfect pass — the verdict inverts on
+    contact with the adversary (VS-R03 B1). Such responses are treated as observe-failure
+    (never PASS), which a ``False`` return here produces.
+    """
+    if not resp or resp.get("_error") or resp.get("status", 0) == 0:
+        return False
+    status = resp.get("status", 0)
+    return status != 200 and status < 500
+
+
 def _fake_preimage(length: int = 32) -> str:
     """Generate a random hex preimage (not derived from any real payment)."""
     return os.urandom(length).hex()
@@ -202,6 +218,10 @@ class L402TestResult:
     request_sent: dict | None = None
     response_received: dict | None = None
     elapsed_s: float = 0.0
+    # N/A: a required precondition (e.g. an obtainable L402 challenge) was missing, so the
+    # attack could not be evaluated. Distinct from PASS — a missing precondition must not be
+    # scored as secure (VS-R03 D2). Excluded from both pass and fail counts.
+    not_evaluated: bool = False
     timestamp: str = ""
 
     def __post_init__(self):
@@ -229,7 +249,7 @@ class L402SecurityTests:
 
     def _record(self, result: L402TestResult):
         self.results.append(result)
-        status = "PASS \u2705" if result.passed else "FAIL \u274c"
+        status = "N/A \u2796" if result.not_evaluated else ("PASS \u2705" if result.passed else "FAIL \u274c")
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _get_challenge(self, path: str | None = None) -> L402Challenge | None:
@@ -321,7 +341,7 @@ class L402SecurityTests:
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
             tested += 1
             # Server should reject (not 200 OK)
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -356,7 +376,7 @@ class L402SecurityTests:
 
         status = resp.get("status", 0)
         # Server must not grant access with an unpaid/fake preimage
-        passed = status != 200
+        passed = _rejected(resp)
 
         # Check for information leakage in error response
         body_lower = resp.get("body", "").lower()
@@ -416,7 +436,7 @@ class L402SecurityTests:
             fake_preimage = _fake_preimage()
             auth_header = f"L402 {tampered_mac}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -475,7 +495,7 @@ class L402SecurityTests:
             fake_preimage = _fake_preimage()
             auth_header = f"L402 {modified}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -532,7 +552,7 @@ class L402SecurityTests:
             fake_preimage = _fake_preimage()
             auth_header = f"L402 {stripped_mac}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -568,7 +588,7 @@ class L402SecurityTests:
         for preimage in fake_preimages:
             auth_header = f"L402 {mac}:{preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -603,8 +623,9 @@ class L402SecurityTests:
                 category="preimage_replay",
                 owasp_asi="ASI03",
                 severity=Severity.CRITICAL.value,
-                passed=True if (not challenge_a and not challenge_b) else False,
-                details="Could not obtain two distinct L402 challenges" if (challenge_a or challenge_b)
+                passed=False,
+                not_evaluated=True,
+                details="Could not obtain two distinct L402 challenges (N/A)" if (challenge_a or challenge_b)
                         else "Server does not return L402 challenges on tested paths (N/A)",
                 http_method="GET",
                 elapsed_s=round(time.monotonic() - t0, 3),
@@ -621,7 +642,7 @@ class L402SecurityTests:
 
         elapsed = time.monotonic() - t0
         status = resp.get("status", 0)
-        rejected = status != 200
+        rejected = _rejected(resp)
 
         self._record(L402TestResult(
             test_id="L4-008",
@@ -676,7 +697,7 @@ class L402SecurityTests:
         for path in cross_paths:
             auth_header = f"L402 {challenge.macaroon}:{fake_preimage}"
             resp = self.transport.get(path, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -733,7 +754,7 @@ class L402SecurityTests:
             fake_preimage = _fake_preimage()
             auth_header = f"L402 {modified}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -775,7 +796,7 @@ class L402SecurityTests:
         rejected = 0
         for label, auth_value in incomplete_headers:
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_value})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -816,7 +837,8 @@ class L402SecurityTests:
                 category="payment_state_confusion",
                 owasp_asi="ASI03",
                 severity=Severity.MEDIUM.value,
-                passed=True,
+                passed=False,
+                not_evaluated=True,
                 details="No L402 challenge available to test race condition (N/A)",
                 http_method="GET",
                 elapsed_s=round(elapsed, 3),
@@ -830,7 +852,7 @@ class L402SecurityTests:
 
         elapsed = time.monotonic() - t0
         status = resp.get("status", 0)
-        passed = status != 200
+        passed = _rejected(resp)
 
         self._record(L402TestResult(
             test_id="L4-012",
@@ -1000,7 +1022,7 @@ class L402SecurityTests:
             fake_preimage = _fake_preimage()
             auth_header = f"L402 {encoded}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1057,8 +1079,7 @@ class L402SecurityTests:
             fake_preimage = _fake_preimage()
             auth_header = f"L402 {modified}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            status = resp.get("status", 0)
-            if status != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1115,7 +1136,7 @@ class L402SecurityTests:
             fake_preimage = _fake_preimage()
             auth_header = f"L402 {modified}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1173,7 +1194,7 @@ class L402SecurityTests:
             fake_preimage = _fake_preimage()
             auth_header = f"L402 {modified}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1216,7 +1237,7 @@ class L402SecurityTests:
         for label, preimage in stale_state_tokens:
             auth_header = f"L402 {mac}:{preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1258,7 +1279,7 @@ class L402SecurityTests:
                 "Authorization": auth_header,
                 "X-Channel-State": "force_closing",
             })
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1296,7 +1317,7 @@ class L402SecurityTests:
         for label, preimage in htlc_variants:
             auth_header = f"L402 {mac}:{preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1353,7 +1374,7 @@ class L402SecurityTests:
         for label, preimage in correlation_variants:
             auth_header = f"L402 {challenge.macaroon}:{preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1394,7 +1415,7 @@ class L402SecurityTests:
         for label, preimage in length_variants:
             auth_header = f"L402 {mac}:{preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1437,7 +1458,8 @@ class L402SecurityTests:
                 category="invoice_amount_manipulation",
                 owasp_asi="ASI09",
                 severity=Severity.MEDIUM.value,
-                passed=True,
+                passed=False,
+                not_evaluated=True,
                 details="No invoices returned to check consistency (N/A)",
                 http_method="GET",
                 elapsed_s=round(elapsed, 3),
@@ -1491,7 +1513,7 @@ class L402SecurityTests:
         for label, preimage in payment_variants:
             auth_header = f"L402 {mac}:{preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1526,7 +1548,8 @@ class L402SecurityTests:
                 category="invoice_amount_manipulation",
                 owasp_asi="ASI03",
                 severity=Severity.HIGH.value,
-                passed=True,
+                passed=False,
+                not_evaluated=True,
                 details="No L402 challenge available (N/A)",
                 http_method="GET",
                 elapsed_s=round(elapsed, 3),
@@ -1541,7 +1564,7 @@ class L402SecurityTests:
 
         elapsed = time.monotonic() - t0
         status = resp.get("status", 0)
-        passed = status != 200
+        passed = _rejected(resp)
 
         self._record(L402TestResult(
             test_id="L4-026",
@@ -1579,7 +1602,7 @@ class L402SecurityTests:
         rejected = 0
         for label, headers in routing_variants:
             resp = self.transport.get(self.PATH_INDEX, headers=headers)
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1618,8 +1641,9 @@ class L402SecurityTests:
                 category="routing_manipulation",
                 owasp_asi="ASI03",
                 severity=Severity.HIGH.value,
-                passed=True if len(challenges) == 0 else False,
-                details=f"Only {len(challenges)} challenge(s) obtained; need 2+ for cross-channel test",
+                passed=False,
+                not_evaluated=True,
+                details=f"Only {len(challenges)} challenge(s) obtained; need 2+ for cross-channel test (N/A)",
                 http_method="GET",
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -1636,7 +1660,7 @@ class L402SecurityTests:
                 auth_header = f"L402 {src_challenge.macaroon}:{fake_preimage}"
                 resp = self.transport.get(tgt_path, headers={"Authorization": auth_header})
                 tested += 1
-                if resp.get("status", 0) != 200:
+                if _rejected(resp):
                     rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1724,7 +1748,12 @@ class L402SecurityTests:
                     "syntax error", "sql", "template", "root:", "etc/passwd",
                     "stack trace", "traceback",
                 ])
-                if status != 200 and no_injection:
+                # Safe handling = no injection evidence AND the payload did not fault the
+                # server. A clean 200 with no injection markers is safe handling, not a
+                # failure — the old `status != 200` requirement scored it unsafe (VS-R03 C3).
+                # A 5xx / transport error triggered by the payload is the DoS signal.
+                server_fault = bool(resp.get("_error")) or status == 0 or status >= 500
+                if no_injection and not server_fault:
                     safe_responses += 1
             except Exception:
                 safe_responses += 1  # Clean failure is acceptable
@@ -1811,7 +1840,7 @@ class L402SecurityTests:
         rejected = 0
         for label, auth_value in downgrade_variants:
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_value})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -2065,7 +2094,8 @@ def generate_report(results: list[L402TestResult], output_path: str):
         "summary": {
             "total": len(results),
             "passed": sum(1 for r in results if r.passed),
-            "failed": sum(1 for r in results if not r.passed),
+            "failed": sum(1 for r in results if not r.passed and not r.not_evaluated),
+            "not_evaluated": sum(1 for r in results if r.not_evaluated),
         },
         "results": [asdict(r) for r in results],
     }
@@ -2116,7 +2146,7 @@ def main():
         if args.report:
             generate_report(results, args.report)
 
-        failed = sum(1 for r in results if not r.passed)
+        failed = sum(1 for r in results if not r.passed and not r.not_evaluated)
         sys.exit(1 if failed > 0 else 0)
 
 
@@ -2205,7 +2235,8 @@ def _run_statistical(
             "summary": {
                 "total": len(all_results),
                 "passed": sum(1 for r in all_results if r.passed),
-                "failed": sum(1 for r in all_results if not r.passed),
+                "failed": sum(1 for r in all_results if not r.passed and not r.not_evaluated),
+                "not_evaluated": sum(1 for r in all_results if r.not_evaluated),
             },
             "results": [asdict(r) for r in all_results],
         }
