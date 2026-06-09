@@ -1,6 +1,6 @@
 # Test Inventory
 
-**470 security tests across 32 modules** (verified by `scripts/count_tests.py`)
+**474 security tests across 33 modules** (verified by `scripts/count_tests.py`)
 
 ---
 
@@ -60,6 +60,20 @@ agent-security test mcp --url http://localhost:8080/mcp
 | MCP-011 | Tool Description Context Displacement | ASI08 | 50K+ char description DoS with hidden injection payload |
 | MCP-012 | Tool Description Oversized Check | ASI08 | Detects tool descriptions exceeding 10KB threshold for context displacement |
 | MCP-013 | Tool Description Padding / Repetition Detection | ASI08 | Detects repeated phrases, whitespace padding, and low-entropy descriptions |
+
+### MCP Supply-Chain / Framework-Layer (MCP-F) - 4 tests
+```bash
+agent-security test mcp-supplychain --command "npx -y some-mcp-server" --project-root .
+```
+
+Static pre-flight checks on the binary-resolution and package-install path that runs *before* the first JSON-RPC byte (issue #206). Complements — does not replace — the protocol suite above.
+
+| Test ID | Test | OWASP ASI | Description |
+|---|---|---|---|
+| MCP-F-001 | Launcher Binary Resolution | ASI06 | Resolves the binary that actually executes (walks `$PATH` + `node_modules/.bin` + `.venv/bin`); flags shadowing by world-writable / project-local shims |
+| MCP-F-002 | Install-Script Inspection | ASI06 | Flags network-callable / filesystem-mutating npm `preinstall`/`install`/`postinstall` scripts before they run |
+| MCP-F-003 | Dependency-Confusion Resolvability | ASI06 | Checks public-registry resolvability of internal-looking package names (network-gated: `--allow-network`) |
+| MCP-F-004 | Launcher Version Pinning | ASI06 | Flags unpinned launchers (`npx -y pkg` / `uvx pkg` without `@version`/`==version`/SHA) |
 
 ### A2A (Agent-to-Agent) - 12 tests  
 ```bash
