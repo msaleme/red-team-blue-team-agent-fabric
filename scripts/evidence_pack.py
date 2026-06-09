@@ -425,6 +425,11 @@ def build_evidence_pack(
     # Compute evidence hash over the two JSON payloads
     evidence_hash = compute_evidence_hash(test_results_json, aiuc1_mapping_json)
 
+    # Output dir must exist before signing — an auto-generated signing key is written
+    # into it.
+    pack_dir = Path(output_dir)
+    pack_dir.mkdir(parents=True, exist_ok=True)
+
     # Signing
     attestation: dict[str, Any] = {"signed": False}
     if do_sign:
@@ -473,9 +478,7 @@ def build_evidence_pack(
         timestamp=timestamp,
     )
 
-    # Write output
-    pack_dir = Path(output_dir)
-    pack_dir.mkdir(parents=True, exist_ok=True)
+    # Write output (pack_dir already created above, before signing)
 
     files = {
         "evidence-summary.json": evidence_summary_json,

@@ -137,6 +137,14 @@ jobs:
           python -m py_compile scripts/compliance_report.py
           echo "All modules pass syntax check"
 
+      - name: Undefined-name check (ruff F821)
+        # py_compile only checks syntax; it does not catch a name used but never bound
+        # (e.g. an undefined variable in a verdict's non-simulate path). F821 does, and
+        # such a bug is a NameError at runtime on exactly the live paths CI cannot exercise.
+        run: |
+          pip install ruff
+          ruff check --select F821 protocol_tests/ testing/ scripts/ mcp_server/
+
       - name: Check for unique test IDs
         run: |
           python -c "

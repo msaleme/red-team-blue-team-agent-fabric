@@ -916,6 +916,8 @@ class PraisonAIAdapter(FrameworkAdapter):
         # "rejected" signal).  We use urllib directly to inspect Content-Type and body.
         rejected = False
         leaked = False
+        raw_status = 0
+        body_preview = ""
         try:
             raw_req = urllib.request.Request(endpoint, method="GET")
             with urllib.request.urlopen(raw_req, timeout=10) as raw_resp:
@@ -944,7 +946,8 @@ class PraisonAIAdapter(FrameworkAdapter):
                 if rejected and not leaked
                 else "Event stream accessible without auth — agent activity leaked (CVE-2026-39889)"
             ),
-            endpoint=endpoint, request_sent=stream_request, response_received=resp,
+            endpoint=endpoint, request_sent=stream_request,
+            response_received={"status": raw_status, "rejected": rejected, "leaked": leaked},
             elapsed_s=round(elapsed, 3),
         )
 
