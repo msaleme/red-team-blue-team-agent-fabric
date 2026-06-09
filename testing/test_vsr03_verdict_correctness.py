@@ -86,6 +86,16 @@ class TestMCP016CredentialLeak(unittest.TestCase):
             "credential leak under an error envelope must be flagged as SSRF, not blocked",
         )
 
+    def test_single_credential_word_in_error_is_not_a_leak(self):
+        # A JSON-RPC error that merely mentions one generic credential term (e.g.
+        # "expiration") is not a leak — a real metadata response carries several fields,
+        # so >=2 must co-occur (A2 refined after review to drop the single-word FP).
+        benign = {"error": {"code": -32602, "message": "invalid token expiration format"}}
+        suite = MCPSecurityTests(_FixedTransport(benign))
+        suite.test_mcp_ssrf_via_resource_uri()
+        result = next(r for r in suite.results if r.test_id == "MCP-016")
+        self.assertTrue(result.passed, "one credential word in an error is not an SSRF leak")
+
     def test_benign_host_echo_under_error_still_blocked(self):
         # A genuine rejection that merely echoes the target host (no credential
         # material) must still count as blocked — guards against over-correction.

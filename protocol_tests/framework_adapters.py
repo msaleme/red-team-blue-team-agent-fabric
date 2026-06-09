@@ -930,6 +930,7 @@ class PraisonAIAdapter(FrameworkAdapter):
                 "execution_log",
             ])
         except urllib.error.HTTPError as e:
+            raw_status = e.code
             rejected = e.code in (401, 403)
             leaked = False
         except Exception:

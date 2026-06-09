@@ -226,7 +226,9 @@ class StdioTransport(MCPTransport):
         if ready:
             resp_line = self.proc.stdout.readline().decode("utf-8").strip()
             if resp_line:
-                return json.loads(resp_line)
+                # Same trust boundary as the HTTP transport: a stdio server must not be
+                # able to inject the harness's internal control sentinels (VS-R03 A1).
+                return _strip_server_sentinels(json.loads(resp_line))
         return None
 
     def send_raw(self, raw_bytes: bytes) -> bytes | None:
@@ -1501,7 +1503,12 @@ class MCPSecurityTests:
                 "accesskeyid", "secretaccesskey", "access_token", "token_type",
                 "expires_in", "expiration", "azenvironment", "subscriptionid", "ostype",
             ]
-            has_creds = any(ind in resp_str for ind in cred_value_indicators)
+            # Require >=2 distinct credential-field names to co-occur. A real metadata
+            # response carries several (AccessKeyId + SecretAccessKey + Token + Expiration,
+            # or access_token + token_type + expires_in); a benign error message that merely
+            # mentions one generic term (e.g. "expiration") is not a leak (VS-R03 A2, refined
+            # after review to avoid a single-word false positive).
+            has_creds = sum(1 for ind in cred_value_indicators if ind in resp_str) >= 2
             has_sensitive = any(ind in resp_str for ind in aws_creds_indicators + internal_content_indicators)
 
             if has_creds:
