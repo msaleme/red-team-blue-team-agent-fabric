@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.5.0] - 2026-06-09
+
 ### Security
 
 - **VS-R03 verdict-correctness (Cluster A+B).** Adversarial self-evaluation found that several verdict paths trusted attacker-/server-controlled signal as proof of defense, scoring a *successful* attack against the system-under-test as "blocked" — false negatives on the CRITICAL classes the harness exists to catch.
