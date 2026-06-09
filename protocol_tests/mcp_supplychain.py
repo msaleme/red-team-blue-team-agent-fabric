@@ -166,6 +166,22 @@ def resolve_binary_candidates(name: str, project_root: str | None,
     Each candidate is tagged with its source and whether its directory is
     world-writable (a shadowing risk).
     """
+    # An explicit path launcher (contains a separator, e.g. "/opt/x/server"
+    # or "./server") is invoked literally — resolve THAT path, not a $PATH
+    # search by basename, which would mischaracterize what actually runs.
+    if os.sep in name or (os.altsep and os.altsep in name):
+        target = name if os.path.isabs(name) else os.path.join(project_root or os.getcwd(), name)
+        if os.path.isfile(target) or os.path.islink(target):
+            directory = os.path.dirname(target)
+            try:
+                world_writable = bool(os.stat(directory).st_mode & 0o002)
+            except OSError:
+                world_writable = False
+            return [{"path": target, "source": "explicit path",
+                     "executable": os.access(target, os.X_OK),
+                     "dir_world_writable": world_writable}]
+        return []
+
     name = os.path.basename(name)
     search: list[tuple[str, str]] = []  # (directory, source-label)
 
@@ -274,7 +290,7 @@ class MCPSupplyChainTests:
                 "MCP-F-001", "Launcher Binary Resolution",
                 "framework_binary_resolution", "ASI06", Severity.HIGH.value))
             return
-        shadowed = []
+        flagged = []
         details_lines = []
         for s in self.servers:
             launcher = s.get("launcher")
@@ -289,22 +305,30 @@ class MCPSupplyChainTests:
             # dir while a later $PATH match also exists for the same name.
             later_path = [c for c in cands[1:] if c["source"] == "$PATH"]
             risky_first = first["dir_world_writable"] or first["source"] != "$PATH"
-            if len(cands) > 1 and risky_first and later_path:
-                shadowed.append(s["server_name"])
+            shadowing = len(cands) > 1 and risky_first and later_path
+            if shadowing:
+                flagged.append(s["server_name"])
                 details_lines.append(
                     f"{s['server_name']}: '{launcher}' resolves to {first['path']} "
                     f"({first['source']}, world_writable={first['dir_world_writable']}) "
                     f"SHADOWING {later_path[0]['path']}")
+            elif first["dir_world_writable"]:
+                # Even without a second candidate, a world-writable binary dir is
+                # tamperable — anyone can replace the binary before it runs.
+                flagged.append(s["server_name"])
+                details_lines.append(
+                    f"{s['server_name']}: '{launcher}' -> {first['path']} "
+                    f"({first['source']}) WORLD-WRITABLE DIR (tamperable)")
             else:
                 details_lines.append(
                     f"{s['server_name']}: '{launcher}' -> {first['path']} ({first['source']})")
-        passed = not shadowed
+        passed = not flagged
         self._record(MCPTestResult(
             test_id="MCP-F-001", name="Launcher Binary Resolution",
             category="framework_binary_resolution", owasp_asi="ASI06",
             severity=Severity.HIGH.value, passed=passed,
             details=("; ".join(details_lines) or "no launchers to resolve")
-                    + (f" | SHADOWED: {shadowed}" if shadowed else ""),
+                    + (f" | FLAGGED: {flagged}" if flagged else ""),
             mcp_method="N/A (static pre-flight)",
             elapsed_s=round(time.monotonic() - t0, 3)))
 

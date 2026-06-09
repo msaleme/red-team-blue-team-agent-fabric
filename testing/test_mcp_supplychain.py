@@ -161,3 +161,23 @@ def test_resolve_returns_precedence_order(tmp_path):
     assert len(cands) == 2
     assert cands[0]["source"].startswith("project")  # project-local resolves first
     assert cands[1]["source"] == "$PATH"
+
+
+def test_f001_explicit_path_resolved_directly(tmp_path):
+    # A path-form launcher must resolve to THAT path, not a $PATH basename search.
+    binp = tmp_path / "opt" / "server"
+    _make_exec(str(binp))
+    cands = resolve_binary_candidates(str(binp), None, "/nonexistent")
+    assert len(cands) == 1
+    assert cands[0]["path"] == str(binp)
+    assert cands[0]["source"] == "explicit path"
+
+
+def test_f001_world_writable_dir_flagged(tmp_path):
+    sysdir = tmp_path / "sys"
+    _make_exec(str(sysdir / "mybin"))
+    os.chmod(str(sysdir), 0o777)  # world-writable -> tamperable binary
+    suite = MCPSupplyChainTests(command="mybin", path_env=str(sysdir))
+    r = _result(suite.run_all(), "MCP-F-001")
+    assert r.passed is False
+    assert "WORLD-WRITABLE" in r.details.upper()
