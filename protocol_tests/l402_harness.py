@@ -99,6 +99,22 @@ class L402Challenge:
         return None
 
 
+def _rejected(resp: dict) -> bool:
+    """True only when the server actively rejected the attack (a non-200, sub-500 status).
+
+    A transport failure (status 0 / ``_error``) or a 5xx server fault is NOT a rejection:
+    the attack outcome was never observed, and a 5xx may itself be the attack succeeding
+    (e.g. a parser fault from a malformed-caveat payload). Scoring those as "rejected"
+    lets an unreachable or erroring server earn a perfect pass — the verdict inverts on
+    contact with the adversary (VS-R03 B1). Such responses are treated as observe-failure
+    (never PASS), which a ``False`` return here produces.
+    """
+    if not resp or resp.get("_error") or resp.get("status", 0) == 0:
+        return False
+    status = resp.get("status", 0)
+    return status != 200 and status < 500
+
+
 def _fake_preimage(length: int = 32) -> str:
     """Generate a random hex preimage (not derived from any real payment)."""
     return os.urandom(length).hex()
@@ -321,7 +337,7 @@ class L402SecurityTests:
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
             tested += 1
             # Server should reject (not 200 OK)
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -356,7 +372,7 @@ class L402SecurityTests:
 
         status = resp.get("status", 0)
         # Server must not grant access with an unpaid/fake preimage
-        passed = status != 200
+        passed = _rejected(resp)
 
         # Check for information leakage in error response
         body_lower = resp.get("body", "").lower()
@@ -416,7 +432,7 @@ class L402SecurityTests:
             fake_preimage = _fake_preimage()
             auth_header = f"L402 {tampered_mac}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -475,7 +491,7 @@ class L402SecurityTests:
             fake_preimage = _fake_preimage()
             auth_header = f"L402 {modified}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -532,7 +548,7 @@ class L402SecurityTests:
             fake_preimage = _fake_preimage()
             auth_header = f"L402 {stripped_mac}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -568,7 +584,7 @@ class L402SecurityTests:
         for preimage in fake_preimages:
             auth_header = f"L402 {mac}:{preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -620,8 +636,7 @@ class L402SecurityTests:
         resp = self.transport.get(self.PATH_RESOURCE, headers={"Authorization": auth_header})
 
         elapsed = time.monotonic() - t0
-        status = resp.get("status", 0)
-        rejected = status != 200
+        rejected = _rejected(resp)
 
         self._record(L402TestResult(
             test_id="L4-008",
@@ -676,7 +691,7 @@ class L402SecurityTests:
         for path in cross_paths:
             auth_header = f"L402 {challenge.macaroon}:{fake_preimage}"
             resp = self.transport.get(path, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -733,7 +748,7 @@ class L402SecurityTests:
             fake_preimage = _fake_preimage()
             auth_header = f"L402 {modified}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -775,7 +790,7 @@ class L402SecurityTests:
         rejected = 0
         for label, auth_value in incomplete_headers:
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_value})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -830,7 +845,7 @@ class L402SecurityTests:
 
         elapsed = time.monotonic() - t0
         status = resp.get("status", 0)
-        passed = status != 200
+        passed = _rejected(resp)
 
         self._record(L402TestResult(
             test_id="L4-012",
@@ -1000,7 +1015,7 @@ class L402SecurityTests:
             fake_preimage = _fake_preimage()
             auth_header = f"L402 {encoded}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1057,8 +1072,7 @@ class L402SecurityTests:
             fake_preimage = _fake_preimage()
             auth_header = f"L402 {modified}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            status = resp.get("status", 0)
-            if status != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1115,7 +1129,7 @@ class L402SecurityTests:
             fake_preimage = _fake_preimage()
             auth_header = f"L402 {modified}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1173,7 +1187,7 @@ class L402SecurityTests:
             fake_preimage = _fake_preimage()
             auth_header = f"L402 {modified}:{fake_preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1216,7 +1230,7 @@ class L402SecurityTests:
         for label, preimage in stale_state_tokens:
             auth_header = f"L402 {mac}:{preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1258,7 +1272,7 @@ class L402SecurityTests:
                 "Authorization": auth_header,
                 "X-Channel-State": "force_closing",
             })
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1296,7 +1310,7 @@ class L402SecurityTests:
         for label, preimage in htlc_variants:
             auth_header = f"L402 {mac}:{preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1353,7 +1367,7 @@ class L402SecurityTests:
         for label, preimage in correlation_variants:
             auth_header = f"L402 {challenge.macaroon}:{preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1394,7 +1408,7 @@ class L402SecurityTests:
         for label, preimage in length_variants:
             auth_header = f"L402 {mac}:{preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1491,7 +1505,7 @@ class L402SecurityTests:
         for label, preimage in payment_variants:
             auth_header = f"L402 {mac}:{preimage}"
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_header})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1541,7 +1555,7 @@ class L402SecurityTests:
 
         elapsed = time.monotonic() - t0
         status = resp.get("status", 0)
-        passed = status != 200
+        passed = _rejected(resp)
 
         self._record(L402TestResult(
             test_id="L4-026",
@@ -1579,7 +1593,7 @@ class L402SecurityTests:
         rejected = 0
         for label, headers in routing_variants:
             resp = self.transport.get(self.PATH_INDEX, headers=headers)
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1636,7 +1650,7 @@ class L402SecurityTests:
                 auth_header = f"L402 {src_challenge.macaroon}:{fake_preimage}"
                 resp = self.transport.get(tgt_path, headers={"Authorization": auth_header})
                 tested += 1
-                if resp.get("status", 0) != 200:
+                if _rejected(resp):
                     rejected += 1
 
         elapsed = time.monotonic() - t0
@@ -1811,7 +1825,7 @@ class L402SecurityTests:
         rejected = 0
         for label, auth_value in downgrade_variants:
             resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_value})
-            if resp.get("status", 0) != 200:
+            if _rejected(resp):
                 rejected += 1
 
         elapsed = time.monotonic() - t0

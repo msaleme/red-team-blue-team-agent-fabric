@@ -5,6 +5,15 @@ All notable changes to the Agent Security Harness will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- **VS-R03 verdict-correctness (Cluster A+B).** Adversarial self-evaluation found that several verdict paths trusted attacker-/server-controlled signal as proof of defense, scoring a *successful* attack against the system-under-test as "blocked" — false negatives on the CRITICAL classes the harness exists to catch.
+  - `mcp_harness.py`: added a transport trust boundary (`_strip_server_sentinels`) so a server cannot inject the harness's internal `_error`/`_status` control sentinels via its JSON body and forge a "blocked" verdict (VS-R03 A1). MCP-016 now scores leaked credential material as an SSRF hit even under a JSON-RPC error envelope, while a benign host echo stays blocked (VS-R03 A2).
+  - `l402_harness.py`: added a liveness gate (`_rejected`) used at every attack-rejection verdict — a transport failure (status 0 / `_error`) or 5xx server fault is observe-failure, never a "rejection." An unreachable or erroring server can no longer earn a perfect pass (VS-R03 B1). The DoS resilience tests (L4-029/030) keep their distinct 5xx handling.
+- Regression suite `testing/test_vsr03_verdict_correctness.py` (10 tests) asserts each false negative is now caught.
+
 ## [4.4.2] - 2026-05-24
 
 **Theme: Documentation hardening + citation infrastructure.** Docs-only release; no code changes; no test changes; test count unchanged at 470 across 32 modules. PyPI republish closes a 5-week cadence gap during a period of accelerated vendor releases in the agent-security space.
