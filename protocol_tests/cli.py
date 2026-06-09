@@ -171,6 +171,10 @@ HARNESSES = {
         "module": "protocol_tests.mcp_harness",
         "description": "MCP wire-protocol security tests (18 tests, JSON-RPC 2.0)",
     },
+    "mcp-supplychain": {
+        "module": "protocol_tests.mcp_supplychain",
+        "description": "MCP supply-chain / framework-layer pre-flight tests (4 tests, binary resolution + install scripts + pinning)",
+    },
     "a2a": {
         "module": "protocol_tests.a2a_harness",
         "description": "A2A wire-protocol security tests (13 tests, Agent Cards + tasks)",

@@ -3,14 +3,14 @@
 [![PyPI version](https://badge.fury.io/py/agent-security-harness.svg)](https://pypi.org/project/agent-security-harness/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/security%20tests-470-green.svg)](#three-layers-of-agent-decision-security)
+[![Tests](https://img.shields.io/badge/security%20tests-474-green.svg)](#three-layers-of-agent-decision-security)
 [![ClawScan](https://img.shields.io/badge/ClawScan-Benign-brightgreen)](https://clawhub.ai/msaleme/agent-security-harness)
 [![Static Analysis](https://img.shields.io/badge/Static%20Analysis-Benign-brightgreen)](https://clawhub.ai/msaleme/agent-security-harness)
 [![VirusTotal](https://img.shields.io/badge/VirusTotal-0%2F92_Clean-brightgreen)](https://www.virustotal.com/gui/url/37318967b56cd3cc1678972ebf0c53dbd37868b67ba3f6891447d53d51767cd2)
 
 **Even if an agent is properly authenticated and authorized, can it still be manipulated into unsafe or policy-violating behavior?**
 
-470 executable security tests across 32 modules. MCP + A2A + L402 + x402 wire-protocol testing. Decision-layer attack scenarios. One `pip install` away.
+474 executable security tests across 33 modules. MCP + A2A + L402 + x402 wire-protocol testing. Decision-layer attack scenarios. One `pip install` away.
 
 ```
 $ agent-security test mcp --url http://localhost:8080/mcp
@@ -72,7 +72,7 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 | **Research backing** | - | Cisco blog | - | Papers | **5 DOIs + 3 NIST submissions** |
 | **MCP server mode** | - | - | - | - | **Yes - invoke from any AI agent** |
 | **Statistical testing** | - | - | - | - | **Wilson CIs, multi-trial** |
-| **Total tests** | Pattern matching | YARA rules | Config checks | Model probes | **470 active tests** |
+| **Total tests** | Pattern matching | YARA rules | Config checks | Model probes | **474 active tests** |
 
 **Use both.** Scan with [Invariant MCP-Scan](https://github.com/invariantlabs-ai/mcp-scan) or [Cisco MCP Scanner](https://github.com/cisco-ai-defense/mcp-scanner) for static analysis. Test with this framework for active exploitation. They're complementary layers.
 
@@ -105,7 +105,7 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 | Resource | Link |
 |---|---|
 | Expanded Quick Start | [docs/QUICKSTART.md](docs/QUICKSTART.md) |
-| Full Test Inventory (470 tests) | [docs/TEST-INVENTORY.md](docs/TEST-INVENTORY.md) |
+| Full Test Inventory (474 tests) | [docs/TEST-INVENTORY.md](docs/TEST-INVENTORY.md) |
 | AIUC-1 Crosswalk | [docs/AIUC1-CROSSWALK.md](docs/AIUC1-CROSSWALK.md) |
 | Advanced Capabilities | [docs/ADVANCED.md](docs/ADVANCED.md) |
 | MCP Server | [docs/mcp-server.md](docs/mcp-server.md) |
@@ -118,7 +118,7 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 
 ## Roadmap
 
-**v3.10 -- Prove It to Auditors** ✅ Shipped. **v4.1 -- Compliance Evidence** ✅ Shipped. **v4.2 -- Incident-Tested** ✅ Shipped. **v4.3 -- Supply Chain + Corpus** ✅ Shipped. **v4.4 -- Accuracy + Infrastructure** ✅ Shipped. **v4.4.2 -- Docs Hardening + Citations** ✅ Shipped. 470 tests, 32 modules, SSP harness (8 tests), Decision Behavior Benchmark corpus (52 cases), HIDDEN_INSTRUCTION_PATTERN DRY extraction, dynamic test count, P0 bug fixes. **v5.0 -- Lock the Category** (H2 2026): benchmark corpus, schema standardization, longitudinal registry. Full details in [ROADMAP.md](ROADMAP.md).
+**v3.10 -- Prove It to Auditors** ✅ Shipped. **v4.1 -- Compliance Evidence** ✅ Shipped. **v4.2 -- Incident-Tested** ✅ Shipped. **v4.3 -- Supply Chain + Corpus** ✅ Shipped. **v4.4 -- Accuracy + Infrastructure** ✅ Shipped. **v4.4.2 -- Docs Hardening + Citations** ✅ Shipped. 474 tests, 33 modules, SSP harness (8 tests), Decision Behavior Benchmark corpus (52 cases), HIDDEN_INSTRUCTION_PATTERN DRY extraction, dynamic test count, P0 bug fixes. **v5.0 -- Lock the Category** (H2 2026): benchmark corpus, schema standardization, longitudinal registry. Full details in [ROADMAP.md](ROADMAP.md).
 
 ---
 
