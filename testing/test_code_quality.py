@@ -303,5 +303,28 @@ class TestReadmeCompleteness(unittest.TestCase):
         self.assertTrue("leak" in c or "response body" in c)
 
 
+class TestRegVersionConsistency(unittest.TestCase):
+    """Issue #5 (hardcoded version): CLI VERSION must track pyproject.toml, never a literal.
+
+    Regression guard for the 4.3.0-on-4.4.2 drift: `agent-security version` reported a stale
+    hardcoded string because cli.py did not use protocol_tests.version.get_harness_version().
+    """
+    def _pyproject_version(self):
+        with open(os.path.join(REPO_ROOT, "pyproject.toml")) as f:
+            m = re.search(r'^version\s*=\s*["\']([^"\']+)["\']', f.read(), re.M)
+        self.assertIsNotNone(m, "pyproject.toml must declare a version")
+        return m.group(1)
+    def test_cli_version_matches_pyproject(self):
+        import protocol_tests.cli as cli
+        self.assertEqual(cli.VERSION, self._pyproject_version())
+    def test_cli_version_not_hardcoded_literal(self):
+        with open(os.path.join(REPO_ROOT, "protocol_tests", "cli.py")) as f:
+            src = f.read()
+        self.assertNotRegex(
+            src, r'VERSION\s*=\s*["\']\d+\.\d+',
+            "cli.py VERSION must come from version.py, not a hardcoded literal (issue #5)",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

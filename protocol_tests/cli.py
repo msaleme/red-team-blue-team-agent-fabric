@@ -27,8 +27,11 @@ import sys
 import importlib
 from datetime import datetime, timezone
 
+from protocol_tests.version import get_harness_version
 
-VERSION = "4.3.0"
+
+# Single source of truth: pyproject.toml (via version.py), never hardcoded (issue #5)
+VERSION = get_harness_version()
 
 # ---------------------------------------------------------------------------
 # Simulate-mode helpers  (#152 — R31)
