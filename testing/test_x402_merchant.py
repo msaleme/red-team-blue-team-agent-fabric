@@ -133,3 +133,33 @@ def test_http_server_serves_402():
         assert body["accepts"][0]["payTo"] == PAY_TO
     finally:
         httpd.shutdown()
+
+
+# --- concurrency: replay guarantee holds under threads (Bugbot #217) --------
+
+def test_concurrent_same_nonce_settles_once():
+    # serve() is threaded; without a lock the check-then-add nonce dedup races
+    # and the same nonce can settle twice. Fire many threads at one nonce,
+    # gated by a barrier to maximize contention, and assert exactly one wins.
+    m = SyntheticMerchant(_req())
+    n = 50
+    barrier = threading.Barrier(n)
+    results = []
+    lock = threading.Lock()
+
+    def hit():
+        barrier.wait()
+        status, _ = m.handle("/paid", _payment(nonce="0xRACE", value="10000"))
+        with lock:
+            results.append(status)
+
+    threads = [threading.Thread(target=hit) for _ in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert results.count(200) == 1, f"exactly one settle expected, got {results.count(200)}"
+    assert results.count(402) == n - 1
+    assert sum(1 for s in m.settlements if s.success) == 1
+    assert m.total_settled == 10000

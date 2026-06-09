@@ -30,6 +30,7 @@ import base64
 import hashlib
 import json
 import sys
+import threading
 import urllib.request
 from dataclasses import dataclass, field, asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -160,9 +161,14 @@ class MockFacilitator(FacilitatorClient):
         self.fail_verify = fail_verify
         self._spent_nonces: set[str] = set()
         self.calls: list[tuple[str, str]] = []  # (op, nonce)
+        # serve() runs a ThreadingHTTPServer, so concurrent same-nonce requests
+        # can hit settle() at once. Guard the check-then-add nonce dedup (and the
+        # shared call log) so the EIP-3009 single-use guarantee holds under load.
+        self._lock = threading.Lock()
 
     def verify(self, payment, req):
-        self.calls.append(("verify", payment.nonce))
+        with self._lock:
+            self.calls.append(("verify", payment.nonce))
         if payment.decode_error:
             return SettleResult(False, reason=f"undecodable payment: {payment.decode_error}")
         if self.fail_verify:
@@ -173,11 +179,13 @@ class MockFacilitator(FacilitatorClient):
         return SettleResult(True, network=req.network)
 
     def settle(self, payment, req):
-        self.calls.append(("settle", payment.nonce))
-        if payment.nonce in self._spent_nonces:
-            # EIP-3009: an authorization nonce is single-use on-chain.
-            return SettleResult(False, reason="nonce already used (replay)", network=req.network)
-        self._spent_nonces.add(payment.nonce)
+        with self._lock:
+            self.calls.append(("settle", payment.nonce))
+            if payment.nonce in self._spent_nonces:
+                # EIP-3009: an authorization nonce is single-use on-chain.
+                return SettleResult(False, reason="nonce already used (replay)",
+                                    network=req.network)
+            self._spent_nonces.add(payment.nonce)  # atomic with the check above
         tx = "0x" + hashlib.sha256(
             f"{payment.nonce}:{payment.value}:{req.pay_to}".encode()).hexdigest()
         return SettleResult(True, tx_hash=tx, network=req.network)
