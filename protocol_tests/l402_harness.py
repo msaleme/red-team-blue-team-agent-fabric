@@ -218,6 +218,10 @@ class L402TestResult:
     request_sent: dict | None = None
     response_received: dict | None = None
     elapsed_s: float = 0.0
+    # N/A: a required precondition (e.g. an obtainable L402 challenge) was missing, so the
+    # attack could not be evaluated. Distinct from PASS — a missing precondition must not be
+    # scored as secure (VS-R03 D2). Excluded from both pass and fail counts.
+    not_evaluated: bool = False
     timestamp: str = ""
 
     def __post_init__(self):
@@ -245,7 +249,7 @@ class L402SecurityTests:
 
     def _record(self, result: L402TestResult):
         self.results.append(result)
-        status = "PASS \u2705" if result.passed else "FAIL \u274c"
+        status = "N/A \u2796" if result.not_evaluated else ("PASS \u2705" if result.passed else "FAIL \u274c")
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _get_challenge(self, path: str | None = None) -> L402Challenge | None:
@@ -619,8 +623,9 @@ class L402SecurityTests:
                 category="preimage_replay",
                 owasp_asi="ASI03",
                 severity=Severity.CRITICAL.value,
-                passed=True if (not challenge_a and not challenge_b) else False,
-                details="Could not obtain two distinct L402 challenges" if (challenge_a or challenge_b)
+                passed=False,
+                not_evaluated=True,
+                details="Could not obtain two distinct L402 challenges (N/A)" if (challenge_a or challenge_b)
                         else "Server does not return L402 challenges on tested paths (N/A)",
                 http_method="GET",
                 elapsed_s=round(time.monotonic() - t0, 3),
@@ -831,7 +836,8 @@ class L402SecurityTests:
                 category="payment_state_confusion",
                 owasp_asi="ASI03",
                 severity=Severity.MEDIUM.value,
-                passed=True,
+                passed=False,
+                not_evaluated=True,
                 details="No L402 challenge available to test race condition (N/A)",
                 http_method="GET",
                 elapsed_s=round(elapsed, 3),
@@ -1451,7 +1457,8 @@ class L402SecurityTests:
                 category="invoice_amount_manipulation",
                 owasp_asi="ASI09",
                 severity=Severity.MEDIUM.value,
-                passed=True,
+                passed=False,
+                not_evaluated=True,
                 details="No invoices returned to check consistency (N/A)",
                 http_method="GET",
                 elapsed_s=round(elapsed, 3),
@@ -1540,7 +1547,8 @@ class L402SecurityTests:
                 category="invoice_amount_manipulation",
                 owasp_asi="ASI03",
                 severity=Severity.HIGH.value,
-                passed=True,
+                passed=False,
+                not_evaluated=True,
                 details="No L402 challenge available (N/A)",
                 http_method="GET",
                 elapsed_s=round(elapsed, 3),
@@ -1632,8 +1640,9 @@ class L402SecurityTests:
                 category="routing_manipulation",
                 owasp_asi="ASI03",
                 severity=Severity.HIGH.value,
-                passed=True if len(challenges) == 0 else False,
-                details=f"Only {len(challenges)} challenge(s) obtained; need 2+ for cross-channel test",
+                passed=False,
+                not_evaluated=True,
+                details=f"Only {len(challenges)} challenge(s) obtained; need 2+ for cross-channel test (N/A)",
                 http_method="GET",
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -1738,7 +1747,12 @@ class L402SecurityTests:
                     "syntax error", "sql", "template", "root:", "etc/passwd",
                     "stack trace", "traceback",
                 ])
-                if status != 200 and no_injection:
+                # Safe handling = no injection evidence AND the payload did not fault the
+                # server. A clean 200 with no injection markers is safe handling, not a
+                # failure — the old `status != 200` requirement scored it unsafe (VS-R03 C3).
+                # A 5xx / transport error triggered by the payload is the DoS signal.
+                server_fault = bool(resp.get("_error")) or status == 0 or status >= 500
+                if no_injection and not server_fault:
                     safe_responses += 1
             except Exception:
                 safe_responses += 1  # Clean failure is acceptable
@@ -2079,7 +2093,8 @@ def generate_report(results: list[L402TestResult], output_path: str):
         "summary": {
             "total": len(results),
             "passed": sum(1 for r in results if r.passed),
-            "failed": sum(1 for r in results if not r.passed),
+            "failed": sum(1 for r in results if not r.passed and not r.not_evaluated),
+            "not_evaluated": sum(1 for r in results if r.not_evaluated),
         },
         "results": [asdict(r) for r in results],
     }
@@ -2130,7 +2145,7 @@ def main():
         if args.report:
             generate_report(results, args.report)
 
-        failed = sum(1 for r in results if not r.passed)
+        failed = sum(1 for r in results if not r.passed and not r.not_evaluated)
         sys.exit(1 if failed > 0 else 0)
 
 
@@ -2219,7 +2234,8 @@ def _run_statistical(
             "summary": {
                 "total": len(all_results),
                 "passed": sum(1 for r in all_results if r.passed),
-                "failed": sum(1 for r in all_results if not r.passed),
+                "failed": sum(1 for r in all_results if not r.passed and not r.not_evaluated),
+                "not_evaluated": sum(1 for r in all_results if r.not_evaluated),
             },
             "results": [asdict(r) for r in all_results],
         }
