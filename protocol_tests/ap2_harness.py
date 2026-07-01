@@ -217,9 +217,15 @@ class AP2Verifier:
         if jti in self._seen_jti:
             return VerifyOutcome(False, "payment mandate replay (jti seen before)")
         # 8. funding-instrument scope binding (Visa TAP / Mastercard Agentic Token).
+        #    A funding instrument MUST carry a scope that binds it to this
+        #    agent + merchant. Fail CLOSED: a missing/empty scope is rejected,
+        #    because an unscoped token would otherwise be usable by any agent
+        #    at any merchant.
         fi = payment.get("payment_instrument", {})
-        scope = fi.get("scope", {})
-        if scope:
+        if fi:
+            scope = fi.get("scope") or {}
+            if not scope:
+                return VerifyOutcome(False, "funding instrument missing required scope binding")
             if scope.get("agent") not in (None, payment.get("agent_id")):
                 return VerifyOutcome(False, "funding instrument not scoped to this agent")
             if scope.get("merchant") not in (None, cart.get("merchant")):
@@ -235,10 +241,18 @@ class AP2Verifier:
             self._seen_jti.add(jti)
         return VerifyOutcome(True, "payment mandate verified")
 
-    def credential_release_ok(self, payment: dict) -> bool:
-        """Payment credential/token MUST ONLY release upon a verified FINAL
-        Payment Mandate."""
-        return bool(payment.get("final")) and bool(payment.get("verified"))
+    def credential_release_ok(self, checkout: dict, payment: dict, now: int) -> bool:
+        """Payment credential/token MUST ONLY release upon a *verified* FINAL
+        Payment Mandate.
+
+        The gate re-runs full verification via :meth:`verify_payment` rather
+        than trusting a self-asserted ``verified`` flag on the payload — an
+        attacker controls the payload, so a ``{"final": True, "verified": True}``
+        forgery must not release a credential without passing real checks.
+        """
+        if not payment.get("final"):
+            return False
+        return self.verify_payment(checkout, payment, now).ok
 
 
 # ---------------------------------------------------------------------------
@@ -703,49 +717,73 @@ class AP2MandateTests:
 
         A tokenized card credential (Visa TAP / Mastercard Agentic Token) is
         scoped to a specific agent + merchant + consent policy. A Payment
-        Mandate whose funding token scope doesn't match MUST be rejected.
+        Mandate whose funding token scope doesn't match — OR omits the scope
+        binding entirely (fail-closed) — MUST be rejected.
         """
         t0 = time.monotonic()
         now = self._now()
         openm, checkout, payment = _valid_chain(now)
-        # Token scoped to a different merchant than the cart.
-        payment["payment_instrument"]["scope"]["merchant"] = "other_merchant"
-        v = AP2Verifier().verify_payment(checkout, payment, now)
+        # (a) Token scoped to a different merchant than the cart.
+        mismatched = dict(payment, jti="jti-scope-mismatch")
+        mismatched["payment_instrument"] = {
+            **payment["payment_instrument"],
+            "scope": {**payment["payment_instrument"]["scope"], "merchant": "other_merchant"},
+        }
+        v_mismatch = AP2Verifier().verify_payment(checkout, mismatched, now)
+        # (b) Token with the scope binding stripped entirely (unscoped token) —
+        #     must fail closed, not skip the check.
+        unscoped = dict(payment, jti="jti-scope-omitted")
+        unscoped["payment_instrument"] = {
+            k: val for k, val in payment["payment_instrument"].items() if k != "scope"
+        }
+        v_unscoped = AP2Verifier().verify_payment(checkout, unscoped, now)
+        model_pass = (
+            (not v_mismatch.ok and "scoped to this merchant" in v_mismatch.reason)
+            and (not v_unscoped.ok and "missing required scope" in v_unscoped.reason)
+        )
         self._finish(
             test_id="AP2-015", name="Funding-Instrument Scope Binding",
             category="funding_instrument", mandate="PaymentMandate",
             owasp="ASI03", stride="Elevation of Privilege", severity=Severity.CRITICAL.value,
             ref="AP2 + Visa TAP / Mastercard Agentic Token: token scoped to agent+merchant", normative="N",
-            model_pass=(not v.ok and "scoped to this merchant" in v.reason),
-            model_reason=(f"out-of-scope funding token rejected ({v.reason})" if not v.ok else
-                          "SCOPE MISMATCH — funding token used outside its agent/merchant scope"),
-            attack_payload={"payment_mandate": payment, "checkout_mandate": checkout}, t0=t0)
+            model_pass=model_pass,
+            model_reason=("out-of-scope and unscoped funding tokens both rejected" if model_pass else
+                          "SCOPE MISMATCH — funding token accepted outside (or without) its agent/merchant scope"),
+            attack_payload={"scope_mismatch": mismatched, "unscoped": unscoped,
+                            "checkout_mandate": checkout}, t0=t0)
 
     # -- AP2-016: premature credential release ----------------------------
 
     def test_ap2_016_premature_credential_release(self) -> None:
         """AP2-016: Credential released only on verified FINAL mandate (HIGH).
 
-        The payment credential/token MUST ONLY be released upon receipt and
-        verification of a FINAL Payment Mandate — not a draft/unverified one.
+        The payment credential/token MUST ONLY be released upon a FINAL
+        Payment Mandate that passes full verification — not a draft, and not a
+        forgery that merely *claims* ``verified: true`` on the payload.
         """
         t0 = time.monotonic()
         now = self._now()
         openm, checkout, payment = _valid_chain(now)
         draft = dict(payment, final=False, verified=False)
-        released_on_draft = AP2Verifier().credential_release_ok(draft)
-        released_on_final = AP2Verifier().credential_release_ok(payment)
-        model_pass = (not released_on_draft) and released_on_final
+        # Forgery: self-asserts final+verified but fails real verification
+        # (payee does not match the bound checkout merchant).
+        forged = dict(payment, jti="jti-forged-release", final=True, verified=True,
+                      payee={"id": "attacker_merchant"})
+        released_on_draft = AP2Verifier().credential_release_ok(checkout, draft, now)
+        released_on_forged = AP2Verifier().credential_release_ok(checkout, forged, now)
+        released_on_final = AP2Verifier().credential_release_ok(checkout, payment, now)
+        model_pass = (not released_on_draft) and (not released_on_forged) and released_on_final
         self._finish(
             test_id="AP2-016", name="Premature Credential Release",
             category="funding_instrument", mandate="PaymentMandate",
             owasp="ASI04", stride="Information Disclosure", severity=Severity.HIGH.value,
             ref="AP2: token released ONLY upon verified final Payment Mandate", normative="N",
             model_pass=model_pass,
-            model_reason=("credential withheld from draft mandate, released only on verified final"
+            model_reason=("credential withheld from draft and forged mandates, released only on verified final"
                           if model_pass else
-                          "PREMATURE RELEASE — credential released before a verified final mandate"),
-            attack_payload={"payment_mandate": draft, "checkout_mandate": checkout}, t0=t0)
+                          "PREMATURE RELEASE — credential released for a draft or a self-asserted-verified forgery"),
+            attack_payload={"draft_mandate": draft, "forged_mandate": forged,
+                            "checkout_mandate": checkout}, t0=t0)
 
     # -- AP2-017: vct mismatch --------------------------------------------
 

@@ -73,6 +73,7 @@ import argparse
 import base64
 import hashlib
 import hmac
+import ipaddress
 import json
 import sys
 import time
@@ -187,10 +188,25 @@ def _did_web_host(did: str) -> str:
     if not did.startswith("did:web:"):
         return ""
     rest = did[len("did:web:"):]
+    # A bracketed IPv6 literal ([::1]) contains ':' — take through the ']'.
+    if rest.startswith("["):
+        end = rest.find("]")
+        if end != -1:
+            return rest[:end + 1].replace("%3A", ":").lower()
     # did:web encodes path segments with ':'; the host is the first segment.
     host = rest.split(":", 1)[0]
     # A port is percent-encoded as %3A in did:web; strip for host matching.
     return host.replace("%3A", ":").lower()
+
+
+def _bare_host(host: str) -> str:
+    """Strip an optional port and IPv6 brackets to get the bare host/IP."""
+    h = host.strip()
+    if h.startswith("[") and "]" in h:            # [::1] or [::1]:8080
+        return h[1:h.index("]")]
+    if h.count(":") == 1:                          # ipv4:port or name:port
+        return h.rsplit(":", 1)[0]
+    return h                                        # bare IPv4 / hostname / bare IPv6
 
 
 def resolve_did_web_safe(did: str) -> tuple[bool, str]:
@@ -199,13 +215,31 @@ def resolve_did_web_safe(did: str) -> tuple[bool, str]:
     Returns (allowed, host). ``allowed`` is False when resolving the DID would
     fetch ``.well-known/did.json`` from a private, loopback or cloud-metadata
     endpoint (SSRF).
+
+    IP-literal hosts are classified with :mod:`ipaddress` rather than a
+    hand-maintained string list, so the *entire* RFC1918 ``172.16.0.0/12``
+    block (and IPv6 ULA/link-local) is refused — a string list inevitably
+    leaves gaps (e.g. 172.19–172.30). Named markers still catch metadata
+    hostnames (``metadata.google.internal``) and endpoints that are not
+    classified private by range (``100.100.100.200``).
     """
     host = _did_web_host(did)
     if not host:
         return (False, host)
+    bare = _bare_host(host)
+    # 1. Named / endpoint markers (metadata hostnames, specific endpoints).
     for marker in _PRIVATE_HOST_MARKERS:
-        if host == marker or host.startswith(marker) or marker in host:
+        if bare == marker or bare.startswith(marker) or marker in bare:
             return (False, host)
+    # 2. IP literals: refuse anything not globally routable.
+    try:
+        ip = ipaddress.ip_address(bare)
+    except ValueError:
+        return (True, host)                         # resolvable hostname, not an IP literal
+    if (ip.is_private or ip.is_loopback or ip.is_link_local
+            or ip.is_reserved or ip.is_unspecified or ip.is_multicast
+            or not ip.is_global):
+        return (False, host)
     return (True, host)
 
 
@@ -625,6 +659,11 @@ class X402FireblocksTests:
             "did:web:metadata.google.internal",
             "did:web:10.0.0.5",
             "did:web:100.100.100.200",
+            # mid-range RFC1918 172.16/12 hosts a partial string list misses
+            "did:web:172.20.0.10",
+            "did:web:172.30.255.254",
+            "did:web:192.168.1.1%3A8080",   # host:port form
+            "did:web:[::1]",                # IPv6 loopback
         ]
         blocked = [d for d in hostile_dids if not resolve_did_web_safe(d)[0]]
         legit_ok = resolve_did_web_safe("did:web:merchant.example.com")[0]
