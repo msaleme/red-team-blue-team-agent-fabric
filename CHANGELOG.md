@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.7.0] - 2026-07-01
+
+**Theme: merchant-journey layer (UCP/ACP).** Closes the last uncovered layer of
+the 4-layer agentic-payments stack. The harness was deep on settlement
+(x402/L402), solid on authorization (AP2) and comms (MCP/A2A), but had no
+coverage of the merchant-journey layer between comms and AP2. One new harness
+(`ucp_acp_harness.py`, 12 tests) brings the total to **520 across 36 modules**.
+
+- **UCP (Universal Commerce Protocol / Universal Cart)** — Shopify-led,
+  self-serve agent-profile registration, cross-merchant cart: profile
+  owner-key binding (UCP-001), cross-merchant line-item injection (UCP-002),
+  journey step-ordering / skip-consent (UCP-003), quote integrity (UCP-004),
+  cart-scope-vs-stated-intent (UCP-005), profile takeover/rebind (UCP-006).
+- **ACP (Agentic Commerce Protocol)** — OpenAI/Stripe delegated checkout:
+  checkout-session binding (ACP-001), SharedPaymentToken merchant scope
+  (ACP-002) and amount scope (ACP-003), order idempotency (ACP-004),
+  product-feed authenticity (ACP-005), session expiry (ACP-006).
+
+Stdlib-only, deterministic reference verifier (every check fails closed),
+`--simulate` differential + `--url` live mode behind the VS-R03 liveness gate.
+
 ## [4.6.0] - 2026-07-01
 
 **Theme: agentic-payments authorization + hardening layer.** Closes the middle-

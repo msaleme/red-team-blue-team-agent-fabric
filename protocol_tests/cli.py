@@ -198,6 +198,10 @@ HARNESSES = {
         "module": "protocol_tests.ap2_harness",
         "description": "AP2 mandate-chain conformance (17 tests, Intent/Cart/Payment mandate authorization, FIDO-governed)",
     },
+    "ucp-acp": {
+        "module": "protocol_tests.ucp_acp_harness",
+        "description": "UCP/ACP merchant-journey conformance (12 tests, agent-profile + cross-merchant cart + delegated checkout)",
+    },
     "enterprise": {
         "module": "protocol_tests.enterprise_adapters",
         "description": "Enterprise platform adapters (31 tests, 9 platforms)",
