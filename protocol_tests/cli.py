@@ -190,6 +190,14 @@ HARNESSES = {
         "module": "protocol_tests.x402_harness",
         "description": "x402 payment protocol security tests (52 tests, Coinbase/Stripe agent payments)",
     },
+    "x402-fireblocks": {
+        "module": "protocol_tests.x402_fireblocks_harness",
+        "description": "x402 Fireblocks security-extension conformance (17 tests, request integrity + spend governance + batch settlement)",
+    },
+    "ap2": {
+        "module": "protocol_tests.ap2_harness",
+        "description": "AP2 mandate-chain conformance (17 tests, Intent/Cart/Payment mandate authorization, FIDO-governed)",
+    },
     "enterprise": {
         "module": "protocol_tests.enterprise_adapters",
         "description": "Enterprise platform adapters (31 tests, 9 platforms)",

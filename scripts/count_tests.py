@@ -41,6 +41,8 @@ MODULE_NAMES = {
     "a2a_harness.py": "A2A Protocol",
     "l402_harness.py": "L402 Payment",
     "x402_harness.py": "x402 Payment",
+    "x402_fireblocks_harness.py": "x402 Fireblocks Extension",
+    "ap2_harness.py": "AP2 Mandate Chain",
     "framework_adapters.py": "Framework Adapters",
     "enterprise_adapters.py": "Enterprise Platforms (core)",
     "extended_enterprise_adapters.py": "Enterprise Platforms (extended)",

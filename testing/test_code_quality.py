@@ -20,6 +20,7 @@ class TestAllModulesImportable(unittest.TestCase):
         "protocol_tests.cli", "protocol_tests.statistical",
         "protocol_tests.mcp_harness", "protocol_tests.a2a_harness",
         "protocol_tests.l402_harness", "protocol_tests.x402_harness",
+        "protocol_tests.x402_fireblocks_harness", "protocol_tests.ap2_harness",
         "protocol_tests.framework_adapters", "protocol_tests.enterprise_adapters",
         "protocol_tests.extended_enterprise_adapters",
         "protocol_tests.gtg1002_simulation", "protocol_tests.advanced_attacks",
@@ -70,7 +71,7 @@ class TestRegX402(unittest.TestCase):
         self.assertIn("x402", HARNESSES)
     def test_harness_count(self):
         from protocol_tests.cli import HARNESSES
-        self.assertEqual(len(HARNESSES), 33)
+        self.assertEqual(len(HARNESSES), 35)
     def test_modules_exist(self):
         from protocol_tests.cli import HARNESSES
         for n, i in HARNESSES.items():
@@ -324,6 +325,148 @@ class TestRegVersionConsistency(unittest.TestCase):
             src, r'VERSION\s*=\s*["\']\d+\.\d+',
             "cli.py VERSION must come from version.py, not a hardcoded literal (issue #5)",
         )
+
+
+# ─── R33: Fireblocks x402 security-extension conformance ───
+
+class TestRegFireblocks(unittest.TestCase):
+    """Executable checks on the x402_fireblocks reference verifier (FB-001..017)."""
+
+    def test_registered(self):
+        from protocol_tests.cli import HARNESSES
+        self.assertIn("x402-fireblocks", HARNESSES)
+
+    def test_integrity_detects_recipient_tamper(self):
+        from protocol_tests.x402_fireblocks_harness import (
+            sign_integrity_envelope, verify_integrity)
+        accepts = [{"scheme": "exact", "payTo": "0xMerchant", "maxAmountRequired": "1000000"}]
+        env = sign_integrity_envelope(1, accepts, 1000, 2000)
+        # Untampered verifies.
+        ok, _ = verify_integrity(env, {"x402Version": 1, "accepts": accepts}, 1500)
+        self.assertTrue(ok)
+        # Recipient swap must break verification.
+        tampered = [dict(accepts[0], payTo="0xAttacker")]
+        bad, reason = verify_integrity(env, {"x402Version": 1, "accepts": tampered}, 1500)
+        self.assertFalse(bad, reason)
+
+    def test_integrity_freshness_window(self):
+        from protocol_tests.x402_fireblocks_harness import (
+            sign_integrity_envelope, verify_integrity)
+        accepts = [{"payTo": "0xM"}]
+        body = {"x402Version": 1, "accepts": accepts}
+        expired = sign_integrity_envelope(1, accepts, 100, 200)
+        self.assertFalse(verify_integrity(expired, body, 1000)[0])   # exp < now
+        future = sign_integrity_envelope(1, accepts, 100000, 200000)
+        self.assertFalse(verify_integrity(future, body, 1000)[0])    # iat > now+60
+
+    def test_require_integrity_downgrade(self):
+        from protocol_tests.x402_fireblocks_harness import verify_integrity
+        body = {"x402Version": 1, "accepts": []}
+        self.assertFalse(verify_integrity(None, body, 1000, require=True)[0])
+        self.assertTrue(verify_integrity(None, body, 1000, require=False)[0])
+
+    def test_did_web_ssrf_blocked(self):
+        from protocol_tests.x402_fireblocks_harness import resolve_did_web_safe
+        for hostile in ("did:web:169.254.169.254", "did:web:localhost",
+                        "did:web:10.0.0.1", "did:web:metadata.google.internal"):
+            self.assertFalse(resolve_did_web_safe(hostile)[0], hostile)
+        self.assertTrue(resolve_did_web_safe("did:web:merchant.example.com")[0])
+
+    def test_policy_engine_refusals(self):
+        from protocol_tests.x402_fireblocks_harness import PolicyEngine, SpendPolicy
+        eng = PolicyEngine(SpendPolicy(allowlist=frozenset({"0xM"}), per_tx_cap=1_000_000))
+        self.assertEqual(eng.evaluate("0xAttacker", 1, 0)[0], "refuse")      # allowlist
+        self.assertEqual(eng.evaluate("0xM", 9_000_000, 0)[0], "refuse")     # per-tx cap
+
+    def test_batch_voucher_monotonicity_and_binding(self):
+        from protocol_tests.x402_fireblocks_harness import BatchChannel
+        ch = BatchChannel(escrow=10_000_000, resource_hash="rh")
+        self.assertTrue(ch.redeem({"cumulative": 1_000_000, "nonce": "a",
+                                   "resource_hash": "rh", "expiry": 999}, 0)[0])
+        # Replay + non-monotonic + wrong resource + over-escrow all rejected.
+        self.assertFalse(ch.redeem({"cumulative": 1_000_000, "nonce": "a",
+                                    "resource_hash": "rh", "expiry": 999}, 0)[0])
+        self.assertFalse(ch.redeem({"cumulative": 2_000_000, "nonce": "b",
+                                    "resource_hash": "OTHER", "expiry": 999}, 0)[0])
+        self.assertFalse(ch.redeem({"cumulative": 99_000_000, "nonce": "c",
+                                    "resource_hash": "rh", "expiry": 999}, 0)[0])
+
+    def test_suite_all_pass_in_simulate(self):
+        from protocol_tests.x402_fireblocks_harness import X402FireblocksTests
+        results = X402FireblocksTests(simulate=True).run_all()
+        self.assertEqual(len(results), 17)
+        self.assertTrue(all(r.passed for r in results),
+                        [r.test_id for r in results if not r.passed])
+
+
+# ─── R34: AP2 mandate-chain conformance ───
+
+class TestRegAP2(unittest.TestCase):
+    """Executable checks on the ap2 reference verifier (AP2-001..017)."""
+
+    def test_registered(self):
+        from protocol_tests.cli import HARNESSES
+        self.assertIn("ap2", HARNESSES)
+
+    def test_valid_chain_verifies(self):
+        from protocol_tests.ap2_harness import _valid_chain, AP2Verifier
+        openm, checkout, payment = _valid_chain(1000)
+        v = AP2Verifier(latest_checkout_jwt=checkout["checkout_jwt"])
+        self.assertTrue(v.verify_checkout(openm, checkout, 1000).ok)
+        self.assertTrue(v.verify_payment(checkout, payment, 1000).ok)
+
+    def test_checkout_hash_tamper_rejected(self):
+        from protocol_tests.ap2_harness import _valid_chain, AP2Verifier
+        openm, checkout, _ = _valid_chain(1000)
+        checkout["checkout_jwt"]["total"] = 999999  # tamper, stale hash claim
+        v = AP2Verifier(latest_checkout_jwt=checkout["checkout_jwt"]).verify_checkout(openm, checkout, 1000)
+        self.assertFalse(v.ok)
+
+    def test_amount_cap_escalation_rejected(self):
+        from protocol_tests.ap2_harness import _valid_chain, AP2Verifier, canonical_hash
+        openm, checkout, _ = _valid_chain(1000)
+        checkout["cart"]["total"] = 10_000_000
+        checkout["checkout_jwt"]["total"] = 10_000_000
+        checkout["checkout_hash"] = canonical_hash(checkout["checkout_jwt"])
+        v = AP2Verifier(latest_checkout_jwt=checkout["checkout_jwt"]).verify_checkout(openm, checkout, 1000)
+        self.assertFalse(v.ok)
+        self.assertIn("cap", v.reason)
+
+    def test_unknown_constraint_fail_closed(self):
+        from protocol_tests.ap2_harness import _eval_constraint
+        ok, reason = _eval_constraint({"type": "totally.unknown"}, {"merchant": "m"})
+        self.assertFalse(ok)
+        self.assertIn("unknown", reason)
+
+    def test_chain_link_and_replay(self):
+        from protocol_tests.ap2_harness import _valid_chain, AP2Verifier
+        openm, checkout, payment = _valid_chain(1000)
+        # Unchained payment rejected.
+        bad = dict(payment, transaction_id="some-other-cart")
+        self.assertFalse(AP2Verifier().verify_payment(checkout, bad, 1000).ok)
+        # Replay of same jti rejected.
+        v = AP2Verifier()
+        self.assertTrue(v.verify_payment(checkout, payment, 1000).ok)
+        self.assertFalse(v.verify_payment(checkout, payment, 1000).ok)
+
+    def test_deterministic_signature_rejected(self):
+        from protocol_tests.ap2_harness import _valid_chain, AP2Verifier
+        openm, checkout, payment = _valid_chain(1000)
+        payment["sig_scheme"] = "ed25519"
+        self.assertFalse(AP2Verifier().verify_payment(checkout, payment, 1000).ok)
+
+    def test_funding_scope_binding(self):
+        from protocol_tests.ap2_harness import _valid_chain, AP2Verifier
+        openm, checkout, payment = _valid_chain(1000)
+        payment["payment_instrument"]["scope"]["merchant"] = "wrong_merchant"
+        self.assertFalse(AP2Verifier().verify_payment(checkout, payment, 1000).ok)
+
+    def test_suite_all_pass_in_simulate(self):
+        from protocol_tests.ap2_harness import AP2MandateTests
+        results = AP2MandateTests(simulate=True).run_all()
+        self.assertEqual(len(results), 17)
+        self.assertTrue(all(r.passed for r in results),
+                        [r.test_id for r in results if not r.passed])
 
 
 if __name__ == "__main__":

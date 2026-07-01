@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.6.0] - 2026-07-01
+
+**Theme: agentic-payments authorization + hardening layer.** Closes the middle-
+layer coverage gap — the harness was deep on settlement (x402/L402) and comms
+(MCP/A2A) but had no coverage of the authorization/trust layer or of the new
+x402 hardening extensions. Two new harnesses (34 tests) bring the total to
+**508 across 35 modules**. Both are stdlib-only and ship a deterministic
+reference verifier so `--simulate` exercises the real differential logic; live
+mode (`--url`) folds in a target's observed behaviour behind a VS-R03 liveness
+gate.
+
+### Added
+
+- **`x402_fireblocks_harness.py`** (harness `x402-fireblocks`, FB-001..FB-017) —
+  conformance/differential suite for the Fireblocks x402 security extension
+  (Fireblocks joined the Linux Foundation x402 Foundation, 2026). Grounded in
+  the `fireblocks/x402-agent` reference implementation. Covers: payment-
+  instruction integrity (canonical `SHA-256(JCS({x402Version,accepts}))` signed
+  challenge, signed-field boundary, freshness window, REQUIRE_INTEGRITY
+  downgrade), did:web resolution SSRF, Policy-Engine spend governance
+  (destination allowlist, per-tx cap, velocity/window budget, approval quorum),
+  and x402 V2 batch-settlement voucher abuse (cumulative monotonicity + nonce
+  replay, resource-hash binding, expiry, escrow over-redemption).
+- **`ap2_harness.py`** (harness `ap2`, AP2-001..AP2-017) — AP2 mandate-chain
+  conformance for the FIDO-governed v0.2 protocol. Grounded in the
+  `google-agentic-commerce/AP2` canonical spec files. Covers: checkout_hash
+  integrity, stale/cross-session cart, Intent→Cart scope escalation (amount
+  cap, merchant allowlist, SKU constraint, unknown-constraint fail-closed),
+  mandate chain link (`transaction_id == checkout_hash`), open-mandate
+  substitution (`sd_hash`), agent-key forgery (`cnf`), missing user signature,
+  payment replay (`jti`), expiry, double-spend, deterministic-signature
+  rejection (must be ECDSA not Ed25519), funding-instrument scope binding
+  (Visa Trusted Agent Protocol / Mastercard Agentic Tokens), premature
+  credential release, and exact `vct` matching.
+- Regression coverage in `testing/test_code_quality.py`: both modules added to
+  the importability set, harness-count guard 33→35, plus executable checks that
+  call each reference verifier directly (tamper→reject, expiry→reject, scope/
+  allowlist→refuse, constraint fail-closed, monotonicity/replay).
+- Evaluation reports `testing/CRITICAL_EVALUATION_R33_2026-07-01.md` (Fireblocks)
+  and `testing/CRITICAL_EVALUATION_R34_2026-07-01.md` (AP2).
+
+### Changed
+
+- Test count 474 → **508**; module count 33 → **35**. Updated across
+  `pyproject.toml`, README badge/intro/comparison, `docs/TEST-INVENTORY.md`,
+  `scripts/count_tests.py` labels, and the CLI `HARNESSES` registry.
+
 ## [4.5.0] - 2026-06-09
 
 ### Security

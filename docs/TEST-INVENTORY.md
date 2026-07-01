@@ -1,6 +1,31 @@
 # Test Inventory
 
-**474 security tests across 33 modules** (verified by `scripts/count_tests.py`)
+**508 security tests across 35 modules** (verified by `scripts/count_tests.py`)
+
+---
+
+## Agentic-Payments Layer Coverage
+
+The harness spans the agentic-payments stack from settlement up into the
+authorization/trust layer:
+
+| Layer | Module | Tests | IDs |
+|---|---|---|---|
+| Settlement | `x402_harness.py` | 52 | X4-001..X4-052 |
+| Settlement | `l402_harness.py` | 33 | L4-001..L4-033 |
+| Settlement hardening | `x402_fireblocks_harness.py` | 17 | FB-001..FB-017 |
+| Authorization/trust | `ap2_harness.py` | 17 | AP2-001..AP2-017 |
+
+- **`x402_fireblocks_harness.py`** — conformance/differential suite for the
+  Fireblocks x402 security extension: payment-instruction integrity (ES256 /
+  did:web signed challenge), did:web SSRF, Policy-Engine spend governance
+  (allowlist, per-tx cap, velocity, approval quorum), and x402 V2 batch-
+  settlement voucher abuse (monotonicity, resource-hash binding, escrow bound).
+- **`ap2_harness.py`** — AP2 mandate-chain conformance (FIDO-governed v0.2):
+  Intent/Cart/Payment mandate hash-chaining, Intent→Cart scope escalation,
+  constraint fail-closed, agent-key forgery, replay/double-spend, deterministic-
+  signature rejection, and funding-instrument scope binding (Visa TAP /
+  Mastercard Agentic Tokens).
 
 ---
 
