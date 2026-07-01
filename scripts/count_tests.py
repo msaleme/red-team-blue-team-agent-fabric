@@ -63,6 +63,7 @@ MODULE_NAMES = {
     "crewai_cve_harness.py": "CrewAI CVE Reproduction",
     "multi_agent_harness.py": "Multi-Agent Interaction",
     "mcp_supplychain.py": "MCP Supply-Chain",
+    "ucp_acp_harness.py": "UCP/ACP Merchant Journey",
 }
 
 
