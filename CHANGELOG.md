@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.8.0] - 2026-07-02
+
+**Theme: card-network funding instrument (Visa TAP / Mastercard Agentic Tokens).**
+Promotes the funding-instrument checks that were a single dimension of the AP2
+harness (AP2-015) into a first-class module. One new harness
+(`card_token_harness.py`, 12 tests) brings the total to **532 across 37
+modules** and completes the depth build under the authorization/trust layer.
+
+- **CTK-001..012** — a tokenized card credential (Visa Trusted Agent Protocol /
+  Mastercard Agentic Tokens) is verified for: agent holder-key binding, merchant
+  scope, per-transaction amount cap, cumulative velocity cap, dynamic-cryptogram
+  freshness (counter replay), cryptogram-over-amount binding (re-pricing),
+  token expiry, revocation/suspension ("identify and revoke"), consent-policy
+  binding, channel/domain binding, PAN de-tokenization protection, and
+  cross-network token substitution.
+
+Stdlib-only, deterministic reference verifier (every check fails closed),
+`--simulate` differential + `--url` live mode behind the VS-R03 liveness gate.
+AP2 answers "is this agent authorized to pay for this cart"; the card token
+answers "is this funding credential valid, unrevoked, fresh, and bound to this
+agent/merchant/amount/channel" — they compose.
+
 ## [4.7.0] - 2026-07-01
 
 **Theme: merchant-journey layer (UCP/ACP).** Closes the last uncovered layer of
