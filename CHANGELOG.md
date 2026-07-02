@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.8.1] - 2026-07-02
+
+**Fix:** `CardTokenVerifier.authorize` treated boolean amounts as integers
+(`bool` is an `int` subclass in Python), so `amount=True` read as a charge of 1.
+Amounts must now be real positive integers; CTK-003 adds a boolean-amount case.
+Reference-verifier hardening only — no test-count or API change (532/37).
+
 ## [4.8.0] - 2026-07-02
 
 **Theme: card-network funding instrument (Visa TAP / Mastercard Agentic Tokens).**
