@@ -202,6 +202,10 @@ HARNESSES = {
         "module": "protocol_tests.ucp_acp_harness",
         "description": "UCP/ACP merchant-journey conformance (12 tests, agent-profile + cross-merchant cart + delegated checkout)",
     },
+    "card-token": {
+        "module": "protocol_tests.card_token_harness",
+        "description": "Card-network agentic-token conformance (12 tests, Visa TAP / Mastercard Agentic Tokens funding instrument)",
+    },
     "enterprise": {
         "module": "protocol_tests.enterprise_adapters",
         "description": "Enterprise platform adapters (31 tests, 9 platforms)",

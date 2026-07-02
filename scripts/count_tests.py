@@ -64,6 +64,7 @@ MODULE_NAMES = {
     "multi_agent_harness.py": "Multi-Agent Interaction",
     "mcp_supplychain.py": "MCP Supply-Chain",
     "ucp_acp_harness.py": "UCP/ACP Merchant Journey",
+    "card_token_harness.py": "Card-Network Agentic Tokens",
 }
 
 
