@@ -123,16 +123,18 @@ class CardTokenVerifier:
         if token.get("exp", 1 << 62) < now:
             return VerifyOutcome(False, "token expired")
         # 3. Holder-key binding: only the bound agent may present the token.
-        if txn.get("presenter_kid") != token.get("holder_kid"):
+        #    Fail closed: the token MUST declare a holder key (a missing binding
+        #    on both sides is a rejection, not a None==None pass).
+        if not token.get("holder_kid") or txn.get("presenter_kid") != token.get("holder_kid"):
             return VerifyOutcome(False, "presenter key != bound holder key (agent binding)")
         # 4. Network / BIN substitution: token network MUST match the transaction.
-        if txn.get("network") != token.get("network"):
+        if not token.get("network") or txn.get("network") != token.get("network"):
             return VerifyOutcome(False, "token network mismatch (cross-network substitution)")
         # 5. Channel binding: the token is restricted to its issued channel.
-        if txn.get("channel") != token.get("channel"):
+        if not token.get("channel") or txn.get("channel") != token.get("channel"):
             return VerifyOutcome(False, f"channel '{txn.get('channel')}' not permitted for this token")
         # 6. Merchant scope.
-        if txn.get("merchant") != token.get("merchant_scope"):
+        if not token.get("merchant_scope") or txn.get("merchant") != token.get("merchant_scope"):
             return VerifyOutcome(False, "token merchant scope mismatch")
         # 7. Consent-policy binding (category + recurring).
         policy = token.get("consent_policy", {})
@@ -141,8 +143,12 @@ class CardTokenVerifier:
             return VerifyOutcome(False, f"category '{txn.get('category')}' outside token consent policy")
         if txn.get("recurring") and not policy.get("recurring", False):
             return VerifyOutcome(False, "recurring charge not permitted by consent policy")
-        # 8. Per-transaction amount cap.
+        # 8. Amount bounds. Fail closed on a non-positive amount: a negative
+        #    charge would pass an upper-bound-only cap AND (via spent += amount)
+        #    refund velocity budget, so bound BOTH ends.
         amount = txn.get("amount", 0)
+        if not isinstance(amount, int) or amount <= 0:
+            return VerifyOutcome(False, "non-positive transaction amount")
         if amount > token.get("max_amount", 0):
             return VerifyOutcome(
                 False, f"charge {amount} exceeds per-transaction cap {token.get('max_amount')}")
@@ -314,17 +320,24 @@ class CardTokenTests:
         t0 = time.monotonic()
         now = self._now()
         token, txn = _valid_token(now)
-        txn["presenter_kid"] = "attacker-key-9"
-        v = CardTokenVerifier().authorize(token, txn, now)
+        # (a) presented by a different agent
+        wrong = dict(txn, presenter_kid="attacker-key-9")
+        v_wrong = CardTokenVerifier().authorize(token, wrong, now)
+        # (b) binding omitted on BOTH sides — must fail closed, not None==None pass
+        unbound_token = dict(token, holder_kid=None)
+        unbound_txn = dict(txn, presenter_kid=None)
+        v_unbound = CardTokenVerifier().authorize(unbound_token, unbound_txn, now)
+        model_pass = ((not v_wrong.ok and "holder key" in v_wrong.reason)
+                      and (not v_unbound.ok and "holder key" in v_unbound.reason))
         self._finish(
             test_id="CTK-001", name="Agent Holder-Key Binding",
             category="binding", network="visa-tap/mc-agentic",
             owasp="ASI03", stride="Spoofing", severity=Severity.HIGH.value,
             ref="Visa TAP / MC Agentic Token: credential bound to a specific agent", normative="N",
-            model_pass=(not v.ok and "holder key" in v.reason),
-            model_reason=(f"wrong-agent presentation rejected ({v.reason})" if not v.ok else
-                          "TOKEN THEFT — a token was authorized for a non-bound agent"),
-            attack_payload={"token": token, "transaction": txn}, t0=t0)
+            model_pass=model_pass,
+            model_reason=("wrong-agent and unbound-holder presentations both rejected" if model_pass else
+                          "TOKEN THEFT — a token was authorized for a non-bound / unbound agent"),
+            attack_payload={"token": token, "transaction": wrong}, t0=t0)
 
     # -- CTK-002: merchant scope ------------------------------------------
 
@@ -351,18 +364,25 @@ class CardTokenTests:
         """CTK-003: Charge over the per-transaction cap rejected (HIGH)."""
         t0 = time.monotonic()
         now = self._now()
-        token, txn = _valid_token(now)
-        txn = _txn(token, amount=999999, counter=1)  # over the 20000 cap
-        v = CardTokenVerifier().authorize(token, txn, now)
+        token, _ = _valid_token(now)
+        # (a) over the per-transaction cap
+        over = _txn(token, amount=999999, counter=1)  # over the 20000 cap
+        v_over = CardTokenVerifier().authorize(token, over, now)
+        # (b) negative amount — must fail closed (upper-bound-only cap would pass
+        #     it, and spent += amount would refund velocity budget)
+        neg = _txn(token, amount=-5000, counter=1)
+        v_neg = CardTokenVerifier().authorize(token, neg, now)
+        model_pass = ((not v_over.ok and "per-transaction cap" in v_over.reason)
+                      and (not v_neg.ok and "non-positive" in v_neg.reason))
         self._finish(
             test_id="CTK-003", name="Per-Transaction Amount Cap",
             category="scope", network="visa-tap/mc-agentic",
             owasp="ASI03", stride="Elevation of Privilege", severity=Severity.HIGH.value,
             ref="Visa TAP / MC Agentic Token: per-transaction amount envelope", normative="N",
-            model_pass=(not v.ok and "per-transaction cap" in v.reason),
-            model_reason=(f"over-cap charge rejected ({v.reason})" if not v.ok else
-                          "OVERCHARGE — a charge above the per-transaction cap was authorized"),
-            attack_payload={"token": token, "transaction": txn}, t0=t0)
+            model_pass=model_pass,
+            model_reason=("over-cap and non-positive charges both rejected" if model_pass else
+                          "OVERCHARGE — a charge above the cap or a negative amount was authorized"),
+            attack_payload={"token": token, "transaction": over}, t0=t0)
 
     # -- CTK-004: cumulative velocity cap ---------------------------------
 
