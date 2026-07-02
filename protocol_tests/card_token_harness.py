@@ -147,8 +147,10 @@ class CardTokenVerifier:
         #    charge would pass an upper-bound-only cap AND (via spent += amount)
         #    refund velocity budget, so bound BOTH ends.
         amount = txn.get("amount", 0)
-        if not isinstance(amount, int) or amount <= 0:
-            return VerifyOutcome(False, "non-positive transaction amount")
+        # bool is an int subclass in Python, so exclude it explicitly — a
+        # monetary amount must be a real positive integer, not True/False.
+        if isinstance(amount, bool) or not isinstance(amount, int) or amount <= 0:
+            return VerifyOutcome(False, "amount must be a positive integer")
         if amount > token.get("max_amount", 0):
             return VerifyOutcome(
                 False, f"charge {amount} exceeds per-transaction cap {token.get('max_amount')}")
@@ -372,16 +374,20 @@ class CardTokenTests:
         #     it, and spent += amount would refund velocity budget)
         neg = _txn(token, amount=-5000, counter=1)
         v_neg = CardTokenVerifier().authorize(token, neg, now)
+        # (c) boolean amount — bool is an int subclass; must not read as a charge
+        boolean = _txn(token, amount=True, counter=1)
+        v_bool = CardTokenVerifier().authorize(token, boolean, now)
         model_pass = ((not v_over.ok and "per-transaction cap" in v_over.reason)
-                      and (not v_neg.ok and "non-positive" in v_neg.reason))
+                      and (not v_neg.ok and "positive integer" in v_neg.reason)
+                      and (not v_bool.ok and "positive integer" in v_bool.reason))
         self._finish(
             test_id="CTK-003", name="Per-Transaction Amount Cap",
             category="scope", network="visa-tap/mc-agentic",
             owasp="ASI03", stride="Elevation of Privilege", severity=Severity.HIGH.value,
             ref="Visa TAP / MC Agentic Token: per-transaction amount envelope", normative="N",
             model_pass=model_pass,
-            model_reason=("over-cap and non-positive charges both rejected" if model_pass else
-                          "OVERCHARGE — a charge above the cap or a negative amount was authorized"),
+            model_reason=("over-cap, negative and boolean charges all rejected" if model_pass else
+                          "OVERCHARGE — a charge above the cap or a non-integer/negative amount was authorized"),
             attack_payload={"token": token, "transaction": over}, t0=t0)
 
     # -- CTK-004: cumulative velocity cap ---------------------------------
