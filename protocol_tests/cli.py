@@ -206,6 +206,10 @@ HARNESSES = {
         "module": "protocol_tests.card_token_harness",
         "description": "Card-network agentic-token conformance (12 tests, Visa TAP / Mastercard Agentic Tokens funding instrument)",
     },
+    "settlement-finality": {
+        "module": "protocol_tests.settlement_finality_harness",
+        "description": "Denial-of-settlement / finality conformance (8 tests, release-before-finality, reorg, withheld-settlement liveness)",
+    },
     "enterprise": {
         "module": "protocol_tests.enterprise_adapters",
         "description": "Enterprise platform adapters (31 tests, 9 platforms)",
