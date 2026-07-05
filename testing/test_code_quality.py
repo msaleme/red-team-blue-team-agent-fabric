@@ -22,6 +22,7 @@ class TestAllModulesImportable(unittest.TestCase):
         "protocol_tests.l402_harness", "protocol_tests.x402_harness",
         "protocol_tests.x402_fireblocks_harness", "protocol_tests.ap2_harness",
         "protocol_tests.ucp_acp_harness", "protocol_tests.card_token_harness",
+        "protocol_tests.settlement_finality_harness",
         "protocol_tests.framework_adapters", "protocol_tests.enterprise_adapters",
         "protocol_tests.extended_enterprise_adapters",
         "protocol_tests.gtg1002_simulation", "protocol_tests.advanced_attacks",
@@ -72,7 +73,7 @@ class TestRegX402(unittest.TestCase):
         self.assertIn("x402", HARNESSES)
     def test_harness_count(self):
         from protocol_tests.cli import HARNESSES
-        self.assertEqual(len(HARNESSES), 37)
+        self.assertEqual(len(HARNESSES), 38)
     def test_modules_exist(self):
         from protocol_tests.cli import HARNESSES
         for n, i in HARNESSES.items():

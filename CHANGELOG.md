@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.9.0] - 2026-07-05
+
+**Theme: denial-of-settlement / settlement-finality (liveness).** Closes the
+gap named in Discussion #231 and by the ACM SIGOPS ATC '26 analysis
+"Free-Riding the Agentic Web" (arXiv:2605.30998): three of its four x402 attack
+primitives were already covered, but **denial of settlement** — consuming the
+resource while withholding or delaying finality — is a *liveness* attack with a
+different shape than a tamper->reject differential, so it was an honest untested
+gap. One new harness (`settlement_finality_harness.py`, 8 tests) brings the total
+to **540 across 38 modules**.
+
+- **DSET-001..008** — a settlement-finality verifier is checked for:
+  release-before-finality (broadcast != final), insufficient confirmations,
+  reorg/reverted-settlement revocation, finality-deadline (withheld settlement),
+  self-asserted finality vs an authentic receipt, escrow atomicity, grant
+  idempotency (double-consume across the window), and post-grant revocation.
+
+The question under test: *what is the authoritative finality point before the
+resource is released?* Stdlib-only, deterministic reference verifier (every check
+fails closed), `--simulate` differential + `--url` live mode behind the VS-R03
+liveness gate.
+
 ## [4.8.1] - 2026-07-02
 
 **Fix:** `CardTokenVerifier.authorize` treated boolean amounts as integers
