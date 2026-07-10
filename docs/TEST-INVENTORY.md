@@ -179,7 +179,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 | **GTG-1002 APT Simulation** | 17 | Full Campaign | First documented AI-orchestrated cyber espionage |
 | **Advanced Attacks** | 10 | Multi-step | Polymorphic, stateful, multi-domain attack chains |
 | **Over-Refusal** | 25 | All protocols | False positive rate testing: legitimate requests that should NOT be blocked |
-| **Provenance & Attestation** | 15 | Supply Chain | Fake provenance, spoofed attestation, marketplace integrity ([CVE-2026-25253](https://nvd.nist.gov/vuln/detail/CVE-2026-25253)) |
+| **Provenance & Attestation** | 15 | Supply Chain | Fake provenance, spoofed attestation, marketplace integrity (Invariant Labs Tool Poisoning research, 2025) |
 | **Jailbreak** | 25 | Model/Agent | DAN variants, token smuggling, authority impersonation, persistence |
 | **Return Channel** | 8 | Output/Context | Return channel poisoning: output injection, ANSI escape, context overflow, encoded smuggling, structured data poisoning |
 | **Identity & Authorization** | 18 | NIST NCCoE | All 6 focus areas from NIST agent identity standards |
@@ -187,6 +187,6 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 | **Harmful Output** | 10 | A2A JSON-RPC | Toxicity, bias, scope violations, deception (AIUC-1 C003/C004) |
 | **CBRN Prevention** | 8 | A2A JSON-RPC | Chemical/biological/radiological/nuclear content safeguards (AIUC-1 F002) |
 | **Incident Response** | 8 | A2A JSON-RPC | Alert triggering, kill switch, log completeness, recovery (AIUC-1 E001-E003) |
-| **[CVE-2026-25253](https://nvd.nist.gov/vuln/detail/CVE-2026-25253) Reproduction** | 8 | MCP Supply Chain | Nested schema injection, fork fingerprinting, marketplace contamination, encoded payload detection |
+| **MCP Tool Poisoning Reproduction** | 8 | MCP Supply Chain | Nested schema injection, fork fingerprinting, marketplace contamination, encoded payload detection (Invariant Labs Tool Poisoning, 2025; ClawHub RFC #99) |
 | **AIUC-1 Compliance** | 12 | Agent Safety | Incident response, CBRN prevention, harmful content, scope creep, authority impersonation |
 | **Cloud Agent Platforms** | 25 | Platform APIs | AWS Bedrock, Azure AI Agent Service, Google Vertex, Salesforce Agentforce, IBM watsonx |

@@ -55,7 +55,7 @@ jobs:
           import protocol_tests.harmful_output_harness
           import protocol_tests.cbrn_harness
           import protocol_tests.incident_response_harness
-          import protocol_tests.cve_2026_25253_harness
+          import protocol_tests.mcp_tool_poisoning_harness
           import protocol_tests.aiuc1_compliance_harness
           import protocol_tests.cloud_agent_harness
           import protocol_tests.statistical
@@ -94,7 +94,7 @@ jobs:
           agent-security list identity
           agent-security list gtg1002
           agent-security list advanced
-          agent-security list cve-2026-25253
+          agent-security list mcp-tool-poisoning
           agent-security list aiuc1
           agent-security list cloud-agents
 

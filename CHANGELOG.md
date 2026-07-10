@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.9.1] - 2026-07-10
+
+### Fixed
+
+- Corrected a CVE misattribution: the MCP tool-poisoning suite was incorrectly
+  anchored to CVE-2026-25253, which is actually an unrelated OpenClaw WebSocket
+  vulnerability (OpenClaw before 2026.1.29 auto-connects to a gatewayUrl taken
+  from a query string without prompting). Re-anchored the suite to the Invariant
+  Labs "Tool Poisoning Attacks" research (2025) and ClawHub RFC #99; removed
+  inaccurate statistics (fabricated CVSS score/vector, publication date,
+  "135K+ MCP server instances", "12% of a ~2,800-tool marketplace", and
+  fabricated media coverage). Renamed the module
+  `cve_2026_25253_harness.py` → `mcp_tool_poisoning_harness.py` and the CLI
+  harness id `cve-2026-25253` → `mcp-tool-poisoning`. Test IDs CVE-001..CVE-010
+  are unchanged; CVE-009/010 still map to the real CVE-2026-35625 and
+  CVE-2026-35629. The 341-skill / 12% figure is now attributed to its real
+  source (ClawHub RFC #99) as a configurable detection threshold, not a
+  marketplace measurement. Related real MCP supply-chain CVEs (CVE-2025-54136,
+  CVE-2025-49596) are cited with accurate descriptions.
+
 ## [4.9.0] - 2026-07-05
 
 **Theme: denial-of-settlement / settlement-finality (liveness).** Closes the
@@ -155,7 +175,7 @@ gate.
 
 - `docs/ADVANCED.md` GTG-1002 table: column headers reframed from `Real GTG-1002 Activity` / `What We Test` to `Adversary behavior we probe for` / `Detection probes the harness sends`. Cell content reworded from active to defensive voice ("Probes detection of X" rather than "User data exfiltration") (f719af9).
 - `docs/ADVANCED.md` added top-of-section defensive framing paragraph and reading guide above the GTG-1002 table (f719af9).
-- `docs/TEST-INVENTORY.md` anchored both CVE-2026-25253 references with inline NVD links (f719af9).
+- `docs/TEST-INVENTORY.md` anchored both MCP supply-chain references with inline NVD links (f719af9). *(Note: the CVE-2026-25253 anchor used here was later corrected — see 4.9.1.)*
 - `SKILL.md` telemetry section made explicit: opt-IN, disabled by default, no outbound calls beyond the test target; cross-link to `docs/PRIVACY.md` (95b55ca).
 - `SKILL.md` MCP server example corrected from the incorrect `agent-security serve` to the real `python -m mcp_server` invocation; default to stdio (no network surface); HTTP-transport hardening documented (`--api-key` bearer auth, localhost binding, container egress limits, privileged-tool framing) (95b55ca).
 
@@ -352,7 +372,7 @@ gate.
 - 342 security tests across 21 modules
 - OATR fixture loader (`protocol_tests/oatr_fixtures.py`)
 - x402 payment flow harness with L402 interop
-- CVE-2026-25253 supply chain provenance tests
+- MCP supply-chain provenance tests *(originally mislabeled CVE-2026-25253; corrected in 4.9.1)*
 - AIUC-1 pre-certification compliance harness
 - Cloud agent platform adapters (Vertex, Bedrock, Azure AI Agent Service)
 - Enterprise platform adapters (ServiceNow, Salesforce AgentForce, etc.)

@@ -266,9 +266,9 @@ HARNESSES = {
         "module": "protocol_tests.incident_response_harness",
         "description": "Incident response validation tests (8 tests, AIUC-1 E001-E003)",
     },
-    "cve-2026-25253": {
-        "module": "protocol_tests.cve_2026_25253_harness",
-        "description": "CVE-2026-25253 reproduction suite (10 tests, MCP supply chain poisoning)",
+    "mcp-tool-poisoning": {
+        "module": "protocol_tests.mcp_tool_poisoning_harness",
+        "description": "MCP tool-poisoning reproduction suite (10 tests, Invariant Labs Tool Poisoning + ClawHub RFC #99; CVE-009/010 map to CVE-2026-35625/35629)",
     },
     "aiuc1": {
         "module": "protocol_tests.aiuc1_compliance_harness",

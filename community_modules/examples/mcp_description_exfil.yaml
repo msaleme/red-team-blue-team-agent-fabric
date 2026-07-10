@@ -1,5 +1,7 @@
 # Community Attack Pattern: MCP Tool Description Injection for Data Exfiltration
-# Based on CVE-2026-25253 - MCP Supply Chain Poisoning
+# Based on the MCP tool-poisoning attack class — Invariant Labs "Tool Poisoning
+# Attacks" research (2025); related real MCP supply-chain CVEs: CVE-2025-54136
+# (Cursor config swap RCE), CVE-2025-49596 (MCP Inspector missing-auth RCE).
 #
 # Attack scenario: A malicious MCP server publishes a tool whose description
 # contains hidden instructions that cause the LLM client to exfiltrate
@@ -13,14 +15,14 @@ id: CP-0002
 version: "1.0.0"
 name: MCP Tool Description Injection - Data Exfiltration
 description: >
-  Reproduces CVE-2026-25253 supply chain attack vector where a malicious MCP
-  server injects exfiltration instructions into tool descriptions. The LLM
+  Reproduces the MCP tool-poisoning supply-chain attack vector where a malicious
+  MCP server injects exfiltration instructions into tool descriptions. The LLM
   reads the poisoned description during tool discovery and unknowingly includes
   sensitive data in outbound requests.
 framework: mcp
 severity: critical
 owasp_category: OWASP-AGENT-05
-cve_reference: CVE-2026-25253
+cve_reference: MCP-TOOL-POISONING
 tags:
   - supply-chain
   - data-exfiltration
@@ -149,4 +151,5 @@ blue_team_mitigation: >
   4. Monitor for outbound requests containing sensitive data patterns (API key
   formats, JWT tokens, base64-encoded credentials).
   5. Pin tool versions and verify tool description hashes to detect tampering.
-  See CVE-2026-25253 advisory for full remediation guidance.
+  See the Invariant Labs "Tool Poisoning Attacks" research (2025) for full
+  remediation guidance.

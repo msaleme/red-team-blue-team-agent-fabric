@@ -61,7 +61,7 @@ The fastest way to contribute is writing a YAML attack pattern. No Python requir
 - **[Plugin Specification](docs/PLUGIN_SPEC.md)** - Complete reference for all fields, action types, and assertion types
 - **[Template](community_modules/TEMPLATE.yaml)** - Blank template with inline comments
 - **[Example: CrewAI Role Escape](community_modules/examples/crewai_role_escape.yaml)** - Multi-step privilege escalation
-- **[Example: MCP Description Exfil](community_modules/examples/mcp_description_exfil.yaml)** - CVE-2026-25253 reproduction
+- **[Example: MCP Description Exfil](community_modules/examples/mcp_description_exfil.yaml)** - MCP tool-poisoning reproduction (Invariant Labs Tool Poisoning, 2025)
 
 ### What Makes a Good Attack Pattern?
 

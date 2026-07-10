@@ -57,7 +57,7 @@ MODULE_NAMES = {
     "harmful_output_harness.py": "Harmful Output",
     "cbrn_harness.py": "CBRN Prevention",
     "incident_response_harness.py": "Incident Response",
-    "cve_2026_25253_harness.py": "CVE-2026-25253 Reproduction",
+    "mcp_tool_poisoning_harness.py": "MCP Tool Poisoning Reproduction",
     "aiuc1_compliance_harness.py": "AIUC-1 Compliance",
     "cloud_agent_harness.py": "Cloud Agent Platforms",
     "crewai_cve_harness.py": "CrewAI CVE Reproduction",
