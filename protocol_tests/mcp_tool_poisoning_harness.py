@@ -1,21 +1,30 @@
 #!/usr/bin/env python3
-"""CVE-2026-25253 Reproduction Suite (v1.0)
+"""MCP Tool Poisoning Reproduction Suite (v1.0)
 
-Tests the MCP supply chain poisoning attack vector documented in CVE-2026-25253
-(CVSS 8.8, published March 2026). This CVE demonstrated that 12% of listed skills
-on a live MCP marketplace (341 out of ~2,800) contained malicious tool definitions
-that passed JSON-RPC schema validation.
+Tests the MCP tool-poisoning / supply-chain attack class: tools published or
+updated with poisoned descriptions that embed exfiltration instructions, prompt
+injection, or credential harvesting in nested schema fields (parameter
+descriptions, enum labels, example blocks) rather than the top-level
+tool.description.
 
-The attack chain: systematically forked/republished tools with poisoned descriptions
-that embed exfiltration instructions, prompt injection, or credential harvesting in
-nested schema fields (parameter descriptions, enum labels, example blocks).
+Anchor references for tests CVE-001..CVE-008:
+    - Invariant Labs, "Tool Poisoning Attacks" research disclosure (2025) — the
+      primary basis for nested-schema tool-description poisoning.
+    - ClawHub RFC #99 — the source of the 341-skill / 12%-of-registry figure,
+      used here only as a configurable detection threshold, not as a real-world
+      finding about any specific MCP marketplace.
 
-Key findings validated by this suite:
-    - 100% of prompt-injection payloads landed through nested schema fields, not
-      top-level tool.description
-    - 12% marketplace contamination rate across a production marketplace
-    - Forked tools with subtle modifications evaded manual review
-    - Encoded payloads (base64, unicode, homoglyphs) bypassed keyword detection
+Related real MCP supply-chain CVEs (cited as context — neither is "the"
+tool-poisoning CVE; both have accurate descriptions below):
+    - CVE-2025-54136 (Cursor): RCE by swapping an already-trusted MCP config
+      file for one that runs a malicious command.
+    - CVE-2025-49596 (MCP Inspector): RCE via missing authentication on the
+      Inspector server.
+
+The simulation uses a small, clearly synthetic set of clean and poisoned tool
+definitions (see CLEAN_TOOLS / POISONED_TOOLS below). Any counts or percentages
+reported in --simulate mode are properties of that synthetic fixture, not
+measurements of a production registry.
 
 Coverage:
     - CVE-001: Nested Schema Injection (ASI04)
@@ -29,33 +38,36 @@ Coverage:
     - CVE-009: Shared-Auth Scope Escalation — CVE-2026-35625 (ASI03)
     - CVE-010: Channel Extension SSRF — CVE-2026-35629 (ASI02)
 
+Note: test IDs CVE-001..CVE-010 are stable identifiers retained for continuity.
+Tests CVE-001..CVE-008 carry cve="MCP-TOOL-POISONING" (a tool-poisoning class
+tag, not a CVE number). Tests CVE-009 and CVE-010 map to real, verified CVEs.
+
 References:
-    - CVE-2026-25253: https://nvd.nist.gov/vuln/detail/CVE-2026-25253
-    - CVSS 8.8 (High): AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H
+    - Invariant Labs, "Tool Poisoning Attacks" (2025)
+    - ClawHub RFC #99 — 341 malicious skills / 12% of registry (configurable
+      detection threshold)
+    - CVE-2025-54136: https://nvd.nist.gov/vuln/detail/CVE-2025-54136
+      (Cursor — malicious MCP config swap → RCE)
+    - CVE-2025-49596: https://nvd.nist.gov/vuln/detail/CVE-2025-49596
+      (MCP Inspector — missing authentication → RCE)
     - OWASP Agentic Security: ASI04 (Tool/Agent Supply Chain)
-    - Affected: 135K+ MCP server instances, 12% marketplace contamination
-    - Coverage: Dark Reading, SecurityWeek, Cisco blogs, HackerNews (386pts)
     - CVE-2026-35625: https://nvd.nist.gov/vuln/detail/CVE-2026-35625
-    - CVSS 8.1 (High): Privilege escalation via silent shared-auth reconnect
-    - OWASP Agentic Security: ASI03 (Privilege/Authorization Escalation)
-    - Published: 2026-04-09 | Affects: OpenClaw shared-auth reconnect flow
+      OpenClaw shared-auth reconnect privilege escalation — ASI03 (CVE-009)
     - CVE-2026-35629: https://nvd.nist.gov/vuln/detail/CVE-2026-35629
-    - CVSS 8.6 (High): SSRF in OpenClaw channel extensions
-    - OWASP Agentic Security: ASI02 (Agent Execution Hijacking / SSRF)
-    - Published: 2026-04-10 | Affects: OpenClaw channel extension base URL handling
+      OpenClaw channel-extension SSRF — ASI02 (CVE-010)
 
 Usage:
     # Run in simulation mode (no live endpoint required)
-    python -m protocol_tests.cve_2026_25253_harness --simulate
+    python -m protocol_tests.mcp_tool_poisoning_harness --simulate
 
     # Test against a live MCP server
-    python -m protocol_tests.cve_2026_25253_harness --url http://localhost:8080/mcp
+    python -m protocol_tests.mcp_tool_poisoning_harness --url http://localhost:8080/mcp
 
     # Test against a marketplace/registry API
-    python -m protocol_tests.cve_2026_25253_harness --registry-url https://marketplace.example.com/api
+    python -m protocol_tests.mcp_tool_poisoning_harness --registry-url https://marketplace.example.com/api
 
     # Generate JSON report
-    python -m protocol_tests.cve_2026_25253_harness --simulate --report cve_report.json
+    python -m protocol_tests.mcp_tool_poisoning_harness --simulate --report mcp_tool_poisoning_report.json
 
 Requires: Python 3.10+, no external dependencies.
 """
@@ -460,11 +472,16 @@ def description_fingerprint(tool: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
-# CVE-2026-25253 Test Suite
+# MCP Tool Poisoning Test Suite
 # ---------------------------------------------------------------------------
 
-class CVE202625253Tests:
-    """Reproduction tests for CVE-2026-25253 MCP supply chain poisoning."""
+class MCPToolPoisoningTests:
+    """Reproduction tests for MCP tool-poisoning / supply-chain attacks.
+
+    Anchored to the Invariant Labs Tool Poisoning research (2025) and ClawHub
+    RFC #99. Tests CVE-009/010 additionally cover the real OpenClaw CVEs
+    CVE-2026-35625 and CVE-2026-35629.
+    """
 
     def __init__(self, url: str | None = None, registry_url: str | None = None,
                  simulate: bool = False):
@@ -531,7 +548,7 @@ class CVE202625253Tests:
         self._record(CVETestResult(
             test_id="CVE-001",
             name="Nested Schema Injection Detection",
-            cve="CVE-2026-25253",
+            cve="MCP-TOOL-POISONING",
             owasp_asi="ASI04",
             severity=Severity.CRITICAL.value,
             passed=passed,
@@ -580,7 +597,7 @@ class CVE202625253Tests:
         self._record(CVETestResult(
             test_id="CVE-002",
             name="Tool Fork Fingerprinting",
-            cve="CVE-2026-25253",
+            cve="MCP-TOOL-POISONING",
             owasp_asi="ASI04",
             severity=Severity.HIGH.value,
             passed=passed,
@@ -617,18 +634,20 @@ class CVE202625253Tests:
         n_bad = len(contaminated)
         rate = (n_bad / total * 100) if total > 0 else 0.0
 
-        # CVE-2026-25253 found 12% contamination. Flag if rate > 5%
+        # Flag if the synthetic-fixture contamination rate exceeds 5%. The 12%
+        # reference below is a ClawHub RFC #99-derived configurable threshold
+        # (341 malicious skills / 12% of registry), not a CVE finding.
         passed = rate < 5.0
 
         self._record(CVETestResult(
             test_id="CVE-003",
             name="Marketplace Contamination Rate",
-            cve="CVE-2026-25253",
+            cve="MCP-TOOL-POISONING",
             owasp_asi="ASI04",
             severity=Severity.CRITICAL.value,
             passed=passed,
             details=(f"Contamination rate: {rate:.1f}% ({n_bad}/{total} tools). "
-                     f"CVE-2026-25253 baseline: 12%. "
+                     f"ClawHub RFC #99 threshold: 12%. "
                      f"Contaminated: {[c['tool'] for c in contaminated]}"
                      if not passed
                      else f"Contamination rate: {rate:.1f}% ({n_bad}/{total} tools) - below 5% threshold"),
@@ -673,7 +692,7 @@ class CVE202625253Tests:
             self._record(CVETestResult(
                 test_id="CVE-004",
                 name="Cross-Tool Context Leakage",
-                cve="CVE-2026-25253",
+                cve="MCP-TOOL-POISONING",
                 owasp_asi="ASI06",
                 severity=Severity.CRITICAL.value,
                 passed=passed,
@@ -695,7 +714,7 @@ class CVE202625253Tests:
             self._record(CVETestResult(
                 test_id="CVE-004",
                 name="Cross-Tool Context Leakage",
-                cve="CVE-2026-25253",
+                cve="MCP-TOOL-POISONING",
                 owasp_asi="ASI06",
                 severity=Severity.CRITICAL.value,
                 passed=True,
@@ -751,7 +770,7 @@ class CVE202625253Tests:
         self._record(CVETestResult(
             test_id="CVE-004",
             name="Cross-Tool Context Leakage",
-            cve="CVE-2026-25253",
+            cve="MCP-TOOL-POISONING",
             owasp_asi="ASI06",
             severity=Severity.CRITICAL.value,
             passed=passed,
@@ -788,7 +807,7 @@ class CVE202625253Tests:
             self._record(CVETestResult(
                 test_id="CVE-005",
                 name="Supply Chain Signature Bypass",
-                cve="CVE-2026-25253",
+                cve="MCP-TOOL-POISONING",
                 owasp_asi="ASI04",
                 severity=Severity.HIGH.value,
                 passed=passed,
@@ -837,7 +856,7 @@ class CVE202625253Tests:
         self._record(CVETestResult(
             test_id="CVE-005",
             name="Supply Chain Signature Bypass",
-            cve="CVE-2026-25253",
+            cve="MCP-TOOL-POISONING",
             owasp_asi="ASI04",
             severity=Severity.HIGH.value,
             passed=passed,
@@ -888,7 +907,7 @@ class CVE202625253Tests:
         self._record(CVETestResult(
             test_id="CVE-006",
             name="Description Payload Encoding Detection",
-            cve="CVE-2026-25253",
+            cve="MCP-TOOL-POISONING",
             owasp_asi="ASI04",
             severity=Severity.HIGH.value,
             passed=passed,
@@ -995,7 +1014,7 @@ class CVE202625253Tests:
         self._record(CVETestResult(
             test_id="CVE-007",
             name="Incremental Poisoning Detection",
-            cve="CVE-2026-25253",
+            cve="MCP-TOOL-POISONING",
             owasp_asi="ASI04",
             severity=Severity.CRITICAL.value,
             passed=passed,
@@ -1042,7 +1061,7 @@ class CVE202625253Tests:
             self._record(CVETestResult(
                 test_id="CVE-008",
                 name="Marketplace Registry Integrity",
-                cve="CVE-2026-25253",
+                cve="MCP-TOOL-POISONING",
                 owasp_asi="ASI04",
                 severity=Severity.HIGH.value,
                 passed=passed,
@@ -1099,7 +1118,7 @@ class CVE202625253Tests:
         self._record(CVETestResult(
             test_id="CVE-008",
             name="Marketplace Registry Integrity",
-            cve="CVE-2026-25253",
+            cve="MCP-TOOL-POISONING",
             owasp_asi="ASI04",
             severity=Severity.HIGH.value,
             passed=passed,
@@ -1422,7 +1441,7 @@ class CVE202625253Tests:
     # ------------------------------------------------------------------
 
     def run_all(self, categories: list[str] | None = None) -> list[CVETestResult]:
-        """Run all CVE-2026-25253 tests."""
+        """Run all MCP tool-poisoning tests (plus CVE-009/010 OpenClaw CVEs)."""
         all_tests = [
             ("nested_injection", self.test_nested_schema_injection),
             ("fork_detection", self.test_tool_fork_fingerprinting),
@@ -1437,8 +1456,9 @@ class CVE202625253Tests:
         ]
 
         print(f"\n{'='*60}")
-        print(f"CVE-2026-25253 / CVE-2026-35625 / CVE-2026-35629 Reproduction Suite")
-        print(f"CVSS 8.8 / 8.1 / 8.6 | MCP Supply Chain + OpenClaw CVEs")
+        print(f"MCP Tool Poisoning Reproduction Suite")
+        print(f"Invariant Labs Tool Poisoning (2025) + ClawHub RFC #99")
+        print(f"CVE-009/010: OpenClaw CVE-2026-35625 / CVE-2026-35629")
         print(f"{'='*60}")
         mode = "SIMULATION" if self.simulate else f"LIVE ({self.url or self.registry_url})"
         print(f"Mode: {mode}")
@@ -1453,7 +1473,7 @@ class CVE202625253Tests:
                 self._record(CVETestResult(
                     test_id="CVE-ERR",
                     name=f"Error in {cat}",
-                    cve="CVE-2026-25253",
+                    cve="MCP-TOOL-POISONING",
                     owasp_asi="ASI04",
                     severity=Severity.MEDIUM.value,
                     passed=False,
@@ -1477,7 +1497,7 @@ class CVE202625253Tests:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="CVE-2026-25253 Reproduction Suite - MCP Supply Chain Poisoning Tests"
+        description="MCP Tool Poisoning Reproduction Suite - MCP supply-chain / tool-poisoning tests"
     )
     parser.add_argument("--url", help="MCP server URL for live testing")
     parser.add_argument("--registry-url", help="Marketplace/registry API URL")
@@ -1503,7 +1523,7 @@ def main():
         if args.trials > 1:
             print(f"\n--- Trial {trial + 1}/{args.trials} ---")
 
-        suite = CVE202625253Tests(
+        suite = MCPToolPoisoningTests(
             url=args.url,
             registry_url=args.registry_url,
             simulate=args.simulate,
@@ -1513,10 +1533,12 @@ def main():
 
     if args.report:
         report = {
-            "harness": "CVE-2026-25253 Reproduction Suite",
+            "harness": "MCP Tool Poisoning Reproduction Suite",
             "version": "1.0.0",
-            "cve": "CVE-2026-25253",
-            "cvss": 8.8,
+            "attack_class": "MCP-TOOL-POISONING",
+            "anchor": "Invariant Labs Tool Poisoning (2025); ClawHub RFC #99",
+            "related_cves": ["CVE-2025-54136", "CVE-2025-49596",
+                             "CVE-2026-35625", "CVE-2026-35629"],
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "mode": "simulation" if args.simulate else "live",
             "trials": args.trials,

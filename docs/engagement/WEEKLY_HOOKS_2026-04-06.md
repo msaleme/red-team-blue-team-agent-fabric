@@ -28,7 +28,7 @@ https://github.com/msaleme/red-team-blue-team-agent-fabric
 
 "The build pipeline is becoming the new front line" — this is exactly right, and it extends to AI agent tool registries.
 
-We reproduced CVE-2026-25253 (CVSS 8.8 MCP supply chain poisoning) with 8 dedicated tests: nested schema injection, tool fork fingerprinting, marketplace contamination scanning, cross-tool context leakage.
+We reproduced the MCP tool-poisoning attack class — anchored to the Invariant Labs Tool Poisoning research (2025) and ClawHub RFC #99 — with 8 dedicated tests: nested schema injection, tool fork fingerprinting, marketplace contamination scanning, cross-tool context leakage.
 
 The same attack pattern hitting npm (Axios) is already targeting MCP tool descriptions and agent card metadata. We published a full provenance & attestation module (15 tests) for this attack surface.
 

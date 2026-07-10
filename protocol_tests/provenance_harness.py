@@ -2,8 +2,11 @@
 """Provenance & Tool Attestation Security Test Harness (v3.0)
 
 15 tests targeting fake provenance and attestation attacks against
-AI agent systems. Maps to OWASP ASI04 (Supply Chain) and
-references CVE-2026-25253 (Tool Attestation Bypass).
+AI agent systems. Maps to OWASP ASI04 (Supply Chain) and the MCP
+tool-poisoning attack class — anchored to the Invariant Labs "Tool
+Poisoning Attacks" research (2025); related real MCP supply-chain CVEs
+include CVE-2025-54136 (Cursor config swap RCE) and CVE-2025-49596
+(MCP Inspector missing-auth RCE).
 
 Usage:
     python -m protocol_tests.provenance_harness --url http://localhost:8080
@@ -132,7 +135,7 @@ class ProvenanceTestResult:
 # Provenance & Tool Attestation Test Suite
 # ---------------------------------------------------------------------------
 
-CVE_REF = "CVE-2026-25253"
+CVE_REF = "MCP-TOOL-POISONING"
 
 class ProvenanceTests:
     """15 tests targeting fake provenance and attestation attacks."""
@@ -745,7 +748,7 @@ class ProvenanceTests:
         print("PROVENANCE & TOOL ATTESTATION TEST SUITE v3.0")
         print(f"{'='*60}")
         print(f"Target: {self.url}")
-        print(f"CVE Reference: {CVE_REF}")
+        print(f"Attack Class: {CVE_REF}")
 
         for category, tests in test_map.items():
             print(f"\n[{category.upper().replace('_', ' ')}]")

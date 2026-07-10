@@ -1158,7 +1158,7 @@ class SkillSecurityTests:
         print(f"Mode:       {mode_label}")
         print(f"Context:    341 malicious skills on ClawHub (12% of registry)")
         print(f"Threat:     Instruction-layer poisoning — rewrites agent goals,")
-        print(f"            not just tool outputs (one layer above CVE-2026-25253)")
+        print(f"            not just tool outputs (one layer above MCP tool-output poisoning)")
 
         for category, tests in test_map.items():
             print(f"\n[{category.upper().replace('_', ' ')}]")

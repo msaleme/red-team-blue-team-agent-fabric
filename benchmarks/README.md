@@ -104,7 +104,7 @@ Each corpus case references an executable harness test via `executable_test`:
 | `GM-xxx` | `protocol_tests/governance_modification_harness.py` |
 | `BI-xxx` | `protocol_tests/benchmark_integrity_harness.py` |
 | `MCP-xxx` | `protocol_tests/mcp_harness.py` |
-| `CVE-xxx` | `protocol_tests/cve_2026_25253_harness.py` |
+| `CVE-xxx` | `protocol_tests/mcp_tool_poisoning_harness.py` |
 | `L402-xxx` | `protocol_tests/l402_harness.py` |
 | `x402-xxx` | `protocol_tests/x402_harness.py` |
 

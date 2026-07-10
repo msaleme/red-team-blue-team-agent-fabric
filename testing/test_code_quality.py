@@ -35,7 +35,7 @@ class TestAllModulesImportable(unittest.TestCase):
         "protocol_tests.provenance_harness",
         "protocol_tests.over_refusal_harness",
         "protocol_tests.return_channel_harness",
-        "protocol_tests.cve_2026_25253_harness",
+        "protocol_tests.mcp_tool_poisoning_harness",
         "protocol_tests.aiuc1_compliance_harness",
         "protocol_tests.cloud_agent_harness",
         "protocol_tests.memory_harness",

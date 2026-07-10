@@ -164,7 +164,7 @@ We welcome contributions, especially from teams building MCP-aware proxies or in
 1. Saleme, M. (2026). "Decision Load Index: A Quantitative Framework for Agent Autonomy Risk." Zenodo. [https://doi.org/10.5281/zenodo.18217577](https://doi.org/10.5281/zenodo.18217577)
 2. Saleme, M. (2026). "Normalization of Deviance in Autonomous Agent Systems." Zenodo. [https://doi.org/10.5281/zenodo.15105866](https://doi.org/10.5281/zenodo.15105866)
 3. Saleme, M. (2026). "Cognitive Style Governance for Multi-Agent Deployments." Zenodo. [https://doi.org/10.5281/zenodo.15106553](https://doi.org/10.5281/zenodo.15106553)
-4. CVE-2026-25253. "MCP Tool Injection via Compromised Upstream Server." [https://nvd.nist.gov/vuln/detail/CVE-2026-25253](https://nvd.nist.gov/vuln/detail/CVE-2026-25253)
+4. Invariant Labs. "Tool Poisoning Attacks." (2025). Related MCP supply-chain CVEs: CVE-2025-54136 (Cursor — malicious MCP config swap → RCE) [https://nvd.nist.gov/vuln/detail/CVE-2025-54136](https://nvd.nist.gov/vuln/detail/CVE-2025-54136); CVE-2025-49596 (MCP Inspector — missing authentication → RCE) [https://nvd.nist.gov/vuln/detail/CVE-2025-49596](https://nvd.nist.gov/vuln/detail/CVE-2025-49596)
 5. AIUC-1. "AI Use Case 1: Pre-Certification Requirements for Autonomous Agent Systems." [https://aiuc.dev](https://aiuc.dev)
 6. Anthropic. "Model Context Protocol Specification." [https://spec.modelcontextprotocol.io](https://spec.modelcontextprotocol.io)
 7. Google. "Agent-to-Agent Protocol." [https://google.github.io/A2A](https://google.github.io/A2A)

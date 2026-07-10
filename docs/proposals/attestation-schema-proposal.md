@@ -29,7 +29,7 @@ The agent protocol ecosystem (MCP, A2A, L402, x402) is growing rapidly, but ther
 
 Three developments make standardization urgent:
 
-1. **CVE-2026-25253** (MCP Tool Injection via Compromised Upstream Server) demonstrated that MCP protocol attacks are real, not theoretical. Security testing must produce actionable, comparable evidence.
+1. **MCP tool-poisoning and supply-chain attacks are real, not theoretical.** The Invariant Labs "Tool Poisoning Attacks" research (2025) documented instruction poisoning of MCP tool descriptions, and real MCP supply-chain CVEs followed — **CVE-2025-54136** (Cursor: RCE by swapping an already-trusted MCP config file for a malicious command) and **CVE-2025-49596** (MCP Inspector: RCE via missing authentication). Security testing must produce actionable, comparable evidence.
 2. **AIUC-1 pre-certification** requires documented evidence of adversarial testing (B001), tool call restriction testing (D003), and third-party tool call testing (D004). A standard format enables automated compliance checking.
 3. **Multi-vendor convergence** - multiple teams are building agent security testing tools. Without a common output format, the ecosystem fragments before it matures.
 
@@ -85,7 +85,7 @@ Each entry in the `entries` array represents a single test execution:
   },
   "remediation": {
     "description": "Validate tool lists against a pinned allowlist.",
-    "references": ["https://nvd.nist.gov/vuln/detail/CVE-2026-25253"],
+    "references": ["https://nvd.nist.gov/vuln/detail/CVE-2025-54136"],
     "priority": "immediate"
   },
   "timestamp": "2026-03-28T10:00:01Z",
@@ -326,7 +326,7 @@ The `schema_version` field uses semantic versioning. Consumers MUST reject repor
 
 1. Agent Security Harness Repository. [https://github.com/msaleme/red-team-blue-team-agent-fabric](https://github.com/msaleme/red-team-blue-team-agent-fabric)
 2. Attestation Report JSON Schema. [schemas/attestation-report.json](https://github.com/msaleme/red-team-blue-team-agent-fabric/blob/main/schemas/attestation-report.json)
-3. CVE-2026-25253. "MCP Tool Injection via Compromised Upstream Server." [https://nvd.nist.gov/vuln/detail/CVE-2026-25253](https://nvd.nist.gov/vuln/detail/CVE-2026-25253)
+3. Invariant Labs. "Tool Poisoning Attacks." (2025). Related MCP supply-chain CVEs: CVE-2025-54136 (Cursor — malicious MCP config swap → RCE) [https://nvd.nist.gov/vuln/detail/CVE-2025-54136](https://nvd.nist.gov/vuln/detail/CVE-2025-54136); CVE-2025-49596 (MCP Inspector — missing authentication → RCE) [https://nvd.nist.gov/vuln/detail/CVE-2025-49596](https://nvd.nist.gov/vuln/detail/CVE-2025-49596)
 4. Saleme, M. (2026). "Decision Load Index: A Quantitative Framework for Agent Autonomy Risk." Zenodo. DOI: [10.5281/zenodo.18217577](https://doi.org/10.5281/zenodo.18217577)
 5. Saleme, M. (2026). "Cognitive Style Governance for Multi-Agent Deployments." Zenodo. DOI: [10.5281/zenodo.15106553](https://doi.org/10.5281/zenodo.15106553)
 6. Saleme, M. (2026). "Normalization of Deviance in Autonomous Agent Systems." Zenodo. DOI: [10.5281/zenodo.15105866](https://doi.org/10.5281/zenodo.15105866)
