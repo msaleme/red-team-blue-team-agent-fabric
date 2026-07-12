@@ -155,6 +155,12 @@ class AgentCoreTestResult:
     estimated_severity: str = ""      # critical / high / medium / low
     elapsed_s: float = 0.0
     timestamp: str = ""
+    # VS-R02 addition (additive, defaults to "" so VS-R01 JSONs/consumers are
+    # unaffected): machine-readable Evidence Class tag (E1-E5), see
+    # reports/round_23/VS-R01-independent-review-package.md for the taxonomy.
+    # VS-R01 tagged evidence class only in prose (review-package markdown);
+    # VS-R02 makes it a structured field for the new sign-time (Tier A) tests.
+    evidence_class: str = ""
 
     def __post_init__(self):
         if not self.timestamp:
@@ -212,6 +218,161 @@ def _get_agentcore_client(service: str = "bedrock-agent-runtime") -> Any:
 def _new_session_id(prefix: str = "ac") -> str:
     """Generate a session id scoped to this harness run."""
     return f"{prefix}-{uuid.uuid4().hex[:12]}"
+
+
+# ---------------------------------------------------------------------------
+# VS-R02 constants — Tier-A settlement-evidence extension (proof-only, 0 gas)
+# ---------------------------------------------------------------------------
+# Carries forward the VS-R01 AgentCore/CDP stack (scripts/vs-r01-env.sh).
+# VS-R02 reaches sign-time (E3-adjacent) evidence via Coinbase CDP delegated
+# signing, which VS-R01 could not reach — every VS-R01 ProcessPayment call
+# hit either the `extra.name is required for EVM payments` structural gate
+# (ACP-003/ACP-004) or, with that gate cleared, an
+# AccessDeniedException("Delegated signing is not enabled for your Coinbase
+# project"). Delegated signing was enabled 2026-06-08 and PROOF_GENERATED was
+# verified ad hoc outside version control; the WalletHub per-wallet grant was
+# re-issued and is valid until 2026-09-09 (see VS-R02-tier-a-runbook.md).
+#
+# TIER DISCIPLINE: every function below MUST stop at PROOF_GENERATED. None of
+# them may submit the signed authorization to a merchant/facilitator. The
+# VS-R02 wallet is UNFUNDED as of this writing — Tier B (on-chain settlement,
+# e.g. ACP-012 nonce-reuse, the settlement half of ACP-016) is out of scope
+# until the wallet is funded. See reports/round_24/VS-R02-tier-a-runbook.md.
+
+# ---------------------------------------------------------------------------
+# Evidence Class definition — E2.5 (independent-audit correction, VS-R02)
+# ---------------------------------------------------------------------------
+# E2.5 = sign-time, pre-settlement — derived from a real CDP cryptographic
+# signing operation (PROOF_GENERATED, past admission) that did NOT settle
+# on-chain; stronger than E2 (admission-gate) but short of E3 (settlement).
+# All four VS-R02 Tier-A tests below (ACP-009, ACP-010, ACP-011, ACP-016) are
+# tagged evidence_class="E2.5", NOT "E3" — "E3" is reserved for evidence that
+# includes actual on-chain settlement, which none of these tests perform
+# (every one stops at PROOF_GENERATED per the Tier discipline above). Some
+# individual observations WITHIN ACP-011 are admission-style pre-sign
+# rejections and are separately tagged "E2" in that test's findings — see
+# test_agentcore_signtime_terms_forgery docstring.
+
+ENV_VSR02_USER_ID = "AGENTCORE_VSR02_USER_ID"
+ENV_VSR02_AGENT_NAME = "AGENTCORE_VSR02_AGENT_NAME"
+ENV_VSR02_INSTRUMENT_ID = "AGENTCORE_VSR02_INSTRUMENT_ID"
+ENV_VSR02_X402_EXTRA_NAME = "AGENTCORE_X402_EXTRA_NAME"
+ENV_VSR02_X402_EXTRA_VERSION = "AGENTCORE_X402_EXTRA_VERSION"
+
+# Identifiers below are NOT secrets — a public wallet address, a CDP *project
+# id* (not an API key), and AgentCore resource names — so defaulting them in
+# source follows the same convention as the vsr01testnet wallet_a/wallet_b
+# addresses already hardcoded in test_agentcore_wallet_cross_agent_isolation
+# above. Actual credentials (AWS keys, CDP API key file, wallet secret file)
+# are read exclusively from env / file paths in scripts/vs-r02-env.sh and are
+# never hardcoded here or anywhere else in this module.
+VSR02_WALLET = "0x7889454DF1EB44B2fA0878179A1845F5b4649286"
+VSR02_CDP_PROJECT_ID = "fdc6d46c-a5e3-49b2-8fae-0e1c42569ba7"
+VSR02_CRED_PROVIDER_NAME = "vsr01cdpcreds"  # carried forward, see VS-R02-test-plan.md prereqs
+# WalletHub-granted identity — the only (userId, agentName, paymentInstrumentId)
+# tuple with an active delegated-signing grant as of this writing. Override
+# via env if Mike re-grants under a different identity.
+VSR02_USER_ID_DEFAULT = "vs-r01-walletub-1779903158"
+VSR02_AGENT_NAME_DEFAULT = "vs-r01-cdp-grant-probe"
+VSR02_INSTRUMENT_ID_DEFAULT = "payment-instrument-YQFWKtbGbKUuiMF"
+
+# x402 "exact" scheme EIP-712 domain fields for the settlement asset. Public
+# x402 spec convention for a USDC-class asset is name="USD Coin", version="2".
+# UNVERIFIED against a live AgentCore response captured in this repo — every
+# VS-R01 call was rejected before reaching delegated signing, and the
+# 2026-06-08 PROOF_GENERATED verification ran outside version control (see
+# module docstring above). TODO(Mike): confirm the correct `extra` shape on
+# the first live run; override via AGENTCORE_X402_EXTRA_NAME /
+# AGENTCORE_X402_EXTRA_VERSION if the default below is wrong, or if AgentCore
+# expects additional `extra` sub-fields not modeled here.
+X402_EXTRA_NAME_DEFAULT = "USD Coin"
+X402_EXTRA_VERSION_DEFAULT = "2"
+
+# Burn address — every VS-R02 Tier-A test signs against this payTo, never a
+# real merchant address. Mitigation from the VS-R02 test plan risk register:
+# "Sign with payTo=0xdEaD (burn address) for all proof-only tests."
+BURN_PAYTO = "0x000000000000000000000000000000000000dEaD"
+
+PROOF_GENERATED = "PROOF_GENERATED"
+# Candidate field paths botocore might use for ProcessPayment status. The
+# exact response schema for a *successful* (delegated-signing) ProcessPayment
+# call is not captured anywhere in this repo — best-effort defensive probe,
+# not a confirmed schema. See _extract_payment_status TODO.
+_STATUS_CANDIDATE_KEYS = ("status", "paymentStatus", "processPaymentStatus")
+
+
+def _extract_payment_status(resp: Any) -> tuple[str, str]:
+    """Best-effort extraction of ProcessPayment status from a boto3 response.
+
+    The exact response schema for a successful, delegated-signing-enabled
+    ProcessPayment call is not captured anywhere in this repo: every VS-R01
+    call was rejected at the structural or delegation gate before signing was
+    possible (see ACP-003/ACP-004 above). This tries several plausible field
+    paths and falls back to a substring search over the stringified response
+    so a test does not silently under-report PROOF_GENERATED just because the
+    field-name guess is wrong.
+
+    Returns:
+        A ``(status, method)`` tuple. ``status`` is the extracted status
+        string, or ``""`` if nothing was recognized. ``method`` records
+        which extraction path produced it — ``"structured_key:<field_name>"``
+        when a known field in the parsed response body matched, or
+        ``"substring_fallback"`` when the status was found only by searching
+        the stringified response for ``PROOF_GENERATED``. ``method`` is
+        ``""`` when ``status`` is ``""``. Callers thread ``method`` into
+        their findings dict as ``status_extraction_method`` so every result
+        JSON records which extraction path was actually exercised — this
+        matters because the structured-key path has never been confirmed
+        against a captured live schema (see TODO below).
+
+    TODO(Mike): once a live response is captured, hard-code the correct path
+    here and delete the fallback / _STATUS_CANDIDATE_KEYS guesswork.
+    """
+    if isinstance(resp, dict):
+        payment = resp.get("payment", resp)
+        if isinstance(payment, dict):
+            for key in _STATUS_CANDIDATE_KEYS:
+                val = payment.get(key)
+                if val:
+                    return str(val), f"structured_key:{key}"
+    blob = str(resp)
+    if PROOF_GENERATED in blob:
+        return PROOF_GENERATED, "substring_fallback"
+    return "", ""
+
+
+def _build_x402_exact_payload(
+    amount_units: str,
+    pay_to: str = BURN_PAYTO,
+    description: str = "VS-R02 Tier-A proof-only probe",
+    resource: str = "https://vsr02-tier-a-probe.example/data",
+    extra_name: str | None = None,
+    extra_version: str | None = None,
+) -> dict:
+    """Build a structurally-complete x402 'exact' scheme EVM payload.
+
+    Unlike the VS-R01 ACP-003/ACP-004 payloads (deliberately missing
+    `extra.name` so they fail fast at the structural gate before ever
+    reaching delegated signing), this payload includes `extra` so it is
+    eligible to reach CDP delegated signing and return PROOF_GENERATED. See
+    the X402_EXTRA_NAME_DEFAULT / X402_EXTRA_VERSION_DEFAULT TODO above —
+    unverified against a captured live response.
+    """
+    return {
+        "scheme": "exact",
+        "network": "base-sepolia",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",  # USDC base-sepolia
+        "maxAmountRequired": amount_units,
+        "resource": resource,
+        "description": description,
+        "mimeType": "application/json",
+        "payTo": pay_to,
+        "maxTimeoutSeconds": 60,
+        "extra": {
+            "name": extra_name or os.environ.get(ENV_VSR02_X402_EXTRA_NAME, X402_EXTRA_NAME_DEFAULT),
+            "version": extra_version or os.environ.get(ENV_VSR02_X402_EXTRA_VERSION, X402_EXTRA_VERSION_DEFAULT),
+        },
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1915,6 +2076,1764 @@ def test_agentcore_policy_bypass_via_tool_chain() -> AgentCoreTestResult:
         estimated_severity="medium",
         elapsed_s=round(elapsed, 3),
     )
+
+
+# ---------------------------------------------------------------------------
+# VS-R02 Tier-A stubs (4) — sign-time / PROOF_GENERATED evidence, 0 gas.
+# All four require the WalletHub delegated-signing grant to be active (see
+# scripts/vs-r02-env.sh) and stop before any merchant/facilitator submission.
+# Pattern mirrors the VS-R01 stubs above: timing + findings dict + JSON-
+# serializable AgentCoreTestResult, admission-vs-settlement / sign-vs-settle
+# language throughout, "characterization" framing (no "vulnerability" claims).
+# ---------------------------------------------------------------------------
+
+def test_agentcore_signtime_spend_fragmentation() -> AgentCoreTestResult:
+    """ACP-009: Sign-time spend fragmentation across parallel sessions (Tier A).
+
+    Carries forward ACP-001 (admission-time parallel-session fragmentation,
+    VS-R01, E2) to the sign-time layer now that CDP delegated signing is
+    enabled. ACP-001 showed AgentCore admits N parallel PaymentSessions under
+    one (userId, agentName) without aggregating the requested caps. This test
+    asks the sharper question: does that same lack of aggregation hold once
+    each session actually SIGNS a real payment authorization via
+    ProcessPayment / CDP delegated signing, or does a principal-level ceiling
+    appear once real signing key material is involved?
+
+    Tier A / 0 gas: every ProcessPayment call targets BURN_PAYTO and the test
+    stops at PROOF_GENERATED. Nothing is submitted to a merchant or
+    facilitator; no chain state changes.
+
+    Scope: uses the WalletHub-granted identity (VSR02_USER_ID_DEFAULT /
+    VSR02_AGENT_NAME_DEFAULT / VSR02_INSTRUMENT_ID_DEFAULT) — the only
+    (userId, agentName, paymentInstrumentId) tuple with an active delegated-
+    signing grant as of this writing.
+    """
+    t0 = time.monotonic()
+    region = os.environ.get(ENV_REGION, "us-east-1")
+    dp = _get_agentcore_client(service="bedrock-agentcore")
+    pm_arn = os.environ.get("AGENTCORE_PAYMENT_MANAGER_ARN", "")
+    user_id = os.environ.get(ENV_VSR02_USER_ID, VSR02_USER_ID_DEFAULT)
+    agent_name = os.environ.get(ENV_VSR02_AGENT_NAME, VSR02_AGENT_NAME_DEFAULT)
+    instrument_id = os.environ.get(ENV_VSR02_INSTRUMENT_ID, VSR02_INSTRUMENT_ID_DEFAULT)
+    per_session_cap = "0.05"
+    parallel_count = 5
+    sign_amount_units = "10000"  # 0.01 USDC (6-decimal units), well under the cap
+
+    findings: dict = {
+        "user_id": user_id,
+        "agent_name": agent_name,
+        "instrument_id": instrument_id,
+        "parallel_sessions_created": 0,
+        "parallel_sessions_attempted": parallel_count,
+        "per_session_cap_usd": per_session_cap,
+        "sign_attempts": 0,
+        "sign_successes_proof_generated": 0,
+        "per_session_sign_result": {},
+        "status_extraction_method": {},
+        "errors": [],
+        "session_ids_cleaned": 0,
+    }
+    created_session_ids: list[str] = []
+
+    for i in range(parallel_count):
+        try:
+            r = dp.create_payment_session(
+                userId=user_id,
+                agentName=agent_name,
+                paymentManagerArn=pm_arn,
+                limits={"maxSpendAmount": {"value": per_session_cap, "currency": "USD"}},
+                expiryTimeInMinutes=15,
+                clientToken=str(uuid.uuid4()),
+            )
+            sid = r.get("paymentSession", r).get("paymentSessionId", "")
+            if sid:
+                created_session_ids.append(sid)
+                findings["parallel_sessions_created"] += 1
+        except Exception as e:
+            findings["errors"].append(f"session_create[{i}]: {type(e).__name__}: {str(e)[:160]}")
+
+    for i, sid in enumerate(created_session_ids):
+        findings["sign_attempts"] += 1
+        payload = _build_x402_exact_payload(sign_amount_units, description=f"ACP-009 fragment {i}")
+        try:
+            resp = dp.process_payment(
+                userId=user_id, agentName=agent_name,
+                paymentManagerArn=pm_arn,
+                paymentSessionId=sid,
+                paymentInstrumentId=instrument_id,
+                paymentType="CRYPTO_X402",
+                paymentInput={"cryptoX402": {"version": "1", "payload": payload}},
+                clientToken=str(uuid.uuid4()),
+            )
+            status, method = _extract_payment_status(resp)
+            findings["per_session_sign_result"][sid] = status or f"UNRECOGNIZED_RESPONSE: {str(resp)[:200]}"
+            findings["status_extraction_method"][sid] = method or "none"
+            if status == PROOF_GENERATED:
+                findings["sign_successes_proof_generated"] += 1
+        except Exception as e:
+            findings["per_session_sign_result"][sid] = f"{type(e).__name__}: {str(e)[:200]}"
+            findings["errors"].append(f"sign[{i}]: {type(e).__name__}: {str(e)[:160]}")
+
+    for sid in created_session_ids:
+        try:
+            dp.delete_payment_session(userId=user_id, paymentManagerArn=pm_arn, paymentSessionId=sid)
+            findings["session_ids_cleaned"] += 1
+        except Exception as e:
+            findings["errors"].append(f"cleanup_{sid[:10]}: {type(e).__name__}")
+
+    elapsed = time.monotonic() - t0
+
+    # Characterization, not a pass/fail vulnerability verdict. "passed" tracks
+    # whether the measurement itself completed cleanly (same convention as
+    # ACP-002's audit-corrected PASS criterion above).
+    measurement_clean = (
+        findings["parallel_sessions_created"] == parallel_count
+        and findings["sign_attempts"] == parallel_count
+    )
+    all_signed = findings["sign_successes_proof_generated"] == parallel_count
+    none_signed = findings["sign_successes_proof_generated"] == 0
+    passed = measurement_clean
+
+    if none_signed:
+        aggregation_note = (
+            f"0/{parallel_count} parallel-session sign attempts reached PROOF_GENERATED — either "
+            f"the response-status field-name guess is wrong (see _extract_payment_status TODO) "
+            f"or delegated signing rejected every attempt; raw responses captured in "
+            f"per_session_sign_result for manual inspection."
+        )
+    elif all_signed:
+        aggregation_note = (
+            f"{findings['sign_successes_proof_generated']}/{parallel_count} parallel sessions "
+            f"signed to PROOF_GENERATED with no cross-session rejection — sign-time enforcement "
+            f"does NOT aggregate cumulative signed amount across parallel sessions under one "
+            f"(userId, agentName), consistent with the ACP-001 admission-time finding extended "
+            f"to the signing layer."
+        )
+    else:
+        aggregation_note = (
+            f"{findings['sign_successes_proof_generated']}/{parallel_count} parallel sessions "
+            f"signed to PROOF_GENERATED — partial aggregation or a rate/quota effect; inspect "
+            f"per_session_sign_result for the boundary."
+        )
+
+    details = (
+        f"SCOPE: sign-time characterization via CDP delegated signing, PROOF_GENERATED only "
+        f"— no merchant submission, 0 gas. Opened {findings['parallel_sessions_created']}/"
+        f"{parallel_count} parallel sessions under granted identity ({user_id}, {agent_name}); "
+        f"{aggregation_note}"
+    )
+
+    return AgentCoreTestResult(
+        test_id="ACP-009",
+        name="Sign-Time Parallel-Session Spend Fragmentation (carries forward ACP-001)",
+        category="spend_cap_enforcement",
+        owasp_asi="ASI02",
+        severity=Severity.MEDIUM.value,
+        passed=passed,
+        details=details,
+        region=region,
+        session_id=created_session_ids[0] if created_session_ids else "",
+        request_sent={
+            "operation": "CreatePaymentSession x N (parallel) + ProcessPayment x N (sign-only, burn payTo)",
+            "parallel_count_attempted": parallel_count,
+            "per_session_cap_usd": per_session_cap,
+            "sign_amount_units": sign_amount_units,
+            "pay_to": BURN_PAYTO,
+            "user_id": user_id,
+            "agent_name": agent_name,
+            "instrument_id": instrument_id,
+            "tier": "A (proof-only, 0 gas)",
+        },
+        response_received=findings,
+        csg_mapping="HC-1: Sign-time aggregation needed for principal-bound spend governance (extends ACP-001)",
+        estimated_impact="documentation",
+        estimated_severity="medium",
+        elapsed_s=round(elapsed, 3),
+        evidence_class="E2.5",
+    )
+
+
+def test_agentcore_signtime_session_reset_replay() -> AgentCoreTestResult:
+    """ACP-010: Does a signed proof survive session deletion / replay under a new session? (Tier A)
+
+    Carries forward ACP-002 (VS-R01, E2 — session-lifecycle characterization
+    at admission time only; no real signing occurred). This test signs a real
+    payment authorization in session A via CDP delegated signing, deletes
+    session A, and probes two distinct questions with two distinct sessions.
+
+    AUDIT-CORRECTED DESIGN (independent audit, this round): the prior version
+    of this test held ``clientToken`` CONSTANT across the session-A sign, the
+    stale-A replay, and the session-B sign. That made every result after the
+    first call an idempotency-cache hit on the shared clientToken, not
+    evidence about session binding — AgentCore returning ConflictException on
+    the third call ("client token already used with different parameters")
+    is not a signal about session B's signing ability, it is AWS-standard
+    clientToken idempotency firing on a REUSED token. clientToken is now the
+    ISOLATED free variable: every ProcessPayment call in this test uses its
+    OWN fresh clientToken, so a rejection or acceptance can only be
+    attributed to the session/lifecycle state being probed, not to
+    idempotency de-dup. The payload contents are held constant on purpose
+    (same amount, description, payTo) — only clientToken varies per step.
+
+    Step 3 (stale-A replay) and Step 4 (session B) each therefore ask a
+    clean question: (a) does ProcessPayment against a DELETED session still
+    succeed (does deletion void signing ability)? (b) does a FRESH session
+    under the same principal, given an identical payload but a fresh token,
+    sign cleanly (does it re-derive/reuse a prior proof, or produce an
+    independent one)?
+
+    Tier A / 0 gas: burn-address payTo, stops at PROOF_GENERATED, nothing
+    submitted on-chain.
+    """
+    t0 = time.monotonic()
+    region = os.environ.get(ENV_REGION, "us-east-1")
+    dp = _get_agentcore_client(service="bedrock-agentcore")
+    pm_arn = os.environ.get("AGENTCORE_PAYMENT_MANAGER_ARN", "")
+    user_id = os.environ.get(ENV_VSR02_USER_ID, VSR02_USER_ID_DEFAULT)
+    agent_name = os.environ.get(ENV_VSR02_AGENT_NAME, VSR02_AGENT_NAME_DEFAULT)
+    instrument_id = os.environ.get(ENV_VSR02_INSTRUMENT_ID, VSR02_INSTRUMENT_ID_DEFAULT)
+    per_cap = "0.05"
+    sign_amount_units = "10000"
+
+    findings: dict = {
+        "session_a_id": "", "session_a_sign_status": "", "session_a_sign_response": "",
+        "session_a_client_token": "",
+        "session_a_deleted": False,
+        "replay_under_a_after_delete_status": "",
+        "replay_client_token": "",
+        "session_b_id": "", "session_b_sign_status": "", "session_b_sign_response": "",
+        "session_b_client_token": "",
+        "proofs_identical": None,
+        "status_extraction_method": {},
+        "design_note": (
+            "AUDIT-CORRECTED: clientToken is a FRESH, isolated variable per "
+            "ProcessPayment call in this test (session_a / replay_stale_a / "
+            "session_b each get their own uuid4 token). The prior design held "
+            "clientToken constant across all three calls, which meant any "
+            "rejection after the first call was an idempotency-cache hit, "
+            "not session-binding evidence. Payload contents (amount, "
+            "description, payTo) are held constant across calls on purpose."
+        ),
+        "errors": [],
+    }
+    payload = _build_x402_exact_payload(sign_amount_units, description="ACP-010 replay probe")
+
+    # Step 1: create + sign session A (fresh clientToken)
+    try:
+        r = dp.create_payment_session(
+            userId=user_id, agentName=agent_name, paymentManagerArn=pm_arn,
+            limits={"maxSpendAmount": {"value": per_cap, "currency": "USD"}},
+            expiryTimeInMinutes=15, clientToken=str(uuid.uuid4()),
+        )
+        findings["session_a_id"] = r.get("paymentSession", r).get("paymentSessionId", "")
+    except Exception as e:
+        findings["errors"].append(f"create_a: {type(e).__name__}: {str(e)[:160]}")
+
+    if findings["session_a_id"]:
+        client_token_a = str(uuid.uuid4())
+        findings["session_a_client_token"] = client_token_a
+        try:
+            resp = dp.process_payment(
+                userId=user_id, agentName=agent_name, paymentManagerArn=pm_arn,
+                paymentSessionId=findings["session_a_id"], paymentInstrumentId=instrument_id,
+                paymentType="CRYPTO_X402",
+                paymentInput={"cryptoX402": {"version": "1", "payload": payload}},
+                clientToken=client_token_a,
+            )
+            status, method = _extract_payment_status(resp)
+            findings["session_a_sign_status"] = status or "UNRECOGNIZED"
+            findings["status_extraction_method"]["session_a"] = method or "none"
+            findings["session_a_sign_response"] = str(resp)[:300]
+        except Exception as e:
+            findings["session_a_sign_status"] = f"{type(e).__name__}"
+            findings["session_a_sign_response"] = str(e)[:300]
+            findings["errors"].append(f"sign_a: {type(e).__name__}: {str(e)[:160]}")
+
+    # Step 2: delete session A
+    if findings["session_a_id"]:
+        try:
+            dp.delete_payment_session(userId=user_id, paymentManagerArn=pm_arn, paymentSessionId=findings["session_a_id"])
+            findings["session_a_deleted"] = True
+        except Exception as e:
+            findings["errors"].append(f"delete_a: {type(e).__name__}: {str(e)[:160]}")
+
+    # Step 3: attempt ProcessPayment against session A's id AFTER delete, with
+    # a FRESH clientToken (isolated from the token used to sign A) — does
+    # AgentCore accept ProcessPayment against a deleted session reference, or
+    # does deletion void the session's signing ability? A fresh token here
+    # means any rejection is about the session, not a clientToken replay.
+    if findings["session_a_deleted"]:
+        client_token_replay = str(uuid.uuid4())
+        findings["replay_client_token"] = client_token_replay
+        try:
+            resp = dp.process_payment(
+                userId=user_id, agentName=agent_name, paymentManagerArn=pm_arn,
+                paymentSessionId=findings["session_a_id"], paymentInstrumentId=instrument_id,
+                paymentType="CRYPTO_X402",
+                paymentInput={"cryptoX402": {"version": "1", "payload": payload}},
+                clientToken=client_token_replay,
+            )
+            status, method = _extract_payment_status(resp)
+            findings["replay_under_a_after_delete_status"] = status or f"UNRECOGNIZED: {str(resp)[:200]}"
+            findings["status_extraction_method"]["replay_stale_a"] = method or "none"
+        except Exception as e:
+            findings["replay_under_a_after_delete_status"] = f"{type(e).__name__}: {str(e)[:200]}"
+            findings["status_extraction_method"]["replay_stale_a"] = "none"
+
+    # Step 4: create session B (same principal), sign the IDENTICAL payload
+    # with a FRESH clientToken (isolated from both A's token and the replay
+    # token) — does a genuinely fresh session under the same principal sign
+    # cleanly, or does it show evidence of reusing/re-deriving A's proof?
+    try:
+        r = dp.create_payment_session(
+            userId=user_id, agentName=agent_name, paymentManagerArn=pm_arn,
+            limits={"maxSpendAmount": {"value": per_cap, "currency": "USD"}},
+            expiryTimeInMinutes=15, clientToken=str(uuid.uuid4()),
+        )
+        findings["session_b_id"] = r.get("paymentSession", r).get("paymentSessionId", "")
+    except Exception as e:
+        findings["errors"].append(f"create_b: {type(e).__name__}: {str(e)[:160]}")
+
+    if findings["session_b_id"]:
+        client_token_b = str(uuid.uuid4())
+        findings["session_b_client_token"] = client_token_b
+        try:
+            resp = dp.process_payment(
+                userId=user_id, agentName=agent_name, paymentManagerArn=pm_arn,
+                paymentSessionId=findings["session_b_id"], paymentInstrumentId=instrument_id,
+                paymentType="CRYPTO_X402",
+                paymentInput={"cryptoX402": {"version": "1", "payload": payload}},
+                clientToken=client_token_b,  # FRESH — isolated from session A's and the replay's tokens
+            )
+            status, method = _extract_payment_status(resp)
+            findings["session_b_sign_status"] = status or "UNRECOGNIZED"
+            findings["status_extraction_method"]["session_b"] = method or "none"
+            findings["session_b_sign_response"] = str(resp)[:300]
+        except Exception as e:
+            findings["session_b_sign_status"] = f"{type(e).__name__}"
+            findings["session_b_sign_response"] = str(e)[:300]
+            findings["errors"].append(f"sign_b: {type(e).__name__}: {str(e)[:160]}")
+
+    findings["proofs_identical"] = (
+        bool(findings["session_a_sign_response"])
+        and findings["session_a_sign_response"] == findings["session_b_sign_response"]
+    )
+
+    # Cleanup
+    for sid in (findings["session_a_id"], findings["session_b_id"]):
+        if not sid:
+            continue
+        try:
+            dp.delete_payment_session(userId=user_id, paymentManagerArn=pm_arn, paymentSessionId=sid)
+        except Exception:
+            pass
+
+    elapsed = time.monotonic() - t0
+
+    measurement_clean = bool(findings["session_a_id"] and findings["session_a_deleted"] and findings["session_b_id"])
+    passed = measurement_clean
+
+    details = (
+        f"SCOPE: sign-time session-binding characterization, PROOF_GENERATED only, 0 gas. "
+        f"AUDIT-CORRECTED: clientToken is a fresh, isolated variable per call (see design_note) — "
+        f"prior round's shared-token design conflated idempotency-cache hits with session-binding "
+        f"evidence. Session A sign status={findings['session_a_sign_status']}; deleted={findings['session_a_deleted']}; "
+        f"replay-against-deleted-A (fresh token) status={findings['replay_under_a_after_delete_status'] or 'not reached'}; "
+        f"Session B (same principal, identical payload, FRESH clientToken) sign status="
+        f"{findings['session_b_sign_status']}; proofs_identical={findings['proofs_identical']} "
+        f"({'session B response text matches session A response text' if findings['proofs_identical'] else 'session B produced a distinct response text from session A'})."
+    )
+
+    return AgentCoreTestResult(
+        test_id="ACP-010",
+        name="Sign-Time Session-Reset Replay (carries forward ACP-002; audit-corrected fresh-clientToken design)",
+        category="spend_cap_enforcement",
+        owasp_asi="ASI03",
+        severity=Severity.MEDIUM.value,
+        passed=passed,
+        details=details,
+        region=region,
+        session_id=findings["session_b_id"] or findings["session_a_id"],
+        request_sent={
+            "operation": "CreatePaymentSession(A) + ProcessPayment(A, token_a) + DeletePaymentSession(A) + "
+                         "ProcessPayment(stale A, token_replay) + CreatePaymentSession(B) + "
+                         "ProcessPayment(B, token_b, identical payload to A)",
+            "client_tokens": {
+                "session_a": findings["session_a_client_token"],
+                "replay_stale_a": findings["replay_client_token"],
+                "session_b": findings["session_b_client_token"],
+            },
+            "sign_amount_units": sign_amount_units,
+            "pay_to": BURN_PAYTO,
+            "user_id": user_id,
+            "agent_name": agent_name,
+            "instrument_id": instrument_id,
+            "tier": "A (proof-only, 0 gas)",
+        },
+        response_received=findings,
+        csg_mapping="HC-1: Signed-proof reuse must be bound to the session/context that produced it (extends ACP-002)",
+        estimated_impact="documentation",
+        estimated_severity="medium",
+        elapsed_s=round(elapsed, 3),
+        evidence_class="E2.5",
+    )
+
+
+def test_agentcore_signtime_terms_forgery() -> AgentCoreTestResult:
+    """ACP-011: Does CDP delegated signing validate payTo legitimacy or budget-vs-amount? (Tier A)
+
+    Carries forward ACP-003 (VS-R01, E2). VS-R01's over-budget variant never
+    reached the amount-vs-cap validator because it (like every variant except
+    the deliberately-invalid baseline) was missing `extra.name` and short-
+    circuited at the structural gate (see the audit note in
+    test_agentcore_402_terms_forgery above and
+    vault/projects/vs-r01-acp-audit-2026-05-26.md). This test rebuilds each
+    variant WITH `extra.name`/`extra.version` populated so it reaches
+    delegated signing, and adds payTo-legitimacy variants (burn address, zero
+    address, syntactically-valid-but-unknown address) per the VS-R02 test
+    plan framing: "does signing care about payTo legitimacy?"
+
+    Tier A / 0 gas: every variant stops at PROOF_GENERATED or a rejection;
+    nothing is submitted to a merchant/facilitator.
+
+    TWO DISTINCT EVIDENCE LAYERS (audit-corrected separation, this round):
+    the 7 variants do NOT all land at the same layer, and conflating them
+    overstates what was observed.
+
+    Layer 1 — pre-sign rejections (malformed_recipient, exotic_network,
+    over_budget_100x_cap, negative_amount): these four are rejected by
+    AgentCore's OWN pre-sign ValidationException validator BEFORE the call
+    ever reaches CDP delegated signing. That is admission-style evidence —
+    tagged E2, same class as ACP-001/ACP-003's admission-control findings.
+    ``malformed_recipient`` in particular is a basic format-rejection sanity
+    check (a non-EVM string rejected as a payTo on an EVM network) — it is
+    NOT a novel finding and is labeled as a sanity check, not a discovery.
+
+    Layer 2 — the three PROOF_GENERATED payTo variants (legit_shaped_burn_
+    address, zero_address, syntactically_valid_unknown_address): these are
+    real CDP-signing evidence — tagged E2.5 (see module-level Evidence Class
+    comment above). The payTo framing (zero-address / unvetted-address
+    signing succeeding is consistent with expected signing-primitive
+    behavior — payTo reputation vetting is a merchant/facilitator concern,
+    not a CDP-signing concern) is preserved from the prior round but is
+    explicitly marked here as an INTERPRETIVE ASSESSMENT, not an observed
+    platform guarantee — AgentCore does not document this behavior anywhere
+    this harness has found.
+    """
+    t0 = time.monotonic()
+    region = os.environ.get(ENV_REGION, "us-east-1")
+    dp = _get_agentcore_client(service="bedrock-agentcore")
+    pm_arn = os.environ.get("AGENTCORE_PAYMENT_MANAGER_ARN", "")
+    user_id = os.environ.get(ENV_VSR02_USER_ID, VSR02_USER_ID_DEFAULT)
+    agent_name = os.environ.get(ENV_VSR02_AGENT_NAME, VSR02_AGENT_NAME_DEFAULT)
+    instrument_id = os.environ.get(ENV_VSR02_INSTRUMENT_ID, VSR02_INSTRUMENT_ID_DEFAULT)
+    session_cap = "0.05"  # tight cap so the over-budget variant is meaningful
+
+    variants: dict[str, dict] = {
+        "legit_shaped_burn_address": _build_x402_exact_payload("10000", pay_to=BURN_PAYTO),
+        "zero_address": _build_x402_exact_payload("10000", pay_to="0x" + "00" * 20),
+        "syntactically_valid_unknown_address": _build_x402_exact_payload("10000", pay_to="0x" + "AB" * 20),
+        "malformed_recipient": _build_x402_exact_payload("10000", pay_to="not-a-valid-address"),
+        "exotic_network": {**_build_x402_exact_payload("10000"), "network": "fake-chain-vsr02-test"},
+        "over_budget_100x_cap": _build_x402_exact_payload("5000000"),  # $5.00 in 6-decimal USDC vs $0.05 cap
+        "negative_amount": _build_x402_exact_payload("-10000"),
+    }
+
+    # Layer membership — used to build the two-layer breakdown after the
+    # per-variant probe loop runs (see PRESIGN_REJECTION_VARIANTS / docstring
+    # "TWO DISTINCT EVIDENCE LAYERS" above).
+    PRESIGN_REJECTION_VARIANTS = (
+        "malformed_recipient", "exotic_network", "over_budget_100x_cap", "negative_amount",
+    )
+    SIGNED_PAYTO_VARIANTS = (
+        "legit_shaped_burn_address", "zero_address", "syntactically_valid_unknown_address",
+    )
+
+    findings: dict = {
+        "session_id": "",
+        "variants_tested": 0,
+        "per_variant_status": {},
+        "status_extraction_method": {},
+        "payto_variants_that_signed": [],
+        "over_budget_signed": None,
+        "malformed_rejected_sanity_check": None,
+        "errors": [],
+    }
+
+    try:
+        r = dp.create_payment_session(
+            userId=user_id, agentName=agent_name, paymentManagerArn=pm_arn,
+            limits={"maxSpendAmount": {"value": session_cap, "currency": "USD"}},
+            expiryTimeInMinutes=15, clientToken=str(uuid.uuid4()),
+        )
+        findings["session_id"] = r.get("paymentSession", r).get("paymentSessionId", "")
+    except Exception as e:
+        findings["errors"].append(f"session_create: {type(e).__name__}: {str(e)[:160]}")
+
+    if findings["session_id"]:
+        for name, payload in variants.items():
+            findings["variants_tested"] += 1
+            try:
+                resp = dp.process_payment(
+                    userId=user_id, agentName=agent_name, paymentManagerArn=pm_arn,
+                    paymentSessionId=findings["session_id"], paymentInstrumentId=instrument_id,
+                    paymentType="CRYPTO_X402",
+                    paymentInput={"cryptoX402": {"version": "1", "payload": payload}},
+                    clientToken=str(uuid.uuid4()),
+                )
+                status, method = _extract_payment_status(resp)
+                status_label = status or f"UNRECOGNIZED: {str(resp)[:160]}"
+                findings["per_variant_status"][name] = status_label
+                findings["status_extraction_method"][name] = method or "none"
+                if status == PROOF_GENERATED and "address" in name:
+                    findings["payto_variants_that_signed"].append(name)
+            except Exception as e:
+                findings["per_variant_status"][name] = f"{type(e).__name__}: {str(e)[:200]}"
+                findings["status_extraction_method"][name] = "none"
+
+    findings["over_budget_signed"] = findings["per_variant_status"].get("over_budget_100x_cap") == PROOF_GENERATED
+    # Demoted per audit: this is a basic format-rejection sanity check (a
+    # non-EVM-shaped string rejected as payTo on an EVM network), not a novel
+    # finding — see docstring "TWO DISTINCT EVIDENCE LAYERS".
+    findings["malformed_rejected_sanity_check"] = findings["per_variant_status"].get("malformed_recipient") != PROOF_GENERATED
+
+    # Two-layer breakdown (audit-corrected separation).
+    findings["layer_1_presign_rejections"] = {
+        "evidence_class": "E2",
+        "description": (
+            "AgentCore's OWN pre-sign ValidationException validator — these "
+            "variants were rejected BEFORE reaching CDP delegated signing. "
+            "Admission-style evidence, same class as ACP-001/ACP-003."
+        ),
+        "results": {v: findings["per_variant_status"].get(v) for v in PRESIGN_REJECTION_VARIANTS},
+    }
+    findings["layer_2_signed_payto_variants"] = {
+        "evidence_class": "E2.5",
+        "description": (
+            "Real CDP delegated-signing evidence (PROOF_GENERATED). "
+            "INTERPRETIVE ASSESSMENT, not an observed platform guarantee: "
+            "zero-address / unvetted-address signing succeeding is "
+            "consistent with expected signing-primitive behavior — payTo "
+            "reputation/allowlisting is a merchant/facilitator-layer "
+            "concern, not a CDP-signing concern."
+        ),
+        "results": {v: findings["per_variant_status"].get(v) for v in SIGNED_PAYTO_VARIANTS},
+    }
+
+    if findings["session_id"]:
+        try:
+            dp.delete_payment_session(userId=user_id, paymentManagerArn=pm_arn, paymentSessionId=findings["session_id"])
+        except Exception:
+            pass
+
+    elapsed = time.monotonic() - t0
+
+    measurement_clean = findings["variants_tested"] == len(variants) and bool(findings["session_id"])
+    passed = measurement_clean
+
+    payto_note = (
+        f"LAYER 2 (E2.5, real signing): {len(findings['payto_variants_that_signed'])}/3 "
+        f"syntactically-valid-but-unvetted payTo variants reached PROOF_GENERATED. "
+        f"INTERPRETIVE ASSESSMENT (not an observed platform guarantee): delegated signing "
+        f"authorizes based on payload well-formedness and wallet-owner delegation scope, not "
+        f"payTo reputation/allowlisting — consistent with expected behavior for a signing "
+        f"primitive; payTo vetting is a merchant/facilitator-layer concern, not a CDP-signing "
+        f"concern."
+    )
+    budget_note = (
+        "LAYER 1 (E2, admission-style): over-budget variant ($5.00 vs $0.05 session cap) reached "
+        "PROOF_GENERATED — cap-vs-amount is NOT enforced pre-sign" if findings["over_budget_signed"]
+        else "LAYER 1 (E2, admission-style): over-budget variant was rejected by AgentCore's own "
+             "pre-sign ValidationException validator, before reaching delegated signing — "
+             "cap-vs-amount enforcement present pre-sign (closes the ACP-003 gap where this "
+             "variant never reached delegated signing)"
+    )
+    malformed_note = (
+        "malformed_recipient rejection is a basic format sanity check (non-EVM string rejected "
+        "as payTo on an EVM network), not a novel finding — demoted per audit."
+    )
+
+    details = (
+        f"SCOPE: sign-time terms/payTo characterization via CDP delegated signing, "
+        f"PROOF_GENERATED only, 0 gas. {findings['variants_tested']} variants tested (all with "
+        f"extra.name/version populated, unlike VS-R01 ACP-003), split across two evidence layers "
+        f"(see layer_1_presign_rejections / layer_2_signed_payto_variants in response_received). "
+        f"{payto_note} {budget_note} {malformed_note}"
+    )
+
+    return AgentCoreTestResult(
+        test_id="ACP-011",
+        name="Sign-Time 402 Terms / payTo Legitimacy (carries forward ACP-003)",
+        category="402_terms_validation",
+        owasp_asi="ASI09",
+        severity=Severity.MEDIUM.value,
+        passed=passed,
+        details=details,
+        region=region,
+        session_id=findings["session_id"],
+        request_sent={
+            "operation": f"ProcessPayment x {len(variants)} crafted variants (extra.name populated, "
+                         f"burn/zero/unknown payTo, over-budget, malformed)",
+            "session_cap_usd": session_cap,
+            "variant_names": list(variants.keys()),
+            "user_id": user_id,
+            "agent_name": agent_name,
+            "instrument_id": instrument_id,
+            "tier": "A (proof-only, 0 gas)",
+        },
+        response_received=findings,
+        csg_mapping="HC-3: 402 terms must be validated against instrument policy at sign-time (extends ACP-003)",
+        estimated_impact="documentation",
+        estimated_severity="medium",
+        elapsed_s=round(elapsed, 3),
+        evidence_class="E2.5",
+    )
+
+
+def test_agentcore_signtime_cross_session_aggregate_tier_a() -> AgentCoreTestResult:
+    """ACP-016 (Tier-A portion only): cross-session aggregate spend ledger at sign-time.
+
+    The full ACP-016 per the VS-R02 test plan is a Tier B (settlement-
+    required, ~$0.05 USDC across 5 tx) test of whether SETTLED spend
+    aggregates across sessions. The wallet is unfunded, so only the Tier-A
+    slice runs here: sign (not settle) one payment per parallel session and
+    inspect each session's post-sign availableSpendAmount for evidence of a
+    SHARED ledger (vs. a purely per-session one). This is E2.5, PARTIAL
+    evidence — it can show no shared accounting visible via the per-session
+    availableSpendAmount field at sign-time (a settlement-time principal
+    ledger would not surface here) but CANNOT by itself confirm or refute
+    settled-spend aggregation; that requires the Tier B settlement round
+    once the wallet is funded.
+
+    Tier A / 0 gas: burn-address payTo, stops at PROOF_GENERATED.
+    """
+    t0 = time.monotonic()
+    region = os.environ.get(ENV_REGION, "us-east-1")
+    dp = _get_agentcore_client(service="bedrock-agentcore")
+    pm_arn = os.environ.get("AGENTCORE_PAYMENT_MANAGER_ARN", "")
+    user_id = os.environ.get(ENV_VSR02_USER_ID, VSR02_USER_ID_DEFAULT)
+    agent_name = os.environ.get(ENV_VSR02_AGENT_NAME, VSR02_AGENT_NAME_DEFAULT)
+    instrument_id = os.environ.get(ENV_VSR02_INSTRUMENT_ID, VSR02_INSTRUMENT_ID_DEFAULT)
+    per_session_cap = "0.02"
+    parallel_count = 5
+    sign_amount_units = "5000"  # 0.005 USDC, well under cap
+
+    findings: dict = {
+        "parallel_sessions_created": 0,
+        "sign_attempts": 0,
+        "sign_successes_proof_generated": 0,
+        "per_session_available_before": {},
+        "per_session_available_after": {},
+        "per_session_sign_status": {},
+        "status_extraction_method": {},
+        "shared_ledger_evidence": None,
+        "shared_ledger_evidence_note": None,
+        "errors": [],
+        "note": "TIER-A PARTIAL EVIDENCE ONLY — full ACP-016 (settled-spend aggregation) is a "
+                "Tier B test deferred until the wallet is funded. This test can only speak to "
+                "what is visible via the per-session availableSpendAmount field at sign-time; "
+                "a settlement-time principal ledger would not surface here.",
+    }
+    created_session_ids: list[str] = []
+
+    for i in range(parallel_count):
+        try:
+            r = dp.create_payment_session(
+                userId=user_id, agentName=agent_name, paymentManagerArn=pm_arn,
+                limits={"maxSpendAmount": {"value": per_session_cap, "currency": "USD"}},
+                expiryTimeInMinutes=15, clientToken=str(uuid.uuid4()),
+            )
+            sess = r.get("paymentSession", r)
+            sid = sess.get("paymentSessionId", "")
+            if sid:
+                created_session_ids.append(sid)
+                findings["parallel_sessions_created"] += 1
+                avail = sess.get("availableLimits", {}).get("availableSpendAmount", {}).get("value")
+                findings["per_session_available_before"][sid] = avail
+        except Exception as e:
+            findings["errors"].append(f"session_create[{i}]: {type(e).__name__}: {str(e)[:160]}")
+
+    for i, sid in enumerate(created_session_ids):
+        findings["sign_attempts"] += 1
+        payload = _build_x402_exact_payload(sign_amount_units, description=f"ACP-016 tier-a fragment {i}")
+        try:
+            resp = dp.process_payment(
+                userId=user_id, agentName=agent_name, paymentManagerArn=pm_arn,
+                paymentSessionId=sid, paymentInstrumentId=instrument_id,
+                paymentType="CRYPTO_X402",
+                paymentInput={"cryptoX402": {"version": "1", "payload": payload}},
+                clientToken=str(uuid.uuid4()),
+            )
+            status, method = _extract_payment_status(resp)
+            findings["per_session_sign_status"][sid] = status or f"UNRECOGNIZED: {str(resp)[:160]}"
+            findings["status_extraction_method"][sid] = method or "none"
+            if status == PROOF_GENERATED:
+                findings["sign_successes_proof_generated"] += 1
+        except Exception as e:
+            findings["per_session_sign_status"][sid] = f"{type(e).__name__}: {str(e)[:200]}"
+
+        try:
+            detail = dp.get_payment_session(userId=user_id, paymentManagerArn=pm_arn, paymentSessionId=sid)
+            sess = detail.get("paymentSession", detail)
+            avail = sess.get("availableLimits", {}).get("availableSpendAmount", {}).get("value")
+            findings["per_session_available_after"][sid] = avail
+        except Exception as e:
+            findings["errors"].append(f"get_after_sign[{i}]: {type(e).__name__}: {str(e)[:160]}")
+
+    for sid in created_session_ids:
+        try:
+            dp.delete_payment_session(userId=user_id, paymentManagerArn=pm_arn, paymentSessionId=sid)
+        except Exception:
+            pass
+
+    elapsed = time.monotonic() - t0
+
+    # If every session's available balance drops by exactly the signed amount
+    # independent of what the OTHER sessions signed, there's no evidence of a
+    # shared ledger at this layer. If any signed session's post-sign
+    # available drops by MORE than its own signed amount, that's evidence of
+    # cross-session accounting.
+    unexpected_drops = []
+    for sid in created_session_ids:
+        before = findings["per_session_available_before"].get(sid)
+        after = findings["per_session_available_after"].get(sid)
+        if before is not None and after is not None:
+            try:
+                delta = float(before) - float(after)
+                expected = float(sign_amount_units) / 1_000_000  # USDC 6-decimals -> USD
+                if abs(delta - expected) > 1e-6 and findings["per_session_sign_status"].get(sid) == PROOF_GENERATED:
+                    unexpected_drops.append(sid)
+            except (TypeError, ValueError):
+                pass
+    findings["shared_ledger_evidence"] = bool(unexpected_drops)
+    findings["sessions_with_unexpected_drop"] = unexpected_drops
+    findings["shared_ledger_evidence_note"] = (
+        "cross-session accounting IS visible via the per-session availableSpendAmount field at "
+        "sign-time (unexpected drop observed)."
+        if findings["shared_ledger_evidence"] else
+        "no shared accounting visible via the per-session availableSpendAmount field at sign-time "
+        "(a settlement-time principal ledger would not surface here)."
+    )
+
+    measurement_clean = (
+        findings["parallel_sessions_created"] == parallel_count
+        and findings["sign_attempts"] == parallel_count
+    )
+    passed = measurement_clean
+
+    details = (
+        f"SCOPE: Tier-A PARTIAL evidence toward ACP-016 — sign-only (PROOF_GENERATED), 0 gas, "
+        f"no settlement. {findings['sign_successes_proof_generated']}/{parallel_count} parallel "
+        f"sessions signed. Per-session available-balance delta after signing: "
+        f"{findings['shared_ledger_evidence_note']} "
+        f"Full ACP-016 (whether SETTLED spend aggregates across sessions) is deferred to a Tier B "
+        f"round once the wallet is funded — this result does not confirm or refute that."
+    )
+
+    return AgentCoreTestResult(
+        test_id="ACP-016",
+        name="Cross-Session Aggregate Spend at Sign-Time (Tier-A partial evidence; Tier B settlement round pending)",
+        category="spend_cap_enforcement",
+        owasp_asi="ASI02",
+        severity=Severity.MEDIUM.value,
+        passed=passed,
+        details=details,
+        region=region,
+        session_id=created_session_ids[0] if created_session_ids else "",
+        request_sent={
+            "operation": "CreatePaymentSession x N (parallel) + ProcessPayment x N (sign-only) + "
+                         "GetPaymentSession x N (post-sign balance check)",
+            "parallel_count_attempted": parallel_count,
+            "per_session_cap_usd": per_session_cap,
+            "sign_amount_units": sign_amount_units,
+            "pay_to": BURN_PAYTO,
+            "user_id": user_id,
+            "agent_name": agent_name,
+            "instrument_id": instrument_id,
+            "tier": "A (proof-only, 0 gas) — PARTIAL evidence for ACP-016; Tier B settlement round required for full claim",
+        },
+        response_received=findings,
+        csg_mapping="HC-1: Sign-time balance accounting must reflect true per-principal exposure (partial evidence for full ACP-016)",
+        estimated_impact="documentation",
+        estimated_severity="medium",
+        elapsed_s=round(elapsed, 3),
+        evidence_class="E2.5",
+    )
+
+
+VS_R02_TIER_A_TESTS: dict[str, list[str]] = {
+    "spend_cap_enforcement": [
+        "test_agentcore_signtime_spend_fragmentation",       # ACP-009
+        "test_agentcore_signtime_session_reset_replay",      # ACP-010
+        "test_agentcore_signtime_cross_session_aggregate_tier_a",  # ACP-016 (Tier-A portion)
+    ],
+    "402_terms_validation": [
+        "test_agentcore_signtime_terms_forgery",              # ACP-011
+    ],
+}
+# NOTE: intentionally NOT merged into ALL_TESTS and NOT registered in
+# protocol_tests/cli.py / scripts/count_tests.py — same staging discipline as
+# the VS-R01 stubs (see "Module footer" comment below). Mike registers after
+# live validation.
+
+
+# ---------------------------------------------------------------------------
+# VS-R02 Tier B — settlement-evidence extension (SETTLES ON-CHAIN, real gas +
+# USDC). See reports/round_24/VS-R02-tier-b-runbook.md before running any of
+# this. All four functions below (ACP-012, ACP-016-full, ACP-017, ACP-018)
+# are fail-closed behind AGENTCORE_TIER_B_SETTLE_OK=1 IN ADDITION TO the
+# module-level AGENTCORE_LIVE_NET_OK / AGENTCORE_ALLOW_TESTNET gates above —
+# Tier B is a strictly narrower, separately opt-in surface because unlike
+# every Tier A test it spends real money. As of this writing (2026-07-11) the
+# VS-R02 wallet is UNFUNDED; none of this has been run.
+#
+# ARCHITECTURE — read this before trusting any Tier B result:
+#   Plan A (implemented below): sign via CDP delegated signing
+#   (ProcessPayment -> PROOF_GENERATED, same call as Tier A) -> extract the
+#   signed authorization/proof from the response -> submit it as an
+#   X-PAYMENT header to a SyntheticMerchant instance, called IN-PROCESS via
+#   `merchant.handle()` (no HTTP server, no public URL needed) -> the
+#   merchant's CoinbaseFacilitator relays to the real x402 facilitator's
+#   /verify + /settle endpoints, which broadcast the EIP-3009
+#   transferWithAuthorization on Base Sepolia and return a real tx hash.
+#
+#   This assumes AgentCore's ProcessPayment, on success, RETURNS the signed
+#   proof to the caller rather than settling it internally end-to-end. That
+#   assumption is UNVERIFIED — nobody has a captured live PROOF_GENERATED
+#   response in this repo showing what field the proof comes back under (see
+#   _extract_settlement_proof below, same caveat class as
+#   _extract_payment_status's `extra.name` uncertainty in the Tier-A code).
+#
+#   Fail-closed by design: if _extract_settlement_proof finds nothing, NO
+#   settlement is attempted and $0 is spent — a wrong architecture guess
+#   costs nothing beyond a free API call. If Plan A turns out to be wrong
+#   (AgentCore settles internally and never exposes a raw proof), Plan B is
+#   documented in the runbook: point payTo at a real wallet Mike controls and
+#   confirm settlement by watching the chain directly (Base Sepolia block
+#   explorer) instead of trying to intercept and resubmit a proof.
+#
+#   `protocol_tests/x402_merchant.py` is vendored (uncommitted) from PR #217
+#   (`feat/vs-r02-x402-merchant`, commit 3cf9797) — see the provenance note
+#   at the top of that file. Real, unit-tested merchant relay logic; not a
+#   stub. TODO(Mike): reconcile with PR #217 properly before either lands.
+
+ENV_TIER_B_SETTLE_OK = "AGENTCORE_TIER_B_SETTLE_OK"
+
+# Hard USD ceilings, enforced in code (not just documented). A single
+# settlement attempt over TIER_B_MAX_USD_PER_TX, or a cumulative suite total
+# over TIER_B_MAX_USD_PER_SUITE, raises AssertionError and halts the run
+# rather than silently proceeding. See _tier_b_check_cap / _tier_b_record_spend.
+TIER_B_MAX_USD_PER_TX = 0.02
+TIER_B_MAX_USD_PER_SUITE = 0.10
+
+# Module-level, process-lifetime ledger of every CONFIRMED settlement attempt
+# (real money moved or a rejection was recorded) across all Tier B tests run
+# in this Python process. Failed signs / unextractable proofs are NOT
+# appended (they spent nothing). Inspect this after a run for a full audit
+# trail independent of any single test's result JSON.
+_tier_b_spend_ledger: list[dict] = []
+
+
+def _tier_b_settle_gate() -> None:
+    """Fail closed unless the operator explicitly opts into real settlement.
+
+    Raises pytest.skip.Exception (same convention as _get_agentcore_client)
+    if AGENTCORE_TIER_B_SETTLE_OK != "1". Deliberately a SEPARATE env var
+    from AGENTCORE_ALLOW_TESTNET — conflating the two gates would make it too
+    easy to accidentally run a real-money settlement test while only
+    intending to run Tier A (0 gas) tests.
+    """
+    if os.environ.get(ENV_TIER_B_SETTLE_OK) != "1":
+        pytest.skip(
+            f"{ENV_TIER_B_SETTLE_OK}=1 not set — Tier B settlement tests are "
+            f"fail-closed by design (real Base Sepolia gas + USDC). Read "
+            f"reports/round_24/VS-R02-tier-b-runbook.md before setting this."
+        )
+
+
+def _tier_b_check_cap(test_id: str, usd_amount: float) -> None:
+    """Pre-flight hard-cap check. Raises AssertionError BEFORE any network
+    call if `usd_amount` would breach either ceiling. Does NOT append to the
+    ledger — only a CONFIRMED settlement does that, via _tier_b_record_spend.
+    """
+    if usd_amount > TIER_B_MAX_USD_PER_TX:
+        raise AssertionError(
+            f"{test_id}: single-transaction amount ${usd_amount} exceeds "
+            f"TIER_B_MAX_USD_PER_TX=${TIER_B_MAX_USD_PER_TX} — refusing to submit."
+        )
+    running_total = sum(e["usd_amount"] for e in _tier_b_spend_ledger) + usd_amount
+    if running_total > TIER_B_MAX_USD_PER_SUITE:
+        raise AssertionError(
+            f"{test_id}: cumulative Tier B spend would reach ${running_total:.4f}, "
+            f"exceeding TIER_B_MAX_USD_PER_SUITE=${TIER_B_MAX_USD_PER_SUITE} — refusing to submit."
+        )
+
+
+def _tier_b_record_spend(test_id: str, usd_amount: float, tx_hash: str) -> None:
+    """Append a CONFIRMED outcome to the module-level spend ledger and print
+    a one-line audit trail entry. `usd_amount` must be 0.0 for attempts that
+    did not settle (rejections, replays that were correctly refused) — only
+    money that actually moved counts against the suite ceiling.
+    """
+    running_total = sum(e["usd_amount"] for e in _tier_b_spend_ledger) + usd_amount
+    entry = {
+        "test_id": test_id,
+        "usd_amount": usd_amount,
+        "tx_hash": tx_hash,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "running_total_usd": round(running_total, 6),
+    }
+    _tier_b_spend_ledger.append(entry)
+    print(
+        f"[TIER-B-SPEND] {test_id}: ${usd_amount} tx={tx_hash or '(none/rejected)'} "
+        f"running_total=${running_total:.4f}/{TIER_B_MAX_USD_PER_SUITE}"
+    )
+
+
+def _import_x402_merchant():
+    """Lazy import of the vendored synthetic-merchant module (see the
+    provenance note at the top of protocol_tests/x402_merchant.py). Kept
+    lazy so a missing merchant file cannot break VS-R01 / Tier-A test
+    collection — only Tier B tests need it.
+    """
+    try:
+        from protocol_tests import x402_merchant as _mod
+        return _mod
+    except ImportError as e:  # pragma: no cover
+        pytest.skip(
+            f"protocol_tests/x402_merchant.py not importable ({e}) — Tier B "
+            f"settlement tests require the synthetic merchant module. See "
+            f"reports/round_24/VS-R02-tier-b-runbook.md."
+        )
+
+
+def _extract_settlement_proof(resp: Any) -> tuple[dict | str | None, str]:
+    """Best-effort extraction of a signed, settleable x402 proof from a
+    PROOF_GENERATED ProcessPayment response.
+
+    UNVERIFIED against a captured live response — same caveat class as
+    _extract_payment_status above. Nobody has a captured live PROOF_GENERATED
+    payload in this repo showing the exact field the signed
+    authorization/proof comes back under, or whether it is already
+    X-PAYMENT-header-shaped (base64 JSON, real signature included) or a raw
+    dict. This tries several plausible candidate paths and returns
+    ``(None, "")`` if nothing usable is found — callers MUST treat that as
+    "settlement not reached, extraction failed" and stop there (no
+    settlement attempted, $0 spent), never fabricate a proof to keep going.
+
+    A structured-dict candidate is only accepted if it carries BOTH an
+    `authorization`-shaped sub-object (nonce/value/from/to/validBefore/
+    validAfter) AND a `signature` field. A proof with authorization fields
+    but no real signature is deliberately treated as unusable — see
+    _encode_x_payment_with_real_signature's docstring for why (it must never
+    be handed a fabricated signature).
+
+    Returns:
+        (proof, method) — proof is a dict with ``{"authorization": ...,
+        "signature": ...}`` (needs _encode_x_payment_with_real_signature), a
+        str (already an encoded X-PAYMENT header), or None. method records
+        which candidate path matched, threaded into the result JSON as
+        `proof_extraction_method` for audit.
+
+    TODO(Mike): once a live PROOF_GENERATED response is captured, hard-code
+    the correct path here and delete the guesswork — same TODO discipline as
+    _extract_payment_status.
+    """
+    if not isinstance(resp, dict):
+        return None, ""
+    payment = resp.get("payment", resp)
+    if not isinstance(payment, dict):
+        return None, ""
+
+    # Candidate 1: already an X-PAYMENT-ready base64 string (real signature
+    # embedded by construction, if this path is ever actually hit).
+    for key in ("xPayment", "paymentHeader", "signedPayment", "signedXPayment"):
+        val = payment.get(key)
+        if isinstance(val, str) and val:
+            return val, f"encoded_string:{key}"
+
+    # Candidate 2: a structured proof/authorization dict — only usable if it
+    # carries a real signature alongside the authorization fields.
+    for key in ("proof", "paymentProof", "signedPayload", "cryptoX402Proof"):
+        val = payment.get(key)
+        if not isinstance(val, dict) or not val:
+            continue
+        auth = val.get("authorization", val)
+        sig = val.get("signature") if isinstance(val, dict) else None
+        if sig is None and isinstance(auth, dict):
+            sig = auth.get("signature")
+        if isinstance(auth, dict) and sig:
+            return {"authorization": auth, "signature": sig}, f"structured_dict_with_signature:{key}"
+
+    return None, ""
+
+
+def _encode_x_payment_with_real_signature(
+    proof: dict, scheme: str = "exact", network: str = "base-sepolia"
+) -> str:
+    """Build a base64 X-PAYMENT header using the REAL CDP-produced signature
+    extracted by _extract_settlement_proof.
+
+    Deliberately does NOT reuse x402_merchant.encode_x_payment() — that
+    helper hardcodes a fake ``"0xtest"`` signature for its own unit tests
+    (MockFacilitator doesn't check it). Using it here would either silently
+    fail against the live Coinbase facilitator (invalid signature, safe but
+    misleading) or, worse, mask the fact that no real signature was ever
+    extracted. `proof` must already contain a real `signature` field — see
+    _extract_settlement_proof's candidate-2 gating.
+    """
+    import base64 as _b64
+
+    obj = {
+        "x402Version": 1,
+        "scheme": scheme,
+        "network": network,
+        "payload": {"authorization": proof["authorization"], "signature": proof["signature"]},
+    }
+    return _b64.b64encode(json.dumps(obj).encode()).decode()
+
+
+def _tier_b_sign(
+    dp: Any, pm_arn: str, session_id: str, user_id: str, agent_name: str,
+    instrument_id: str, amount_units: str, description: str,
+    max_timeout_seconds: int = 60, resource: str = "https://vsr02-tier-b-probe.example/data",
+) -> dict:
+    """Sign-only step: ProcessPayment via CDP delegated signing + best-effort
+    proof extraction. No cap-check, no settlement attempt — the caller
+    decides whether/when to submit for settlement (immediately, for most
+    tests; after a deliberate delay, for ACP-017's past-window probe).
+    """
+    result: dict = {
+        "sign_status": "", "status_extraction_method": "", "sign_response_excerpt": "",
+        "proof_extracted": False, "proof_extraction_method": "", "raw_proof": None,
+    }
+    payload = _build_x402_exact_payload(
+        amount_units, pay_to=BURN_PAYTO, description=description, resource=resource,
+    )
+    payload["maxTimeoutSeconds"] = max_timeout_seconds
+    try:
+        resp = dp.process_payment(
+            userId=user_id, agentName=agent_name, paymentManagerArn=pm_arn,
+            paymentSessionId=session_id, paymentInstrumentId=instrument_id,
+            paymentType="CRYPTO_X402",
+            paymentInput={"cryptoX402": {"version": "1", "payload": payload}},
+            clientToken=str(uuid.uuid4()),
+        )
+    except Exception as e:
+        result["sign_status"] = f"{type(e).__name__}: {str(e)[:200]}"
+        return result
+
+    status, method = _extract_payment_status(resp)
+    result["sign_status"] = status or f"UNRECOGNIZED: {str(resp)[:200]}"
+    result["status_extraction_method"] = method or "none"
+    result["sign_response_excerpt"] = str(resp)[:400]
+    if status != PROOF_GENERATED:
+        return result
+
+    proof, proof_method = _extract_settlement_proof(resp)
+    result["raw_proof"] = proof
+    result["proof_extraction_method"] = proof_method or "none"
+    result["proof_extracted"] = proof is not None
+    return result
+
+
+def _tier_b_submit_for_settlement(merchant: Any, raw_proof: Any, test_id: str, usd_amount: float) -> dict:
+    """Submit an already-extracted proof to `merchant.handle()` for real
+    settlement (in-process call — no HTTP server, no public URL required;
+    the merchant's CoinbaseFacilitator does the outbound network call to the
+    real x402 facilitator). Enforces the hard caps via _tier_b_check_cap
+    BEFORE the call, and records the outcome via _tier_b_record_spend AFTER
+    — 0.0 if it did not settle, so rejected/failed attempts never consume
+    suite budget, but the REAL amount if it unexpectedly does settle (so an
+    anomaly is captured accurately, not under-reported).
+    """
+    _tier_b_check_cap(test_id, usd_amount)
+    x_payment_header = (
+        raw_proof if isinstance(raw_proof, str) else _encode_x_payment_with_real_signature(raw_proof)
+    )
+    http_status, body = merchant.handle(merchant.req.resource, x_payment_header)
+    settle_success = http_status == 200 and isinstance(body, dict)
+    tx_hash = body.get("settlement", {}).get("txHash", "") if settle_success else ""
+    settled_usd = usd_amount if settle_success else 0.0
+    _tier_b_record_spend(test_id, settled_usd, tx_hash)
+    if settle_success:
+        print(f"[TIER-B-TX] {test_id}: settled tx={tx_hash} amount=${usd_amount}")
+    return {
+        "settle_attempted": True, "settle_http_status": http_status, "settle_body": body,
+        "settle_success": settle_success, "tx_hash": tx_hash,
+    }
+
+
+def _tier_b_sign_and_settle(
+    dp: Any, pm_arn: str, session_id: str, user_id: str, agent_name: str,
+    instrument_id: str, amount_units: str, merchant: Any, description: str,
+    test_id: str, max_timeout_seconds: int = 60,
+) -> dict:
+    """Convenience wrapper: sign immediately, then settle immediately (the
+    common case — ACP-012's first settle, every ACP-016 fragment, every
+    ACP-018 loop attempt). ACP-017's past-window probe calls _tier_b_sign()
+    and _tier_b_submit_for_settlement() separately with a deliberate sleep
+    in between instead of using this wrapper.
+    """
+    result = _tier_b_sign(
+        dp, pm_arn, session_id, user_id, agent_name, instrument_id,
+        amount_units, description, max_timeout_seconds, resource=merchant.req.resource,
+    )
+    if not result.get("proof_extracted"):
+        result.update({"settle_attempted": False, "settle_success": False, "tx_hash": ""})
+        return result
+    usd_amount = round(int(amount_units) / 1_000_000, 6)
+    settle_result = _tier_b_submit_for_settlement(merchant, result["raw_proof"], test_id, usd_amount)
+    result.update(settle_result)
+    return result
+
+
+def test_agentcore_settle_receipt_nonce_reuse() -> AgentCoreTestResult:
+    """ACP-012 (Tier B — SETTLES ON-CHAIN): receipt nonce reuse / double-spend probe.
+
+    Real settlement (E3): signs one payment authorization via CDP delegated
+    signing, submits it to the synthetic merchant (in-process call; the
+    merchant's CoinbaseFacilitator relays to the LIVE Coinbase x402
+    facilitator's /verify + /settle) — real Base Sepolia gas + USDC, a real
+    transaction hash. Then resubmits the SAME extracted proof (same nonce,
+    no re-signing) a second time, within its own validBefore window, and
+    observes whether the facilitator's EIP-3009 authorization-state check
+    refuses the replay.
+
+    SAFETY GATE: skips unless AGENTCORE_TIER_B_SETTLE_OK=1. payTo is
+    BURN_PAYTO for both the signed authorization and the merchant's
+    PaymentRequirements — no counterparty, minimal blast radius.
+
+    If the first settle does not reach real settlement (proof extraction
+    failure, sign rejection, etc.), NO money is spent and the replay probe is
+    skipped — see response_received for diagnosis, same triage order as the
+    Tier-A runbook (grant expiry, extra payload shape, status/proof
+    field-name guess).
+    """
+    _tier_b_settle_gate()
+    t0 = time.monotonic()
+    region = os.environ.get(ENV_REGION, "us-east-1")
+    dp = _get_agentcore_client(service="bedrock-agentcore")
+    pm_arn = os.environ.get("AGENTCORE_PAYMENT_MANAGER_ARN", "")
+    user_id = os.environ.get(ENV_VSR02_USER_ID, VSR02_USER_ID_DEFAULT)
+    agent_name = os.environ.get(ENV_VSR02_AGENT_NAME, VSR02_AGENT_NAME_DEFAULT)
+    instrument_id = os.environ.get(ENV_VSR02_INSTRUMENT_ID, VSR02_INSTRUMENT_ID_DEFAULT)
+    per_cap = "0.05"
+    settle_amount_units = "10000"  # 0.01 USDC
+
+    x402_merchant = _import_x402_merchant()
+    merchant_req = x402_merchant.PaymentRequirements(
+        pay_to=BURN_PAYTO, max_amount_required=settle_amount_units, resource="/vsr02-acp-012",
+    )
+    merchant = x402_merchant.SyntheticMerchant(merchant_req, x402_merchant.CoinbaseFacilitator())
+    usd_amount = round(int(settle_amount_units) / 1_000_000, 6)
+
+    findings: dict = {
+        "user_id": user_id, "agent_name": agent_name, "instrument_id": instrument_id,
+        "session_id": "",
+        "first_settle": {}, "replay_settle": {},
+        "replay_rejected": None,
+        "errors": [],
+    }
+
+    try:
+        r = dp.create_payment_session(
+            userId=user_id, agentName=agent_name, paymentManagerArn=pm_arn,
+            limits={"maxSpendAmount": {"value": per_cap, "currency": "USD"}},
+            expiryTimeInMinutes=15, clientToken=str(uuid.uuid4()),
+        )
+        findings["session_id"] = r.get("paymentSession", r).get("paymentSessionId", "")
+    except Exception as e:
+        findings["errors"].append(f"session_create: {type(e).__name__}: {str(e)[:160]}")
+
+    if findings["session_id"]:
+        findings["first_settle"] = _tier_b_sign_and_settle(
+            dp, pm_arn, findings["session_id"], user_id, agent_name, instrument_id,
+            settle_amount_units, merchant, "ACP-012 first settle", "ACP-012-first",
+        )
+        if findings["first_settle"].get("proof_extracted"):
+            raw_proof = findings["first_settle"].get("raw_proof")
+            replay_result = _tier_b_submit_for_settlement(merchant, raw_proof, "ACP-012-replay", usd_amount)
+            findings["replay_settle"] = replay_result
+            findings["replay_rejected"] = not replay_result.get("settle_success")
+            if replay_result.get("settle_success"):
+                findings["ANOMALY_replay_settled"] = True
+        else:
+            findings["replay_settle"] = {"note": "skipped — first settle did not produce an extractable proof, $0 spent"}
+
+    if findings["session_id"]:
+        try:
+            dp.delete_payment_session(userId=user_id, paymentManagerArn=pm_arn, paymentSessionId=findings["session_id"])
+        except Exception:
+            pass
+
+    elapsed = time.monotonic() - t0
+    reached_settlement = bool(findings["first_settle"].get("settle_success"))
+    measurement_clean = bool(findings["session_id"]) and reached_settlement
+    passed = measurement_clean  # characterization convention, not a security verdict
+
+    anomaly = bool(findings.get("ANOMALY_replay_settled"))
+    if not reached_settlement:
+        detail_note = (
+            f"Did not reach real settlement — sign_status="
+            f"{findings['first_settle'].get('sign_status', '?')}, "
+            f"proof_extraction_method={findings['first_settle'].get('proof_extraction_method', '?')}. "
+            f"$0 spent. See response_received for diagnosis."
+        )
+    elif anomaly:
+        detail_note = (
+            f"ANOMALY: first settle reached real on-chain settlement (tx="
+            f"{findings['first_settle'].get('tx_hash', '?')}); the REPLAY of the identical signed "
+            f"authorization (same nonce) also SETTLED (tx={findings['replay_settle'].get('tx_hash', '?')}) "
+            f"— potential double-spend surface. STOP and verify manually against the actual chain "
+            f"state before any further Tier B runs or any public framing."
+        )
+    else:
+        detail_note = (
+            f"First settle reached real on-chain settlement (tx="
+            f"{findings['first_settle'].get('tx_hash', '?')}); replay of the identical signed "
+            f"authorization (same nonce) was REJECTED — consistent with EIP-3009 authorization-state "
+            f"single-use semantics enforced by the facilitator."
+        )
+
+    details = f"SCOPE: Tier B real settlement (E3), payTo={BURN_PAYTO}. {detail_note}"
+
+    return AgentCoreTestResult(
+        test_id="ACP-012",
+        name="Settlement-Time Receipt Nonce Reuse (Tier B — real on-chain settlement)",
+        category="receipt_validation",
+        owasp_asi="ASI06",
+        severity=Severity.CRITICAL.value if anomaly else Severity.HIGH.value,
+        passed=passed,
+        details=details,
+        region=region,
+        session_id=findings["session_id"],
+        request_sent={
+            "operation": "CreatePaymentSession + ProcessPayment(sign) + merchant.handle(settle) + "
+                         "merchant.handle(replay, same proof, no re-sign)",
+            "settle_amount_units": settle_amount_units,
+            "pay_to": BURN_PAYTO,
+            "user_id": user_id, "agent_name": agent_name, "instrument_id": instrument_id,
+            "tier": "B (settles on-chain — real Base Sepolia gas + USDC)",
+        },
+        response_received=findings,
+        csg_mapping="HC-4: Settled payment authorizations must be single-use (nonce/authorization-state enforcement)",
+        estimated_impact="fund_theft" if anomaly else "documentation",
+        estimated_severity="critical" if anomaly else "high",
+        elapsed_s=round(elapsed, 3),
+        evidence_class="E3" if reached_settlement else "E2.5",
+    )
+
+
+def test_agentcore_settle_cross_session_aggregate() -> AgentCoreTestResult:
+    """ACP-016 (Tier B — full settlement, SETTLES ON-CHAIN): does SETTLED
+    spend aggregate across parallel sessions under one (userId, agentName)?
+
+    Closes the loop VS-R01 ACP-001 (admission-time, E2) and VS-R02 Tier-A's
+    test_agentcore_signtime_cross_session_aggregate_tier_a (sign-time
+    partial, E2.5) left open: N parallel sessions each sign AND SETTLE a
+    real on-chain payment via ONE shared SyntheticMerchant instance, so
+    `merchant.total_settled` reflects genuine cumulative settled value
+    across all of them. If total_settled == N * per-session amount with no
+    rejection, settled spend does not aggregate across sessions either —
+    fragmentation extends from admission (ACP-001) through sign-time
+    (ACP-009) all the way to real settlement.
+
+    SAFETY GATE: skips unless AGENTCORE_TIER_B_SETTLE_OK=1. N is kept small
+    (3, not the test-plan's aspirational 5) to leave margin under
+    TIER_B_MAX_USD_PER_SUITE for the other three Tier B tests in the suite.
+    """
+    _tier_b_settle_gate()
+    t0 = time.monotonic()
+    region = os.environ.get(ENV_REGION, "us-east-1")
+    dp = _get_agentcore_client(service="bedrock-agentcore")
+    pm_arn = os.environ.get("AGENTCORE_PAYMENT_MANAGER_ARN", "")
+    user_id = os.environ.get(ENV_VSR02_USER_ID, VSR02_USER_ID_DEFAULT)
+    agent_name = os.environ.get(ENV_VSR02_AGENT_NAME, VSR02_AGENT_NAME_DEFAULT)
+    instrument_id = os.environ.get(ENV_VSR02_INSTRUMENT_ID, VSR02_INSTRUMENT_ID_DEFAULT)
+    per_session_cap = "0.02"
+    parallel_count = 3
+    settle_amount_units = "10000"  # 0.01 USDC per session
+
+    x402_merchant = _import_x402_merchant()
+    merchant_req = x402_merchant.PaymentRequirements(
+        pay_to=BURN_PAYTO, max_amount_required=settle_amount_units, resource="/vsr02-acp-016",
+    )
+    merchant = x402_merchant.SyntheticMerchant(merchant_req, x402_merchant.CoinbaseFacilitator())
+
+    findings: dict = {
+        "user_id": user_id, "agent_name": agent_name, "instrument_id": instrument_id,
+        "parallel_sessions_created": 0, "parallel_sessions_attempted": parallel_count,
+        "per_session_cap_usd": per_session_cap, "settle_amount_units": settle_amount_units,
+        "per_session_settle_result": {}, "settled_count": 0,
+        "errors": [],
+    }
+    created_session_ids: list[str] = []
+
+    for i in range(parallel_count):
+        try:
+            r = dp.create_payment_session(
+                userId=user_id, agentName=agent_name, paymentManagerArn=pm_arn,
+                limits={"maxSpendAmount": {"value": per_session_cap, "currency": "USD"}},
+                expiryTimeInMinutes=15, clientToken=str(uuid.uuid4()),
+            )
+            sid = r.get("paymentSession", r).get("paymentSessionId", "")
+            if sid:
+                created_session_ids.append(sid)
+                findings["parallel_sessions_created"] += 1
+        except Exception as e:
+            findings["errors"].append(f"session_create[{i}]: {type(e).__name__}: {str(e)[:160]}")
+
+    for i, sid in enumerate(created_session_ids):
+        r = _tier_b_sign_and_settle(
+            dp, pm_arn, sid, user_id, agent_name, instrument_id,
+            settle_amount_units, merchant, f"ACP-016 settle fragment {i}", f"ACP-016-frag-{i}",
+        )
+        findings["per_session_settle_result"][sid] = {
+            "sign_status": r.get("sign_status"), "settle_success": r.get("settle_success"),
+            "tx_hash": r.get("tx_hash"), "settle_http_status": r.get("settle_http_status"),
+        }
+        if r.get("settle_success"):
+            findings["settled_count"] += 1
+
+    for sid in created_session_ids:
+        try:
+            dp.delete_payment_session(userId=user_id, paymentManagerArn=pm_arn, paymentSessionId=sid)
+        except Exception:
+            pass
+
+    elapsed = time.monotonic() - t0
+    total_settled_units = merchant.total_settled
+    total_settled_usd = round(total_settled_units / 1_000_000, 6)
+    per_session_cap_usd_val = float(per_session_cap)
+    aggregation_enforced = total_settled_usd <= per_session_cap_usd_val + 1e-9
+    findings["total_settled_units"] = total_settled_units
+    findings["total_settled_usd"] = total_settled_usd
+    findings["settlement_records"] = [asdict(s) for s in merchant.settlements]
+    findings["aggregation_enforced_at_settlement"] = aggregation_enforced
+
+    measurement_clean = (
+        findings["parallel_sessions_created"] == parallel_count
+        and len(findings["per_session_settle_result"]) == parallel_count
+    )
+    passed = measurement_clean
+
+    if findings["settled_count"] == 0:
+        agg_note = "0 of the parallel sessions reached real settlement — see per_session_settle_result for diagnosis; cannot characterize aggregation."
+    elif aggregation_enforced:
+        agg_note = (
+            f"Total SETTLED spend (${total_settled_usd}) stayed within a single session's cap "
+            f"(${per_session_cap_usd_val}) despite {findings['settled_count']} sessions settling — "
+            f"UNEXPECTED given ACP-001/ACP-009 admission/sign-time findings; verify manually."
+        )
+    else:
+        agg_note = (
+            f"Total SETTLED spend across {findings['settled_count']} parallel sessions "
+            f"(${total_settled_usd}) EXCEEDS a single session's cap (${per_session_cap_usd_val}) — "
+            f"settled-spend fragmentation confirmed at the strict E3 (real settlement) layer, "
+            f"consistent with the admission-time (ACP-001) and sign-time (ACP-009) findings."
+        )
+
+    details = (
+        f"SCOPE: Tier B real settlement (E3), payTo={BURN_PAYTO}, {parallel_count} parallel sessions, "
+        f"${round(int(settle_amount_units) / 1_000_000, 6)} each. {agg_note}"
+    )
+
+    return AgentCoreTestResult(
+        test_id="ACP-016",
+        name="Cross-Session Aggregate Spend at SETTLEMENT (Tier B — full, real on-chain settlement)",
+        category="spend_cap_enforcement",
+        owasp_asi="ASI02",
+        severity=Severity.MEDIUM.value,
+        passed=passed,
+        details=details,
+        region=region,
+        session_id=created_session_ids[0] if created_session_ids else "",
+        request_sent={
+            "operation": "CreatePaymentSession x N (parallel) + [ProcessPayment(sign) + merchant.handle(settle)] x N, "
+                         "one shared merchant instance",
+            "parallel_count_attempted": parallel_count,
+            "per_session_cap_usd": per_session_cap,
+            "settle_amount_units": settle_amount_units,
+            "pay_to": BURN_PAYTO,
+            "user_id": user_id, "agent_name": agent_name, "instrument_id": instrument_id,
+            "tier": "B (settles on-chain — real Base Sepolia gas + USDC)",
+        },
+        response_received=findings,
+        csg_mapping="HC-1: Settlement-time aggregation needed for principal-bound spend governance (closes ACP-001/ACP-009 loop)",
+        estimated_impact="fund_theft" if (findings["settled_count"] > 0 and not aggregation_enforced) else "documentation",
+        estimated_severity="medium",
+        elapsed_s=round(elapsed, 3),
+        evidence_class="E3" if findings["settled_count"] > 0 else "E2.5",
+    )
+
+
+def test_agentcore_settle_delegation_expiry_boundary() -> AgentCoreTestResult:
+    """ACP-017 (Tier B — SETTLES ON-CHAIN): is a signed authorization's own
+    validBefore boundary enforced at SIGN time, at SETTLEMENT time, or both?
+
+    REFRAMED from the VS-R02 test-plan's original ACP-017 ("sign at T-5min /
+    T+5min of the WalletHub delegation GRANT's expiry"): the grant expires
+    2026-09-09 (scripts/vs-r02-env.sh) — months out from any plausible run
+    date for this staged suite, so waiting for real grant expiry is not
+    practically scriptable. This test substitutes the boundary that IS
+    controllable today: the x402 "exact" scheme authorization's own
+    `validBefore` field (derived from `maxTimeoutSeconds` in the signed
+    payload). It signs two independent authorizations with a short
+    `maxTimeoutSeconds` window and asks: (a) does a settlement attempt made
+    WELL WITHIN the window succeed; (b) does a settlement attempt made AFTER
+    the window has elapsed get rejected, even though CDP delegated signing
+    itself succeeded (PROOF_GENERATED) before expiry? (b) is the genuine
+    sign-time-vs-settlement-time enforcement question the test plan asked,
+    measured on the payload's validBefore instead of the grant's expiry.
+
+    `days_until_grant_expiry` is logged for informational comparison only —
+    if a future run happens to land near the real 2026-09-09 grant expiry,
+    compare manually; that path is not automated here.
+
+    SAFETY GATE: skips unless AGENTCORE_TIER_B_SETTLE_OK=1.
+    """
+    _tier_b_settle_gate()
+    t0 = time.monotonic()
+    region = os.environ.get(ENV_REGION, "us-east-1")
+    dp = _get_agentcore_client(service="bedrock-agentcore")
+    pm_arn = os.environ.get("AGENTCORE_PAYMENT_MANAGER_ARN", "")
+    user_id = os.environ.get(ENV_VSR02_USER_ID, VSR02_USER_ID_DEFAULT)
+    agent_name = os.environ.get(ENV_VSR02_AGENT_NAME, VSR02_AGENT_NAME_DEFAULT)
+    instrument_id = os.environ.get(ENV_VSR02_INSTRUMENT_ID, VSR02_INSTRUMENT_ID_DEFAULT)
+    per_cap = "0.05"
+    settle_amount_units = "10000"
+    short_timeout_s = 5
+    wait_past_expiry_s = short_timeout_s + 3
+
+    from datetime import date as _date
+    grant_expiry_str = os.environ.get("AGENTCORE_VSR02_GRANT_EXPIRY", "2026-09-09")
+    try:
+        grant_expiry = _date.fromisoformat(grant_expiry_str)
+        days_until_grant_expiry = (grant_expiry - datetime.now(timezone.utc).date()).days
+    except ValueError:
+        days_until_grant_expiry = None
+
+    x402_merchant = _import_x402_merchant()
+    merchant_req = x402_merchant.PaymentRequirements(
+        pay_to=BURN_PAYTO, max_amount_required=settle_amount_units, resource="/vsr02-acp-017",
+    )
+    merchant = x402_merchant.SyntheticMerchant(merchant_req, x402_merchant.CoinbaseFacilitator())
+    usd_amount = round(int(settle_amount_units) / 1_000_000, 6)
+
+    findings: dict = {
+        "user_id": user_id, "agent_name": agent_name, "instrument_id": instrument_id,
+        "days_until_grant_expiry": days_until_grant_expiry,
+        "short_timeout_s": short_timeout_s, "wait_past_expiry_s": wait_past_expiry_s,
+        "within_window_settle": {}, "past_window_settle": {},
+        "session_id": "",
+        "errors": [],
+    }
+
+    try:
+        r = dp.create_payment_session(
+            userId=user_id, agentName=agent_name, paymentManagerArn=pm_arn,
+            limits={"maxSpendAmount": {"value": per_cap, "currency": "USD"}},
+            expiryTimeInMinutes=15, clientToken=str(uuid.uuid4()),
+        )
+        findings["session_id"] = r.get("paymentSession", r).get("paymentSessionId", "")
+    except Exception as e:
+        findings["errors"].append(f"session_create: {type(e).__name__}: {str(e)[:160]}")
+
+    if findings["session_id"]:
+        # Probe (a): sign + settle immediately, well within the validBefore window.
+        within = _tier_b_sign(
+            dp, pm_arn, findings["session_id"], user_id, agent_name, instrument_id,
+            settle_amount_units, "ACP-017 within-window", short_timeout_s, resource=merchant.req.resource,
+        )
+        if within.get("proof_extracted"):
+            within.update(_tier_b_submit_for_settlement(merchant, within["raw_proof"], "ACP-017-within", usd_amount))
+        findings["within_window_settle"] = within
+
+        # Probe (b): sign a SEPARATE authorization (own nonce), wait past its
+        # validBefore window, then attempt settlement.
+        late = _tier_b_sign(
+            dp, pm_arn, findings["session_id"], user_id, agent_name, instrument_id,
+            settle_amount_units, "ACP-017 past-window", short_timeout_s, resource=merchant.req.resource,
+        )
+        findings["past_window_sign_status"] = late.get("sign_status")
+        findings["past_window_proof_extracted"] = late.get("proof_extracted")
+        if late.get("proof_extracted"):
+            time.sleep(wait_past_expiry_s)
+            past = _tier_b_submit_for_settlement(merchant, late["raw_proof"], "ACP-017-past", usd_amount)
+            findings["past_window_settle"] = past
+        else:
+            findings["past_window_settle"] = {"note": "skipped — sign did not reach PROOF_GENERATED / no extractable proof, $0 spent"}
+
+    if findings["session_id"]:
+        try:
+            dp.delete_payment_session(userId=user_id, paymentManagerArn=pm_arn, paymentSessionId=findings["session_id"])
+        except Exception:
+            pass
+
+    elapsed = time.monotonic() - t0
+
+    within_ok = bool(findings["within_window_settle"].get("settle_success"))
+    past_reached = "settle_success" in findings.get("past_window_settle", {})
+    past_settled = bool(findings.get("past_window_settle", {}).get("settle_success"))
+    measurement_clean = bool(findings["session_id"]) and within_ok and past_reached
+    passed = measurement_clean
+
+    if not within_ok:
+        note = "Within-window settlement did not succeed — cannot characterize the boundary; see within_window_settle for diagnosis."
+    elif not past_reached:
+        note = "Past-window sign/proof-extraction did not succeed — boundary not characterized on the settlement side."
+    elif past_settled:
+        note = (
+            "Settlement past the signed authorization's own validBefore window SUCCEEDED — "
+            "expiry is NOT re-validated at settlement time for this window; enforcement is "
+            "sign-time only. Needs manual verification before any public framing."
+        )
+    else:
+        note = (
+            "Settlement past the signed authorization's own validBefore window was REJECTED — "
+            "expiry IS re-validated at settlement time, not just sign-time (expected EIP-3009 / "
+            "x402 'exact' scheme behavior)."
+        )
+
+    details = (
+        f"SCOPE: Tier B real settlement (E3), payTo={BURN_PAYTO}. REFRAMED from grant-expiry to "
+        f"payload validBefore (see docstring) — days_until_grant_expiry={days_until_grant_expiry} "
+        f"(informational only, not exercised this run). {note}"
+    )
+
+    return AgentCoreTestResult(
+        test_id="ACP-017",
+        name="Delegation/Authorization Expiry — Sign-Time vs Settlement-Time Enforcement (Tier B, reframed to payload validBefore)",
+        category="spend_cap_enforcement",
+        owasp_asi="ASI02",
+        severity=Severity.MEDIUM.value,
+        passed=passed,
+        details=details,
+        region=region,
+        session_id=findings["session_id"],
+        request_sent={
+            "operation": "CreatePaymentSession + [sign+settle within window] + [sign, sleep past window, settle]",
+            "settle_amount_units": settle_amount_units,
+            "short_timeout_s": short_timeout_s, "wait_past_expiry_s": wait_past_expiry_s,
+            "pay_to": BURN_PAYTO,
+            "user_id": user_id, "agent_name": agent_name, "instrument_id": instrument_id,
+            "tier": "B (settles on-chain — real Base Sepolia gas + USDC)",
+        },
+        response_received=findings,
+        csg_mapping="HC-1/HC-3: Expiry must be enforced at settlement time, not sign-time only",
+        estimated_impact="fund_theft" if past_settled else "documentation",
+        estimated_severity="medium",
+        elapsed_s=round(elapsed, 3),
+        evidence_class="E3" if past_reached else "E2.5",
+    )
+
+
+def test_agentcore_settle_revoke_race(revoke_at_attempt: int | None = None) -> AgentCoreTestResult:
+    """ACP-018 (Tier B — SETTLES ON-CHAIN, MANUAL COORDINATION REQUIRED):
+    revoke-and-immediately-spend race.
+
+    NOT FULLY AUTOMATABLE — read before running. The VS-R02 test plan frames
+    this as "end user clicks Revoke in WalletHub at T; agent submits
+    ProcessPayment at T+50ms with cached delegation." Revocation of a CDP
+    delegated-signing grant is a WalletHub UI action; no boto3/AgentCore API
+    used anywhere in this module (create/get/list/delete_payment_session,
+    create/delete_payment_instrument, process_payment) exposes it
+    programmatically. This test can only automate the AGENT side of the
+    race — a tight loop of small settlement attempts — while the OPERATOR
+    must manually click Revoke in the WalletHub UI at a moment of their
+    choosing during the loop's run window. See
+    reports/round_24/VS-R02-tier-b-runbook.md for the coordination steps.
+
+    The loop runs up to `max_attempts` settlement attempts (each well under
+    TIER_B_MAX_USD_PER_TX), `attempt_interval_s` apart, recording the
+    wall-clock timestamp and outcome of every attempt. The race window is
+    bounded by (last success, first failure-after-a-success) — the exact
+    revoke timestamp is only as precise as the operator's own note of when
+    they clicked Revoke (not captured programmatically; compare manually).
+
+    `revoke_at_attempt` is an optional operator hint for documentation only
+    — not enforced by code. Leave None for a live interactive run.
+
+    SAFETY GATE: skips unless AGENTCORE_TIER_B_SETTLE_OK=1. The loop stops
+    itself (via _tier_b_check_cap) if continuing would breach the suite
+    ceiling, independent of whether revoke has happened yet.
+    """
+    _tier_b_settle_gate()
+    t0 = time.monotonic()
+    region = os.environ.get(ENV_REGION, "us-east-1")
+    dp = _get_agentcore_client(service="bedrock-agentcore")
+    pm_arn = os.environ.get("AGENTCORE_PAYMENT_MANAGER_ARN", "")
+    user_id = os.environ.get(ENV_VSR02_USER_ID, VSR02_USER_ID_DEFAULT)
+    agent_name = os.environ.get(ENV_VSR02_AGENT_NAME, VSR02_AGENT_NAME_DEFAULT)
+    instrument_id = os.environ.get(ENV_VSR02_INSTRUMENT_ID, VSR02_INSTRUMENT_ID_DEFAULT)
+    per_cap = "0.05"
+    per_attempt_units = "2000"  # 0.002 USDC — small; the loop makes several attempts
+    max_attempts = 5
+    attempt_interval_s = 1.0
+
+    x402_merchant = _import_x402_merchant()
+    merchant_req = x402_merchant.PaymentRequirements(
+        pay_to=BURN_PAYTO, max_amount_required=per_attempt_units, resource="/vsr02-acp-018",
+    )
+    merchant = x402_merchant.SyntheticMerchant(merchant_req, x402_merchant.CoinbaseFacilitator())
+    usd_per_attempt = round(int(per_attempt_units) / 1_000_000, 6)
+
+    findings: dict = {
+        "user_id": user_id, "agent_name": agent_name, "instrument_id": instrument_id,
+        "session_id": "",
+        "revoke_at_attempt_hint": revoke_at_attempt,
+        "max_attempts": max_attempts, "attempt_interval_s": attempt_interval_s,
+        "attempts": [],
+        "manual_coordination_note": (
+            "Revocation is a WalletHub UI action, not automatable from this harness. The "
+            "operator must click Revoke during this loop's run window and note the wall-clock "
+            "time themselves for manual comparison against the attempts list below."
+        ),
+        "errors": [],
+    }
+
+    try:
+        r = dp.create_payment_session(
+            userId=user_id, agentName=agent_name, paymentManagerArn=pm_arn,
+            limits={"maxSpendAmount": {"value": per_cap, "currency": "USD"}},
+            expiryTimeInMinutes=15, clientToken=str(uuid.uuid4()),
+        )
+        findings["session_id"] = r.get("paymentSession", r).get("paymentSessionId", "")
+    except Exception as e:
+        findings["errors"].append(f"session_create: {type(e).__name__}: {str(e)[:160]}")
+
+    if findings["session_id"]:
+        print(
+            f"[ACP-018] Session ready. Starting {max_attempts}-attempt loop "
+            f"({attempt_interval_s}s apart). CLICK REVOKE IN WALLETHUB NOW if running interactively."
+        )
+        for i in range(max_attempts):
+            try:
+                _tier_b_check_cap(f"ACP-018-attempt-{i}", usd_per_attempt)
+            except AssertionError as e:
+                findings["attempts"].append({
+                    "index": i, "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "outcome": "SUITE_CAP_REACHED_STOPPING", "detail": str(e),
+                })
+                break
+            r = _tier_b_sign_and_settle(
+                dp, pm_arn, findings["session_id"], user_id, agent_name, instrument_id,
+                per_attempt_units, merchant, f"ACP-018 race attempt {i}", f"ACP-018-attempt-{i}",
+            )
+            findings["attempts"].append({
+                "index": i, "timestamp": datetime.now(timezone.utc).isoformat(),
+                "elapsed_since_loop_start_s": round(time.monotonic() - t0, 3),
+                "sign_status": r.get("sign_status"), "settle_success": r.get("settle_success"),
+                "tx_hash": r.get("tx_hash"), "settle_http_status": r.get("settle_http_status"),
+            })
+            if i < max_attempts - 1:
+                time.sleep(attempt_interval_s)
+
+    if findings["session_id"]:
+        try:
+            dp.delete_payment_session(userId=user_id, paymentManagerArn=pm_arn, paymentSessionId=findings["session_id"])
+        except Exception:
+            pass
+
+    elapsed = time.monotonic() - t0
+
+    successes = [a for a in findings["attempts"] if a.get("settle_success")]
+    failures_after_first_success = [
+        a for a in findings["attempts"]
+        if not a.get("settle_success") and successes and a["index"] > successes[0]["index"]
+    ]
+    findings["last_success_index"] = successes[-1]["index"] if successes else None
+    findings["first_failure_after_a_success_index"] = (
+        failures_after_first_success[0]["index"] if failures_after_first_success else None
+    )
+    race_window_observed = (
+        findings["last_success_index"] is not None
+        and findings["first_failure_after_a_success_index"] is not None
+    )
+
+    measurement_clean = bool(findings["session_id"]) and len(findings["attempts"]) > 0
+    passed = measurement_clean
+
+    if not findings["attempts"]:
+        note = "No attempts completed — see errors."
+    elif not successes:
+        note = (
+            "Zero attempts settled — cannot characterize a revoke race; check whether the grant "
+            "was already revoked/expired before this run, or diagnose via sign_status."
+        )
+    elif len(successes) == len(findings["attempts"]):
+        note = (
+            "All attempts settled successfully. Either Revoke was not actually clicked during "
+            "this run, or settlement did not observe the revoke within the loop's window — MANUAL "
+            "FOLLOW-UP REQUIRED: confirm with the operator whether/when Revoke was clicked, and "
+            "re-run if it was not clicked during THIS invocation."
+        )
+    elif race_window_observed:
+        note = (
+            f"Race window observed: last successful settlement at attempt "
+            f"{findings['last_success_index']}, first failure after a success at attempt "
+            f"{findings['first_failure_after_a_success_index']}. Compare against the operator's own "
+            f"note of when Revoke was clicked in WalletHub to characterize enforcement latency."
+        )
+    else:
+        note = "Mixed results with no clean success-then-failure boundary — inspect the attempts list directly."
+
+    details = (
+        f"SCOPE: Tier B real settlement (E3), payTo={BURN_PAYTO}. MANUAL COORDINATION REQUIRED — "
+        f"see manual_coordination_note. {note}"
+    )
+
+    return AgentCoreTestResult(
+        test_id="ACP-018",
+        name="Revoke-and-Immediately-Spend Race (Tier B — requires manual WalletHub coordination)",
+        category="instrument_isolation",
+        owasp_asi="ASI03",
+        severity=Severity.HIGH.value,
+        passed=passed,
+        details=details,
+        region=region,
+        session_id=findings["session_id"],
+        request_sent={
+            "operation": f"CreatePaymentSession + {max_attempts}x [ProcessPayment(sign) + merchant.handle(settle)] "
+                         f"loop, {attempt_interval_s}s apart, operator clicks WalletHub Revoke mid-loop",
+            "per_attempt_units": per_attempt_units, "max_attempts": max_attempts,
+            "pay_to": BURN_PAYTO,
+            "user_id": user_id, "agent_name": agent_name, "instrument_id": instrument_id,
+            "tier": "B (settles on-chain — real Base Sepolia gas + USDC); MANUAL revoke coordination",
+        },
+        response_received=findings,
+        csg_mapping="HC-1/HC-5: Revocation must take effect immediately at settlement, not just at future sign attempts",
+        estimated_impact=(
+            "fund_theft" if (successes and len(successes) == len(findings["attempts"]) and findings["attempts"])
+            else "documentation"
+        ),
+        estimated_severity="high",
+        elapsed_s=round(elapsed, 3),
+        evidence_class="E3" if successes else "E2.5",
+    )
+
+
+VS_R02_TIER_B_TESTS: dict[str, list[str]] = {
+    "receipt_validation": [
+        "test_agentcore_settle_receipt_nonce_reuse",          # ACP-012
+    ],
+    "spend_cap_enforcement": [
+        "test_agentcore_settle_cross_session_aggregate",      # ACP-016 (Tier-B, full)
+        "test_agentcore_settle_delegation_expiry_boundary",   # ACP-017
+    ],
+    "instrument_isolation": [
+        "test_agentcore_settle_revoke_race",                  # ACP-018 — MANUAL WalletHub coordination required
+    ],
+}
+# NOTE: intentionally NOT merged into ALL_TESTS and NOT registered in
+# protocol_tests/cli.py / scripts/count_tests.py — same staging discipline as
+# VS_R02_TIER_A_TESTS above. These SETTLE ON-CHAIN (real gas + USDC) and are
+# additionally gated behind AGENTCORE_TIER_B_SETTLE_OK=1 (see
+# _tier_b_settle_gate). Do not run until the VS-R02 wallet is funded — see
+# reports/round_24/VS-R02-tier-b-runbook.md. Mike registers in cli.py after
+# live validation, same as Tier A.
+
 
 
 # ---------------------------------------------------------------------------
