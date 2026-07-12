@@ -77,7 +77,7 @@ def main():
     for pyfile in sorted(HARNESS_DIR.glob("*.py")):
         if pyfile.name.startswith("__"):
             continue
-        text = pyfile.read_text()
+        text = pyfile.read_text(encoding="utf-8")
         ids = set(TEST_ID_RE.findall(text))
         ids |= set(ARG_ID_RE.findall(text))
         ids -= EXCLUDE_IDS  # drop synthetic error IDs
