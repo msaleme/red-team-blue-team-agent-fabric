@@ -5,12 +5,12 @@
 | # | Resource | V | R | I | O | Advantage |
 |---|----------|---|---|---|---|-----------|
 | 1 | Research foundation (5 DOIs, NIST, CSG) | Y | Y | Y | Y | **Sustained** |
-| 2 | Payment protocol security (x402/L402, 39 tests) | Y | Y | Y | Partial | **Near-sustained** (invest now) |
+| 2 | Payment protocol security (x402/L402, 85 tests) | Y | Y | Y | Partial | **Near-sustained** (invest now) |
 | 3 | Wire-protocol adversarial testing | Y | Y | N | Y | Temporary (6-12 mo) |
 | 4 | Multi-protocol coverage (MCP+A2A+L402+x402) | Y | Y | N | Y | Temporary (6-12 mo) |
 | 5 | AIUC-1 compliance mapping + evidence generation | Y | Y | N | Y | Temporary (1 release cycle) |
 | 6 | Attestation registry/schema | Y | Y | N | Partial | Temporary → sustained if standardized |
-| 7 | Test corpus depth (474 tests) | Y | Y | N | Y | Temporary (velocity-dependent) |
+| 7 | Test corpus depth (540 tests) | Y | Y | N | Y | Temporary (velocity-dependent) |
 | 8 | Decision governance framing ("WHO vs HOW") | Y | N | N | Partial | Parity |
 | 9 | Community contributions | Y | N | N | Partial | Parity |
 | 10 | Open source (Apache 2.0) | Y | N | N | Y | Parity |

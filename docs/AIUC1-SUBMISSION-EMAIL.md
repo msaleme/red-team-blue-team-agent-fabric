@@ -21,7 +21,7 @@ I am writing to introduce the Agent Security Harness, an open-source adversarial
 
 **What it is**
 
-The Agent Security Harness (Apache 2.0, pip install agent-security-harness) contains 474 executable security tests across 33 modules. Unlike static scanners that analyze configurations, this framework sends real adversarial payloads across live agent protocols (MCP, A2A, L402, x402) and measures whether agents make safe, policy-compliant decisions when already authorized to act.
+The Agent Security Harness (Apache 2.0, pip install agent-security-harness) contains 540 executable security tests across 37 modules. Unlike static scanners that analyze configurations, this framework sends real adversarial payloads across live agent protocols (MCP, A2A, L402, x402) and measures whether agents make safe, policy-compliant decisions when already authorized to act.
 
 We currently map to 23 of 24 AIUC-1 requirements, with 19 having production-ready tests. The mapping is maintained in a machine-readable YAML configuration and the framework produces structured JSON evidence artifacts.
 
@@ -35,7 +35,7 @@ I am not requesting certification for the harness itself. I am offering it as to
 
 **Research foundation**
 
-The methodology is documented in five peer-reviewed preprints:
+The methodology is documented in five public preprints deposited on Zenodo (not represented as peer-reviewed publications):
 
 - Constitutional Self-Governance for Autonomous AI Agents (DOI: 10.5281/zenodo.19162104) — 12 governance mechanisms, 77 days of production data, 56 agents
 - Detecting Normalization of Deviance in Multi-Agent Systems (DOI: 10.5281/zenodo.19195516)

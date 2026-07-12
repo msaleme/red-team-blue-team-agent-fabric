@@ -19,6 +19,8 @@ This document defines the **Agent Payment Threat (APT) Taxonomy**: a structured 
 
 The taxonomy identifies **10 attack categories** spanning 39 individual security tests implemented in the Agent Security Harness project. Each category includes severity ratings, protocol mappings, concrete attack scenarios, existing test coverage, and recommended mitigations.
 
+> **Scope:** This taxonomy enumerates **39 specifically mapped** payment-attack cases. The broader current L402+x402 harness contains **85 tests** as of 2026-07-12 - the 39 here are the subset mapped into this taxonomy; the difference is scope, not stale drift.
+
 **Key findings:**
 
 - **3 categories rated Critical** -- Unauthorized payment execution, recipient manipulation, and payment authorization bypass each enable direct financial loss with no recovery path.

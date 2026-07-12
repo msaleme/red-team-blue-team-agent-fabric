@@ -4,7 +4,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        This project has the only dedicated security testing suite for agent payment protocols (x402/L402 — 39 tests).
+        This project has the only dedicated security testing suite for agent payment protocols (x402/L402 — 85 tests).
 
         If you're building on x402, L402, or other agent payment rails, we want to hear about your security concerns and what testing you need.
   - type: textarea

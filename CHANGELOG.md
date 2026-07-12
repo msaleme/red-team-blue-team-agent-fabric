@@ -335,7 +335,7 @@ gate.
 - **Scope & Limitations documentation** — Explicit section on what the framework does and does not test
 - **CI/CD quickstart** — GitHub Actions workflow example with service startup and output handling
 - **Audit-ready evidence packs** (`scripts/evidence_pack.py`) — Signed evidence with AIUC-1 mapping and HMAC-SHA256
-- **AIUC-1 test suite formalized** — `--json` output, per-requirement coverage summary, 19/20 requirements covered (95%)
+- **AIUC-1 test suite formalized** — `--json` output, per-requirement coverage summary, 19/20 testable requirements have test mappings defined (95% mapping completeness - not a conformance/pass result)
 - **OATR v1.2.0 test fixtures** (community: @FransDevelopment) — 3 new Ed25519 tokens, 29 offline tests
 - **Behavioral profiling** (`scripts/behavioral_profile.py`) — Drift detection, stability scoring, trend analysis (#111)
 - **Agent Payment Security Attack Taxonomy** (APT-01 through APT-10) — First published taxonomy of AI agent payment attack vectors (#136)
@@ -373,7 +373,7 @@ gate.
 - OATR fixture loader (`protocol_tests/oatr_fixtures.py`)
 - x402 payment flow harness with L402 interop
 - MCP supply-chain provenance tests *(originally mislabeled CVE-2026-25253; corrected in 4.9.1)*
-- AIUC-1 pre-certification compliance harness
+- AIUC-1 pre-certification adversarial-testing harness
 - Cloud agent platform adapters (Vertex, Bedrock, Azure AI Agent Service)
 - Enterprise platform adapters (ServiceNow, Salesforce AgentForce, etc.)
 - GTG-1002 APT simulation module

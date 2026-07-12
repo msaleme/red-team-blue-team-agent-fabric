@@ -9,9 +9,9 @@ How does the Agent Security Harness compare to other tools in the AI agent secur
 | Capability | [Cisco MCP Scanner](https://github.com/cisco-ai-defense/mcp-scanner) | [Snyk Agent Scan](https://github.com/snyk/agent-scan) | [NVIDIA Garak](https://github.com/NVIDIA/garak) | **Agent Security Harness** |
 |---|---|---|---|---|
 | **Approach** | Static + LLM-as-judge | Config scanning + toxic flow | Model-layer probing | **Wire-protocol adversarial testing** |
-| **MCP coverage** | Tool descriptions, YARA rules | Config files | — | **13 tests: real JSON-RPC 2.0 attacks** |
-| **A2A coverage** | — | — | — | **12 tests** |
-| **L402/x402 payment coverage** | — | — | — | **39 tests** |
+| **MCP coverage** | Tool descriptions, YARA rules | Config files | — | **18 tests: real JSON-RPC 2.0 attacks** |
+| **A2A coverage** | — | — | — | **13 tests** |
+| **L402/x402 payment coverage** | — | — | — | **85 tests** |
 | **Enterprise platform adapters** | — | — | — | **25 cloud + 20 enterprise** |
 | **Behavioral profiling / drift** | — | — | — | **Planned (v3.10)** |
 | **Compliance evidence packs** | — | — | — | **Yes (AIUC-1, OWASP, NIST)** |
@@ -49,7 +49,7 @@ That's the decision-governance layer. Identity tells you the agent is allowed. D
 ## Learn More
 
 - [Repository](https://github.com/msaleme/red-team-blue-team-agent-fabric)
-- [Research (5 peer-reviewed preprints)](https://github.com/msaleme/red-team-blue-team-agent-fabric#research)
+- [Research (5 public Zenodo preprints — not peer-reviewed)](https://github.com/msaleme/red-team-blue-team-agent-fabric#research)
 - [AIUC-1 Compliance Mapping](https://github.com/msaleme/red-team-blue-team-agent-fabric/blob/main/configs/aiuc1_mapping.yaml)
 - [Roadmap](https://github.com/msaleme/red-team-blue-team-agent-fabric/blob/main/ROADMAP.md)
 
