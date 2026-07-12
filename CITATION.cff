@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you cite this work in research, please use this metadata."
 title: "Agent Security Harness"
-abstract: "Multi-protocol agent security testing framework. 470+ executable security tests across 32 modules covering MCP, A2A, L402, and x402 wire protocols. Decision-layer attack scenarios, AIUC-1 pre-certification mapping, NIST AI 800-2 aligned."
+abstract: "Multi-protocol agent security testing framework. 540 executable security tests across 37 modules covering MCP, A2A, L402, and x402 wire protocols. Decision-layer attack scenarios, AIUC-1 pre-certification mapping, NIST AI 800-2 aligned."
 type: software
 authors:
   - family-names: Saleme

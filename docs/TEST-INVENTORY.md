@@ -1,6 +1,15 @@
 # Test Inventory
 
-**540 security tests across 38 modules** (verified by `scripts/count_tests.py`)
+**540 security tests across 37 modules** (verified 2026-07-12 by `scripts/count_tests.py`)
+
+> **Canonical figures (verified 2026-07-12).** Package `agent-security-harness`
+> v4.9.1. 540 test IDs across 37 test-bearing modules in `protocol_tests/`
+> (files with no `test_id` — CLI, helpers, telemetry, registry — are not
+> counted as modules). Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: 19 of
+> 20 testable requirements (95%). Research: 5 public Zenodo preprints (not
+> peer-reviewed) + 3 NIST submissions. Regenerate with `python
+> scripts/count_tests.py`. Per-module counts below are reconciled to this run;
+> some enumerated ID tables show a representative excerpt.
 
 ---
 
@@ -65,10 +74,12 @@ This framework provides **complete mapping** to all 10 categories of the OWASP A
 
 ## Protocol-Level Test Harnesses
 
-### MCP (Model Context Protocol) - 13 tests
+### MCP (Model Context Protocol) - 18 tests
 ```bash
 agent-security test mcp --url http://localhost:8080/mcp
 ```
+
+Representative test IDs (full count of 18 via `scripts/count_tests.py`):
 
 | Test ID | Test | OWASP ASI | Description |
 |---|---|---|---|
@@ -100,7 +111,7 @@ Static pre-flight checks on the binary-resolution and package-install path that 
 | MCP-F-003 | Dependency-Confusion Resolvability | ASI06 | Checks public-registry resolvability of internal-looking package names (network-gated: `--allow-network`) |
 | MCP-F-004 | Launcher Version Pinning | ASI06 | Flags unpinned launchers (`npx -y pkg` / `uvx pkg` without `@version`/`==version`/SHA) |
 
-### A2A (Agent-to-Agent) - 12 tests  
+### A2A (Agent-to-Agent) - 13 tests  
 ```bash
 agent-security test a2a --url https://agent.example.com
 ```
@@ -110,12 +121,12 @@ agent-security test a2a --url https://agent.example.com
 agent-security test l402 --url https://l402.example.com
 ```
 
-### x402 Payment Protocol - 25 tests (First Open-Source x402 Harness)
+### x402 Payment Protocol - 52 tests (First Open-Source x402 Harness)
 ```bash
 agent-security test x402 --url https://your-x402-endpoint.com
 ```
 
-Tests the Coinbase/Stripe/Cloudflare agent payment standard ($600M+ payment volume):
+Tests the Coinbase/Stripe/Cloudflare agent payment standard ($600M+ payment volume). Representative test IDs (full count of 52 via `scripts/count_tests.py`):
 
 | Test ID | Test | Category | Description |
 |---|---|---|---|
@@ -166,15 +177,18 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 
 ---
 
-## 24 Test Harness Modules
+## Test Harness Modules (representative summary)
+
+> This table lists the largest modules; the full harness spans **37 test-bearing
+> modules / 540 tests** (verified 2026-07-12 via `scripts/count_tests.py`).
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|
-| **MCP Protocol** | 13 | JSON-RPC 2.0 | Anthropic MCP wire-protocol testing |
-| **A2A Protocol** | 12 | JSON-RPC/HTTP | Google Agent-to-Agent communication |
+| **MCP Protocol** | 18 | JSON-RPC 2.0 | Anthropic MCP wire-protocol testing |
+| **A2A Protocol** | 13 | JSON-RPC/HTTP | Google Agent-to-Agent communication |
 | **L402 Payment** | 33 | HTTP/Lightning | Bitcoin/Lightning payment flow security (macaroons, preimages, caveats) |
-| **x402 Payment** | 25 | HTTP/USDC | Coinbase/Stripe agent payment protocol (recipient manipulation, session theft, facilitator trust, cross-chain confusion) |
-| **Framework Adapters** | 11 | Various APIs | LangChain, CrewAI, AutoGen, OpenAI, Bedrock |
+| **x402 Payment** | 52 | HTTP/USDC | Coinbase/Stripe agent payment protocol (recipient manipulation, session theft, facilitator trust, cross-chain confusion) |
+| **Framework Adapters** | 15 | Various APIs | LangChain, CrewAI, AutoGen, OpenAI, Bedrock |
 | **Enterprise Platforms** | 58 | Platform APIs | SAP, Salesforce, Workday, Oracle, ServiceNow, +15 more |
 | **GTG-1002 APT Simulation** | 17 | Full Campaign | First documented AI-orchestrated cyber espionage |
 | **Advanced Attacks** | 10 | Multi-step | Polymorphic, stateful, multi-domain attack chains |
@@ -187,6 +201,6 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 | **Harmful Output** | 10 | A2A JSON-RPC | Toxicity, bias, scope violations, deception (AIUC-1 C003/C004) |
 | **CBRN Prevention** | 8 | A2A JSON-RPC | Chemical/biological/radiological/nuclear content safeguards (AIUC-1 F002) |
 | **Incident Response** | 8 | A2A JSON-RPC | Alert triggering, kill switch, log completeness, recovery (AIUC-1 E001-E003) |
-| **MCP Tool Poisoning Reproduction** | 8 | MCP Supply Chain | Nested schema injection, fork fingerprinting, marketplace contamination, encoded payload detection (Invariant Labs Tool Poisoning, 2025; ClawHub RFC #99) |
+| **MCP Tool Poisoning Reproduction** | 10 | MCP Supply Chain | Nested schema injection, fork fingerprinting, marketplace contamination, encoded payload detection (Invariant Labs Tool Poisoning, 2025; ClawHub RFC #99) |
 | **AIUC-1 Compliance** | 12 | Agent Safety | Incident response, CBRN prevention, harmful content, scope creep, authority impersonation |
 | **Cloud Agent Platforms** | 25 | Platform APIs | AWS Bedrock, Azure AI Agent Service, Google Vertex, Salesforce Agentforce, IBM watsonx |

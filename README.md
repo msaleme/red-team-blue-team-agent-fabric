@@ -10,7 +10,7 @@
 
 **Even if an agent is properly authenticated and authorized, can it still be manipulated into unsafe or policy-violating behavior?**
 
-540 executable security tests across 38 modules. MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
+540 executable security tests across 37 modules (verified 2026-07-12 via `scripts/count_tests.py`). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
 
 ```
 $ agent-security test mcp --url http://localhost:8080/mcp
@@ -84,7 +84,7 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 
 ## Research
 
-Five peer-reviewed preprints and three NIST submissions underpin the methodology:
+Five public preprints deposited on Zenodo (not represented as peer-reviewed publications) and three NIST submissions underpin the methodology:
 
 | Publication | DOI |
 |---|---|
@@ -122,7 +122,7 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 
 ## Roadmap
 
-**v3.10 -- Prove It to Auditors** ✅ Shipped. **v4.1 -- Compliance Evidence** ✅ Shipped. **v4.2 -- Incident-Tested** ✅ Shipped. **v4.3 -- Supply Chain + Corpus** ✅ Shipped. **v4.4 -- Accuracy + Infrastructure** ✅ Shipped. **v4.4.2 -- Docs Hardening + Citations** ✅ Shipped. 474 tests, 33 modules, SSP harness (8 tests), Decision Behavior Benchmark corpus (52 cases), HIDDEN_INSTRUCTION_PATTERN DRY extraction, dynamic test count, P0 bug fixes. **v5.0 -- Lock the Category** (H2 2026): benchmark corpus, schema standardization, longitudinal registry. Full details in [ROADMAP.md](ROADMAP.md).
+**v3.10 -- Prove It to Auditors** ✅ Shipped. **v4.1 -- Compliance Evidence** ✅ Shipped. **v4.2 -- Incident-Tested** ✅ Shipped. **v4.3 -- Supply Chain + Corpus** ✅ Shipped. **v4.4 -- Accuracy + Infrastructure** ✅ Shipped. **v4.4.2 -- Docs Hardening + Citations** ✅ Shipped. SSP harness (8 tests), Decision Behavior Benchmark corpus (52 cases), HIDDEN_INSTRUCTION_PATTERN DRY extraction, dynamic test count, P0 bug fixes. **v5.0 -- Lock the Category** (H2 2026): benchmark corpus, schema standardization, longitudinal registry. Full details in [ROADMAP.md](ROADMAP.md).
 
 ---
 

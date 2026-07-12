@@ -77,7 +77,7 @@ The question we test: "Even if an agent is properly authenticated and authorized
 
 Static scanners can't answer that. Enterprise platforms don't test for it. We do.
 
-358 tests. 24 modules. 5 peer-reviewed preprints. Apache 2.0.
+540 tests. 37 modules. 5 public Zenodo preprints (not peer-reviewed). Apache 2.0.
 
 https://github.com/msaleme/red-team-blue-team-agent-fabric
 
@@ -116,19 +116,19 @@ This is relevant to AIUC-1, EU AI Act, and any framework that requires ongoing e
 **Target:** Technical practitioners, early adopters, security researchers
 **Where:** Hacker News (Show HN)
 
-**Title:** Show HN: 358-test adversarial harness for AI agents (MCP, A2A, x402/L402)
+**Title:** Show HN: 540-test adversarial harness for AI agents (MCP, A2A, x402/L402)
 
 **Body:**
 
 We built an open-source security testing framework for autonomous AI agents. Unlike static scanners (Cisco MCP Scanner, Snyk Agent Scan), it sends real adversarial payloads across live protocols and measures whether agents make safe decisions.
 
-- 358 executable tests across 24 modules
+- 540 executable tests across 37 modules
 - 4 wire protocols: MCP, A2A, L402, x402
 - AIUC-1 compliance mapping (19/20 requirements)
 - OWASP Agentic Top 10 complete coverage
 - Signed evidence packages for auditors
 - GitHub Action for CI/CD gating
-- 5 peer-reviewed preprints, NIST alignment
+- 5 public Zenodo preprints (not peer-reviewed), NIST alignment
 
 The key insight: identity and authorization are solved. The hard problem is whether an authorized agent behaves safely under adversarial conditions.
 

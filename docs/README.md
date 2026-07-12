@@ -58,24 +58,26 @@ This directory contains detailed documentation for the Agent Security Harness fr
 
 ## Framework Architecture
 
-The Agent Security Harness is organized into 9 core test modules:
+The harness spans 37 test-bearing modules. A representative subset (protocol
+harnesses) is shown below; see [TEST-INVENTORY.md](TEST-INVENTORY.md) for the
+complete per-module breakdown:
 
 ```
 agent-security-harness/
 ├── protocol_tests/           # Core test harnesses
-│   ├── mcp_harness.py       # MCP (JSON-RPC 2.0) - 10 tests
-│   ├── a2a_harness.py       # A2A (Agent-to-Agent) - 12 tests  
+│   ├── mcp_harness.py       # MCP (JSON-RPC 2.0) - 18 tests
+│   ├── a2a_harness.py       # A2A (Agent-to-Agent) - 13 tests  
 │   ├── l402_harness.py      # L402 (Payment protocol) - 33 tests
-│   ├── framework_adapters.py # LangChain, CrewAI, AutoGen - 21 tests
-│   ├── enterprise_adapters.py # SAP, Salesforce, etc. - 57 tests
+│   ├── x402_harness.py      # x402 (Payment protocol) - 52 tests
+│   ├── framework_adapters.py # LangChain, CrewAI, AutoGen - 15 tests
+│   ├── enterprise_adapters.py # SAP, Salesforce, etc. - 31 tests
 │   ├── gtg1002_simulation.py # GTG-1002 APT campaign - 17 tests
 │   ├── advanced_attacks.py  # Multi-step attack patterns - 10 tests
 │   └── identity_harness.py  # NIST NCCoE identity/auth - 18 tests
-├── red_team_automation.py   # Application-layer scenarios - 30 tests
 └── docs/                    # Documentation (this directory)
 ```
 
-**Total: 189 security tests**
+**Total: 540 security tests across 37 modules** (verified 2026-07-12 via `scripts/count_tests.py`)
 
 ---
 
