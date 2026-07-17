@@ -1,0 +1,78 @@
+{
+  "round": "VS-R04",
+  "experiment": "receipt-claim-level-verification",
+  "results": [
+    {
+      "test_id": "RCL-001",
+      "name": "Omitted mandatory evidence",
+      "category": "receipt_claim",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "envelope_valid=True; claim verdict=reject (occurrence: missing evidence)"
+    },
+    {
+      "test_id": "RCL-002",
+      "name": "Substituted evidence, re-signed envelope",
+      "category": "receipt_claim",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "envelope_valid=True; claim verdict=reject (check: checker attestation does not verify (substituted or forged))"
+    },
+    {
+      "test_id": "RCL-003",
+      "name": "Stale checker transcript",
+      "category": "receipt_claim",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "envelope_valid=True; claim verdict=reject (check: stale transcript (outside freshness window))"
+    },
+    {
+      "test_id": "RCL-004",
+      "name": "Check bound to the wrong tool-set digest",
+      "category": "receipt_claim",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "envelope_valid=True; claim verdict=reject (check: result bound to the wrong tool-set digest)"
+    },
+    {
+      "test_id": "RCL-005",
+      "name": "Authorization bound to different parameters",
+      "category": "receipt_claim",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "envelope_valid=True; claim verdict=reject (authorization: params do not match the action)"
+    },
+    {
+      "test_id": "RCL-006",
+      "name": "Execution ack bound to another action",
+      "category": "receipt_claim",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "envelope_valid=True; claim verdict=reject (occurrence: acknowledgment bound to another action)"
+    },
+    {
+      "test_id": "RCL-007",
+      "name": "Emitter self-assertion, no independent attestation",
+      "category": "receipt_claim",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "envelope_valid=True; claim verdict=reject (check: attested by the emitter, not the checker authority)"
+    },
+    {
+      "test_id": "RCL-008",
+      "name": "Fully-supported receipt accepted (control)",
+      "category": "receipt_claim",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "envelope_valid=True; claim verdict=accept"
+    }
+  ]
+}

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agent-security-harness"
 version = "4.9.1"
-description = "542 security tests for AI agent systems - MCP, A2A, L402, x402, UCP/ACP merchant-journey, AP2 mandate + Fireblocks x402 hardening + Visa TAP / Mastercard Agentic Tokens + denial-of-settlement finality, decision governance, AIUC-1 compliance, NIST AI 800-2 aligned"
+description = "550 security tests for AI agent systems - MCP, A2A, L402, x402, UCP/ACP merchant-journey, AP2 mandate + Fireblocks x402 hardening + Visa TAP / Mastercard Agentic Tokens + denial-of-settlement finality, decision governance, AIUC-1 compliance, NIST AI 800-2 aligned"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10"

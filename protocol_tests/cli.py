@@ -198,6 +198,10 @@ HARNESSES = {
         "module": "protocol_tests.ap2_harness",
         "description": "AP2 mandate-chain conformance (17 tests, Intent/Cart/Payment mandate authorization, FIDO-governed)",
     },
+    "receipt-claim": {
+        "module": "protocol_tests.receipt_claim_harness",
+        "description": "Receipt claim-level verification (8 tests, format-valid-but-claim-invalid receipts rejected on semantic grounds)",
+    },
     "ucp-acp": {
         "module": "protocol_tests.ucp_acp_harness",
         "description": "UCP/ACP merchant-journey conformance (12 tests, agent-profile + cross-merchant cart + delegated checkout)",

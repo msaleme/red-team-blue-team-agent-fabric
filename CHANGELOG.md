@@ -23,6 +23,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **RCL-001..008: Receipt claim-level verification (new module `receipt_claim_harness.py`).**
+  Makes executable the distinction that a format-valid, correctly signed receipt
+  can still be claim-invalid. An action receipt is decomposed into four
+  separately assessable properties (integrity/provenance, occurrence,
+  authorization, check execution/integrity), whose evidence must be attested by
+  distinct trust domains (checker, authorization, execution/settlement), not by
+  the receipt emitter. A claim-level verifier rejects seven negative receipts
+  whose envelope signature verifies but whose claims are missing, substituted,
+  stale, bound to the wrong tool-set digest, bound to different parameters, an
+  acknowledgment for another action, or an emitter self-assertion; RCL-008 is a
+  positive control. Each negative rejects on its own distinct semantic reason.
+  Stdlib-only (HMAC models envelope and authority attestations). Test count
+  542 -> 550; harnesses 38 -> 39.
 - **MCP-019: Composite / cross-tool description poisoning (ShareLock-class).**
   Single-tool description scanners (MCP-014) inspect each tool in isolation, so a
   payload split into benign secret-shares across several tool descriptions passes
