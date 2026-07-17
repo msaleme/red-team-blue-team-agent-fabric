@@ -48,6 +48,14 @@ import socket
 import urllib.parse
 import urllib.request
 
+from protocol_tests._utils import (
+    URL_PATTERN,
+    BASE64_BLOB_PATTERN,
+    ENCODED_CMD_PATTERN,
+    HIDDEN_INSTRUCTION_PATTERN,
+    COMPOSITE_INSTRUCTION_PATTERN,
+)
+
 
 def _sanitize_url(url: str) -> str:
     """Remove credentials from URL for safe display in error messages and reports."""
@@ -1263,27 +1271,8 @@ class MCPSecurityTests:
         if resp and "result" in resp:
             tools = resp["result"].get("tools", [])
 
-        # Injection pattern detectors
-        URL_PATTERN = re.compile(r'https?://[^\s"\'<>]{10,}', re.IGNORECASE)
-        BASE64_PATTERN = re.compile(r'[A-Za-z0-9+/]{40,}={0,2}')
-        ENCODED_CMD_PATTERN = re.compile(
-            r'(?:%[0-9a-fA-F]{2}){5,}'  # URL-encoded sequences
-            r'|\\x[0-9a-fA-F]{2}(?:\\x[0-9a-fA-F]{2}){4,}'  # hex-encoded
-            r'|\\u[0-9a-fA-F]{4}(?:\\u[0-9a-fA-F]{4}){4,}',  # unicode-escaped
-        )
-        # TODO: migrate to _utils.py HIDDEN_INSTRUCTION_PATTERN when mcp_harness adopts _utils
-        HIDDEN_INSTRUCTION_PATTERN = re.compile(
-            r'ignore\s+(?:all\s+)?previous\s+instructions'
-            r'|you\s+are\s+now\s+(?:unrestricted|unfiltered|DAN)'
-            r'|system\s*:\s*'
-            r'|<\s*(?:system|instruction|hidden|secret)\s*>'
-            r'|\bdo\s+not\s+tell\s+the\s+user\b'
-            r'|\bsend\s+(?:all|the)\s+(?:data|context|conversation)\s+to\b'
-            r'|\bexfiltrate\b'
-            r'|\bforward\s+(?:all|every)\b.*\bto\b',
-            re.IGNORECASE,
-        )
-
+        # Injection pattern detectors — shared with MCP-019 via _utils so the
+        # per-tool and composite scans cannot drift apart.
         flagged_tools = []
         for tool in tools:
             desc = tool.get("description") or ""
@@ -1293,7 +1282,7 @@ class MCPSecurityTests:
             urls = URL_PATTERN.findall(desc)
             if urls:
                 issues.append(f"urls({len(urls)})")
-            if BASE64_PATTERN.search(desc):
+            if BASE64_BLOB_PATTERN.search(desc):
                 issues.append("base64_blob")
             if ENCODED_CMD_PATTERN.search(desc):
                 issues.append("encoded_command")
@@ -1361,27 +1350,45 @@ class MCPSecurityTests:
         if resp and "result" in resp:
             tools = resp["result"].get("tools", [])
 
-        # Same detector family MCP-014 applies per-tool — here applied to the
-        # cross-tool reconstruction. Single `.*` alternatives only (ReDoS-safe).
-        URL_PATTERN = re.compile(r'https?://[^\s"\'<>]{10,}', re.IGNORECASE)
-        BASE64_PATTERN = re.compile(r'[A-Za-z0-9+/]{40,}={0,2}')
-        HIDDEN_INSTRUCTION_PATTERN = re.compile(
-            r'ignore\s+(?:all\s+)?previous\s+instructions'
-            r'|\bexfiltrate\b'
-            r'|\bsend\s+(?:all|the)\s+(?:data|context|conversation)\s+to\b'
-            r'|\bforward\s+(?:all|every)\b[^\n]{0,120}?\bto\b',
-            re.IGNORECASE,
-        )
+        # Same detector *classes* MCP-014 applies per-tool (shared via _utils so
+        # they cannot drift), but the instruction detector uses the composite-safe
+        # subset: on a reconstruction, low-entropy bridges like `forward … to`
+        # reassemble from benign descriptions by accident, so they are excluded
+        # here (still caught per-tool by MCP-014). Single `.*` alternatives only
+        # (ReDoS-safe).
         DETECTORS = {
             "url": URL_PATTERN,
-            "base64_blob": BASE64_PATTERN,
-            "hidden_instruction": HIDDEN_INSTRUCTION_PATTERN,
+            "base64_blob": BASE64_BLOB_PATTERN,
+            "encoded_command": ENCODED_CMD_PATTERN,
+            "hidden_instruction": COMPOSITE_INSTRUCTION_PATTERN,
         }
 
         def hits(text: str) -> set:
             return {label for label, pat in DETECTORS.items() if pat.search(text)}
 
-        nonempty = [(t.get("name", "?"), (t.get("description") or ""))
+        def spanning_hits(fragments: list, sep: str) -> set:
+            """Detector labels whose match in the reconstruction physically spans
+            two or more fragments. A match contained within a single fragment is
+            MCP-014's job, not a composite finding — this is what makes a hit
+            genuinely cross-tool rather than an artifact of a long concatenation."""
+            text = ""
+            spans = []  # [start, end) each fragment occupies in the joined text
+            for i, frag in enumerate(fragments):
+                if i:
+                    text += sep
+                start = len(text)
+                text += frag
+                spans.append((start, len(text)))
+            labels = set()
+            for label, pat in DETECTORS.items():
+                for m in pat.finditer(text):
+                    touched = sum(1 for (s, e) in spans if m.start() < e and m.end() > s)
+                    if touched >= 2:
+                        labels.add(label)
+                        break
+            return labels
+
+        nonempty = [(t.get("name", "?"), (t.get("description") or "").strip())
                     for t in tools if (t.get("description") or "").strip()]
 
         # Patterns already visible in a single fragment are MCP-014's job, not ours.
@@ -1395,16 +1402,16 @@ class MCPSecurityTests:
         order = [d for _, d in nonempty]
         srt = [d for _, d in sorted(nonempty, key=lambda x: x[0])]
         reconstructions = {
-            "ordered_spaced": " ".join(order),
-            "ordered_joined": "".join(d.strip() for d in order),
-            "sorted_spaced": " ".join(srt),
-            "sorted_joined": "".join(d.strip() for d in srt),
+            "ordered_spaced": (order, " "),
+            "ordered_joined": (order, ""),
+            "sorted_spaced": (srt, " "),
+            "sorted_joined": (srt, ""),
         }
 
         composite_findings = []
         composite_only = set()
-        for how, text in reconstructions.items():
-            surfaced = hits(text) - per_fragment
+        for how, (frags, sep) in reconstructions.items():
+            surfaced = spanning_hits(frags, sep) - per_fragment
             if surfaced:
                 composite_only |= surfaced
                 composite_findings.append({"reconstruction": how,
@@ -1466,14 +1473,33 @@ class MCPSecurityTests:
             ))
             return
 
-        def origin_identity(tdef: dict):
-            """Any verifiable binding that ties a definition to a stable source."""
+        def stable_identity(tdef: dict):
+            """A binding that *persists across legitimate updates* — a stable id,
+            signature, or origin handle. Deliberately excludes ``version``: a
+            version is expected to change on a genuine update, so it cannot serve
+            as the continuity anchor (treating it as one made every legit version
+            bump look like a name-squat swap)."""
             meta = tdef.get("_meta") or {}
-            for key in ("origin", "signature", "sig", "id", "version"):
+            for key in ("origin", "signature", "sig", "id"):
                 v = tdef.get(key) or (meta.get(key) if isinstance(meta, dict) else None)
                 if v:
                     return f"{key}:{v}"
             return None
+
+        def version_of(tdef: dict):
+            meta = tdef.get("_meta") or {}
+            v = tdef.get("version") or (meta.get("version") if isinstance(meta, dict) else None)
+            return str(v) if v else None
+
+        def version_increased(old: str, new: str) -> bool:
+            """True only when both parse to comparable numeric versions and new > old.
+            Unparseable/incomparable versions return False (fail closed → flagged),
+            so an attacker cannot launder a swap by stuffing junk in ``version``."""
+            def parse(v):
+                nums = re.findall(r'\d+', v or "")
+                return tuple(int(n) for n in nums) if nums else None
+            po, pn = parse(old), parse(new)
+            return po is not None and pn is not None and pn > po
 
         def snapshot() -> dict:
             resp = self.transport.send(msg)
@@ -1486,7 +1512,8 @@ class MCPSecurityTests:
                 }, sort_keys=True, separators=(",", ":"))
                 fp[tdef.get("name", "?")] = {
                     "digest": hashlib.sha256(body.encode("utf-8")).hexdigest()[:16],
-                    "origin": origin_identity(tdef),
+                    "origin": stable_identity(tdef),
+                    "version": version_of(tdef),
                 }
             return fp
 
@@ -1495,17 +1522,28 @@ class MCPSecurityTests:
         elapsed = time.monotonic() - t0
 
         # A rebinding is a finding only when the definition changed under a stable
-        # name AND there is no persistent origin identity linking new to old — i.e.
-        # the client has no way to tell a legitimate update from a name-squat swap.
+        # name AND nothing links the new definition to the old one. A change is
+        # legitimate when either (a) a stable origin identity persists across it,
+        # or (b) the only binding is a version and it moved *forward* — an
+        # ordinary update. A changed/absent origin, or a version that did not
+        # advance, is an unbound rebinding (name-is-not-origin name-squat swap).
         unbound = []
         for name, a in first.items():
             b = second.get(name)
             if b is None or a["digest"] == b["digest"]:
                 continue
-            origin_bound = bool(a["origin"]) and a["origin"] == b["origin"]
-            if not origin_bound:
-                unbound.append({"tool": name, "from": a["digest"],
-                                "to": b["digest"], "origin": a["origin"]})
+            if a["origin"] and b["origin"]:
+                if a["origin"] == b["origin"]:
+                    continue  # stable identity persists → legitimate update
+                reason = "origin_changed"
+            elif version_increased(a["version"], b["version"]):
+                continue      # version-only binding advanced → ordinary update
+            else:
+                reason = "no_binding"
+            unbound.append({"tool": name, "from": a["digest"], "to": b["digest"],
+                            "origin": a["origin"],
+                            "version_from": a["version"], "version_to": b["version"],
+                            "reason": reason})
 
         passed = len(unbound) == 0
 
