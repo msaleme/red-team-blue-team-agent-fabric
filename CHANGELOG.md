@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **AP2-014 signature-scheme rule corrected (was security-unsound).** The
+  Payment Mandate signature check rejected all "deterministic" schemes (including
+  Ed25519) with the rationale "replay risk." This was wrong: signature
+  determinism is not a replay vector (deterministic EdDSA/RFC-6979 exist to
+  remove nonce-reuse failure; replay is handled by AP2-011/012 jti and expiry),
+  and it wrongly rejected a standard, secure asymmetric scheme. The rule now
+  rejects symmetric keyed-MAC schemes (HMAC) for a Payment Mandate because they
+  carry no third-party-verifiable signer provenance, and accepts asymmetric
+  schemes regardless of determinism. AP2-014 reclassified normative N -> I
+  (inferred: standard payment-security practice, not mapped to a cited AP2
+  clause). Test count unchanged (AP2-014 retained).
+
 ### Added
 
 - **MCP-019: Composite / cross-tool description poisoning (ShareLock-class).**
