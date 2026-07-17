@@ -1437,6 +1437,100 @@ class MCPSecurityTests:
         ))
 
     # ------------------------------------------------------------------
+    # Category 8c: Mid-session tool identity rebinding (ASI04)
+    # ------------------------------------------------------------------
+
+    def test_mcp_midsession_tool_identity_rebinding(self):
+        """MCP-020: Mid-session tool identity rebinding (MSTI, name-is-not-origin).
+
+        Mid-Session Tool Injection swaps a tool at runtime: the attacker cancels
+        the live tool and re-registers a malicious tool under the SAME name, then
+        wins the race so the client keeps invoking a trusted name that now resolves
+        to a different definition. Per-tool description scanning (MCP-014/019) reads
+        the name, never the origin. The defense is binding tool identity to a stable
+        origin, not to its name. This test fingerprints every tool across two
+        tools/list snapshots and flags any name whose definition changed with no
+        accompanying origin/identity binding (stable id, signature, or version pin).
+        """
+        import hashlib
+        t0 = time.monotonic()
+        msg = jsonrpc_request("tools/list", {})
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-020", name="Mid-Session Tool Identity Rebinding",
+                category="runtime_identity", owasp_asi="ASI04",
+                severity=Severity.CRITICAL.value, passed=True,
+                details="[simulate] Payload compiled; no HTTP call made",
+                mcp_method="tools/list", request_sent=msg,
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        def origin_identity(tdef: dict):
+            """Any verifiable binding that ties a definition to a stable source."""
+            meta = tdef.get("_meta") or {}
+            for key in ("origin", "signature", "sig", "id", "version"):
+                v = tdef.get(key) or (meta.get(key) if isinstance(meta, dict) else None)
+                if v:
+                    return f"{key}:{v}"
+            return None
+
+        def snapshot() -> dict:
+            resp = self.transport.send(msg)
+            tools = resp["result"].get("tools", []) if resp and "result" in resp else []
+            fp = {}
+            for tdef in tools:
+                body = json.dumps({
+                    "description": tdef.get("description", ""),
+                    "inputSchema": tdef.get("inputSchema", {}),
+                }, sort_keys=True, separators=(",", ":"))
+                fp[tdef.get("name", "?")] = {
+                    "digest": hashlib.sha256(body.encode("utf-8")).hexdigest()[:16],
+                    "origin": origin_identity(tdef),
+                }
+            return fp
+
+        first = snapshot()
+        second = snapshot()
+        elapsed = time.monotonic() - t0
+
+        # A rebinding is a finding only when the definition changed under a stable
+        # name AND there is no persistent origin identity linking new to old — i.e.
+        # the client has no way to tell a legitimate update from a name-squat swap.
+        unbound = []
+        for name, a in first.items():
+            b = second.get(name)
+            if b is None or a["digest"] == b["digest"]:
+                continue
+            origin_bound = bool(a["origin"]) and a["origin"] == b["origin"]
+            if not origin_bound:
+                unbound.append({"tool": name, "from": a["digest"],
+                                "to": b["digest"], "origin": a["origin"]})
+
+        passed = len(unbound) == 0
+
+        self._record(MCPTestResult(
+            test_id="MCP-020",
+            name="Mid-Session Tool Identity Rebinding",
+            category="runtime_identity",
+            owasp_asi="ASI04",
+            severity=Severity.CRITICAL.value,
+            passed=passed,
+            details=(
+                f"{len(unbound)} tool(s) re-registered under a stable name with a "
+                f"changed definition and no origin binding: "
+                f"{[u['tool'] for u in unbound]} — MSTI-class runtime tool swap "
+                f"(name is not origin)"
+                if not passed
+                else f"No unbound mid-session tool rebinding across {len(first)} tools"
+            ),
+            mcp_method="tools/list",
+            request_sent=msg,
+            response_received={"n_tools": len(first), "unbound_rebindings": unbound},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
     # Category 9: SSRF via Tool Call URI Parameter (ASI02)
     # ------------------------------------------------------------------
 
@@ -1859,6 +1953,9 @@ class MCPSecurityTests:
             ],
             "composite_poisoning": [
                 self.test_mcp_composite_tool_description_poisoning,
+            ],
+            "runtime_identity": [
+                self.test_mcp_midsession_tool_identity_rebinding,
             ],
             "ssrf": [
                 self.test_mcp_ssrf_via_uri_parameter,
