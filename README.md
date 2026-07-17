@@ -115,6 +115,7 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 | MCP Server | [docs/mcp-server.md](docs/mcp-server.md) |
 | CI/CD GitHub Action | [docs/github-action.md](docs/github-action.md) |
 | Payment Attack Taxonomy | [docs/PAYMENT-ATTACK-TAXONOMY.md](docs/PAYMENT-ATTACK-TAXONOMY.md) |
+| Related Work | [docs/RELATED-WORK.md](docs/RELATED-WORK.md) |
 | Comparison (detailed) | [docs/COMPARISON.md](docs/COMPARISON.md) |
 | Privacy & Telemetry | [docs/PRIVACY.md](docs/PRIVACY.md) |
 
