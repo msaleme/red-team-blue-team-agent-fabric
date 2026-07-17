@@ -48,6 +48,16 @@ import socket
 import urllib.parse
 import urllib.request
 
+from protocol_tests._utils import (
+    URL_PATTERN,
+    BASE64_BLOB_PATTERN,
+    ENCODED_CMD_PATTERN,
+    HIDDEN_INSTRUCTION_PATTERN,
+    COMPOSITE_INSTRUCTION_PATTERN,
+    FORWARD_BRIDGE_PATTERN,
+    CREDENTIAL_MATERIAL_PATTERN,
+)
+
 
 def _sanitize_url(url: str) -> str:
     """Remove credentials from URL for safe display in error messages and reports."""
@@ -1263,27 +1273,8 @@ class MCPSecurityTests:
         if resp and "result" in resp:
             tools = resp["result"].get("tools", [])
 
-        # Injection pattern detectors
-        URL_PATTERN = re.compile(r'https?://[^\s"\'<>]{10,}', re.IGNORECASE)
-        BASE64_PATTERN = re.compile(r'[A-Za-z0-9+/]{40,}={0,2}')
-        ENCODED_CMD_PATTERN = re.compile(
-            r'(?:%[0-9a-fA-F]{2}){5,}'  # URL-encoded sequences
-            r'|\\x[0-9a-fA-F]{2}(?:\\x[0-9a-fA-F]{2}){4,}'  # hex-encoded
-            r'|\\u[0-9a-fA-F]{4}(?:\\u[0-9a-fA-F]{4}){4,}',  # unicode-escaped
-        )
-        # TODO: migrate to _utils.py HIDDEN_INSTRUCTION_PATTERN when mcp_harness adopts _utils
-        HIDDEN_INSTRUCTION_PATTERN = re.compile(
-            r'ignore\s+(?:all\s+)?previous\s+instructions'
-            r'|you\s+are\s+now\s+(?:unrestricted|unfiltered|DAN)'
-            r'|system\s*:\s*'
-            r'|<\s*(?:system|instruction|hidden|secret)\s*>'
-            r'|\bdo\s+not\s+tell\s+the\s+user\b'
-            r'|\bsend\s+(?:all|the)\s+(?:data|context|conversation)\s+to\b'
-            r'|\bexfiltrate\b'
-            r'|\bforward\s+(?:all|every)\b.*\bto\b',
-            re.IGNORECASE,
-        )
-
+        # Injection pattern detectors — shared with MCP-019 via _utils so the
+        # per-tool and composite scans cannot drift apart.
         flagged_tools = []
         for tool in tools:
             desc = tool.get("description") or ""
@@ -1293,7 +1284,7 @@ class MCPSecurityTests:
             urls = URL_PATTERN.findall(desc)
             if urls:
                 issues.append(f"urls({len(urls)})")
-            if BASE64_PATTERN.search(desc):
+            if BASE64_BLOB_PATTERN.search(desc):
                 issues.append("base64_blob")
             if ENCODED_CMD_PATTERN.search(desc):
                 issues.append("encoded_command")
@@ -1361,30 +1352,71 @@ class MCPSecurityTests:
         if resp and "result" in resp:
             tools = resp["result"].get("tools", [])
 
-        # Same detector family MCP-014 applies per-tool — here applied to the
-        # cross-tool reconstruction. Single `.*` alternatives only (ReDoS-safe).
-        URL_PATTERN = re.compile(r'https?://[^\s"\'<>]{10,}', re.IGNORECASE)
-        BASE64_PATTERN = re.compile(r'[A-Za-z0-9+/]{40,}={0,2}')
-        HIDDEN_INSTRUCTION_PATTERN = re.compile(
-            r'ignore\s+(?:all\s+)?previous\s+instructions'
-            r'|\bexfiltrate\b'
-            r'|\bsend\s+(?:all|the)\s+(?:data|context|conversation)\s+to\b'
-            r'|\bforward\s+(?:all|every)\b[^\n]{0,120}?\bto\b',
-            re.IGNORECASE,
-        )
+        # Same detector *classes* MCP-014 applies per-tool (shared via _utils so
+        # they cannot drift), but the instruction detector uses the composite-safe
+        # subset: on a reconstruction, low-entropy bridges like `forward … to`
+        # reassemble from benign descriptions by accident, so they are excluded
+        # here (still caught per-tool by MCP-014). Single `.*` alternatives only
+        # (ReDoS-safe).
         DETECTORS = {
             "url": URL_PATTERN,
-            "base64_blob": BASE64_PATTERN,
-            "hidden_instruction": HIDDEN_INSTRUCTION_PATTERN,
+            "base64_blob": BASE64_BLOB_PATTERN,
+            "encoded_command": ENCODED_CMD_PATTERN,
+            "hidden_instruction": COMPOSITE_INSTRUCTION_PATTERN,
         }
 
         def hits(text: str) -> set:
             return {label for label, pat in DETECTORS.items() if pat.search(text)}
 
-        nonempty = [(t.get("name", "?"), (t.get("description") or ""))
+        def spanning_hits(fragments: list, sep: str) -> set:
+            """Detector labels whose match in the reconstruction physically spans
+            two or more fragments. A match contained within a single fragment is
+            MCP-014's job, not a composite finding — this is what makes a hit
+            genuinely cross-tool rather than an artifact of a long concatenation."""
+            text = ""
+            spans = []  # [start, end) each fragment occupies in the joined text
+            for i, frag in enumerate(fragments):
+                if i:
+                    text += sep
+                start = len(text)
+                text += frag
+                spans.append((start, len(text)))
+
+            def spans_boundary(pat) -> bool:
+                for m in pat.finditer(text):
+                    if sum(1 for (s, e) in spans if m.start() < e and m.end() > s) >= 2:
+                        return True
+                return False
+
+            labels = {label for label, pat in DETECTORS.items() if spans_boundary(pat)}
+
+            # Corroborated low-entropy exfil bridge: a `forward … to` that spans a
+            # tool boundary is a ShareLock exfil instruction only when a sink
+            # (URL/blob/encoded) or explicit credential material appears in the
+            # bridge's LOCAL context — the forwarded object plus a short window
+            # past "to" for the destination. Scoping corroboration locally (not
+            # anywhere in the join) keeps an unrelated benign tool from supplying
+            # it, so bare forward…to still isn't a finding.
+            SINK_WINDOW = 40  # chars past the bridge to catch the destination
+            for m in FORWARD_BRIDGE_PATTERN.finditer(text):
+                if sum(1 for (s, e) in spans if m.start() < e and m.end() > s) < 2:
+                    continue  # bridge itself must span a tool boundary
+                local = text[m.start():m.end() + SINK_WINDOW]
+                if (URL_PATTERN.search(local) or BASE64_BLOB_PATTERN.search(local)
+                        or ENCODED_CMD_PATTERN.search(local)
+                        or CREDENTIAL_MATERIAL_PATTERN.search(local)):
+                    labels.add("forward_exfil")
+                    break
+            return labels
+
+        nonempty = [(t.get("name", "?"), (t.get("description") or "").strip())
                     for t in tools if (t.get("description") or "").strip()]
 
-        # Patterns already visible in a single fragment are MCP-014's job, not ours.
+        # Which detector labels already fire on a single description (MCP-014's
+        # job). Reported for context only — NOT subtracted from composite hits:
+        # a label appearing per-tool must not mask a *different* payload of the
+        # same class that only reconstructs across tools. The boundary-spanning
+        # check below is what keeps a composite finding genuinely cross-tool.
         per_fragment = set()
         for _, d in nonempty:
             per_fragment |= hits(d)
@@ -1395,16 +1427,16 @@ class MCPSecurityTests:
         order = [d for _, d in nonempty]
         srt = [d for _, d in sorted(nonempty, key=lambda x: x[0])]
         reconstructions = {
-            "ordered_spaced": " ".join(order),
-            "ordered_joined": "".join(d.strip() for d in order),
-            "sorted_spaced": " ".join(srt),
-            "sorted_joined": "".join(d.strip() for d in srt),
+            "ordered_spaced": (order, " "),
+            "ordered_joined": (order, ""),
+            "sorted_spaced": (srt, " "),
+            "sorted_joined": (srt, ""),
         }
 
         composite_findings = []
         composite_only = set()
-        for how, text in reconstructions.items():
-            surfaced = hits(text) - per_fragment
+        for how, (frags, sep) in reconstructions.items():
+            surfaced = spanning_hits(frags, sep)
             if surfaced:
                 composite_only |= surfaced
                 composite_findings.append({"reconstruction": how,
@@ -1421,8 +1453,9 @@ class MCPSecurityTests:
             passed=passed,
             details=(
                 f"Cross-tool payload reconstructs across {len(nonempty)} descriptions: "
-                f"{sorted(composite_only)} surfaced only in aggregate (no single "
-                f"description tripped these) — ShareLock-class threshold poisoning"
+                f"{sorted(composite_only)} match a span that crosses a tool boundary "
+                f"(see per_fragment_patterns for any that also trip a single "
+                f"description) — ShareLock-class threshold poisoning"
                 if not passed
                 else f"No cross-tool reconstruction across {len(nonempty)} tool descriptions"
             ),

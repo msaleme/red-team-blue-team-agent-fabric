@@ -31,6 +31,57 @@ HIDDEN_INSTRUCTION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+#: Content-level injection detectors, shared by MCP-014 (per-tool description
+#: scan) and MCP-019 (cross-tool composite reconstruction) so the two cannot
+#: drift out of sync. Single ``.*`` alternatives only (ReDoS-safe).
+URL_PATTERN = re.compile(r'https?://[^\s"\'<>]{10,}', re.IGNORECASE)
+BASE64_BLOB_PATTERN = re.compile(r'[A-Za-z0-9+/]{40,}={0,2}')
+ENCODED_CMD_PATTERN = re.compile(
+    r'(?:%[0-9a-fA-F]{2}){5,}'                        # URL-encoded sequences
+    r'|\\x[0-9a-fA-F]{2}(?:\\x[0-9a-fA-F]{2}){4,}'    # hex-encoded
+    r'|\\u[0-9a-fA-F]{4}(?:\\u[0-9a-fA-F]{4}){4,}',   # unicode-escaped
+)
+
+#: High-confidence subset of HIDDEN_INSTRUCTION_PATTERN that is safe to run
+#: against a *reconstruction* of several independent descriptions. It drops the
+#: two low-entropy "bridge" alternatives — a bare ``system:`` and
+#: ``forward (all|every) … to`` — because concatenating ordinary benign
+#: descriptions reproduces those by accident (the MCP-019 composite false
+#: positive). Every alternative kept here is high-entropy enough that a benign
+#: multi-tool server will not spell it out across descriptions. The full pattern
+#: (including the two bridges) still runs per-tool in MCP-014.
+COMPOSITE_INSTRUCTION_PATTERN = re.compile(
+    r'ignore\s+(?:all\s+)?previous\s+instructions'
+    r'|you\s+are\s+now\s+(?:unrestricted|unfiltered|DAN)'
+    r'|<\s*(?:system|instruction|hidden|secret)\s*>'
+    r'|\bdo\s+not\s+tell\s+the\s+user\b'
+    r'|\bsend\s+(?:all|the)\s+(?:data|context|conversation)\s+to\b'
+    r'|\bexfiltrate\b',
+    re.IGNORECASE,
+)
+
+#: Low-entropy exfil "bridge". Alone on a reconstruction it false-positives
+#: (benign "forward every notification … to Slack"), so MCP-019 treats it as a
+#: finding ONLY when it spans a tool boundary AND a corroborating exfil indicator
+#: (a sink URL/blob or explicit credential material below) appears in the bridge's
+#: LOCAL context — the forwarded object or its destination — not merely somewhere
+#: else in the join (an unrelated benign tool must not supply corroboration).
+#: The object is length-bounded and non-greedy so the match stays local to the
+#: actual "forward … to" phrase. Single bounded quantifier only (ReDoS-safe).
+FORWARD_BRIDGE_PATTERN = re.compile(
+    r'\bforward\s+(?:all|every)\b.{0,80}?\bto\b',
+    re.IGNORECASE,
+)
+
+#: Explicit credential/secret material that corroborates an exfil instruction.
+#: Kept high-signal (multi-word / path forms) so it does not fire on incidental
+#: mentions like "token service" in an otherwise benign "forward … to".
+CREDENTIAL_MATERIAL_PATTERN = re.compile(
+    r'\bcredentials?\b|\bpassword\b|\bsecret\s+key\b|\bprivate\s+key\b'
+    r'|\baccess\s+key\b|~/\.aws\b|(?<!\w)\.env\b|/etc/passwd',
+    re.IGNORECASE,
+)
+
 
 class Severity(Enum):
     """Test severity classification (P0 = most critical)."""
