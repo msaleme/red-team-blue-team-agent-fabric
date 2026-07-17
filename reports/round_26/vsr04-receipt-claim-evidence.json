@@ -73,6 +73,33 @@
       "severity": "P1-High",
       "passed": true,
       "details": "envelope_valid=True; claim verdict=accept"
+    },
+    {
+      "test_id": "RCL-009",
+      "name": "Wired MCP-019 check (clean) accepted",
+      "category": "receipt_claim",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "envelope_valid=True; claim verdict=accept (all four properties independently supported); expected accept"
+    },
+    {
+      "test_id": "RCL-010",
+      "name": "Wired MCP-019 check (composite found) rejected",
+      "category": "receipt_claim",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "envelope_valid=True; claim verdict=reject (check: recorded output is not a pass); expected reject"
+    },
+    {
+      "test_id": "RCL-011",
+      "name": "Wired MCP-019 check bound to wrong tool set rejected",
+      "category": "receipt_claim",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "envelope_valid=True; claim verdict=reject (check: result bound to the wrong tool-set digest); expected reject"
     }
   ]
 }
