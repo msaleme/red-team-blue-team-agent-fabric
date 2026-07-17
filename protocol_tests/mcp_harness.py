@@ -1391,16 +1391,22 @@ class MCPSecurityTests:
             labels = {label for label, pat in DETECTORS.items() if spans_boundary(pat)}
 
             # Corroborated low-entropy exfil bridge: a `forward … to` that spans a
-            # tool boundary is a ShareLock exfil instruction only when the
-            # reconstruction also carries an exfil sink (URL/blob/encoded) or
-            # explicit credential material. Bare forward…to reassembles from
-            # benign descriptions, so on its own it is NOT a finding.
-            if spans_boundary(FORWARD_BRIDGE_PATTERN) and (
-                URL_PATTERN.search(text) or BASE64_BLOB_PATTERN.search(text)
-                or ENCODED_CMD_PATTERN.search(text)
-                or CREDENTIAL_MATERIAL_PATTERN.search(text)
-            ):
-                labels.add("forward_exfil")
+            # tool boundary is a ShareLock exfil instruction only when a sink
+            # (URL/blob/encoded) or explicit credential material appears in the
+            # bridge's LOCAL context — the forwarded object plus a short window
+            # past "to" for the destination. Scoping corroboration locally (not
+            # anywhere in the join) keeps an unrelated benign tool from supplying
+            # it, so bare forward…to still isn't a finding.
+            SINK_WINDOW = 40  # chars past the bridge to catch the destination
+            for m in FORWARD_BRIDGE_PATTERN.finditer(text):
+                if sum(1 for (s, e) in spans if m.start() < e and m.end() > s) < 2:
+                    continue  # bridge itself must span a tool boundary
+                local = text[m.start():m.end() + SINK_WINDOW]
+                if (URL_PATTERN.search(local) or BASE64_BLOB_PATTERN.search(local)
+                        or ENCODED_CMD_PATTERN.search(local)
+                        or CREDENTIAL_MATERIAL_PATTERN.search(local)):
+                    labels.add("forward_exfil")
+                    break
             return labels
 
         nonempty = [(t.get("name", "?"), (t.get("description") or "").strip())
@@ -1447,8 +1453,9 @@ class MCPSecurityTests:
             passed=passed,
             details=(
                 f"Cross-tool payload reconstructs across {len(nonempty)} descriptions: "
-                f"{sorted(composite_only)} surfaced only in aggregate (no single "
-                f"description tripped these) — ShareLock-class threshold poisoning"
+                f"{sorted(composite_only)} match a span that crosses a tool boundary "
+                f"(see per_fragment_patterns for any that also trip a single "
+                f"description) — ShareLock-class threshold poisoning"
                 if not passed
                 else f"No cross-tool reconstruction across {len(nonempty)} tool descriptions"
             ),

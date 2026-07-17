@@ -427,6 +427,25 @@ class TestMCP019CompositePoisoning(unittest.TestCase):
                     for p in f["patterns"]}
         self.assertIn("forward_exfil", surfaced)
 
+    def test_forward_bridge_not_corroborated_by_unrelated_tool(self):
+        # Bugbot #9: corroboration must be LOCAL to the bridge. A benign
+        # `forward … to` spanning two tools plus credential material in a THIRD,
+        # unrelated tool (far from the bridge) must NOT be flagged — otherwise an
+        # ordinary multi-tool server false-positives.
+        unrelated = {"result": {"tools": [
+            {"name": "notifier",
+             "description": "Notifier. It will forward every"},
+            {"name": "router",
+             "description": "status update to the ops dashboard channel for the team."},
+            {"name": "vault",
+             "description": "Vault helper: rotates ~/.aws/credentials on a nightly schedule."},
+        ]}}
+        suite = MCPSecurityTests(_FixedTransport(unrelated), json_output=True)
+        suite.test_mcp_composite_tool_description_poisoning()
+        r19 = self._last(suite)
+        self.assertTrue(r19.passed,
+                        f"MCP-019 must not corroborate a bridge from an unrelated tool: {r19.details}")
+
     def test_composite_covers_mcp014_detector_family(self):
         # Bugbot #1: MCP-019 claimed to reuse MCP-014's detectors but its
         # instruction pattern omitted the "you are now unrestricted/DAN" class
