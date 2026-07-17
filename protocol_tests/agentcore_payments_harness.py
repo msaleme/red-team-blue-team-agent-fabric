@@ -2861,6 +2861,304 @@ def test_agentcore_signtime_cross_session_aggregate_tier_a() -> AgentCoreTestRes
     )
 
 
+def _vsr02_create_session(dp: Any, user_id: str, agent_name: str, pm_arn: str) -> tuple[str, str]:
+    """Create one tightly capped Tier-A session, returning ``(id, error)``."""
+    try:
+        response = dp.create_payment_session(
+            userId=user_id,
+            agentName=agent_name,
+            paymentManagerArn=pm_arn,
+            limits={"maxSpendAmount": {"value": "0.02", "currency": "USD"}},
+            expiryTimeInMinutes=15,
+            clientToken=str(uuid.uuid4()),
+        )
+        session_id = response.get("paymentSession", response).get("paymentSessionId", "")
+        return session_id, "" if session_id else "create returned no paymentSessionId"
+    except Exception as exc:
+        return "", f"{type(exc).__name__}: {str(exc)[:200]}"
+
+
+def _vsr02_sign_probe(
+    dp: Any,
+    *,
+    user_id: str,
+    agent_name: str,
+    pm_arn: str,
+    session_id: str,
+    instrument_id: str,
+    description: str,
+) -> dict[str, str]:
+    """Make one Tier-A sign-only request and retain a bounded raw outcome.
+
+    This helper always uses the burn address and never submits a proof to a
+    merchant or facilitator.  A returned ``PROOF_GENERATED`` therefore means
+    only that the delegated-signing path was reached, not that anything settled.
+    """
+    try:
+        response = dp.process_payment(
+            userId=user_id,
+            agentName=agent_name,
+            paymentManagerArn=pm_arn,
+            paymentSessionId=session_id,
+            paymentInstrumentId=instrument_id,
+            paymentType="CRYPTO_X402",
+            paymentInput={"cryptoX402": {"version": "1", "payload": _build_x402_exact_payload("10000", description=description)}},
+            clientToken=str(uuid.uuid4()),
+        )
+        status, method = _extract_payment_status(response)
+        return {
+            "attempted": "true",
+            "status": status or "UNRECOGNIZED_RESPONSE",
+            "status_extraction_method": method or "none",
+            "raw_outcome": str(response)[:400],
+        }
+    except Exception as exc:
+        return {
+            "attempted": "true",
+            "status": type(exc).__name__,
+            "status_extraction_method": "none",
+            "raw_outcome": str(exc)[:400],
+        }
+
+
+def _vsr02_delete_session(dp: Any, user_id: str, pm_arn: str, session_id: str) -> str:
+    if not session_id:
+        return "not-created"
+    try:
+        dp.delete_payment_session(userId=user_id, paymentManagerArn=pm_arn, paymentSessionId=session_id)
+        return "deleted"
+    except Exception as exc:
+        return f"{type(exc).__name__}: {str(exc)[:120]}"
+
+
+def _vsr02_explicit_delegation_denial(status: str) -> bool:
+    """Return true only for an interpretable access/control-plane rejection.
+
+    A generic server failure, timeout, or retry exhaustion is not evidence that
+    isolation held.  This deliberately excludes ``InternalServerException`` so
+    the Tier-A result cannot convert an opaque platform error into a security
+    claim.
+    """
+    return status in {"AccessDeniedException", "ResourceNotFoundException", "ValidationException"}
+
+
+def test_agentcore_signtime_cross_instrument_delegation_isolation() -> AgentCoreTestResult:
+    """ACP-014: probe whether a grant for instrument A signs for instrument B.
+
+    The test first proves the currently granted tuple can reach
+    ``PROOF_GENERATED`` in this run. It then creates a distinct embedded-wallet
+    instrument under the same user/agent and attempts the identical proof-only
+    request with that new instrument.  It makes no merchant submission and
+    deletes the temporary session/instrument during cleanup.
+
+    A denial after the positive control is sign-time isolation evidence.  It is
+    deliberately tagged E2.5 rather than E5: no on-chain settlement occurs.
+    """
+    t0 = time.monotonic()
+    region = os.environ.get(ENV_REGION, "us-east-1")
+    dp = _get_agentcore_client(service="bedrock-agentcore")
+    pm_arn = os.environ.get("AGENTCORE_PAYMENT_MANAGER_ARN", "")
+    connector_id = os.environ.get("AGENTCORE_PAYMENT_CONNECTOR_ID", "")
+    user_id = os.environ.get(ENV_VSR02_USER_ID, VSR02_USER_ID_DEFAULT)
+    agent_name = os.environ.get(ENV_VSR02_AGENT_NAME, VSR02_AGENT_NAME_DEFAULT)
+    instrument_a = os.environ.get(ENV_VSR02_INSTRUMENT_ID, VSR02_INSTRUMENT_ID_DEFAULT)
+    findings: dict[str, Any] = {"positive_control": {}, "alternate_instrument": {}, "alternate_attempt": {}, "cleanup": {}}
+
+    control_session, control_error = _vsr02_create_session(dp, user_id, agent_name, pm_arn)
+    findings["positive_control"]["session_create_error"] = control_error
+    if control_session:
+        findings["positive_control"] |= _vsr02_sign_probe(
+            dp, user_id=user_id, agent_name=agent_name, pm_arn=pm_arn,
+            session_id=control_session, instrument_id=instrument_a, description="ACP-014 positive control",
+        )
+
+    instrument_b = ""
+    try:
+        response = dp.create_payment_instrument(
+            userId=user_id, agentName=agent_name, paymentManagerArn=pm_arn,
+            paymentConnectorId=connector_id, paymentInstrumentType="EMBEDDED_CRYPTO_WALLET",
+            paymentInstrumentDetails={"embeddedCryptoWallet": {"network": "ETHEREUM", "linkedAccounts": [{"email": {"emailAddress": "vsr02-acp014-instrument-b@example.test"}}]}},
+            clientToken=str(uuid.uuid4()),
+        )
+        instrument_b = response.get("paymentInstrument", response).get("paymentInstrumentId", "")
+        findings["alternate_instrument"] = {"created": bool(instrument_b), "id_distinct_from_a": instrument_b != instrument_a}
+    except Exception as exc:
+        findings["alternate_instrument"] = {"created": False, "error": f"{type(exc).__name__}: {str(exc)[:300]}"}
+
+    alternate_session, alternate_error = _vsr02_create_session(dp, user_id, agent_name, pm_arn)
+    findings["alternate_attempt"]["session_create_error"] = alternate_error
+    if alternate_session and instrument_b:
+        findings["alternate_attempt"] = _vsr02_sign_probe(
+            dp, user_id=user_id, agent_name=agent_name, pm_arn=pm_arn,
+            session_id=alternate_session, instrument_id=instrument_b, description="ACP-014 alternate instrument",
+        )
+
+    findings["cleanup"]["positive_session"] = _vsr02_delete_session(dp, user_id, pm_arn, control_session)
+    findings["cleanup"]["alternate_session"] = _vsr02_delete_session(dp, user_id, pm_arn, alternate_session)
+    if instrument_b:
+        try:
+            dp.delete_payment_instrument(userId=user_id, paymentManagerArn=pm_arn, paymentConnectorId=connector_id, paymentInstrumentId=instrument_b)
+            findings["cleanup"]["alternate_instrument"] = "deleted"
+        except Exception as exc:
+            findings["cleanup"]["alternate_instrument"] = f"{type(exc).__name__}: {str(exc)[:120]}"
+
+    control_signed = findings["positive_control"].get("status") == PROOF_GENERATED
+    alternate_signed = findings["alternate_attempt"].get("status") == PROOF_GENERATED
+    measurement_clean = control_signed and bool(instrument_b) and findings["alternate_attempt"].get("attempted") == "true"
+    alternate_status = findings["alternate_attempt"].get("status", "")
+    explicit_denial = _vsr02_explicit_delegation_denial(alternate_status)
+    isolation_holds = measurement_clean and explicit_denial
+    verdict = (
+        "isolation_observed" if isolation_holds else
+        "delegation_scope_not_instrument_bound_at_sign_time" if measurement_clean and alternate_signed else
+        "inconclusive_platform_error" if measurement_clean else "measurement_incomplete"
+    )
+    details = (
+        "SCOPE: proof-only delegated-signing isolation probe, burn-address payTo, 0 gas. "
+        f"Positive control signed={control_signed}; distinct instrument B created={bool(instrument_b)}; "
+        f"instrument-B signed={alternate_signed}; alternate status={alternate_status}. "
+        "Only an explicit access/control-plane denial supports isolation. Generic platform errors are inconclusive; no settlement was attempted."
+    )
+    return AgentCoreTestResult(
+        test_id="ACP-014", name="Cross-Instrument Delegation Isolation (Tier A)",
+        category="delegation_isolation", owasp_asi="ASI03", severity=Severity.HIGH.value,
+        passed=measurement_clean, details=details, region=region, session_id=control_session,
+        request_sent={"operation": "positive-control ProcessPayment(A) + ProcessPayment(B), sign-only", "pay_to": BURN_PAYTO, "tier": "A (proof-only, 0 gas)"},
+        response_received={**findings, "isolation_holds_at_sign_time": isolation_holds, "verdict": verdict, "target_evidence_class": "E5", "claim_boundary": "E2.5 sign-time only; not settlement evidence"},
+        csg_mapping="HC-6: delegated authority must remain instrument-bound", estimated_impact="fund_theft", estimated_severity="high",
+        elapsed_s=round(time.monotonic() - t0, 3), evidence_class="E2.5",
+    )
+
+
+def test_agentcore_signtime_shared_user_multi_instrument_isolation() -> AgentCoreTestResult:
+    """ACP-015: probe whether a same-email second instrument inherits a grant.
+
+    Unlike ACP-014, the temporary instrument deliberately uses the same email
+    identity as the granted instrument. A distinct returned instrument ID is a
+    prerequisite. If the API deduplicates it, the result is inconclusive rather
+    than evidence of isolation or leakage.
+    """
+    t0 = time.monotonic()
+    region = os.environ.get(ENV_REGION, "us-east-1")
+    dp = _get_agentcore_client(service="bedrock-agentcore")
+    pm_arn = os.environ.get("AGENTCORE_PAYMENT_MANAGER_ARN", "")
+    connector_id = os.environ.get("AGENTCORE_PAYMENT_CONNECTOR_ID", "")
+    user_id = os.environ.get(ENV_VSR02_USER_ID, VSR02_USER_ID_DEFAULT)
+    agent_name = os.environ.get(ENV_VSR02_AGENT_NAME, VSR02_AGENT_NAME_DEFAULT)
+    instrument_a = os.environ.get(ENV_VSR02_INSTRUMENT_ID, VSR02_INSTRUMENT_ID_DEFAULT)
+    findings: dict[str, Any] = {"positive_control": {}, "same_email_instrument": {}, "alternate_attempt": {}, "cleanup": {}}
+
+    control_session, control_error = _vsr02_create_session(dp, user_id, agent_name, pm_arn)
+    findings["positive_control"]["session_create_error"] = control_error
+    if control_session:
+        findings["positive_control"] |= _vsr02_sign_probe(dp, user_id=user_id, agent_name=agent_name, pm_arn=pm_arn, session_id=control_session, instrument_id=instrument_a, description="ACP-015 positive control")
+
+    instrument_b = ""
+    try:
+        response = dp.create_payment_instrument(
+            userId=user_id, agentName=agent_name, paymentManagerArn=pm_arn,
+            paymentConnectorId=connector_id, paymentInstrumentType="EMBEDDED_CRYPTO_WALLET",
+            paymentInstrumentDetails={"embeddedCryptoWallet": {"network": "ETHEREUM", "linkedAccounts": [{"email": {"emailAddress": "vsr02-wallet-hub@example.test"}}]}},
+            clientToken=str(uuid.uuid4()),
+        )
+        instrument_b = response.get("paymentInstrument", response).get("paymentInstrumentId", "")
+        findings["same_email_instrument"] = {"created": bool(instrument_b), "id_distinct_from_a": instrument_b != instrument_a}
+    except Exception as exc:
+        findings["same_email_instrument"] = {"created": False, "error": f"{type(exc).__name__}: {str(exc)[:300]}"}
+
+    alternate_session, alternate_error = _vsr02_create_session(dp, user_id, agent_name, pm_arn)
+    findings["alternate_attempt"]["session_create_error"] = alternate_error
+    if alternate_session and instrument_b and instrument_b != instrument_a:
+        findings["alternate_attempt"] = _vsr02_sign_probe(dp, user_id=user_id, agent_name=agent_name, pm_arn=pm_arn, session_id=alternate_session, instrument_id=instrument_b, description="ACP-015 same-user second instrument")
+
+    findings["cleanup"]["positive_session"] = _vsr02_delete_session(dp, user_id, pm_arn, control_session)
+    findings["cleanup"]["alternate_session"] = _vsr02_delete_session(dp, user_id, pm_arn, alternate_session)
+    if instrument_b and instrument_b != instrument_a:
+        try:
+            dp.delete_payment_instrument(userId=user_id, paymentManagerArn=pm_arn, paymentConnectorId=connector_id, paymentInstrumentId=instrument_b)
+            findings["cleanup"]["same_email_instrument"] = "deleted"
+        except Exception as exc:
+            findings["cleanup"]["same_email_instrument"] = f"{type(exc).__name__}: {str(exc)[:120]}"
+
+    control_signed = findings["positive_control"].get("status") == PROOF_GENERATED
+    distinct = findings["same_email_instrument"].get("id_distinct_from_a") is True
+    alternate_signed = findings["alternate_attempt"].get("status") == PROOF_GENERATED
+    measurement_clean = control_signed and distinct and findings["alternate_attempt"].get("attempted") == "true"
+    alternate_status = findings["alternate_attempt"].get("status", "")
+    explicit_denial = _vsr02_explicit_delegation_denial(alternate_status)
+    isolation_holds = measurement_clean and explicit_denial
+    verdict = (
+        "isolation_observed" if isolation_holds else
+        "delegation_scope_not_instrument_bound_at_sign_time" if measurement_clean and alternate_signed else
+        "inconclusive_platform_error" if measurement_clean else "measurement_incomplete"
+    )
+    details = (
+        "SCOPE: same-user, proof-only delegated-signing isolation probe, 0 gas. "
+        f"Positive control signed={control_signed}; distinct same-email instrument created={distinct}; second instrument signed={alternate_signed}; alternate status={alternate_status}. "
+        "If the service deduplicates the second instrument or returns a generic platform error, this test is explicitly inconclusive."
+    )
+    return AgentCoreTestResult(
+        test_id="ACP-015", name="Shared-User Multi-Instrument Delegation Isolation (Tier A)",
+        category="delegation_isolation", owasp_asi="ASI03", severity=Severity.HIGH.value,
+        passed=measurement_clean, details=details, region=region, session_id=control_session,
+        request_sent={"operation": "positive-control ProcessPayment(A) + same-user ProcessPayment(B), sign-only", "pay_to": BURN_PAYTO, "tier": "A (proof-only, 0 gas)"},
+        response_received={**findings, "isolation_holds_at_sign_time": isolation_holds, "verdict": verdict, "target_evidence_class": "E5", "claim_boundary": "E2.5 sign-time only; not settlement evidence"},
+        csg_mapping="HC-6: a per-user identity must not silently widen an instrument grant", estimated_impact="fund_theft", estimated_severity="high",
+        elapsed_s=round(time.monotonic() - t0, 3), evidence_class="E2.5",
+    )
+
+
+def test_agentcore_signtime_cross_agent_delegation_isolation() -> AgentCoreTestResult:
+    """ACP-019: probe whether a grant leaks across agent names for one user."""
+    t0 = time.monotonic()
+    region = os.environ.get(ENV_REGION, "us-east-1")
+    dp = _get_agentcore_client(service="bedrock-agentcore")
+    pm_arn = os.environ.get("AGENTCORE_PAYMENT_MANAGER_ARN", "")
+    user_id = os.environ.get(ENV_VSR02_USER_ID, VSR02_USER_ID_DEFAULT)
+    granted_agent = os.environ.get(ENV_VSR02_AGENT_NAME, VSR02_AGENT_NAME_DEFAULT)
+    attacker_agent = "vs-r02-attacker-agent"
+    instrument_id = os.environ.get(ENV_VSR02_INSTRUMENT_ID, VSR02_INSTRUMENT_ID_DEFAULT)
+    findings: dict[str, Any] = {"positive_control": {}, "cross_agent_attempt": {}, "cleanup": {}}
+
+    control_session, control_error = _vsr02_create_session(dp, user_id, granted_agent, pm_arn)
+    findings["positive_control"]["session_create_error"] = control_error
+    if control_session:
+        findings["positive_control"] |= _vsr02_sign_probe(dp, user_id=user_id, agent_name=granted_agent, pm_arn=pm_arn, session_id=control_session, instrument_id=instrument_id, description="ACP-019 positive control")
+
+    attacker_session, attacker_error = _vsr02_create_session(dp, user_id, attacker_agent, pm_arn)
+    findings["cross_agent_attempt"]["session_create_error"] = attacker_error
+    if attacker_session:
+        findings["cross_agent_attempt"] = _vsr02_sign_probe(dp, user_id=user_id, agent_name=attacker_agent, pm_arn=pm_arn, session_id=attacker_session, instrument_id=instrument_id, description="ACP-019 cross-agent attempt")
+
+    findings["cleanup"]["positive_session"] = _vsr02_delete_session(dp, user_id, pm_arn, control_session)
+    findings["cleanup"]["attacker_session"] = _vsr02_delete_session(dp, user_id, pm_arn, attacker_session)
+    control_signed = findings["positive_control"].get("status") == PROOF_GENERATED
+    attacker_signed = findings["cross_agent_attempt"].get("status") == PROOF_GENERATED
+    measurement_clean = control_signed and findings["cross_agent_attempt"].get("attempted") == "true"
+    attacker_status = findings["cross_agent_attempt"].get("status", "")
+    explicit_denial = _vsr02_explicit_delegation_denial(attacker_status)
+    isolation_holds = measurement_clean and explicit_denial
+    verdict = (
+        "isolation_observed" if isolation_holds else
+        "delegation_scope_not_agent_bound_at_sign_time" if measurement_clean and attacker_signed else
+        "inconclusive_platform_error" if measurement_clean else "measurement_incomplete"
+    )
+    details = (
+        "SCOPE: same-user cross-agent delegated-signing isolation probe, burn-address payTo, 0 gas. "
+        f"Positive control signed={control_signed}; alternate-agent signed={attacker_signed}; alternate status={attacker_status}. "
+        "A positive-control success followed by alternate-agent success is a reproduction candidate, not a final security conclusion."
+    )
+    return AgentCoreTestResult(
+        test_id="ACP-019", name="Cross-Agent Delegation Isolation (Tier A)",
+        category="delegation_isolation", owasp_asi="ASI03", severity=Severity.HIGH.value,
+        passed=measurement_clean, details=details, region=region, agent_id=f"{granted_agent},{attacker_agent}", session_id=control_session,
+        request_sent={"operation": "positive-control ProcessPayment(granted agent) + ProcessPayment(alternate agent), sign-only", "pay_to": BURN_PAYTO, "tier": "A (proof-only, 0 gas)"},
+        response_received={**findings, "isolation_holds_at_sign_time": isolation_holds, "verdict": verdict, "target_evidence_class": "E5", "claim_boundary": "E2.5 sign-time only; not settlement evidence"},
+        csg_mapping="HC-6: delegated authority must remain agent-name-bound", estimated_impact="fund_theft", estimated_severity="high",
+        elapsed_s=round(time.monotonic() - t0, 3), evidence_class="E2.5",
+    )
+
+
 VS_R02_TIER_A_TESTS: dict[str, list[str]] = {
     "spend_cap_enforcement": [
         "test_agentcore_signtime_spend_fragmentation",       # ACP-009
@@ -2869,6 +3167,11 @@ VS_R02_TIER_A_TESTS: dict[str, list[str]] = {
     ],
     "402_terms_validation": [
         "test_agentcore_signtime_terms_forgery",              # ACP-011
+    ],
+    "delegation_isolation": [
+        "test_agentcore_signtime_cross_instrument_delegation_isolation",  # ACP-014
+        "test_agentcore_signtime_shared_user_multi_instrument_isolation", # ACP-015
+        "test_agentcore_signtime_cross_agent_delegation_isolation",        # ACP-019
     ],
 }
 # NOTE: intentionally NOT merged into ALL_TESTS and NOT registered in
