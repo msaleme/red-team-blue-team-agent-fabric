@@ -1,6 +1,8 @@
 # AIUC-1 Crosswalk: Pre-Certification Testing
 
-[AIUC-1](https://www.aiuc-1.com) (v2026-Q1, last reviewed March 2026) is the first AI agent certification standard, requiring **quarterly independent adversarial testing** to validate agent security, safety, and reliability. Built with MITRE, Cisco, Stanford, MIT, and Google Cloud. This framework provides the technical testing that AIUC-1 certification demands.
+[AIUC-1](https://www.aiuc-1.com) is the first AI agent certification standard, requiring **quarterly independent adversarial testing** to validate agent security, safety, and reliability. Built with MITRE, Cisco, Stanford, MIT, and Google Cloud. This framework provides the technical testing that AIUC-1 certification demands.
+
+> **Standard currency:** this mapping was built against **v2026-Q1** (reviewed March 2026). AIUC-1 now revises quarterly — **Q2 (April 2026)** added MCP/A2A protocol-security and agent-identity controls; **Q3 (released 2026-07-15)** modified 8 requirements / 41 controls. Requirement-level rows below remain valid (renumbering happened at sub-control level), but see the **Q3-2026 Currency Note** near the end of this document before citing this crosswalk against the current standard. Last currency review: 2026-07-16.
 
 ---
 
@@ -75,9 +77,24 @@
 
 ---
 
+## Q3-2026 Currency Note (standard revised 2026-07-15)
+
+The Q3-2026 quarterly refresh modified 8 requirements and 41 controls ([changelog](https://www.aiuc-1.com/changelog)). Impact on this crosswalk:
+
+| Q3 change | Impact here |
+|---|---|
+| **NEW A008** (A008.1–.5) — secrets-leakage prevention, mandatory for **code-generating agents** | Not mapped. This harness tests agent systems; it is not a code-generating product. Treat as out-of-scope pending maintainer review. |
+| **NEW B010** (B010.1–.6) — secure patterns in generated code, mandatory for **code-generating agents** | Same as A008 — out-of-scope pending maintainer review. |
+| **A003 revised** — sub-controls renumbered to A003.2–A003.3 | Requirement-level row (A003) unaffected; do not cite Q2 sub-control IDs. |
+| **B008 revised** — model-access core requirement retired; sub-controls renumbered B008.1–B008.5 | Not mapped at sub-control level here; no row change. |
+| **B006.3 extended** — sandboxing now covers agent-executed code alongside first-party MCP servers | Runtime/infrastructure control — attestation-level, not test coverage. |
+| **E009 expanded** (+E009.2 anomalous-access alerting) | E-principle rows are complementary/process; no test-coverage claim made or added. |
+
+**Claim discipline:** the "19 of 20 testable requirements" figure is denominated against the **2026-Q1/Q2 requirement set**. Q3 added two requirements scoped to code-generating agents; until the maintainer either maps or formally scopes them out, cite this document as *"pre-certification mapping against AIUC-1 2026-Q1/Q2; Q3-2026 delta reviewed 2026-07-16, two new codegen-scoped requirements pending scope decision."*
+
 ## Standards Alignment
 
-- **AIUC-1 (2026)** - Pre-certification testing for 19 of 20 testable requirements
+- **AIUC-1 (2026)** - Pre-certification testing for 19 of 20 testable requirements (2026-Q1/Q2 set; Q3-2026 delta — see Currency Note above)
 - **OWASP Top 10 for Agentic Applications (2026)** - Complete ASI01-ASI10 coverage
 - **OWASP LLM Top 10** - LLM01 (Prompt Injection), LLM02, LLM03, LLM04, LLM06, LLM08
 - **NIST AI RMF** - GOVERN, MAP, MEASURE, MANAGE functions covered

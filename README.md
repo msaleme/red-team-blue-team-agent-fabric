@@ -72,7 +72,7 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 | **Enterprise platforms** | - | - | - | - | **25 cloud + 20 enterprise** |
 | **APT simulation** | - | - | - | - | **GTG-1002 (17 tests)** |
 | **Jailbreak/over-refusal** | - | - | - | Yes | **50 tests (25 + 25 FPR)** |
-| **AIUC-1 certification** | - | - | - | - | **Maps to 19 of 20 testable requirements** |
+| **AIUC-1 certification** | - | - | - | - | **Maps to 19 of 20 testable requirements** (2026-Q1/Q2 set; [Q3 delta](docs/AIUC1-CROSSWALK.md)) |
 | **Research backing** | - | Cisco blog | - | Papers | **5 DOIs + 3 NIST submissions** |
 | **MCP server mode** | - | - | - | - | **Yes - invoke from any AI agent** |
 | **Statistical testing** | - | - | - | - | **Wilson CIs, multi-trial** |
