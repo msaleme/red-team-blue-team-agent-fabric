@@ -60,6 +60,27 @@ COMPOSITE_INSTRUCTION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+#: Low-entropy exfil "bridge". Alone on a reconstruction it false-positives
+#: (benign "forward every notification … to Slack"), so MCP-019 treats it as a
+#: finding ONLY when it spans a tool boundary AND the reconstruction also carries
+#: a corroborating exfil indicator (a sink URL/blob or explicit credential
+#: material below). This closes the ShareLock "forward all <creds> to <sink>"
+#: composite case without re-introducing the benign false positive. A single
+#: ``.*`` alternative only (ReDoS-safe).
+FORWARD_BRIDGE_PATTERN = re.compile(
+    r'\bforward\s+(?:all|every)\b.*\bto\b',
+    re.IGNORECASE,
+)
+
+#: Explicit credential/secret material that corroborates an exfil instruction.
+#: Kept high-signal (multi-word / path forms) so it does not fire on incidental
+#: mentions like "token service" in an otherwise benign "forward … to".
+CREDENTIAL_MATERIAL_PATTERN = re.compile(
+    r'\bcredentials?\b|\bpassword\b|\bsecret\s+key\b|\bprivate\s+key\b'
+    r'|\baccess\s+key\b|~/\.aws\b|(?<!\w)\.env\b|/etc/passwd',
+    re.IGNORECASE,
+)
+
 
 class Severity(Enum):
     """Test severity classification (P0 = most critical)."""

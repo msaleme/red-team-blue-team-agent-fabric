@@ -54,6 +54,8 @@ from protocol_tests._utils import (
     ENCODED_CMD_PATTERN,
     HIDDEN_INSTRUCTION_PATTERN,
     COMPOSITE_INSTRUCTION_PATTERN,
+    FORWARD_BRIDGE_PATTERN,
+    CREDENTIAL_MATERIAL_PATTERN,
 )
 
 
@@ -1379,13 +1381,26 @@ class MCPSecurityTests:
                 start = len(text)
                 text += frag
                 spans.append((start, len(text)))
-            labels = set()
-            for label, pat in DETECTORS.items():
+
+            def spans_boundary(pat) -> bool:
                 for m in pat.finditer(text):
-                    touched = sum(1 for (s, e) in spans if m.start() < e and m.end() > s)
-                    if touched >= 2:
-                        labels.add(label)
-                        break
+                    if sum(1 for (s, e) in spans if m.start() < e and m.end() > s) >= 2:
+                        return True
+                return False
+
+            labels = {label for label, pat in DETECTORS.items() if spans_boundary(pat)}
+
+            # Corroborated low-entropy exfil bridge: a `forward … to` that spans a
+            # tool boundary is a ShareLock exfil instruction only when the
+            # reconstruction also carries an exfil sink (URL/blob/encoded) or
+            # explicit credential material. Bare forward…to reassembles from
+            # benign descriptions, so on its own it is NOT a finding.
+            if spans_boundary(FORWARD_BRIDGE_PATTERN) and (
+                URL_PATTERN.search(text) or BASE64_BLOB_PATTERN.search(text)
+                or ENCODED_CMD_PATTERN.search(text)
+                or CREDENTIAL_MATERIAL_PATTERN.search(text)
+            ):
+                labels.add("forward_exfil")
             return labels
 
         nonempty = [(t.get("name", "?"), (t.get("description") or "").strip())
