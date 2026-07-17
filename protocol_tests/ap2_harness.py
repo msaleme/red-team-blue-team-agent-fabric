@@ -29,9 +29,12 @@ Mandate model (v0.2 — grounded in google-agentic-commerce/AP2 canonical files)
 The chain link is a hash: the Payment Mandate's ``transaction_id`` equals the
 Checkout Mandate's ``checkout_hash`` (= hash of the merchant `checkout_jwt`).
 Closed mandates bind to the presented open mandate via ``sd_hash`` and to the
-agent key via the open mandate's ``cnf`` claim. Payment Mandates MUST use a
-non-deterministic signature scheme (ECDSA), NOT a deterministic one (Ed25519),
-to resist replay.
+agent key via the open mandate's ``cnf`` claim. A Payment Mandate must carry an
+asymmetric, third-party-verifiable signature (ECDSA, EdDSA, RSA) so the payer's
+authorization is non-repudiable; a symmetric keyed-MAC scheme (e.g. HMAC) is
+rejected because it provides no signer provenance. (This is a provenance
+requirement, not a determinism one: deterministic asymmetric schemes such as
+EdDSA are fine. Replay is handled separately by jti/nonce and expiry.)
 
 Reference-verifier note (honesty): production uses SD-JWT / VC signatures over
 ES256 keys. To keep this harness stdlib-only (the repo's zero-extra-dependency
@@ -99,8 +102,10 @@ def canonical_hash(obj) -> str:
 # Reference mandate verifier
 # ---------------------------------------------------------------------------
 
-#: Deterministic signature schemes AP2 forbids for Payment Mandates.
-_DETERMINISTIC_SCHEMES = {"ed25519", "eddsa", "rsassa-pkcs1", "hmac"}
+#: Symmetric / keyed-MAC schemes rejected for Payment Mandates: they carry no
+#: signer provenance, so the payer's authorization is not third-party verifiable.
+#: Asymmetric schemes (ECDSA, EdDSA, RSA) are accepted regardless of determinism.
+_NON_PROVENANCE_SCHEMES = {"hmac", "hs256", "hs384", "hs512"}
 
 
 @dataclass
@@ -202,10 +207,11 @@ class AP2Verifier:
             return VerifyOutcome(False, "payment amount does not match bound checkout total")
         if payment.get("payee", {}).get("id") != cart.get("merchant"):
             return VerifyOutcome(False, "payee does not match bound checkout merchant")
-        # 4. signature scheme: Payment Mandate MUST be non-deterministic (ECDSA).
+        # 4. signature scheme: a Payment Mandate needs asymmetric, third-party-
+        #    verifiable provenance; symmetric keyed-MAC schemes carry none.
         scheme = str(payment.get("sig_scheme", "")).lower()
-        if scheme in _DETERMINISTIC_SCHEMES:
-            return VerifyOutcome(False, f"deterministic signature scheme '{scheme}' forbidden (replay risk)")
+        if scheme in _NON_PROVENANCE_SCHEMES:
+            return VerifyOutcome(False, f"symmetric/keyed-MAC scheme '{scheme}' lacks signer provenance")
         # 5. authorization presence.
         if human_present and not payment.get("user_authorization"):
             return VerifyOutcome(False, "missing user signature on Payment Mandate (human-present)")
@@ -689,25 +695,30 @@ class AP2MandateTests:
 
     # -- AP2-014: deterministic signature ---------------------------------
 
-    def test_ap2_014_deterministic_signature(self) -> None:
-        """AP2-014: Deterministic signature scheme rejected (HIGH).
+    def test_ap2_014_symmetric_signature(self) -> None:
+        """AP2-014: Symmetric / keyed-MAC payment signature rejected (HIGH).
 
-        Payment Mandates MUST use a non-deterministic scheme (ECDSA); a
-        deterministic one (Ed25519) MUST be rejected (replay resistance).
+        A Payment Mandate needs an asymmetric, third-party-verifiable signature so
+        the payer's authorization is non-repudiable. A symmetric keyed-MAC scheme
+        (HMAC) carries no signer provenance and must be rejected. Signature
+        determinism is NOT the criterion: asymmetric EdDSA is deterministic and
+        acceptable, and replay is handled by AP2-011/012 (jti/nonce, expiry).
+        Marked inferred (I): provenance is standard payment-security practice; we
+        have not mapped it to a specific normative AP2 clause.
         """
         t0 = time.monotonic()
         now = self._now()
         openm, checkout, payment = _valid_chain(now)
-        payment["sig_scheme"] = "ed25519"
+        payment["sig_scheme"] = "hmac"
         v = AP2Verifier().verify_payment(checkout, payment, now)
         self._finish(
-            test_id="AP2-014", name="Deterministic Signature Scheme",
+            test_id="AP2-014", name="Symmetric/Keyed-MAC Signature Scheme",
             category="crypto", mandate="PaymentMandate",
-            owasp="ASI03", stride="Tampering", severity=Severity.HIGH.value,
-            ref="AP2: PaymentMandate MUST use non-deterministic sig (not Ed25519)", normative="N",
-            model_pass=(not v.ok and "deterministic" in v.reason),
-            model_reason=(f"deterministic scheme rejected ({v.reason})" if not v.ok else
-                          "WEAK CRYPTO — a deterministic (Ed25519) payment signature was accepted"),
+            owasp="ASI03", stride="Repudiation", severity=Severity.HIGH.value,
+            ref="Payment-security practice: PaymentMandate needs asymmetric, non-repudiable signature", normative="I",
+            model_pass=(not v.ok and "provenance" in v.reason),
+            model_reason=(f"symmetric/keyed-MAC scheme rejected ({v.reason})" if not v.ok else
+                          "WEAK CRYPTO — a symmetric (HMAC) payment signature was accepted"),
             attack_payload={"payment_mandate": payment, "checkout_mandate": checkout}, t0=t0)
 
     # -- AP2-015: funding-instrument scope --------------------------------
@@ -825,7 +836,7 @@ class AP2MandateTests:
             self.test_ap2_011_payment_replay,
             self.test_ap2_012_expired_mandate,
             self.test_ap2_013_double_spend,
-            self.test_ap2_014_deterministic_signature,
+            self.test_ap2_014_symmetric_signature,
             self.test_ap2_015_funding_scope,
             self.test_ap2_016_premature_credential_release,
             self.test_ap2_017_vct_mismatch,

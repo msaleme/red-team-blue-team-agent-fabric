@@ -451,11 +451,18 @@ class TestRegAP2(unittest.TestCase):
         self.assertTrue(v.verify_payment(checkout, payment, 1000).ok)
         self.assertFalse(v.verify_payment(checkout, payment, 1000).ok)
 
-    def test_deterministic_signature_rejected(self):
+    def test_symmetric_signature_rejected_asymmetric_accepted(self):
+        # A Payment Mandate needs asymmetric, non-repudiable provenance. Symmetric
+        # keyed-MAC (HMAC) is rejected; asymmetric schemes (incl. deterministic
+        # EdDSA) are accepted — determinism is not the criterion.
         from protocol_tests.ap2_harness import _valid_chain, AP2Verifier
         openm, checkout, payment = _valid_chain(1000)
-        payment["sig_scheme"] = "ed25519"
+        payment["sig_scheme"] = "hmac"
         self.assertFalse(AP2Verifier().verify_payment(checkout, payment, 1000).ok)
+        openm2, checkout2, payment2 = _valid_chain(1000)
+        payment2["sig_scheme"] = "ed25519"
+        self.assertTrue(AP2Verifier().verify_payment(checkout2, payment2, 1000).ok,
+                        "asymmetric EdDSA must be accepted; determinism is not the criterion")
 
     def test_funding_scope_binding(self):
         from protocol_tests.ap2_harness import _valid_chain, AP2Verifier
