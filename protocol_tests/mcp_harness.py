@@ -1484,9 +1484,12 @@ class MCPSecurityTests:
                     "description": tdef.get("description", ""),
                     "inputSchema": tdef.get("inputSchema", {}),
                 }, sort_keys=True, separators=(",", ":"))
+                meta = tdef.get("_meta") or {}
+                au = meta.get("authorized_update") if isinstance(meta, dict) else None
                 fp[tdef.get("name", "?")] = {
                     "digest": hashlib.sha256(body.encode("utf-8")).hexdigest()[:16],
                     "origin": origin_identity(tdef),
+                    "authorized_update": au,
                 }
             return fp
 
@@ -1494,18 +1497,21 @@ class MCPSecurityTests:
         second = snapshot()
         elapsed = time.monotonic() - t0
 
-        # A rebinding is a finding only when the definition changed under a stable
-        # name AND there is no persistent origin identity linking new to old — i.e.
-        # the client has no way to tell a legitimate update from a name-squat swap.
+        # A same-name definition change is flagged UNLESS it carries an authenticated
+        # authorized-update binding the exact old->new digests. A persistent origin
+        # identity proves continuity of origin, NOT that the changed definition is
+        # authorized or safe, so origin binding alone does not suppress the finding.
         unbound = []
         for name, a in first.items():
             b = second.get(name)
             if b is None or a["digest"] == b["digest"]:
                 continue
-            origin_bound = bool(a["origin"]) and a["origin"] == b["origin"]
-            if not origin_bound:
-                unbound.append({"tool": name, "from": a["digest"],
-                                "to": b["digest"], "origin": a["origin"]})
+            au = b.get("authorized_update") or {}
+            authorized = au.get("from") == a["digest"] and au.get("to") == b["digest"]
+            if not authorized:
+                origin_bound = bool(a["origin"]) and a["origin"] == b["origin"]
+                unbound.append({"tool": name, "from": a["digest"], "to": b["digest"],
+                                "origin": a["origin"], "origin_bound": origin_bound})
 
         passed = len(unbound) == 0
 
@@ -1518,7 +1524,8 @@ class MCPSecurityTests:
             passed=passed,
             details=(
                 f"{len(unbound)} tool(s) re-registered under a stable name with a "
-                f"changed definition and no origin binding: "
+                f"changed definition and no authenticated authorized-update "
+                f"(persistent origin id is insufficient): "
                 f"{[u['tool'] for u in unbound]} — MSTI-class runtime tool swap "
                 f"(name is not origin)"
                 if not passed

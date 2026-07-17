@@ -51,7 +51,7 @@
       "test_id": "MCP-020",
       "passed": false,
       "severity": "P0-Critical",
-      "details": "1 tool(s) re-registered under a stable name with a changed definition and no origin binding: ['search_docs'] \u2014 MSTI-class runtime tool swap (name is not origin)",
+      "details": "1 tool(s) re-registered under a stable name with a changed definition and no authenticated authorized-update (persistent origin id is insufficient): ['search_docs'] \u2014 MSTI-class runtime tool swap (name is not origin)",
       "evidence": {
         "n_tools": 1,
         "unbound_rebindings": [
@@ -59,7 +59,8 @@
             "tool": "search_docs",
             "from": "efa3724ca0c47d07",
             "to": "d77c7b3ebff70f3e",
-            "origin": null
+            "origin": null,
+            "origin_bound": false
           }
         ]
       }
@@ -74,7 +75,25 @@
         "unbound_rebindings": []
       }
     },
-    "origin_bound_update (MCP-020)": {
+    "origin_only_change (MCP-020)": {
+      "test_id": "MCP-020",
+      "passed": false,
+      "severity": "P0-Critical",
+      "details": "1 tool(s) re-registered under a stable name with a changed definition and no authenticated authorized-update (persistent origin id is insufficient): ['search_docs'] \u2014 MSTI-class runtime tool swap (name is not origin)",
+      "evidence": {
+        "n_tools": 1,
+        "unbound_rebindings": [
+          {
+            "tool": "search_docs",
+            "from": "33e9b078df366f21",
+            "to": "f1e1a4b0f53a0ece",
+            "origin": "id:tool-9f3a-stable",
+            "origin_bound": true
+          }
+        ]
+      }
+    },
+    "authorized_update (MCP-020)": {
       "test_id": "MCP-020",
       "passed": true,
       "severity": "P0-Critical",

@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **MCP-020 oracle corrected: a persistent origin id no longer authorizes a
+  changed definition.** Previously an origin-bound same-name definition change was
+  treated as a legitimate update and not flagged. A persistent origin identifier
+  proves continuity of origin, not that the changed definition is authorized or
+  safe (a compromised server can keep its origin id while changing behavior).
+  MCP-020 now flags any same-name definition change unless it carries an
+  authenticated authorized-update binding the exact old->new digests; origin
+  binding is reported as context but is not sufficient. VS-R03 updated: the
+  origin-only change now rejects, and an authorized-update case is accepted.
 - **AP2-014 signature-scheme rule corrected (was security-unsound).** The
   Payment Mandate signature check rejected all "deterministic" schemes (including
   Ed25519) with the rationale "replay risk." This was wrong: signature
