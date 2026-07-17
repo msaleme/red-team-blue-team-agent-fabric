@@ -1501,9 +1501,10 @@ class MCPSecurityTests:
             po, pn = parse(old), parse(new)
             return po is not None and pn is not None and pn > po
 
-        def snapshot() -> dict:
+        def snapshot():
             resp = self.transport.send(msg)
-            tools = resp["result"].get("tools", []) if resp and "result" in resp else []
+            ok = bool(resp and "result" in resp)     # a usable tools/list response
+            tools = resp["result"].get("tools", []) if ok else []
             fp = {}
             for tdef in tools:
                 body = json.dumps({
@@ -1515,18 +1516,19 @@ class MCPSecurityTests:
                     "origin": stable_identity(tdef),
                     "version": version_of(tdef),
                 }
-            return fp
+            return fp, ok
 
-        first = snapshot()
-        second = snapshot()
+        first, first_ok = snapshot()
+        second, second_ok = snapshot()
         elapsed = time.monotonic() - t0
 
         # A rebinding is a finding only when the definition changed under a stable
         # name AND nothing links the new definition to the old one. A change is
         # legitimate when either (a) a stable origin identity persists across it,
-        # or (b) the only binding is a version and it moved *forward* — an
-        # ordinary update. A changed/absent origin, or a version that did not
-        # advance, is an unbound rebinding (name-is-not-origin name-squat swap).
+        # or (b) there was NO stable identity on either side and the sole binding
+        # (a version) moved *forward* — an ordinary update. A changed origin, a
+        # *dropped* origin (a persistent binding removed under a changed digest),
+        # or a version that did not advance is an unbound rebinding.
         unbound = []
         for name, a in first.items():
             b = second.get(name)
@@ -1536,8 +1538,10 @@ class MCPSecurityTests:
                 if a["origin"] == b["origin"]:
                     continue  # stable identity persists → legitimate update
                 reason = "origin_changed"
-            elif version_increased(a["version"], b["version"]):
-                continue      # version-only binding advanced → ordinary update
+            elif a["origin"] and not b["origin"]:
+                reason = "origin_dropped"   # persistent binding removed on the swap
+            elif not a["origin"] and version_increased(a["version"], b["version"]):
+                continue      # version was the sole binding and it advanced → update
             else:
                 reason = "no_binding"
             unbound.append({"tool": name, "from": a["digest"], "to": b["digest"],
@@ -1545,7 +1549,11 @@ class MCPSecurityTests:
                             "version_from": a["version"], "version_to": b["version"],
                             "reason": reason})
 
-        passed = len(unbound) == 0
+        # Fail closed on an unusable second observation: if the first call
+        # returned tools but the second errored or came back empty, no rebinding
+        # check ran for those tools — that is inconclusive, never a clean pass.
+        inconclusive = bool(first) and not second
+        passed = (len(unbound) == 0) and not inconclusive
 
         self._record(MCPTestResult(
             test_id="MCP-020",
@@ -1555,8 +1563,12 @@ class MCPSecurityTests:
             severity=Severity.CRITICAL.value,
             passed=passed,
             details=(
-                f"{len(unbound)} tool(s) re-registered under a stable name with a "
-                f"changed definition and no origin binding: "
+                f"Inconclusive: first tools/list returned {len(first)} tool(s) but the "
+                f"second snapshot was empty or errored (second_ok={second_ok}) — identity "
+                f"stability could not be verified, failing closed"
+                if inconclusive
+                else f"{len(unbound)} tool(s) re-registered under a stable name with a "
+                f"changed definition and no verifiable binding: "
                 f"{[u['tool'] for u in unbound]} — MSTI-class runtime tool swap "
                 f"(name is not origin)"
                 if not passed
@@ -1564,7 +1576,9 @@ class MCPSecurityTests:
             ),
             mcp_method="tools/list",
             request_sent=msg,
-            response_received={"n_tools": len(first), "unbound_rebindings": unbound},
+            response_received={"n_tools": len(first), "n_tools_second": len(second),
+                               "first_ok": first_ok, "second_ok": second_ok,
+                               "inconclusive": inconclusive, "unbound_rebindings": unbound},
             elapsed_s=round(elapsed, 3),
         ))
 
