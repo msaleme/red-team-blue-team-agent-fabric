@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **MCP-019: Composite / cross-tool description poisoning (ShareLock-class).**
+  Single-tool description scanners (MCP-014) inspect each tool in isolation, so a
+  payload split into benign secret-shares across several tool descriptions passes
+  every per-tool check and only reconstructs in aggregate (ShareLock,
+  arXiv:2606.27027, >90% reported ASR). MCP-019 reconstructs candidate payloads
+  across all tool descriptions (registration and lexical order, joined with and
+  without separators) and flags any injection pattern that surfaces only in the
+  aggregate. VS-R03 regression cluster proves each fragment passes MCP-014 while
+  MCP-019 catches the composite, with no false positive on benign multi-tool
+  servers.
+- **MCP-020: Mid-session tool identity rebinding (MSTI, name-is-not-origin).**
+  Mid-Session Tool Injection re-registers a malicious tool under a trusted tool's
+  name at runtime (94-100% reported success). Per-tool description scanning reads
+  the name, never the origin. MCP-020 fingerprints every tool across two
+  tools/list snapshots and flags any same-name definition change with no origin
+  binding (stable id, signature, or version pin), while not flagging identical
+  snapshots or an origin-bound (legitimately versioned) update. MCP-019 + MCP-020
+  form the composition + runtime tool-poisoning evidence pair.
+- Test count 540 → 542 (MCP Protocol module 18 → 20).
+
 ## [4.9.1] - 2026-07-10
 
 ### Fixed

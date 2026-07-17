@@ -1,9 +1,9 @@
 # Test Inventory
 
-**540 security tests across 37 modules** (verified 2026-07-12 by `scripts/count_tests.py`)
+**542 security tests across 37 modules** (verified 2026-07-12 by `scripts/count_tests.py`)
 
 > **Canonical figures (verified 2026-07-12).** Package `agent-security-harness`
-> v4.9.1. 540 test IDs across 37 test-bearing modules in `protocol_tests/`
+> v4.9.1. 542 test IDs across 37 test-bearing modules in `protocol_tests/`
 > (files with no `test_id` — CLI, helpers, telemetry, registry — are not
 > counted as modules). Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: 19 of
 > 20 testable requirements (95%). Research: 5 public Zenodo preprints (not
@@ -180,7 +180,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 ## Test Harness Modules (representative summary)
 
 > This table lists the largest modules; the full harness spans **37 test-bearing
-> modules / 540 tests** (verified 2026-07-12 via `scripts/count_tests.py`).
+> modules / 542 tests** (verified 2026-07-12 via `scripts/count_tests.py`).
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|

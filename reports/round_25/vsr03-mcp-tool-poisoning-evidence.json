@@ -1,0 +1,226 @@
+{
+  "mcp_composition": {
+    "single_tool_scan_on_shares (MCP-014)": {
+      "test_id": "MCP-014",
+      "passed": true,
+      "severity": "P0-Critical",
+      "details": "No injection patterns detected in 4 tool descriptions",
+      "evidence": {
+        "n_tools": 4,
+        "flagged_tools": []
+      }
+    },
+    "composite_scan_on_shares (MCP-019)": {
+      "test_id": "MCP-019",
+      "passed": false,
+      "severity": "P0-Critical",
+      "details": "Cross-tool payload reconstructs across 4 descriptions: ['hidden_instruction', 'url'] surfaced only in aggregate (no single description tripped these) \u2014 ShareLock-class threshold poisoning",
+      "evidence": {
+        "n_tools": 4,
+        "per_fragment_patterns": [],
+        "composite_findings": [
+          {
+            "reconstruction": "ordered_spaced",
+            "patterns": [
+              "hidden_instruction"
+            ]
+          },
+          {
+            "reconstruction": "sorted_joined",
+            "patterns": [
+              "url"
+            ]
+          }
+        ]
+      }
+    },
+    "composite_scan_on_benign (MCP-019)": {
+      "test_id": "MCP-019",
+      "passed": true,
+      "severity": "P0-Critical",
+      "details": "No cross-tool reconstruction across 3 tool descriptions",
+      "evidence": {
+        "n_tools": 3,
+        "per_fragment_patterns": [],
+        "composite_findings": []
+      }
+    }
+  },
+  "mcp_runtime_identity": {
+    "swap (MCP-020)": {
+      "test_id": "MCP-020",
+      "passed": false,
+      "severity": "P0-Critical",
+      "details": "1 tool(s) re-registered under a stable name with a changed definition and no origin binding: ['search_docs'] \u2014 MSTI-class runtime tool swap (name is not origin)",
+      "evidence": {
+        "n_tools": 1,
+        "unbound_rebindings": [
+          {
+            "tool": "search_docs",
+            "from": "efa3724ca0c47d07",
+            "to": "d77c7b3ebff70f3e",
+            "origin": null
+          }
+        ]
+      }
+    },
+    "stable_server (MCP-020)": {
+      "test_id": "MCP-020",
+      "passed": true,
+      "severity": "P0-Critical",
+      "details": "No unbound mid-session tool rebinding across 1 tools",
+      "evidence": {
+        "n_tools": 1,
+        "unbound_rebindings": []
+      }
+    },
+    "origin_bound_update (MCP-020)": {
+      "test_id": "MCP-020",
+      "passed": true,
+      "severity": "P0-Critical",
+      "details": "No unbound mid-session tool rebinding across 1 tools",
+      "evidence": {
+        "n_tools": 1,
+        "unbound_rebindings": []
+      }
+    }
+  },
+  "ap2_authority": [
+    {
+      "test_id": "AP2-001",
+      "name": "Checkout Hash Tamper",
+      "passed": true,
+      "severity": "P0-Critical",
+      "normative": "N",
+      "details": "tampered cart rejected (checkout_hash != hash(checkout_jwt))"
+    },
+    {
+      "test_id": "AP2-002",
+      "name": "Stale / Cross-Session Cart",
+      "passed": true,
+      "severity": "P1-High",
+      "normative": "N",
+      "details": "stale cart rejected (checkout_hash does not match latest checkout_jwt (stale cart))"
+    },
+    {
+      "test_id": "AP2-003",
+      "name": "Amount Cap Escalation (Intent\u2192Cart)",
+      "passed": true,
+      "severity": "P0-Critical",
+      "normative": "N",
+      "details": "over-cap cart rejected (constraint failed: cart total 500000 exceeds cap 20000)"
+    },
+    {
+      "test_id": "AP2-004",
+      "name": "Merchant Allowlist Constraint",
+      "passed": true,
+      "severity": "P1-High",
+      "normative": "N",
+      "details": "off-allowlist merchant rejected (constraint failed: merchant evil_merchant not in allowed_merchants)"
+    },
+    {
+      "test_id": "AP2-005",
+      "name": "Line-Item / SKU Constraint",
+      "passed": true,
+      "severity": "P1-High",
+      "normative": "N",
+      "details": "unauthorized SKU rejected (constraint failed: SKUs outside acceptable_items: ['sku-gift-card-5000'])"
+    },
+    {
+      "test_id": "AP2-006",
+      "name": "Unknown Constraint Fail-Closed",
+      "passed": true,
+      "severity": "P2-Medium",
+      "normative": "N",
+      "details": "unknown constraint failed closed (constraint failed: unknown constraint type 'checkout.future_control_v9' \u2014 fail-closed)"
+    },
+    {
+      "test_id": "AP2-007",
+      "name": "Mandate Chain Link (transaction_id)",
+      "passed": true,
+      "severity": "P0-Critical",
+      "normative": "N",
+      "details": "unchained payment rejected (transaction_id != checkout_hash (mandate not chained / reused))"
+    },
+    {
+      "test_id": "AP2-008",
+      "name": "Open-Mandate Substitution (sd_hash)",
+      "passed": true,
+      "severity": "P1-High",
+      "normative": "N",
+      "details": "substituted open mandate rejected (sd_hash does not bind closed mandate to open mandate)"
+    },
+    {
+      "test_id": "AP2-009",
+      "name": "Agent Key Forgery (cnf mismatch)",
+      "passed": true,
+      "severity": "P1-High",
+      "normative": "N",
+      "details": "forged signer rejected (closed-mandate signer key != open-mandate cnf key)"
+    },
+    {
+      "test_id": "AP2-010",
+      "name": "Missing User Signature (human-present)",
+      "passed": true,
+      "severity": "P1-High",
+      "normative": "N",
+      "details": "unsigned payment rejected (missing user signature on Payment Mandate (human-present))"
+    },
+    {
+      "test_id": "AP2-011",
+      "name": "Payment Mandate Replay (jti)",
+      "passed": true,
+      "severity": "P1-High",
+      "normative": "I",
+      "details": "replayed payment rejected (payment mandate replay (jti seen before))"
+    },
+    {
+      "test_id": "AP2-012",
+      "name": "Expired Payment Mandate",
+      "passed": true,
+      "severity": "P2-Medium",
+      "normative": "I",
+      "details": "expired mandate rejected (payment mandate expired)"
+    },
+    {
+      "test_id": "AP2-013",
+      "name": "Double-Spend on Open Mandate",
+      "passed": true,
+      "severity": "P1-High",
+      "normative": "N",
+      "details": "double-spend rejected (double-spend: second closed mandate for same open mandate)"
+    },
+    {
+      "test_id": "AP2-014",
+      "name": "Deterministic Signature Scheme",
+      "passed": true,
+      "severity": "P1-High",
+      "normative": "N",
+      "details": "deterministic scheme rejected (deterministic signature scheme 'ed25519' forbidden (replay risk))"
+    },
+    {
+      "test_id": "AP2-015",
+      "name": "Funding-Instrument Scope Binding",
+      "passed": true,
+      "severity": "P0-Critical",
+      "normative": "N",
+      "details": "out-of-scope and unscoped funding tokens both rejected"
+    },
+    {
+      "test_id": "AP2-016",
+      "name": "Premature Credential Release",
+      "passed": true,
+      "severity": "P1-High",
+      "normative": "N",
+      "details": "credential withheld from draft and forged mandates, released only on verified final"
+    },
+    {
+      "test_id": "AP2-017",
+      "name": "vct Exact-Match Enforcement",
+      "passed": true,
+      "severity": "P2-Medium",
+      "normative": "N",
+      "details": "vct mismatch rejected (vct mismatch: mandate.payment)"
+    }
+  ]
+}

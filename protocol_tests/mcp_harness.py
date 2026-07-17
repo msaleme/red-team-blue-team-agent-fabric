@@ -1328,6 +1328,209 @@ class MCPSecurityTests:
         ))
 
     # ------------------------------------------------------------------
+    # Category 8b: Composite / cross-tool description poisoning (ASI04)
+    # ------------------------------------------------------------------
+
+    def test_mcp_composite_tool_description_poisoning(self):
+        """MCP-019: Composite / cross-tool description poisoning (ShareLock-class).
+
+        Single-tool scanners (MCP-014) inspect each tool description in isolation.
+        A threshold / secret-share attack (ShareLock, arXiv:2606.27027) splits a
+        malicious instruction into benign-looking fragments across several tool
+        descriptions: each fragment passes per-tool inspection, and the payload
+        only reconstructs when the descriptions are aggregated. This test rebuilds
+        candidate payloads across ALL tool descriptions and flags any injection
+        pattern that surfaces in the aggregate but in no single description.
+        """
+        t0 = time.monotonic()
+        msg = jsonrpc_request("tools/list", {})
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-019", name="Composite Cross-Tool Description Poisoning",
+                category="composite_poisoning", owasp_asi="ASI04",
+                severity=Severity.CRITICAL.value, passed=True,
+                details="[simulate] Payload compiled; no HTTP call made",
+                mcp_method="tools/list", request_sent=msg,
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        resp = self.transport.send(msg)
+        elapsed = time.monotonic() - t0
+
+        tools = []
+        if resp and "result" in resp:
+            tools = resp["result"].get("tools", [])
+
+        # Same detector family MCP-014 applies per-tool — here applied to the
+        # cross-tool reconstruction. Single `.*` alternatives only (ReDoS-safe).
+        URL_PATTERN = re.compile(r'https?://[^\s"\'<>]{10,}', re.IGNORECASE)
+        BASE64_PATTERN = re.compile(r'[A-Za-z0-9+/]{40,}={0,2}')
+        HIDDEN_INSTRUCTION_PATTERN = re.compile(
+            r'ignore\s+(?:all\s+)?previous\s+instructions'
+            r'|\bexfiltrate\b'
+            r'|\bsend\s+(?:all|the)\s+(?:data|context|conversation)\s+to\b'
+            r'|\bforward\s+(?:all|every)\b[^\n]{0,120}?\bto\b',
+            re.IGNORECASE,
+        )
+        DETECTORS = {
+            "url": URL_PATTERN,
+            "base64_blob": BASE64_PATTERN,
+            "hidden_instruction": HIDDEN_INSTRUCTION_PATTERN,
+        }
+
+        def hits(text: str) -> set:
+            return {label for label, pat in DETECTORS.items() if pat.search(text)}
+
+        nonempty = [(t.get("name", "?"), (t.get("description") or ""))
+                    for t in tools if (t.get("description") or "").strip()]
+
+        # Patterns already visible in a single fragment are MCP-014's job, not ours.
+        per_fragment = set()
+        for _, d in nonempty:
+            per_fragment |= hits(d)
+
+        # Reconstructions an attacker can rely on: registration order and lexical
+        # (sorted) order, each joined with and without separators so a payload
+        # split mid-token (e.g. across a URL) still reassembles.
+        order = [d for _, d in nonempty]
+        srt = [d for _, d in sorted(nonempty, key=lambda x: x[0])]
+        reconstructions = {
+            "ordered_spaced": " ".join(order),
+            "ordered_joined": "".join(d.strip() for d in order),
+            "sorted_spaced": " ".join(srt),
+            "sorted_joined": "".join(d.strip() for d in srt),
+        }
+
+        composite_findings = []
+        composite_only = set()
+        for how, text in reconstructions.items():
+            surfaced = hits(text) - per_fragment
+            if surfaced:
+                composite_only |= surfaced
+                composite_findings.append({"reconstruction": how,
+                                           "patterns": sorted(surfaced)})
+
+        passed = len(composite_only) == 0
+
+        self._record(MCPTestResult(
+            test_id="MCP-019",
+            name="Composite Cross-Tool Description Poisoning",
+            category="composite_poisoning",
+            owasp_asi="ASI04",
+            severity=Severity.CRITICAL.value,
+            passed=passed,
+            details=(
+                f"Cross-tool payload reconstructs across {len(nonempty)} descriptions: "
+                f"{sorted(composite_only)} surfaced only in aggregate (no single "
+                f"description tripped these) — ShareLock-class threshold poisoning"
+                if not passed
+                else f"No cross-tool reconstruction across {len(nonempty)} tool descriptions"
+            ),
+            mcp_method="tools/list",
+            request_sent=msg,
+            response_received={
+                "n_tools": len(tools),
+                "per_fragment_patterns": sorted(per_fragment),
+                "composite_findings": composite_findings,
+            },
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
+    # Category 8c: Mid-session tool identity rebinding (ASI04)
+    # ------------------------------------------------------------------
+
+    def test_mcp_midsession_tool_identity_rebinding(self):
+        """MCP-020: Mid-session tool identity rebinding (MSTI, name-is-not-origin).
+
+        Mid-Session Tool Injection swaps a tool at runtime: the attacker cancels
+        the live tool and re-registers a malicious tool under the SAME name, then
+        wins the race so the client keeps invoking a trusted name that now resolves
+        to a different definition. Per-tool description scanning (MCP-014/019) reads
+        the name, never the origin. The defense is binding tool identity to a stable
+        origin, not to its name. This test fingerprints every tool across two
+        tools/list snapshots and flags any name whose definition changed with no
+        accompanying origin/identity binding (stable id, signature, or version pin).
+        """
+        import hashlib
+        t0 = time.monotonic()
+        msg = jsonrpc_request("tools/list", {})
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-020", name="Mid-Session Tool Identity Rebinding",
+                category="runtime_identity", owasp_asi="ASI04",
+                severity=Severity.CRITICAL.value, passed=True,
+                details="[simulate] Payload compiled; no HTTP call made",
+                mcp_method="tools/list", request_sent=msg,
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        def origin_identity(tdef: dict):
+            """Any verifiable binding that ties a definition to a stable source."""
+            meta = tdef.get("_meta") or {}
+            for key in ("origin", "signature", "sig", "id", "version"):
+                v = tdef.get(key) or (meta.get(key) if isinstance(meta, dict) else None)
+                if v:
+                    return f"{key}:{v}"
+            return None
+
+        def snapshot() -> dict:
+            resp = self.transport.send(msg)
+            tools = resp["result"].get("tools", []) if resp and "result" in resp else []
+            fp = {}
+            for tdef in tools:
+                body = json.dumps({
+                    "description": tdef.get("description", ""),
+                    "inputSchema": tdef.get("inputSchema", {}),
+                }, sort_keys=True, separators=(",", ":"))
+                fp[tdef.get("name", "?")] = {
+                    "digest": hashlib.sha256(body.encode("utf-8")).hexdigest()[:16],
+                    "origin": origin_identity(tdef),
+                }
+            return fp
+
+        first = snapshot()
+        second = snapshot()
+        elapsed = time.monotonic() - t0
+
+        # A rebinding is a finding only when the definition changed under a stable
+        # name AND there is no persistent origin identity linking new to old — i.e.
+        # the client has no way to tell a legitimate update from a name-squat swap.
+        unbound = []
+        for name, a in first.items():
+            b = second.get(name)
+            if b is None or a["digest"] == b["digest"]:
+                continue
+            origin_bound = bool(a["origin"]) and a["origin"] == b["origin"]
+            if not origin_bound:
+                unbound.append({"tool": name, "from": a["digest"],
+                                "to": b["digest"], "origin": a["origin"]})
+
+        passed = len(unbound) == 0
+
+        self._record(MCPTestResult(
+            test_id="MCP-020",
+            name="Mid-Session Tool Identity Rebinding",
+            category="runtime_identity",
+            owasp_asi="ASI04",
+            severity=Severity.CRITICAL.value,
+            passed=passed,
+            details=(
+                f"{len(unbound)} tool(s) re-registered under a stable name with a "
+                f"changed definition and no origin binding: "
+                f"{[u['tool'] for u in unbound]} — MSTI-class runtime tool swap "
+                f"(name is not origin)"
+                if not passed
+                else f"No unbound mid-session tool rebinding across {len(first)} tools"
+            ),
+            mcp_method="tools/list",
+            request_sent=msg,
+            response_received={"n_tools": len(first), "unbound_rebindings": unbound},
+            elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
     # Category 9: SSRF via Tool Call URI Parameter (ASI02)
     # ------------------------------------------------------------------
 
@@ -1747,6 +1950,12 @@ class MCPSecurityTests:
             ],
             "description_injection": [
                 self.test_mcp_tool_description_injection_patterns,
+            ],
+            "composite_poisoning": [
+                self.test_mcp_composite_tool_description_poisoning,
+            ],
+            "runtime_identity": [
+                self.test_mcp_midsession_tool_identity_rebinding,
             ],
             "ssrf": [
                 self.test_mcp_ssrf_via_uri_parameter,
