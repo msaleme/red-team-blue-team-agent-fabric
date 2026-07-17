@@ -200,7 +200,7 @@ HARNESSES = {
     },
     "receipt-claim": {
         "module": "protocol_tests.receipt_claim_harness",
-        "description": "Receipt claim-level verification (8 tests, format-valid-but-claim-invalid receipts rejected on semantic grounds)",
+        "description": "Receipt claim-level verification (11 tests, format-valid-but-claim-invalid receipts rejected on semantic grounds)",
     },
     "ucp-acp": {
         "module": "protocol_tests.ucp_acp_harness",

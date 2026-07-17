@@ -34,8 +34,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stale, bound to the wrong tool-set digest, bound to different parameters, an
   acknowledgment for another action, or an emitter self-assertion; RCL-008 is a
   positive control. Each negative rejects on its own distinct semantic reason.
-  Stdlib-only (HMAC models envelope and authority attestations). Test count
-  542 -> 550; harnesses 38 -> 39.
+  Stdlib-only (HMAC models envelope and authority attestations).
+  RCL-009..011 wire a real MCP-019 composite-poisoning verdict through the
+  receipt `check` field: a clean scan is accepted, a failing scan cannot be
+  laundered into an authorizing receipt, and a passing scan bound to the wrong
+  tool set does not authorize a different action. Test count 542 -> 553;
+  harnesses 38 -> 39.
 - **MCP-019: Composite / cross-tool description poisoning (ShareLock-class).**
   Single-tool description scanners (MCP-014) inspect each tool in isolation, so a
   payload split into benign secret-shares across several tool descriptions passes

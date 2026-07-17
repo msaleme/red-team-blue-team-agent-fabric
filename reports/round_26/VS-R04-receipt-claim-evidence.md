@@ -21,7 +21,19 @@ A **format-valid, correctly signed receipt** can still be **claim-invalid**. For
 | RCL-007 | Emitter self-assertion (no checker authority) | yes | reject: attested by emitter, not checker |
 | RCL-008 | Fully-supported receipt (positive control) | yes | **accept** |
 
-Result: 8/8. Seven claim-invalid receipts rejected despite valid envelopes; one fully-supported receipt accepted.
+Result (generic): 8/8. Seven claim-invalid receipts rejected despite valid envelopes; one fully-supported receipt accepted.
+
+## Family wiring (RCL-009..011): MCP-019 verdict → receipt `check` field
+
+The loop from a real detector (MCP-019 composite poisoning) through the receipt `check` evidence to claim-level accept/reject:
+
+| Test | Wired scenario | Claim verdict |
+|---|---|---|
+| RCL-009 | clean tool set, MCP-019 pass, honestly carried | **accept** |
+| RCL-010 | ShareLock tool set, MCP-019 finds composite (fail) | reject (check output not a pass) |
+| RCL-011 | passing MCP-019 attestation bound to the wrong (clean) tool set while the action uses the ShareLock set | reject (check bound to wrong tool-set digest) |
+
+Result (wired): 3/3. A failing real check cannot be laundered into an authorizing receipt, and a passing check over the wrong tool set does not authorize a different action. Total 11/11.
 
 ## Reproduce
 
