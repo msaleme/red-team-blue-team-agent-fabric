@@ -1,6 +1,7 @@
 {
   "round": "VS-R04",
   "experiment": "receipt-claim-level-verification",
+  "crypto": "Ed25519 (RFC 8032), one keypair per trust domain",
   "results": [
     {
       "test_id": "RCL-001",

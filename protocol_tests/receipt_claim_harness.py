@@ -23,9 +23,9 @@ authority, fresh, and bound to this action. Each negative vector below builds a
 receipt whose *envelope signature verifies* but whose claims are missing, stale,
 substituted, replayed, or bound to the wrong thing; the verifier must reject it.
 
-Cryptography is modeled with HMAC-SHA256 (stdlib only, per the repo's
-zero-extra-dependency guarantee for ``protocol_tests``); the accept/reject
-*decisions* under test do not depend on the primitive.
+Attestations use Ed25519 signatures (RFC 8032, pure-stdlib reference in
+``_ed25519.py``) with a distinct keypair per trust domain; the verifier holds
+only the public keys, so one authority cannot forge another's attestation.
 
 Usage:
     python -m protocol_tests.receipt_claim_harness --simulate
@@ -34,17 +34,21 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import hmac
 import json
 import time
 from dataclasses import dataclass
 
+from protocol_tests import _ed25519
 from protocol_tests._utils import Severity
 
 FRESHNESS_WINDOW = 300  # seconds a checker transcript stays fresh
 
 
-# --- stdlib crypto model ----------------------------------------------------
+# --- crypto: Ed25519 signatures, one keypair per trust domain ---------------
+# Each authority holds a private seed and signs its own attestations; the
+# verifier holds ONLY the public keys. An emitter can validly re-sign its own
+# envelope but cannot forge another authority's signature — asymmetric signer
+# provenance, not a shared-secret MAC.
 
 def _jcs(obj) -> bytes:
     return json.dumps(obj, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -54,30 +58,38 @@ def _digest(obj) -> str:
     return hashlib.sha256(_jcs(obj)).hexdigest()
 
 
-def _mac(key: bytes, body: dict) -> str:
-    return hmac.new(key, _jcs(body), hashlib.sha256).hexdigest()
+# Deterministic per-authority private seeds (fixed so the suite is reproducible).
+_SEEDS = {name: hashlib.sha256(
+    ("agent-security-harness/receipt-authority/" + name).encode()).digest()
+    for name in ("emitter", "checker", "authz", "exec")}
+#: Public keys the verifier trusts — the only key material a verifier needs.
+PUBKEYS = {name: _ed25519.secret_to_public(seed) for name, seed in _SEEDS.items()}
+#: Authority-name handles used at call sites (private keys never leave _SEEDS).
+KEYS = {name: name for name in _SEEDS}
 
 
-def _attest(key: bytes, block: dict) -> dict:
-    """Sign a claim block with an authority key (sig computed over block-minus-sig)."""
-    body = {k: v for k, v in block.items() if k != "sig"}
-    block["sig"] = _mac(key, body)
+def _sign(authority: str, body: bytes) -> str:
+    return _ed25519.sign(_SEEDS[authority], body).hex()
+
+
+def _sig_ok(authority: str, body: bytes, sig_hex: str) -> bool:
+    try:
+        return _ed25519.verify(PUBKEYS[authority], body, bytes.fromhex(sig_hex or ""))
+    except ValueError:
+        return False
+
+
+def _attest(authority: str, block: dict) -> dict:
+    """Sign a claim block with an authority's private key (over block-minus-sig)."""
+    body = _jcs({k: v for k, v in block.items() if k != "sig"})
+    block["sig"] = _sign(authority, body)
     return block
 
 
-def _attest_ok(key: bytes, block: dict) -> bool:
-    body = {k: v for k, v in block.items() if k != "sig"}
-    return hmac.compare_digest(block.get("sig", ""), _mac(key, body))
-
-
-# --- authorities / keys -----------------------------------------------------
-
-KEYS = {
-    "emitter": b"emitter-key",
-    "checker": b"checker-authority-key",
-    "authz": b"authorization-authority-key",
-    "exec": b"execution-settlement-authority-key",
-}
+def _attest_ok(authority: str, block: dict) -> bool:
+    """Verify a claim block against an authority's PUBLIC key."""
+    body = _jcs({k: v for k, v in block.items() if k != "sig"})
+    return _sig_ok(authority, body, block.get("sig", ""))
 
 
 # --- receipt construction ---------------------------------------------------
@@ -86,7 +98,7 @@ def _reseal(receipt: dict) -> dict:
     """Recompute the emitter's envelope signature over the (possibly tampered)
     body. Models an emitter that validly signs whatever it emits."""
     body = {k: v for k, v in receipt.items() if k != "envelope_sig"}
-    receipt["envelope_sig"] = _mac(KEYS["emitter"], body)
+    receipt["envelope_sig"] = _sign("emitter", _jcs(body))
     return receipt
 
 
@@ -139,8 +151,7 @@ class ClaimLevelVerifier:
 
     def verify_envelope(self, receipt: dict) -> bool:
         body = {k: v for k, v in receipt.items() if k != "envelope_sig"}
-        return hmac.compare_digest(receipt.get("envelope_sig", ""),
-                                   _mac(KEYS["emitter"], body))
+        return _sig_ok("emitter", _jcs(body), receipt.get("envelope_sig", ""))
 
     def verify(self, receipt: dict) -> Outcome:
         # 0. integrity: action digest must match the action.

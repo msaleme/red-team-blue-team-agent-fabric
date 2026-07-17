@@ -43,7 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stale, bound to the wrong tool-set digest, bound to different parameters, an
   acknowledgment for another action, or an emitter self-assertion; RCL-008 is a
   positive control. Each negative rejects on its own distinct semantic reason.
-  Stdlib-only (HMAC models envelope and authority attestations).
+  Stdlib-only Ed25519 signatures (RFC 8032 reference in `_ed25519.py`), one keypair
+  per trust domain; the verifier holds only public keys, so one authority cannot
+  forge another's attestation (asymmetric signer provenance, not a shared-secret MAC).
   RCL-009..011 wire a real MCP-019 composite-poisoning verdict through the
   receipt `check` field: a clean scan is accepted, a failing scan cannot be
   laundered into an authorizing receipt, and a passing scan bound to the wrong
