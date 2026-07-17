@@ -6,9 +6,13 @@ provenance* (a verifier holding only public keys; a party unable to forge anothe
 authority's signature) without an external dependency, honoring the repo's
 zero-extra-dependency guarantee for ``protocol_tests``.
 
-This is the RFC 8032 reference construction. It is NOT constant-time and is
-intended for test/reference use, not production signing. Verified against the
-RFC 8032 Test-1 known-answer vector in the test suite.
+This follows the RFC 8032 Ed25519 construction and parameters. It is NOT
+constant-time and is intended for test/reference use, not production signing.
+The test suite validates the curve parameters (canonical base-point encoding and
+prime subgroup order) and the signature properties this harness relies on
+(determinism, tamper detection, and cross-key unforgeability). It is NOT
+checked for byte-level interoperability against the RFC 8032 message test
+vectors, and is not a substitute for a maintained cryptographic library.
 
 API:
     secret_to_public(seed32) -> pub32
