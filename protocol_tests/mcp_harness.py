@@ -1391,7 +1391,11 @@ class MCPSecurityTests:
         nonempty = [(t.get("name", "?"), (t.get("description") or "").strip())
                     for t in tools if (t.get("description") or "").strip()]
 
-        # Patterns already visible in a single fragment are MCP-014's job, not ours.
+        # Which detector labels already fire on a single description (MCP-014's
+        # job). Reported for context only — NOT subtracted from composite hits:
+        # a label appearing per-tool must not mask a *different* payload of the
+        # same class that only reconstructs across tools. The boundary-spanning
+        # check below is what keeps a composite finding genuinely cross-tool.
         per_fragment = set()
         for _, d in nonempty:
             per_fragment |= hits(d)
@@ -1411,7 +1415,7 @@ class MCPSecurityTests:
         composite_findings = []
         composite_only = set()
         for how, (frags, sep) in reconstructions.items():
-            surfaced = spanning_hits(frags, sep) - per_fragment
+            surfaced = spanning_hits(frags, sep)
             if surfaced:
                 composite_only |= surfaced
                 composite_findings.append({"reconstruction": how,
