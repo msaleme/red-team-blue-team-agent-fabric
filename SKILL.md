@@ -1,6 +1,6 @@
 ---
 name: agent-security-harness
-description: 542 executable security tests for AI agent systems — MCP, A2A, L402, x402 wire-protocol testing, decision governance, AIUC-1 compliance, NIST AI 800-2 aligned.
+description: 550 executable security tests for AI agent systems — MCP, A2A, L402, x402 wire-protocol testing, decision governance, AIUC-1 compliance, NIST AI 800-2 aligned.
 license: Apache-2.0
 metadata:
   source: "https://github.com/msaleme/red-team-blue-team-agent-fabric"
@@ -22,7 +22,7 @@ metadata:
 
 # Agent Security Harness
 
-542 executable security tests for AI agent systems. MCP + A2A + L402 + x402 wire-protocol testing. Decision-layer attack scenarios. AIUC-1 compliance mapping. One `pip install` away.
+550 executable security tests for AI agent systems. MCP + A2A + L402 + x402 wire-protocol testing. Decision-layer attack scenarios. AIUC-1 compliance mapping. One `pip install` away.
 
 ## Purpose
 

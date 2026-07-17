@@ -192,11 +192,11 @@
     },
     {
       "test_id": "AP2-014",
-      "name": "Deterministic Signature Scheme",
+      "name": "Symmetric/Keyed-MAC Signature Scheme",
       "passed": true,
       "severity": "P1-High",
-      "normative": "N",
-      "details": "deterministic scheme rejected (deterministic signature scheme 'ed25519' forbidden (replay risk))"
+      "normative": "I",
+      "details": "symmetric/keyed-MAC scheme rejected (symmetric/keyed-MAC scheme 'hmac' lacks signer provenance)"
     },
     {
       "test_id": "AP2-015",
