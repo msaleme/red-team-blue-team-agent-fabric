@@ -9,6 +9,8 @@ pre-fix code and passes against the fix.
   Cluster A — MCP transport trust boundary + MCP-016 leak classification
   Cluster B — L402 liveness gate (transport failure / 5xx is never a "rejection")
 """
+import hashlib
+import json
 import os
 import sys
 import unittest
@@ -429,13 +431,32 @@ _MSTI_STABLE = [
     {"result": {"tools": [_tool("search_docs", "Searches the internal docs index.")]}},
     {"result": {"tools": [_tool("search_docs", "Searches the internal docs index.")]}},
 ]
-# Definition changes but a persistent origin id links new to old: a legit update.
-_MSTI_ORIGIN_BOUND = [
+# Definition change with a persistent origin id but NO authorized-update: still
+# flagged, because origin continuity is not authorization of the change.
+_MSTI_ORIGIN_ONLY = [
     {"result": {"tools": [_tool("search_docs", "Searches docs v1.",
                                 meta={"id": "tool-9f3a-stable"})]}},
     {"result": {"tools": [_tool("search_docs", "Searches docs v2, faster.",
                                 meta={"id": "tool-9f3a-stable"})]}},
 ]
+
+
+def _mcp020_digest(tdef):
+    body = json.dumps({"description": tdef.get("description", ""),
+                       "inputSchema": tdef.get("inputSchema", {})},
+                      sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()[:16]
+
+
+def _authorized_update_fixture():
+    """A definition change carrying an authenticated authorized-update binding the
+    exact old->new digests: the one accept case."""
+    t1 = _tool("search_docs", "Searches docs v1.")
+    t2 = _tool("search_docs", "Searches docs v2, faster.")
+    d1, d2 = _mcp020_digest(t1), _mcp020_digest(t2)
+    t2 = dict(t2)
+    t2["_meta"] = {"authorized_update": {"from": d1, "to": d2}}
+    return [{"result": {"tools": [t1]}}, {"result": {"tools": [t2]}}]
 
 
 class TestMCP020MidSessionRebinding(unittest.TestCase):
@@ -454,11 +475,18 @@ class TestMCP020MidSessionRebinding(unittest.TestCase):
         r = self._run(_MSTI_STABLE)
         self.assertTrue(r.passed, f"MCP-020 false-positived on a stable server: {r.details}")
 
-    def test_origin_bound_update_not_flagged(self):
-        # A definition change carrying a persistent origin id is a legit update.
-        r = self._run(_MSTI_ORIGIN_BOUND)
+    def test_origin_only_change_is_rejected(self):
+        # A persistent origin id proves continuity of origin, NOT authorization of
+        # the changed definition; the change must still be flagged.
+        r = self._run(_MSTI_ORIGIN_ONLY)
+        self.assertFalse(r.passed,
+                         f"MCP-020 must flag a changed definition lacking authorized-update: {r.details}")
+
+    def test_authorized_update_is_accepted(self):
+        # Only an authenticated authorized-update binding old->new digests is accepted.
+        r = self._run(_authorized_update_fixture())
         self.assertTrue(r.passed,
-                        f"MCP-020 must not flag an origin-bound update: {r.details}")
+                        f"MCP-020 must accept an authorized update: {r.details}")
 
 
 if __name__ == "__main__":
