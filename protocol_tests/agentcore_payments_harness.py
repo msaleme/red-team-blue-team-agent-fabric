@@ -277,7 +277,7 @@ VSR02_AGENT_NAME_DEFAULT = "vs-r01-cdp-grant-probe"
 VSR02_INSTRUMENT_ID_DEFAULT = "payment-instrument-YQFWKtbGbKUuiMF"
 
 # x402 "exact" scheme EIP-712 domain fields for the settlement asset. Public
-# x402 spec convention for a USDC-class asset is name="USD Coin", version="2".
+# Base Sepolia USDC's on-chain name() is "USDC" and its EIP-712 version is "2".
 # UNVERIFIED against a live AgentCore response captured in this repo — every
 # VS-R01 call was rejected before reaching delegated signing, and the
 # 2026-06-08 PROOF_GENERATED verification ran outside version control (see
@@ -285,7 +285,7 @@ VSR02_INSTRUMENT_ID_DEFAULT = "payment-instrument-YQFWKtbGbKUuiMF"
 # the first live run; override via AGENTCORE_X402_EXTRA_NAME /
 # AGENTCORE_X402_EXTRA_VERSION if the default below is wrong, or if AgentCore
 # expects additional `extra` sub-fields not modeled here.
-X402_EXTRA_NAME_DEFAULT = "USD Coin"
+X402_EXTRA_NAME_DEFAULT = "USDC"
 X402_EXTRA_VERSION_DEFAULT = "2"
 
 # Burn address — every VS-R02 Tier-A test signs against this payTo, never a
@@ -3483,9 +3483,14 @@ def _tier_b_submit_for_settlement(merchant: Any, raw_proof: Any, test_id: str, u
     _tier_b_record_spend(test_id, settled_usd, tx_hash)
     if settle_success:
         print(f"[TIER-B-TX] {test_id}: settled tx={tx_hash} amount=${usd_amount}")
+    # The live client records only request/requirements digests and a bounded
+    # response excerpt.  Surface that metadata in the result manifest, never
+    # the reusable authorization itself.
+    facilitator_exchange = getattr(getattr(merchant, "facilitator", None), "last_exchange", None)
     return {
         "settle_attempted": True, "settle_http_status": http_status, "settle_body": body,
         "settle_success": settle_success, "tx_hash": tx_hash,
+        "facilitator_exchange": facilitator_exchange,
     }
 
 
@@ -3576,7 +3581,7 @@ def test_agentcore_settle_receipt_nonce_reuse() -> AgentCoreTestResult:
             dp, pm_arn, findings["session_id"], user_id, agent_name, instrument_id,
             settle_amount_units, merchant, "ACP-012 first settle", "ACP-012-first",
         )
-        if findings["first_settle"].get("proof_extracted"):
+        if findings["first_settle"].get("settle_success"):
             raw_proof = findings["first_settle"].get("raw_proof")
             replay_result = _tier_b_submit_for_settlement(merchant, raw_proof, "ACP-012-replay", usd_amount)
             findings["replay_settle"] = replay_result
@@ -3584,7 +3589,7 @@ def test_agentcore_settle_receipt_nonce_reuse() -> AgentCoreTestResult:
             if replay_result.get("settle_success"):
                 findings["ANOMALY_replay_settled"] = True
         else:
-            findings["replay_settle"] = {"note": "skipped — first settle did not produce an extractable proof, $0 spent"}
+            findings["replay_settle"] = {"note": "skipped — first settlement did not succeed; fail closed after the first refusal"}
 
     if findings["session_id"]:
         try:

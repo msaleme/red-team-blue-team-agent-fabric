@@ -41,6 +41,7 @@ import base64
 import hashlib
 import json
 import sys
+import urllib.error
 import urllib.request
 from dataclasses import dataclass, field, asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -66,6 +67,10 @@ class PaymentRequirements:
     description: str = "VS-R02 synthetic merchant resource"
     max_timeout_seconds: int = 120
     scheme: str = "exact"
+    # Required to reconstruct the EIP-712 domain used for an EIP-3009 USDC
+    # authorization.  AgentCore signs this domain from the original 402
+    # challenge, so the relay must present the same domain to /verify.
+    extra: dict = field(default_factory=lambda: {"name": "USDC", "version": "2"})
 
     def to_accepts(self) -> dict:
         return {
@@ -78,6 +83,7 @@ class PaymentRequirements:
             "payTo": self.pay_to,
             "asset": self.asset,
             "maxTimeoutSeconds": self.max_timeout_seconds,
+            "extra": self.extra,
         }
 
     def challenge_body(self) -> dict:
@@ -198,21 +204,71 @@ class CoinbaseFacilitator(FacilitatorClient):
     """Live facilitator — POSTs to the real x402 facilitator. Used only in the
     live-stack session (`--live`); never exercised in CI."""
 
-    def __init__(self, base_url: str = DEFAULT_FACILITATOR, timeout: float = 20.0):
+    def __init__(self, base_url: str = DEFAULT_FACILITATOR, timeout: float = 20.0,
+                 user_agent: str = "x402-vsr02-harness/1.0"):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self.user_agent = user_agent
+        # Deliberately metadata-only.  This supports the Tier-B evidence
+        # manifest without retaining a reusable signed authorization.
+        self.last_exchange: dict = {}
+
+    @staticmethod
+    def _decode_payment_payload(payment: ParsedPayment) -> dict:
+        """Turn the wire-format X-PAYMENT header into the facilitator body.
+
+        ``ParsedPayment.raw`` is the base64-encoded HTTP header.  The
+        facilitator API expects the decoded x402 payment object under
+        ``paymentPayload``; sending the header string makes the facilitator
+        see ``paymentPayload.x402Version`` as undefined.  Decode locally and
+        fail closed before making a live request if it is not an object.
+        """
+        try:
+            decoded = base64.b64decode(payment.raw, validate=True)
+            payload = json.loads(decoded)
+        except Exception as e:
+            raise ValueError(f"undecodable X-PAYMENT header: {type(e).__name__}: {e}") from e
+        if not isinstance(payload, dict):
+            raise ValueError("decoded X-PAYMENT header is not a JSON object")
+        if payload.get("x402Version") != X402_VERSION:
+            raise ValueError(
+                f"decoded X-PAYMENT x402Version {payload.get('x402Version')!r} "
+                f"does not match configured version {X402_VERSION}"
+            )
+        return payload
 
     def _post(self, path: str, body: dict) -> dict:
+        request_url = self.base_url + path
+        request_bytes = json.dumps(body, separators=(",", ":")).encode()
         req = urllib.request.Request(
-            self.base_url + path, data=json.dumps(body).encode(),
-            headers={"Content-Type": "application/json"}, method="POST")
-        with urllib.request.urlopen(req, timeout=self.timeout) as r:
-            return json.loads(r.read())
+            request_url, data=request_bytes,
+            headers={"Content-Type": "application/json", "User-Agent": self.user_agent}, method="POST")
+        self.last_exchange = {
+            "url": request_url,
+            "user_agent": self.user_agent,
+            "request_x402_version": body.get("x402Version"),
+            "payment_payload_shape": type(body.get("paymentPayload")).__name__,
+            "payment_payload_sha256": hashlib.sha256(
+                json.dumps(body.get("paymentPayload"), sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest(),
+            "payment_requirements_sha256": hashlib.sha256(
+                json.dumps(body.get("paymentRequirements"), sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest(),
+        }
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as r:
+                raw = r.read()
+                self.last_exchange.update({"http_status": r.status, "response": raw.decode("utf-8", "replace")[:1000]})
+                return json.loads(raw)
+        except urllib.error.HTTPError as e:
+            response = e.read().decode("utf-8", "replace")[:1000]
+            self.last_exchange.update({"http_status": e.code, "response": response})
+            raise RuntimeError(f"HTTP {e.code}: {response}") from e
 
     def verify(self, payment, req):
         try:
             r = self._post("/verify", {"x402Version": X402_VERSION,
-                                       "paymentPayload": payment.raw,
+                                       "paymentPayload": self._decode_payment_payload(payment),
                                        "paymentRequirements": req.to_accepts()})
             return SettleResult(bool(r.get("isValid")), reason=r.get("invalidReason", ""))
         except Exception as e:
@@ -221,7 +277,7 @@ class CoinbaseFacilitator(FacilitatorClient):
     def settle(self, payment, req):
         try:
             r = self._post("/settle", {"x402Version": X402_VERSION,
-                                       "paymentPayload": payment.raw,
+                                       "paymentPayload": self._decode_payment_payload(payment),
                                        "paymentRequirements": req.to_accepts()})
             return SettleResult(bool(r.get("success")), tx_hash=r.get("transaction", ""),
                                 reason=r.get("errorReason", ""), network=r.get("network", ""))

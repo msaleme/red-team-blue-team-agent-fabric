@@ -2,7 +2,7 @@
 
 **Scope:** ACP-012 (receipt nonce reuse), ACP-016 full (cross-session aggregate at settlement), ACP-017 (delegation/authorization expiry, sign-time vs settlement-time), ACP-018 (revoke-and-immediately-spend race). Unlike Tier A, every test in this round **settles on-chain — real Base Sepolia gas + USDC, real transaction hashes.**
 
-**Status as of 2026-07-18: settlement not yet reached. The wallet is funded and ACP-012 reached `PROOF_GENERATED`, but the configured facilitator rejected `/verify` with HTTP 403 before any settlement. No transaction hash was issued and no USDC was spent. Do not run additional Tier-B cases until the facilitator integration is validated.**
+**Status as of 2026-07-18: HOLD. Settlement has not been reached. ACP-012 reached `PROOF_GENERATED`, but the selected facilitator refused the old request before settlement. Four compatibility defects are reconciled: the adapter supplied the base64 `X-PAYMENT` header string where `/verify` expects the decoded payment object; x402.org returned Cloudflare `error code: 1010` only to Python's default `Python-urllib/*` user agent; the merchant relay omitted the `extra.name` / `extra.version` EIP-712 domain from `paymentRequirements`; and the assumed token name was wrong. Base Sepolia USDC contract `0x036CbD53842c5426634e7929541eC2318f3dCF7e` returns `USDC` from `name()` on two read-only RPCs, while the old `USD Coin` domain caused `invalid_exact_evm_token_name_mismatch`. With all four corrections in place, the final ACP-012 attempt reached facilitator transaction simulation but returned HTTP 200 / `invalid_exact_evm_transaction_simulation_failed`, without a transaction hash or an explanatory detail. The run ended fail-closed: 0 test USDC, 0 payer-side ETH, no replay. x402.org currently advertises v1 `base-sepolia` as well as v2 `eip155:84532`, so version mismatch is not the demonstrated cause. Do not retry or run ACP-016/017/018 until this simulation failure is grounded by facilitator diagnostics or a non-guesswork preflight reconciliation.**
 
 **Branch:** `vs-r02/skeleton`. **Code:** `protocol_tests/agentcore_payments_harness.py` (functions `test_agentcore_settle_*`, appended after the Tier-A `test_agentcore_signtime_*` stubs). **Merchant:** `protocol_tests/x402_merchant.py` (vendored, uncommitted — see provenance note below). **Env:** `scripts/vs-r02-env.sh` (unchanged — same env extends to Tier B; the Tier B code adds its own `AGENTCORE_TIER_B_SETTLE_OK` gate on top).
 
@@ -80,7 +80,7 @@ I additionally ran an **offline sanity check** (no network, no AWS) wiring the h
 
 If any test behaves anomalously (e.g. ACP-012's replay unexpectedly settles), the ledger will show the real amount and the suite-cap check will halt further spending once $0.10 is reached — it will not silently keep going. **If ACP-012 reports `ANOMALY_replay_settled: true`, stop immediately and verify manually against the actual chain state before running anything further or citing the result anywhere.**
 
-Gas is separate from the USDC caps above (paid in ETH, not tracked by `_tier_b_spend_ledger`) — budget the ETH faucet amount in §1 for it; if the x402 facilitator sponsors gas as expected, actual ETH consumption should be near zero, but the wallet should hold a buffer regardless.
+**Approved payer-side gas ceiling: exactly 0 Base Sepolia ETH per attempt.** The selected x402.org facilitator submits the EIP-3009 transaction, so a wallet-originated gas transaction is not expected. If any preflight, response, or wallet prompt indicates payer gas is required, stop before broadcast and preserve the evidence. This ceiling is separate from the 0.02 test-USDC per-attempt and 0.10 test-USDC suite caps; neither cap may be relaxed during a run.
 
 ---
 
@@ -122,6 +122,7 @@ Check `response_received.first_settle.proof_extraction_method` and facilitator r
 - `structured_dict_with_signature:paymentOutput.cryptoX402.payload` → the observed AgentCore handoff worked. Continue only if the first facilitator verification succeeds.
 - `"none"` → AgentCore did not return anything `_extract_settlement_proof` recognizes. **$0 was spent** (the test never reached `merchant.handle()`). Inspect only the response schema, extend the candidate-key list deliberately, and re-run ACP-012 before any other case.
 - A 4xx/5xx facilitator refusal after proof extraction → **stop all Tier-B cases.** This is an integration blocker, not settlement evidence. Capture the status and sanitized reason, then validate the configured facilitator endpoint/authorization before retrying.
+- Before enabling the settlement gate, confirm the facilitator evidence manifest includes: the `/supported` capability snapshot, facilitator URL, request payment/requirements digests, HTTP status, and bounded redacted response body. Never retain a reusable signed authorization in that manifest.
 
 **Step 3 — run the remaining three, saving result JSONs:**
 
