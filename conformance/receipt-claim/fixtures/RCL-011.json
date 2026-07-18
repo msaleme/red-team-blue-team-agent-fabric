@@ -1,0 +1,77 @@
+{
+  "test_id": "RCL-011",
+  "name": "Wired MCP-019 check bound to wrong tool set rejected",
+  "expected_result": "reject",
+  "expected_phase": "admission",
+  "violated_binding": "wired check bound to the wrong tool set",
+  "reason_code": "CHECK_TOOLSET_DIGEST_MISMATCH",
+  "harness_reason": "check: result bound to the wrong tool-set digest",
+  "evidence_binding": {
+    "admitted_action_digest": "5558294fdc17c8ffe2f8036a59fd8b7ea23c735e7ff773e4a424bcb5623139dc",
+    "action_tool_set_digest": "64f53a5a25ced4a18c4aa03551e025b514b83fecc694ef9aea179bdf69a6a603",
+    "referenced_evidence": {
+      "authorization": {
+        "present": true,
+        "attestor": "authz",
+        "independent_of_emitter": true,
+        "action_digest": "5558294fdc17c8ffe2f8036a59fd8b7ea23c735e7ff773e4a424bcb5623139dc",
+        "params_digest": "846774f5f795e29d6d3c2fd04cdef645d4c71798e6fde0c86f94737cb2c33071"
+      },
+      "occurrence": {
+        "present": true,
+        "attestor": "exec",
+        "independent_of_emitter": true,
+        "action_digest": "5558294fdc17c8ffe2f8036a59fd8b7ea23c735e7ff773e4a424bcb5623139dc",
+        "outcome_digest": "212e659146dac83f09f639fe16f4316e2fc5ecb37c3f99ee67e31eb7a73bb0f9"
+      },
+      "check": {
+        "present": true,
+        "attestor": "checker",
+        "independent_of_emitter": true,
+        "input_digest": "935a529bdd6d83f3507a160616ac86968089d7da06d70b59dc66c70c4df091d2",
+        "policy_digest": "e6fd7138c3ca7c972fc4c3042573bc15eb73d961f8848334dad5749367987a9a",
+        "output": "pass",
+        "issued_at": 1750000000,
+        "checker_id": "mcp-019-composite",
+        "version": "1.0"
+      }
+    },
+    "attestor_independence_ok": true,
+    "policy_digest": "e6fd7138c3ca7c972fc4c3042573bc15eb73d961f8848334dad5749367987a9a",
+    "freshness_window_seconds": 300
+  },
+  "recomputation_boundary": "wired check bound to the wrong tool set",
+  "envelope_signature_valid": true,
+  "receipt": {
+    "action": {
+      "tool": "invoke",
+      "params": {
+        "which": "transfer"
+      }
+    },
+    "action_digest": "5558294fdc17c8ffe2f8036a59fd8b7ea23c735e7ff773e4a424bcb5623139dc",
+    "tool_set_digest": "64f53a5a25ced4a18c4aa03551e025b514b83fecc694ef9aea179bdf69a6a603",
+    "claims": {
+      "authorization": {
+        "action_digest": "5558294fdc17c8ffe2f8036a59fd8b7ea23c735e7ff773e4a424bcb5623139dc",
+        "params_digest": "846774f5f795e29d6d3c2fd04cdef645d4c71798e6fde0c86f94737cb2c33071",
+        "sig": "5c84b626f11accc50bc5671472daf34c32e43c658dfd9fa2151f07076bd5d7d68d4d48a4db929a2e2b8972c620545dad9092eeab3e5b9719643a1ab91808830b"
+      },
+      "occurrence": {
+        "action_digest": "5558294fdc17c8ffe2f8036a59fd8b7ea23c735e7ff773e4a424bcb5623139dc",
+        "outcome_digest": "212e659146dac83f09f639fe16f4316e2fc5ecb37c3f99ee67e31eb7a73bb0f9",
+        "sig": "16847edd553ae69ab4f3d07497b8fce3fd6104894349880b21754561abe97fd809785d5d66d14ffe5849dba4fa4a7d780d34d9ed955ff5f72c6fe5e7e5b5b70d"
+      },
+      "check": {
+        "checker_id": "mcp-019-composite",
+        "version": "1.0",
+        "policy_digest": "e6fd7138c3ca7c972fc4c3042573bc15eb73d961f8848334dad5749367987a9a",
+        "input_digest": "935a529bdd6d83f3507a160616ac86968089d7da06d70b59dc66c70c4df091d2",
+        "output": "pass",
+        "issued_at": 1750000000,
+        "sig": "bb1d955433351d16f0eeb0cc9b34baf803ebf8570b1f7245769ce3ff980decd6e1481ac7e17305cde9732c064d9f33cd03200a88b17cae39aa2529b079c0c50d"
+      }
+    },
+    "envelope_sig": "09e7d9c21473ede44d647d2a09b9c760b27d113b2c63056cd131c57d9d69f73e7abe9308ee5aa14c4634cacce2510a506df311507308d1adde706cc949c5490b"
+  }
+}
