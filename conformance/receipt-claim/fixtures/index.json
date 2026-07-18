@@ -1,0 +1,97 @@
+{
+  "suite": "RCL receipt-claim conformance vectors",
+  "source": "protocol_tests/receipt_claim_harness.py",
+  "reject_vectors": 9,
+  "acceptance_controls": 2,
+  "freshness_window_seconds": 300,
+  "cases": [
+    {
+      "test_id": "RCL-001",
+      "name": "Omitted mandatory evidence",
+      "expected_result": "reject",
+      "phase": "post-execution",
+      "reason_code": "OCCURRENCE_EVIDENCE_MISSING",
+      "harness_reason": "occurrence: missing evidence"
+    },
+    {
+      "test_id": "RCL-002",
+      "name": "Substituted evidence, re-signed envelope",
+      "expected_result": "reject",
+      "phase": "admission",
+      "reason_code": "CHECK_EVIDENCE_TAMPERED",
+      "harness_reason": "check: checker attestation does not verify (substituted or forged)"
+    },
+    {
+      "test_id": "RCL-003",
+      "name": "Stale checker transcript",
+      "expected_result": "reject",
+      "phase": "admission",
+      "reason_code": "CHECK_TRANSCRIPT_STALE",
+      "harness_reason": "check: stale transcript (outside freshness window)"
+    },
+    {
+      "test_id": "RCL-004",
+      "name": "Check bound to the wrong tool-set digest",
+      "expected_result": "reject",
+      "phase": "admission",
+      "reason_code": "CHECK_TOOLSET_DIGEST_MISMATCH",
+      "harness_reason": "check: result bound to the wrong tool-set digest"
+    },
+    {
+      "test_id": "RCL-005",
+      "name": "Authorization bound to different parameters",
+      "expected_result": "reject",
+      "phase": "admission",
+      "reason_code": "AUTHORIZATION_PARAMS_MISMATCH",
+      "harness_reason": "authorization: params do not match the action"
+    },
+    {
+      "test_id": "RCL-006",
+      "name": "Execution ack bound to another action",
+      "expected_result": "reject",
+      "phase": "post-execution",
+      "reason_code": "OCCURRENCE_ACTION_LINKAGE_MISMATCH",
+      "harness_reason": "occurrence: acknowledgment bound to another action"
+    },
+    {
+      "test_id": "RCL-007",
+      "name": "Emitter self-assertion, no independent attestation",
+      "expected_result": "reject",
+      "phase": "admission",
+      "reason_code": "CHECK_ATTESTOR_NOT_INDEPENDENT",
+      "harness_reason": "check: attested by the emitter, not the checker authority"
+    },
+    {
+      "test_id": "RCL-008",
+      "name": "Fully-supported receipt accepted (control)",
+      "expected_result": "accept",
+      "phase": "admission+post-execution",
+      "reason_code": "ACCEPT_ALL_PROPERTIES_SUPPORTED",
+      "harness_reason": "all four properties independently supported"
+    },
+    {
+      "test_id": "RCL-009",
+      "name": "Wired MCP-019 check (clean) accepted",
+      "expected_result": "accept",
+      "phase": "admission",
+      "reason_code": "ACCEPT_ALL_PROPERTIES_SUPPORTED",
+      "harness_reason": "all four properties independently supported"
+    },
+    {
+      "test_id": "RCL-010",
+      "name": "Wired MCP-019 check (composite found) rejected",
+      "expected_result": "reject",
+      "phase": "admission",
+      "reason_code": "CHECK_OUTPUT_FAIL",
+      "harness_reason": "check: recorded output is not a pass"
+    },
+    {
+      "test_id": "RCL-011",
+      "name": "Wired MCP-019 check bound to wrong tool set rejected",
+      "expected_result": "reject",
+      "phase": "admission",
+      "reason_code": "CHECK_TOOLSET_DIGEST_MISMATCH",
+      "harness_reason": "check: result bound to the wrong tool-set digest"
+    }
+  ]
+}

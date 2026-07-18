@@ -1,0 +1,78 @@
+{
+  "test_id": "RCL-003",
+  "name": "Stale checker transcript",
+  "expected_result": "reject",
+  "expected_phase": "admission",
+  "violated_binding": "check transcript outside the freshness window",
+  "reason_code": "CHECK_TRANSCRIPT_STALE",
+  "harness_reason": "check: stale transcript (outside freshness window)",
+  "evidence_binding": {
+    "admitted_action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+    "action_tool_set_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+    "referenced_evidence": {
+      "authorization": {
+        "present": true,
+        "attestor": "authz",
+        "independent_of_emitter": true,
+        "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+        "params_digest": "29b774d0a454b86f6375f55fd90c804e6ba03b2eaee1e88f07a19afa73c70174"
+      },
+      "occurrence": {
+        "present": true,
+        "attestor": "exec",
+        "independent_of_emitter": true,
+        "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+        "outcome_digest": "212e659146dac83f09f639fe16f4316e2fc5ecb37c3f99ee67e31eb7a73bb0f9"
+      },
+      "check": {
+        "present": true,
+        "attestor": "checker",
+        "independent_of_emitter": true,
+        "input_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+        "policy_digest": "12a90b7960539fe3f366d696a3671e71dfe93b8504c4d857b88bbd2aed0262a3",
+        "output": "pass",
+        "issued_at": 1749999640,
+        "checker_id": "tool-scan",
+        "version": "1.0"
+      }
+    },
+    "attestor_independence_ok": true,
+    "policy_digest": "12a90b7960539fe3f366d696a3671e71dfe93b8504c4d857b88bbd2aed0262a3",
+    "freshness_window_seconds": 300
+  },
+  "recomputation_boundary": "check transcript outside the freshness window",
+  "envelope_signature_valid": true,
+  "receipt": {
+    "action": {
+      "tool": "transfer",
+      "params": {
+        "to": "acct-A",
+        "amount": 100
+      }
+    },
+    "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+    "tool_set_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+    "claims": {
+      "authorization": {
+        "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+        "params_digest": "29b774d0a454b86f6375f55fd90c804e6ba03b2eaee1e88f07a19afa73c70174",
+        "sig": "f05e7e4b011f73e79fc2e0faad5ea2c1c8b0bc4edd14e515a1c6a8b2b2711e7b2830897168ece5510e6501789cd1b53650bb08b9e9e82b949cba23adbd0b770c"
+      },
+      "occurrence": {
+        "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+        "outcome_digest": "212e659146dac83f09f639fe16f4316e2fc5ecb37c3f99ee67e31eb7a73bb0f9",
+        "sig": "880e3c9840c24bb4961efad424b151388af174c35f24ba6faf922bd388a114786bfcb67cbeed03f1ef689c578cfd5610f45492212ba4de30156062a98bc66d0c"
+      },
+      "check": {
+        "checker_id": "tool-scan",
+        "version": "1.0",
+        "policy_digest": "12a90b7960539fe3f366d696a3671e71dfe93b8504c4d857b88bbd2aed0262a3",
+        "input_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+        "output": "pass",
+        "issued_at": 1749999640,
+        "sig": "a1f88ae0e5997a7fcae21551cd84cec080705f9c1956369bf5f59096c3d94cc46c7680c6c2b5cef3caf0016938a490c68ca2924801078bc91fff0f536b921b0e"
+      }
+    },
+    "envelope_sig": "d8dc36ca354e15e0a31af881093bd9809b1afb6f49228b18da7ddddd87e9993af65a551cce0e2b2b7ea217cc58c973847b66fe73a7d63e3ff9da06b848308006"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "test_id": "RCL-007",
+  "name": "Emitter self-assertion, no independent attestation",
+  "expected_result": "reject",
+  "expected_phase": "admission",
+  "violated_binding": "check attested by emitter, not an independent authority",
+  "reason_code": "CHECK_ATTESTOR_NOT_INDEPENDENT",
+  "harness_reason": "check: attested by the emitter, not the checker authority",
+  "evidence_binding": {
+    "admitted_action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+    "action_tool_set_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+    "referenced_evidence": {
+      "authorization": {
+        "present": true,
+        "attestor": "authz",
+        "independent_of_emitter": true,
+        "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+        "params_digest": "29b774d0a454b86f6375f55fd90c804e6ba03b2eaee1e88f07a19afa73c70174"
+      },
+      "occurrence": {
+        "present": true,
+        "attestor": "exec",
+        "independent_of_emitter": true,
+        "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+        "outcome_digest": "212e659146dac83f09f639fe16f4316e2fc5ecb37c3f99ee67e31eb7a73bb0f9"
+      },
+      "check": {
+        "present": true,
+        "attestor": "emitter",
+        "independent_of_emitter": false,
+        "input_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+        "policy_digest": "12a90b7960539fe3f366d696a3671e71dfe93b8504c4d857b88bbd2aed0262a3",
+        "output": "pass",
+        "issued_at": 1750000000,
+        "checker_id": "tool-scan",
+        "version": "1.0"
+      }
+    },
+    "attestor_independence_ok": false,
+    "policy_digest": "12a90b7960539fe3f366d696a3671e71dfe93b8504c4d857b88bbd2aed0262a3",
+    "freshness_window_seconds": 300
+  },
+  "recomputation_boundary": "check attested by emitter, not an independent authority",
+  "envelope_signature_valid": true,
+  "receipt": {
+    "action": {
+      "tool": "transfer",
+      "params": {
+        "to": "acct-A",
+        "amount": 100
+      }
+    },
+    "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+    "tool_set_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+    "claims": {
+      "authorization": {
+        "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+        "params_digest": "29b774d0a454b86f6375f55fd90c804e6ba03b2eaee1e88f07a19afa73c70174",
+        "sig": "f05e7e4b011f73e79fc2e0faad5ea2c1c8b0bc4edd14e515a1c6a8b2b2711e7b2830897168ece5510e6501789cd1b53650bb08b9e9e82b949cba23adbd0b770c"
+      },
+      "occurrence": {
+        "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+        "outcome_digest": "212e659146dac83f09f639fe16f4316e2fc5ecb37c3f99ee67e31eb7a73bb0f9",
+        "sig": "880e3c9840c24bb4961efad424b151388af174c35f24ba6faf922bd388a114786bfcb67cbeed03f1ef689c578cfd5610f45492212ba4de30156062a98bc66d0c"
+      },
+      "check": {
+        "checker_id": "tool-scan",
+        "version": "1.0",
+        "policy_digest": "12a90b7960539fe3f366d696a3671e71dfe93b8504c4d857b88bbd2aed0262a3",
+        "input_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+        "output": "pass",
+        "issued_at": 1750000000,
+        "sig": "4930941add58ebbcba94204017e969b23c18832e72b7c5b17987a8f9aacb7c787ec9ebb02fd76a4775417248d57004eae5d1644b6ec105102a203004c74a570c"
+      }
+    },
+    "envelope_sig": "b5d9316370812b8a423fbb8e60b8b6b33fd08f8de28e15e5c91abf48db4a2fb4e63b906c2003f0f7b83d97362366bf6e5644ccfd7f7c9e362a34eceb31920701"
+  }
+}
