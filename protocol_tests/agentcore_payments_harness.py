@@ -3873,7 +3873,13 @@ def test_agentcore_settle_delegation_expiry_boundary() -> AgentCoreTestResult:
 
     x402_merchant = _import_x402_merchant()
     merchant_req = x402_merchant.PaymentRequirements(
-        pay_to=BURN_PAYTO, max_amount_required=settle_amount_units, resource="/vsr02-acp-017",
+        # ACP-017's expiry probe must sign against a requirement whose own
+        # validity window is short.  `_tier_b_sign` intentionally takes its
+        # timeout from this object to keep the signed challenge and relay
+        # request identical, so leaving this at the 120-second default would
+        # make the eight-second wait a non-expiry test.
+        pay_to=BURN_PAYTO, max_amount_required=settle_amount_units,
+        resource="/vsr02-acp-017", max_timeout_seconds=short_timeout_s,
     )
     merchant = x402_merchant.SyntheticMerchant(merchant_req, x402_merchant.CoinbaseFacilitator())
     usd_amount = round(int(settle_amount_units) / 1_000_000, 6)

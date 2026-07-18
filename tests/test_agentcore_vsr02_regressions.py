@@ -1,5 +1,6 @@
 """Offline regressions for VS-R02 evidence-manifest safety controls."""
 
+import inspect
 import os
 
 # The harness has an explicit live-net import gate. These tests replace every
@@ -116,3 +117,10 @@ def test_tier_b_sign_uses_the_exact_relay_requirement_shape():
     assert payload["payTo"] == req.pay_to
     assert payload["maxTimeoutSeconds"] == req.max_timeout_seconds
     assert payload["extra"] == req.extra
+
+
+def test_acp017_expiry_probe_constructs_a_short_lived_requirement():
+    """Its expiry wait must exceed the timeout used for the signed challenge."""
+    source = inspect.getsource(harness.test_agentcore_settle_delegation_expiry_boundary)
+
+    assert "max_timeout_seconds=short_timeout_s" in source
