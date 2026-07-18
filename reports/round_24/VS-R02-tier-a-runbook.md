@@ -138,6 +138,19 @@ This is exactly the overclaim class the taxonomy doc exists to catch (E3-strengt
 
 ## After the run
 
+### ACP-019 controlled reproduction - 2026-07-18
+
+Two fresh alternate agent identities, each tested after a new successful
+granted-agent positive control, independently returned PROOF_GENERATED:
+vs-r02-independent-control-c and vs-r02-independent-control-d. Every request
+used the Tier-A burn-address payload and both sessions were deleted. The
+retained artifacts are acp-019-independent-c.json and
+acp-019-independent-d.json.
+
+This reproduces the observed sign-time behavior across distinct alternate
+agent names. It remains **E2.5, proof-only, pre-settlement evidence** and is
+not by itself a security conclusion or a basis for public disclosure.
+
 - Inspect every `errors` array and every `UNRECOGNIZED*` status string in the result JSONs before trusting `passed`. `passed` on these four tests only means "the measurement completed cleanly," not "the security property holds" — same convention as VS-R01's audit-corrected ACP-002/ACP-004.
 - If `_extract_payment_status` never returns `PROOF_GENERATED` on any test, the most likely causes in order: (1) the WalletHub grant expired or was scoped to a different identity, (2) the `extra` payload shape is wrong, (3) the response-status field-name guess is wrong. Check `session_a_sign_response` / raw response strings in the JSON to disambiguate before re-running.
 - Write `testing/CRITICAL_EVALUATION_VS-R02_{date}.md` and `reports/round_24/VS-R02-independent-review-package.md` per the VS-R02 test-plan deliverables table, after applying the same audit-correction pass VS-R01 went through (see `vault/projects/vs-r01-acp-audit-2026-05-26.md` for the pattern: verdicts get rescoped when a test's premise turns out to be tautological or the wrong layer).
