@@ -3352,6 +3352,24 @@ def _extract_settlement_proof(resp: Any) -> tuple[dict | str | None, str]:
     if not isinstance(payment, dict):
         return None, ""
 
+    # AgentCore's live ProcessPayment response nests the signed x402 material
+    # under paymentOutput.cryptoX402.payload. Preserve the explicit path
+    # rather than flattening arbitrary response fields: the proof must still
+    # carry both a real authorization and signature before it is usable.
+    output = payment.get("paymentOutput")
+    if isinstance(output, dict):
+        crypto_x402 = output.get("cryptoX402")
+        if isinstance(crypto_x402, dict):
+            payload = crypto_x402.get("payload")
+            if isinstance(payload, dict):
+                auth = payload.get("authorization")
+                sig = payload.get("signature")
+                if isinstance(auth, dict) and sig:
+                    return {
+                        "authorization": auth,
+                        "signature": sig,
+                    }, "structured_dict_with_signature:paymentOutput.cryptoX402.payload"
+
     # Candidate 1: already an X-PAYMENT-ready base64 string (real signature
     # embedded by construction, if this path is ever actually hit).
     for key in ("xPayment", "paymentHeader", "signedPayment", "signedXPayment"):

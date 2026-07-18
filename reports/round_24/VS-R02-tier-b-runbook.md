@@ -2,7 +2,7 @@
 
 **Scope:** ACP-012 (receipt nonce reuse), ACP-016 full (cross-session aggregate at settlement), ACP-017 (delegation/authorization expiry, sign-time vs settlement-time), ACP-018 (revoke-and-immediately-spend race). Unlike Tier A, every test in this round **settles on-chain — real Base Sepolia gas + USDC, real transaction hashes.**
 
-**Status as of 2026-07-11: NOT YET RUN. The VS-R02 wallet is UNFUNDED. This runbook stages the tests push-button ready; funding is the only blocker.**
+**Status as of 2026-07-18: settlement not yet reached. The wallet is funded and ACP-012 reached `PROOF_GENERATED`, but the configured facilitator rejected `/verify` with HTTP 403 before any settlement. No transaction hash was issued and no USDC was spent. Do not run additional Tier-B cases until the facilitator integration is validated.**
 
 **Branch:** `vs-r02/skeleton`. **Code:** `protocol_tests/agentcore_payments_harness.py` (functions `test_agentcore_settle_*`, appended after the Tier-A `test_agentcore_signtime_*` stubs). **Merchant:** `protocol_tests/x402_merchant.py` (vendored, uncommitted — see provenance note below). **Env:** `scripts/vs-r02-env.sh` (unchanged — same env extends to Tier B; the Tier B code adds its own `AGENTCORE_TIER_B_SETTLE_OK` gate on top).
 
@@ -42,7 +42,7 @@ The delegation is live and valid to **2026-09-09** on wallet `0x7889454DF1EB44B2
 
 I additionally ran an **offline sanity check** (no network, no AWS) wiring the harness's new `_tier_b_submit_for_settlement()` helper against `MockFacilitator`: sign→extract→submit→settle succeeded, and a same-nonce replay was correctly rejected. This confirms the harness-to-merchant plumbing is correct; it does **not** confirm the AgentCore-to-harness plumbing (see below), which can only be confirmed live.
 
-**The one genuinely unverified link:** does AgentCore's `ProcessPayment`, on `PROOF_GENERATED`, actually **return** the signed authorization/proof to the caller — or does AgentCore settle it internally and never expose the raw signed material? Nobody has a captured live `PROOF_GENERATED` response in this repo (same gap the Tier-A runbook already flags for `_extract_payment_status`'s field-name guess — this is one layer deeper: not just "what key holds the status" but "does a signed, resubmittable proof even come back at all"). `_extract_settlement_proof()` in the harness code is a best-effort, multi-candidate-key probe with a hard requirement: it only accepts a proof that carries a **real signature** alongside the authorization fields — never fabricates one. If nothing matches, extraction returns `(None, "")` and **no settlement is attempted, $0 is spent.**
+**Observed AgentCore handoff, 2026-07-18:** a live `PROOF_GENERATED` response returns the signed material at `paymentOutput.cryptoX402.payload`, with `authorization` and `signature` fields. `_extract_settlement_proof()` now recognizes that exact path and still requires both fields before returning a usable proof. The first live ACP-012 attempt therefore reached the real facilitator, which returned HTTP 403 on `/verify`; no transaction was broadcast. The remaining integration question is facilitator authorization or endpoint compatibility, not whether AgentCore returns a signed proof.
 
 **If this assumption is wrong** (AgentCore settles internally, no proof is exposed), the on-chain question can still be answered, just with a different plan:
 
@@ -102,7 +102,7 @@ source scripts/vs-r02-env.sh
 **Step 1 — collect-only sanity check (safe with or without creds, no gate needed):**
 
 ```bash
-PYTHONPATH="$PWD" pytest --collect-only -q protocol_tests/agentcore_payments_harness.py -k settle
+PYTEST_COLLECT_ONLY=1 PYTHONPATH="$PWD" pytest --collect-only -q protocol_tests/agentcore_payments_harness.py -k settle
 ```
 
 **Step 2 — run ACP-012 alone first** (cheapest, and the one that tells you immediately whether the proof-extraction assumption in §2 holds):
@@ -118,9 +118,10 @@ print(json.dumps(dataclasses.asdict(r), indent=2))
 "
 ```
 
-Check `response_received.first_settle.proof_extraction_method` in the output:
-- Starts with `encoded_string:` or `structured_dict_with_signature:` → extraction worked, Plan A confirmed. Proceed to Step 3.
-- `"none"` → AgentCore did not return anything `_extract_settlement_proof` recognizes. **$0 was spent** (the test never reached `merchant.handle()`). Inspect `response_received.first_settle.sign_response_excerpt` for the raw response, decide whether to extend the candidate-key list in `_extract_settlement_proof` or fall back to Plan B (§2).
+Check `response_received.first_settle.proof_extraction_method` and facilitator result in the output:
+- `structured_dict_with_signature:paymentOutput.cryptoX402.payload` → the observed AgentCore handoff worked. Continue only if the first facilitator verification succeeds.
+- `"none"` → AgentCore did not return anything `_extract_settlement_proof` recognizes. **$0 was spent** (the test never reached `merchant.handle()`). Inspect only the response schema, extend the candidate-key list deliberately, and re-run ACP-012 before any other case.
+- A 4xx/5xx facilitator refusal after proof extraction → **stop all Tier-B cases.** This is an integration blocker, not settlement evidence. Capture the status and sanitized reason, then validate the configured facilitator endpoint/authorization before retrying.
 
 **Step 3 — run the remaining three, saving result JSONs:**
 
