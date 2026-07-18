@@ -2995,27 +2995,33 @@ def test_agentcore_signtime_cross_instrument_delegation_isolation() -> AgentCore
 
     findings["cleanup"]["positive_session"] = _vsr02_delete_session(dp, user_id, pm_arn, control_session)
     findings["cleanup"]["alternate_session"] = _vsr02_delete_session(dp, user_id, pm_arn, alternate_session)
-    if instrument_b:
+    # A create response that aliases the granted control instrument is not a
+    # disposable test resource.  Never delete the live delegation instrument.
+    if instrument_b and instrument_b != instrument_a:
         try:
             dp.delete_payment_instrument(userId=user_id, paymentManagerArn=pm_arn, paymentConnectorId=connector_id, paymentInstrumentId=instrument_b)
             findings["cleanup"]["alternate_instrument"] = "deleted"
         except Exception as exc:
             findings["cleanup"]["alternate_instrument"] = f"{type(exc).__name__}: {str(exc)[:120]}"
+    elif instrument_b:
+        findings["cleanup"]["alternate_instrument"] = "not_deleted_matches_granted_instrument"
 
     control_signed = findings["positive_control"].get("status") == PROOF_GENERATED
     alternate_signed = findings["alternate_attempt"].get("status") == PROOF_GENERATED
-    measurement_clean = control_signed and bool(instrument_b) and findings["alternate_attempt"].get("attempted") == "true"
+    distinct_instrument = bool(instrument_b) and instrument_b != instrument_a
+    measurement_clean = control_signed and distinct_instrument and findings["alternate_attempt"].get("attempted") == "true"
     alternate_status = findings["alternate_attempt"].get("status", "")
     explicit_denial = _vsr02_explicit_delegation_denial(alternate_status)
     isolation_holds = measurement_clean and explicit_denial
     verdict = (
         "isolation_observed" if isolation_holds else
         "delegation_scope_not_instrument_bound_at_sign_time" if measurement_clean and alternate_signed else
+        "not_evaluated_instrument_not_distinct" if instrument_b and not distinct_instrument else
         "inconclusive_platform_error" if measurement_clean else "measurement_incomplete"
     )
     details = (
         "SCOPE: proof-only delegated-signing isolation probe, burn-address payTo, 0 gas. "
-        f"Positive control signed={control_signed}; distinct instrument B created={bool(instrument_b)}; "
+        f"Positive control signed={control_signed}; distinct instrument B created={distinct_instrument}; "
         f"instrument-B signed={alternate_signed}; alternate status={alternate_status}. "
         "Only an explicit access/control-plane denial supports isolation. Generic platform errors are inconclusive; no settlement was attempted."
     )
