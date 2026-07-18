@@ -2988,7 +2988,7 @@ def test_agentcore_signtime_cross_instrument_delegation_isolation() -> AgentCore
     alternate_session, alternate_error = _vsr02_create_session(dp, user_id, agent_name, pm_arn)
     findings["alternate_attempt"]["session_create_error"] = alternate_error
     if alternate_session and instrument_b:
-        findings["alternate_attempt"] = _vsr02_sign_probe(
+        findings["alternate_attempt"] |= _vsr02_sign_probe(
             dp, user_id=user_id, agent_name=agent_name, pm_arn=pm_arn,
             session_id=alternate_session, instrument_id=instrument_b, description="ACP-014 alternate instrument",
         )
@@ -3075,7 +3075,7 @@ def test_agentcore_signtime_shared_user_multi_instrument_isolation() -> AgentCor
     alternate_session, alternate_error = _vsr02_create_session(dp, user_id, agent_name, pm_arn)
     findings["alternate_attempt"]["session_create_error"] = alternate_error
     if alternate_session and instrument_b and instrument_b != instrument_a:
-        findings["alternate_attempt"] = _vsr02_sign_probe(dp, user_id=user_id, agent_name=agent_name, pm_arn=pm_arn, session_id=alternate_session, instrument_id=instrument_b, description="ACP-015 same-user second instrument")
+        findings["alternate_attempt"] |= _vsr02_sign_probe(dp, user_id=user_id, agent_name=agent_name, pm_arn=pm_arn, session_id=alternate_session, instrument_id=instrument_b, description="ACP-015 same-user second instrument")
 
     findings["cleanup"]["positive_session"] = _vsr02_delete_session(dp, user_id, pm_arn, control_session)
     findings["cleanup"]["alternate_session"] = _vsr02_delete_session(dp, user_id, pm_arn, alternate_session)
@@ -3124,9 +3124,9 @@ def test_agentcore_signtime_cross_agent_delegation_isolation() -> AgentCoreTestR
     granted_agent = os.environ.get(ENV_VSR02_AGENT_NAME, VSR02_AGENT_NAME_DEFAULT)
     # Allow independent reproductions to substitute a fresh alternate identity
     # without changing the test logic or the granted control identity.
-    attacker_agent = os.environ.get(
-        "AGENTCORE_VSR02_ALTERNATE_AGENT_NAME", "vs-r02-attacker-agent"
-    )
+    configured_alternate_agent = os.environ.get("AGENTCORE_VSR02_ALTERNATE_AGENT_NAME", "")
+    attacker_agent = configured_alternate_agent.strip() or "vs-r02-attacker-agent"
+    distinct_alternate_agent = attacker_agent != granted_agent
     instrument_id = os.environ.get(ENV_VSR02_INSTRUMENT_ID, VSR02_INSTRUMENT_ID_DEFAULT)
     findings: dict[str, Any] = {"positive_control": {}, "cross_agent_attempt": {}, "cleanup": {}}
 
@@ -3135,27 +3135,31 @@ def test_agentcore_signtime_cross_agent_delegation_isolation() -> AgentCoreTestR
     if control_session:
         findings["positive_control"] |= _vsr02_sign_probe(dp, user_id=user_id, agent_name=granted_agent, pm_arn=pm_arn, session_id=control_session, instrument_id=instrument_id, description="ACP-019 positive control")
 
-    attacker_session, attacker_error = _vsr02_create_session(dp, user_id, attacker_agent, pm_arn)
+    if distinct_alternate_agent:
+        attacker_session, attacker_error = _vsr02_create_session(dp, user_id, attacker_agent, pm_arn)
+    else:
+        attacker_session, attacker_error = "", "not_created_alternate_agent_matches_granted_agent"
     findings["cross_agent_attempt"]["session_create_error"] = attacker_error
     if attacker_session:
-        findings["cross_agent_attempt"] = _vsr02_sign_probe(dp, user_id=user_id, agent_name=attacker_agent, pm_arn=pm_arn, session_id=attacker_session, instrument_id=instrument_id, description="ACP-019 cross-agent attempt")
+        findings["cross_agent_attempt"] |= _vsr02_sign_probe(dp, user_id=user_id, agent_name=attacker_agent, pm_arn=pm_arn, session_id=attacker_session, instrument_id=instrument_id, description="ACP-019 cross-agent attempt")
 
     findings["cleanup"]["positive_session"] = _vsr02_delete_session(dp, user_id, pm_arn, control_session)
     findings["cleanup"]["attacker_session"] = _vsr02_delete_session(dp, user_id, pm_arn, attacker_session)
     control_signed = findings["positive_control"].get("status") == PROOF_GENERATED
     attacker_signed = findings["cross_agent_attempt"].get("status") == PROOF_GENERATED
-    measurement_clean = control_signed and findings["cross_agent_attempt"].get("attempted") == "true"
+    measurement_clean = control_signed and distinct_alternate_agent and findings["cross_agent_attempt"].get("attempted") == "true"
     attacker_status = findings["cross_agent_attempt"].get("status", "")
     explicit_denial = _vsr02_explicit_delegation_denial(attacker_status)
     isolation_holds = measurement_clean and explicit_denial
     verdict = (
         "isolation_observed" if isolation_holds else
         "delegation_scope_not_agent_bound_at_sign_time" if measurement_clean and attacker_signed else
+        "not_evaluated_alternate_agent_not_distinct" if not distinct_alternate_agent else
         "inconclusive_platform_error" if measurement_clean else "measurement_incomplete"
     )
     details = (
         "SCOPE: same-user cross-agent delegated-signing isolation probe, burn-address payTo, 0 gas. "
-        f"Positive control signed={control_signed}; alternate-agent signed={attacker_signed}; alternate status={attacker_status}. "
+        f"Positive control signed={control_signed}; alternate agent distinct={distinct_alternate_agent}; alternate-agent signed={attacker_signed}; alternate status={attacker_status}. "
         "A positive-control success followed by alternate-agent success is a reproduction candidate, not a final security conclusion."
     )
     return AgentCoreTestResult(
