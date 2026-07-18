@@ -3432,6 +3432,7 @@ def _tier_b_sign(
     dp: Any, pm_arn: str, session_id: str, user_id: str, agent_name: str,
     instrument_id: str, amount_units: str, description: str,
     max_timeout_seconds: int = 60, resource: str = "https://vsr02-tier-b-probe.example/data",
+    payment_requirements: Any | None = None,
 ) -> dict:
     """Sign-only step: ProcessPayment via CDP delegated signing + best-effort
     proof extraction. No cap-check, no settlement attempt — the caller
@@ -3442,9 +3443,24 @@ def _tier_b_sign(
         "sign_status": "", "status_extraction_method": "", "sign_response_excerpt": "",
         "proof_extracted": False, "proof_extraction_method": "", "raw_proof": None,
     }
-    payload = _build_x402_exact_payload(
-        amount_units, pay_to=BURN_PAYTO, description=description, resource=resource,
-    )
+    if payment_requirements is not None:
+        # The signed challenge and the relay's /verify requirements must be
+        # byte-for-byte equivalent in their relevant fields.  The prior
+        # Tier-B construction used a 60-second signed challenge but let the
+        # merchant advertise its 120-second default, an avoidable mismatch
+        # immediately before the facilitator's opaque simulation step.
+        amount_units = payment_requirements.max_amount_required
+        resource = payment_requirements.resource
+        max_timeout_seconds = payment_requirements.max_timeout_seconds
+        extra = payment_requirements.extra if isinstance(payment_requirements.extra, dict) else {}
+        payload = _build_x402_exact_payload(
+            amount_units, pay_to=payment_requirements.pay_to, description=description,
+            resource=resource, extra_name=extra.get("name"), extra_version=extra.get("version"),
+        )
+    else:
+        payload = _build_x402_exact_payload(
+            amount_units, pay_to=BURN_PAYTO, description=description, resource=resource,
+        )
     payload["maxTimeoutSeconds"] = max_timeout_seconds
     try:
         resp = dp.process_payment(
@@ -3518,6 +3534,7 @@ def _tier_b_sign_and_settle(
     result = _tier_b_sign(
         dp, pm_arn, session_id, user_id, agent_name, instrument_id,
         amount_units, description, max_timeout_seconds, resource=merchant.req.resource,
+        payment_requirements=merchant.req,
     )
     if not result.get("proof_extracted"):
         result.update({"settle_attempted": False, "settle_success": False, "tx_hash": ""})
@@ -3885,6 +3902,7 @@ def test_agentcore_settle_delegation_expiry_boundary() -> AgentCoreTestResult:
         within = _tier_b_sign(
             dp, pm_arn, findings["session_id"], user_id, agent_name, instrument_id,
             settle_amount_units, "ACP-017 within-window", short_timeout_s, resource=merchant.req.resource,
+            payment_requirements=merchant.req,
         )
         if within.get("proof_extracted"):
             within.update(_tier_b_submit_for_settlement(merchant, within["raw_proof"], "ACP-017-within", usd_amount))
@@ -3895,6 +3913,7 @@ def test_agentcore_settle_delegation_expiry_boundary() -> AgentCoreTestResult:
         late = _tier_b_sign(
             dp, pm_arn, findings["session_id"], user_id, agent_name, instrument_id,
             settle_amount_units, "ACP-017 past-window", short_timeout_s, resource=merchant.req.resource,
+            payment_requirements=merchant.req,
         )
         findings["past_window_sign_status"] = late.get("sign_status")
         findings["past_window_proof_extracted"] = late.get("proof_extracted")

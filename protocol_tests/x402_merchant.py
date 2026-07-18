@@ -237,6 +237,79 @@ class CoinbaseFacilitator(FacilitatorClient):
             )
         return payload
 
+    @classmethod
+    def preflight_verify_request(cls, payment: ParsedPayment,
+                                 req: PaymentRequirements) -> dict:
+        """Validate locally knowable `/verify` invariants before transport.
+
+        This is intentionally not a signature verifier: EIP-712 signature
+        recovery and authorization-state simulation belong to the facilitator.
+        It does, however, prevent an avoidable live call when the x402 envelope
+        or relay requirements disagree on scheme, network, asset, recipient,
+        amount, or the EIP-712 domain metadata.  The returned report contains
+        no authorization or signature material and is safe for the evidence
+        manifest.
+        """
+        errors: list[str] = []
+        try:
+            payload = cls._decode_payment_payload(payment)
+        except ValueError as exc:
+            return {"ok": False, "errors": [str(exc)]}
+
+        if payload.get("x402Version") != X402_VERSION:
+            errors.append("payment x402Version does not match configured version")
+        if payload.get("scheme") != req.scheme:
+            errors.append("payment scheme does not match payment requirements")
+        if payload.get("network") != req.network:
+            errors.append("payment network does not match payment requirements")
+
+        envelope = payload.get("payload")
+        if not isinstance(envelope, dict):
+            errors.append("payment payload is not an object")
+            envelope = {}
+        if not envelope.get("signature"):
+            errors.append("payment signature is missing")
+        authorization = envelope.get("authorization", {})
+        if not isinstance(authorization, dict):
+            errors.append("payment authorization is not an object")
+            authorization = {}
+
+        if str(authorization.get("to", "")).lower() != req.pay_to.lower():
+            errors.append("authorization recipient does not match payment requirements")
+        try:
+            value = int(str(authorization.get("value", "")))
+            maximum = int(req.max_amount_required)
+            if value < 0 or value > maximum:
+                errors.append("authorization value is outside payment requirements")
+        except (TypeError, ValueError):
+            errors.append("authorization value is not an integer")
+
+        for field_name in ("validAfter", "validBefore"):
+            try:
+                int(str(authorization.get(field_name, "")))
+            except (TypeError, ValueError):
+                errors.append(f"authorization {field_name} is not an integer")
+        try:
+            if int(str(authorization.get("validAfter", ""))) > int(str(authorization.get("validBefore", ""))):
+                errors.append("authorization validAfter is later than validBefore")
+        except (TypeError, ValueError):
+            pass
+
+        extra = req.extra if isinstance(req.extra, dict) else {}
+        if not str(extra.get("name", "")).strip() or not str(extra.get("version", "")).strip():
+            errors.append("payment requirements omit EIP-712 name or version")
+        if not isinstance(req.max_timeout_seconds, int) or req.max_timeout_seconds <= 0:
+            errors.append("payment requirements maxTimeoutSeconds is invalid")
+
+        return {
+            "ok": not errors,
+            "errors": errors,
+            "x402_version": payload.get("x402Version"),
+            "scheme": payload.get("scheme"),
+            "network": payload.get("network"),
+            "requirement_timeout_seconds": req.max_timeout_seconds,
+        }
+
     def _post(self, path: str, body: dict) -> dict:
         request_url = self.base_url + path
         request_bytes = json.dumps(body, separators=(",", ":")).encode()
@@ -267,6 +340,10 @@ class CoinbaseFacilitator(FacilitatorClient):
 
     def verify(self, payment, req):
         try:
+            preflight = self.preflight_verify_request(payment, req)
+            self.last_exchange = {"preflight": preflight}
+            if not preflight["ok"]:
+                return SettleResult(False, reason="local preflight failed: " + "; ".join(preflight["errors"]))
             r = self._post("/verify", {"x402Version": X402_VERSION,
                                        "paymentPayload": self._decode_payment_payload(payment),
                                        "paymentRequirements": req.to_accepts()})
