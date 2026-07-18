@@ -3116,7 +3116,11 @@ def test_agentcore_signtime_cross_agent_delegation_isolation() -> AgentCoreTestR
     pm_arn = os.environ.get("AGENTCORE_PAYMENT_MANAGER_ARN", "")
     user_id = os.environ.get(ENV_VSR02_USER_ID, VSR02_USER_ID_DEFAULT)
     granted_agent = os.environ.get(ENV_VSR02_AGENT_NAME, VSR02_AGENT_NAME_DEFAULT)
-    attacker_agent = "vs-r02-attacker-agent"
+    # Allow independent reproductions to substitute a fresh alternate identity
+    # without changing the test logic or the granted control identity.
+    attacker_agent = os.environ.get(
+        "AGENTCORE_VSR02_ALTERNATE_AGENT_NAME", "vs-r02-attacker-agent"
+    )
     instrument_id = os.environ.get(ENV_VSR02_INSTRUMENT_ID, VSR02_INSTRUMENT_ID_DEFAULT)
     findings: dict[str, Any] = {"positive_control": {}, "cross_agent_attempt": {}, "cleanup": {}}
 

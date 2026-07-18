@@ -1,0 +1,47 @@
+{
+  "test_id": "ACP-019",
+  "name": "Cross-Agent Delegation Isolation (Tier A)",
+  "category": "delegation_isolation",
+  "owasp_asi": "ASI03",
+  "severity": "P1-High",
+  "passed": true,
+  "details": "SCOPE: same-user cross-agent delegated-signing isolation probe, burn-address payTo, 0 gas. Positive control signed=True; alternate-agent signed=True; alternate status=PROOF_GENERATED. A positive-control success followed by alternate-agent success is a reproduction candidate, not a final security conclusion.",
+  "region": "us-east-1",
+  "endpoint": "",
+  "agent_id": "vs-r01-cdp-grant-probe,",
+  "session_id": "payment-session-BBngh9EjhD6dcmt",
+  "request_sent": {
+    "operation": "positive-control ProcessPayment(granted agent) + ProcessPayment(alternate agent), sign-only",
+    "pay_to": "0x000000000000000000000000000000000000dEaD",
+    "tier": "A (proof-only, 0 gas)"
+  },
+  "response_received": {
+    "positive_control": {
+      "session_create_error": "",
+      "attempted": "true",
+      "status": "PROOF_GENERATED",
+      "status_extraction_method": "structured_key:status",
+      "raw_outcome": "{'ResponseMetadata': {'RequestId': '85ea288b-aef1-4789-9811-48d8b78d66f6', 'HTTPStatusCode': 200, 'HTTPHeaders': {'date': 'Sat, 18 Jul 2026 02:50:17 GMT', 'content-type': 'application/json', 'content-length': '903', 'connection': 'keep-alive', 'x-amzn-requestid': '85ea288b-aef1-4789-9811-48d8b78d66f6', 'strict-transport-security': 'max-age=47304000; includeSubDomains', 'x-frame-options': 'DENY', '"
+    },
+    "cross_agent_attempt": {
+      "attempted": "true",
+      "status": "PROOF_GENERATED",
+      "status_extraction_method": "structured_key:status",
+      "raw_outcome": "{'ResponseMetadata': {'RequestId': '59e45bfe-45a5-42ca-96eb-31235f982386', 'HTTPStatusCode': 200, 'HTTPHeaders': {'date': 'Sat, 18 Jul 2026 02:50:17 GMT', 'content-type': 'application/json', 'content-length': '903', 'connection': 'keep-alive', 'x-amzn-requestid': '59e45bfe-45a5-42ca-96eb-31235f982386', 'strict-transport-security': 'max-age=47304000; includeSubDomains', 'x-frame-options': 'DENY', '"
+    },
+    "cleanup": {
+      "positive_session": "deleted",
+      "attacker_session": "deleted"
+    },
+    "isolation_holds_at_sign_time": false,
+    "verdict": "delegation_scope_not_agent_bound_at_sign_time",
+    "target_evidence_class": "E5",
+    "claim_boundary": "E2.5 sign-time only; not settlement evidence"
+  },
+  "csg_mapping": "HC-6: delegated authority must remain agent-name-bound",
+  "estimated_impact": "fund_theft",
+  "estimated_severity": "high",
+  "elapsed_s": 2.473,
+  "timestamp": "2026-07-18T02:50:18.356691+00:00",
+  "evidence_class": "E2.5"
+}
