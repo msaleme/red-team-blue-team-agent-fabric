@@ -124,3 +124,26 @@ def test_acp017_expiry_probe_constructs_a_short_lived_requirement():
     source = inspect.getsource(harness.test_agentcore_settle_delegation_expiry_boundary)
 
     assert "max_timeout_seconds=short_timeout_s" in source
+
+
+def test_tier_b_cap_uses_the_amount_that_was_actually_signed(monkeypatch):
+    """A stale wrapper argument cannot under-report a requirement-backed spend."""
+    req = PaymentRequirements(
+        pay_to="0x1111111111111111111111111111111111111111", max_amount_required="10000",
+    )
+    merchant = type("Merchant", (), {"req": req})()
+    observed = {}
+
+    monkeypatch.setattr(harness, "_tier_b_sign", lambda *_args, **_kwargs: {
+        "proof_extracted": True, "raw_proof": {"authorization": {}, "signature": "sig"},
+    })
+    monkeypatch.setattr(
+        harness, "_tier_b_submit_for_settlement",
+        lambda _merchant, _proof, _test_id, usd_amount: observed.update(usd_amount=usd_amount) or {},
+    )
+
+    harness._tier_b_sign_and_settle(
+        object(), "pm", "session", "user", "agent", "instrument", "1", merchant, "test", "ACP-test",
+    )
+
+    assert observed["usd_amount"] == 0.01

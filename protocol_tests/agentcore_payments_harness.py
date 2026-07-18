@@ -3539,7 +3539,10 @@ def _tier_b_sign_and_settle(
     if not result.get("proof_extracted"):
         result.update({"settle_attempted": False, "settle_success": False, "tx_hash": ""})
         return result
-    usd_amount = round(int(amount_units) / 1_000_000, 6)
+    # `_tier_b_sign` signs the amount in merchant.req whenever requirements
+    # are supplied.  Caps and the evidence ledger must therefore use that
+    # same amount, never the caller's now-overridden convenience argument.
+    usd_amount = round(int(merchant.req.max_amount_required) / 1_000_000, 6)
     settle_result = _tier_b_submit_for_settlement(merchant, result["raw_proof"], test_id, usd_amount)
     result.update(settle_result)
     return result
