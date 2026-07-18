@@ -77,7 +77,7 @@ for tid in [f"RCL-{i:03d}" for i in range(1, 12)]:
             ev[prop] = {"present": False}
             continue
         rec = {"present": True, "attestor": who_signed(b),
-               "independent_of_emitter": who_signed(b) != "emitter"}
+               "independent_of_emitter": who_signed(b) not in (None, "emitter")}
         for f in ("action_digest", "params_digest", "outcome_digest",
                   "input_digest", "policy_digest", "output", "issued_at",
                   "checker_id", "version"):

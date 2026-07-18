@@ -19,6 +19,9 @@ def run():
     v = ClaimLevelVerifier(now)
     failures = []
     files = sorted(glob.glob(os.path.join(FIX, "RCL-*.json")))
+    if not files:
+        print(f"receipt-claim conformance: no fixtures found under {FIX} (fail closed)")
+        return 1
     for path in files:
         fx = json.load(open(path))
         # every vector is envelope-valid by construction; the claim verdict is the test

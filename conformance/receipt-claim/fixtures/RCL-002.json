@@ -27,7 +27,7 @@
       "check": {
         "present": true,
         "attestor": null,
-        "independent_of_emitter": true,
+        "independent_of_emitter": false,
         "input_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
         "policy_digest": "12a90b7960539fe3f366d696a3671e71dfe93b8504c4d857b88bbd2aed0262a3",
         "output": "pass",
@@ -36,7 +36,7 @@
         "version": "1.0"
       }
     },
-    "attestor_independence_ok": true,
+    "attestor_independence_ok": false,
     "policy_digest": "12a90b7960539fe3f366d696a3671e71dfe93b8504c4d857b88bbd2aed0262a3",
     "freshness_window_seconds": 300
   },
