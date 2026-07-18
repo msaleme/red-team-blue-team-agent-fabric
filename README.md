@@ -73,7 +73,7 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 | **APT simulation** | - | - | - | - | **GTG-1002 (17 tests)** |
 | **Jailbreak/over-refusal** | - | - | - | Yes | **50 tests (25 + 25 FPR)** |
 | **AIUC-1 certification** | - | - | - | - | **Maps to 19 of 20 testable requirements** (2026-Q1/Q2 set; [Q3 delta](docs/AIUC1-CROSSWALK.md)) |
-| **Research backing** | - | Cisco blog | - | Papers | **5 DOIs + 3 NIST submissions** |
+| **Research backing** | - | Cisco blog | - | Papers | **6 DOIs + 3 NIST submissions** |
 | **MCP server mode** | - | - | - | - | **Yes - invoke from any AI agent** |
 | **Statistical testing** | - | - | - | - | **Wilson CIs, multi-trial** |
 | **Total tests** | Pattern matching | YARA rules | Config checks | Model probes | **553 active tests** |
@@ -84,7 +84,7 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 
 ## Research
 
-Five public preprints deposited on Zenodo (not represented as peer-reviewed publications) and three NIST submissions underpin the methodology:
+Six public preprints and notes deposited on Zenodo (not represented as peer-reviewed publications) and three NIST submissions underpin the methodology:
 
 | Publication | DOI |
 |---|---|
@@ -93,6 +93,7 @@ Five public preprints deposited on Zenodo (not represented as peer-reviewed publ
 | **Decision Load Index (DLI): A Quantitative Framework for Agent Autonomy Risk** — Measuring cognitive burden of AI agent oversight | [10.5281/zenodo.18217577](https://doi.org/10.5281/zenodo.18217577) |
 | **Normalization of Deviance in Autonomous Agent Systems** — Foundational research on behavioral drift patterns | [10.5281/zenodo.15105866](https://doi.org/10.5281/zenodo.15105866) |
 | **Cognitive Style Governance for Multi-Agent Deployments** — Governance mechanisms for managing cognitive style across multi-agent systems | [10.5281/zenodo.15106553](https://doi.org/10.5281/zenodo.15106553) |
+| **Claim-Level Negative Testing for Agent-Governance Evidence** — Receipt-claim decomposition; the RCL-001..011 receipt-verification module in this harness | [10.5281/zenodo.21418701](https://doi.org/10.5281/zenodo.21418701) |
 
 ---
 
