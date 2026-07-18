@@ -2,6 +2,10 @@
 
 This harness performs executable adversarial testing at the implementation and evidence surface of agent protocols: it sends real adversarial payloads and negative vectors and checks whether an implementation makes the correct accept/reject decision. It is complementary to formal-conformance, capability-binding, and delegation-protocol research, not a substitute for it. This page cites the closest work and states, honestly, where this project overlaps and where it differs.
 
+## This project's methodology note
+
+The receipt claim-level module (RCL-001..011) is described in a short position-and-methodology note, **"Claim-Level Negative Testing for Agent-Governance Evidence"** (Saleme, 2026): a four-property decomposition of an action receipt (integrity/provenance; execution occurrence and outcome; authorization; check execution and integrity), and executable negative vectors that construct correctly signed but semantically unsupported receipts and show a claim-level verifier rejecting them. Concept DOI: [10.5281/zenodo.21418701](https://doi.org/10.5281/zenodo.21418701). It positions this harness as the executable complement to the formal-conformance and capability-binding work below.
+
 ## Formal conformance for agent protocols
 
 - **AgentThread — "Formal Security Analysis of Agent Protocol Composition"** (Shenghan Zheng, Qifan Zhang, Zheng Zhang, Haonan Li, Christophe Hauser; arXiv:2606.28690, 2026), and its predecessor **AgentRFC / AgentConform** (Shenghan Zheng, Qifan Zhang; arXiv:2603.23801, 2026).
