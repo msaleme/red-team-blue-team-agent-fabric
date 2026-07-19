@@ -1,5 +1,6 @@
 """Offline regressions for VS-R02 evidence-manifest safety controls."""
 
+import inspect
 import os
 
 # The harness has an explicit live-net import gate. These tests replace every
@@ -8,6 +9,7 @@ os.environ.setdefault("AGENTCORE_LIVE_NET_OK", "1")
 os.environ.setdefault("AGENTCORE_TESTNET_WALLET", "0x0000000000000000000000000000000000000001")
 
 import protocol_tests.agentcore_payments_harness as harness
+from protocol_tests.x402_merchant import CoinbaseFacilitator, PaymentRequirements, parse_x_payment
 
 
 class FakePaymentClient:
@@ -71,3 +73,77 @@ def test_acp015_alternate_probe_preserves_session_metadata(monkeypatch):
     result = harness.test_agentcore_signtime_shared_user_multi_instrument_isolation()
 
     assert result.response_received["alternate_attempt"]["session_create_error"] == "alternate-session-note"
+
+
+def test_tier_b_preflight_rejects_requirement_mismatch_without_transport():
+    """A wrong recipient must fail locally before a live facilitator call."""
+    header = harness._encode_x_payment_with_real_signature({
+        "authorization": {
+            "from": "0x1111111111111111111111111111111111111111",
+            "to": "0x2222222222222222222222222222222222222222",
+            "value": "10000", "validAfter": "1", "validBefore": "2", "nonce": "0x" + "00" * 32,
+        },
+        "signature": "0x" + "11" * 65,
+    })
+    report = CoinbaseFacilitator.preflight_verify_request(
+        parse_x_payment(header), PaymentRequirements(pay_to="0x3333333333333333333333333333333333333333"),
+    )
+
+    assert report["ok"] is False
+    assert "authorization recipient does not match payment requirements" in report["errors"]
+
+
+def test_tier_b_sign_uses_the_exact_relay_requirement_shape():
+    """The signed challenge must not drift from the relay's timeout/domain."""
+    class Client:
+        def process_payment(self, **kwargs):
+            self.kwargs = kwargs
+            return {"status": "DENIED"}
+
+    client = Client()
+    req = PaymentRequirements(
+        pay_to="0x1111111111111111111111111111111111111111",
+        max_amount_required="10000", resource="/acp-preflight", max_timeout_seconds=120,
+        extra={"name": "USDC", "version": "2"},
+    )
+    harness._tier_b_sign(
+        client, "pm", "session", "user", "agent", "instrument", "99999", "test",
+        max_timeout_seconds=5, payment_requirements=req,
+    )
+    payload = client.kwargs["paymentInput"]["cryptoX402"]["payload"]
+
+    assert payload["maxAmountRequired"] == req.max_amount_required
+    assert payload["resource"] == req.resource
+    assert payload["payTo"] == req.pay_to
+    assert payload["maxTimeoutSeconds"] == req.max_timeout_seconds
+    assert payload["extra"] == req.extra
+
+
+def test_acp017_expiry_probe_constructs_a_short_lived_requirement():
+    """Its expiry wait must exceed the timeout used for the signed challenge."""
+    source = inspect.getsource(harness.test_agentcore_settle_delegation_expiry_boundary)
+
+    assert "max_timeout_seconds=short_timeout_s" in source
+
+
+def test_tier_b_cap_uses_the_amount_that_was_actually_signed(monkeypatch):
+    """A stale wrapper argument cannot under-report a requirement-backed spend."""
+    req = PaymentRequirements(
+        pay_to="0x1111111111111111111111111111111111111111", max_amount_required="10000",
+    )
+    merchant = type("Merchant", (), {"req": req})()
+    observed = {}
+
+    monkeypatch.setattr(harness, "_tier_b_sign", lambda *_args, **_kwargs: {
+        "proof_extracted": True, "raw_proof": {"authorization": {}, "signature": "sig"},
+    })
+    monkeypatch.setattr(
+        harness, "_tier_b_submit_for_settlement",
+        lambda _merchant, _proof, _test_id, usd_amount: observed.update(usd_amount=usd_amount) or {},
+    )
+
+    harness._tier_b_sign_and_settle(
+        object(), "pm", "session", "user", "agent", "instrument", "1", merchant, "test", "ACP-test",
+    )
+
+    assert observed["usd_amount"] == 0.01
