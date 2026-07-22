@@ -158,6 +158,11 @@ def jsonrpc_notification(method: str, params: dict | None = None) -> dict:
 class MCPTransport:
     """Abstract base for MCP transports."""
 
+    # Only HTTP transports can faithfully apply an alternate request principal
+    # through header overrides. Tests that require that property must not claim
+    # to exercise it over stdio.
+    supports_header_overrides = False
+
     def send(self, message: dict) -> dict | None:
         raise NotImplementedError
 
@@ -202,6 +207,8 @@ class StreamableHTTPTransport(MCPTransport):
     ``2026-07-28`` revision. Modern requests carry their identity and
     capabilities in the JSON-RPC body and mirror routable fields into headers.
     """
+
+    supports_header_overrides = True
 
     def __init__(
         self,
@@ -548,6 +555,9 @@ class MCPSecurityTests:
 
             self.transport.send(jsonrpc_notification("notifications/initialized"))
             self.selected_protocol_version = LEGACY_PROTOCOL_VERSION
+            # Auto-mode discovery failure is expected when falling back to a
+            # legacy server. Do not leak it into a successful legacy report.
+            self._connection_error = None
             return True
 
         err_msg = f"Initialize failed: {resp}"
@@ -909,6 +919,15 @@ class MCPSecurityTests:
                 category="explicit_handle_isolation", owasp_asi="ASI02",
                 severity=Severity.HIGH.value, passed=True,
                 details="[simulate] Compiled cross-principal explicit-handle substitution vector",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "supports_header_overrides", False):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-006", name="Explicit Handle Cross-Principal Isolation",
+                category="explicit_handle_isolation", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: requires an HTTP transport that can present alternate-principal headers",
                 mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
             ))
             return
@@ -2686,6 +2705,13 @@ def build_differential_report(legacy: dict, modern: dict) -> dict:
     }
 
 
+def report_has_failure(report: dict) -> bool:
+    """Return whether a completed protocol report is unsafe to treat as passing."""
+    return bool(report.get("error")) or any(
+        not result.get("passed", False) for result in report.get("results", [])
+    )
+
+
 def generate_report(
     results: list[MCPTestResult],
     output_path: str,
@@ -2771,6 +2797,13 @@ def main():
             else:
                 print("ERROR: --command required for stdio transport", file=sys.stderr)
             sys.exit(1)
+
+    if args.transport == "stdio" and args.protocol_version:
+        ap.error(
+            "--protocol-version currently requires --transport http: the RC's "
+            "per-request routing-header and header-bound principal probes cannot "
+            "be faithfully exercised over stdio"
+        )
 
     categories = args.categories.split(",") if args.categories else None
     mrtr_probe = None
@@ -2864,7 +2897,7 @@ def main():
         if args.trials > 1:
             ap.error("--protocol-version differential does not support --trials; compare one run per protocol")
         if args.simulate:
-            ap.error("--protocol-version differential requires a reachable HTTP or stdio target")
+            ap.error("--protocol-version differential requires a reachable HTTP target")
 
         def _run_protocol(protocol_version: str) -> dict:
             transport = _make_transport(protocol_version)
@@ -2894,10 +2927,9 @@ def main():
                 print(f"Report written to {args.report}")
         if json_output:
             print(json.dumps(differential, indent=2, default=str))
-        failed = sum(
-            1 for report in (differential["legacy"], differential["modern"])
-            for result in report["results"] if not result["passed"]
-        )
+        failed = any(report_has_failure(report) for report in (
+            differential["legacy"], differential["modern"]
+        ))
         sys.exit(1 if failed else 0)
 
     if args.trials > 1:

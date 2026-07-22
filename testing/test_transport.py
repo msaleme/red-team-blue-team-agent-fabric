@@ -13,6 +13,7 @@ from protocol_tests.mcp_harness import (
     _json_path,
     _replace_handle,
     MCPTransport,
+    report_has_failure,
     StreamableHTTPTransport,
     _header_value,
     jsonrpc_notification,
@@ -134,6 +135,7 @@ class TestProtocolAutoSelection(unittest.TestCase):
         self.assertEqual(suite.selected_protocol_version, LEGACY_PROTOCOL_VERSION)
         self.assertEqual(transport.protocol_version, LEGACY_PROTOCOL_VERSION)
         self.assertEqual([message["method"] for message in transport.sent], ["server/discover", "initialize", "notifications/initialized"])
+        self.assertIsNone(getattr(suite, "_connection_error", None))
 
 
 class TestDifferentialReport(unittest.TestCase):
@@ -147,6 +149,10 @@ class TestDifferentialReport(unittest.TestCase):
         self.assertEqual(claims["MCP-002"]["status"], "changed")
         self.assertEqual(claims["MCP-RC-001"]["status"], "modern_only")
         self.assertEqual(report["summary"], {"equivalent": 1, "changed": 1, "legacy_only": 0, "modern_only": 1})
+
+    def test_error_only_report_is_a_failure(self):
+        self.assertTrue(report_has_failure({"results": [], "error": "connection refused"}))
+        self.assertFalse(report_has_failure({"results": [{"passed": True}]}))
 
 
 class _MRTRTransport(MCPTransport):
@@ -257,6 +263,8 @@ class TestMRTRRequestState(unittest.TestCase):
 class TestExplicitHandleIsolation(unittest.TestCase):
     def test_replaces_handle_and_rejects_cross_principal_access(self):
         class HandleTransport(MCPTransport):
+            supports_header_overrides = True
+
             def __init__(self):
                 self.calls = []
 
