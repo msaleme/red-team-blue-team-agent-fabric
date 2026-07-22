@@ -198,6 +198,34 @@ class TestMRTRRequestState(unittest.TestCase):
         suite.test_mcp_request_state_replay()
         self.assertTrue(suite.results[0].passed)
 
+    def test_cross_principal_request_state_is_rejected(self):
+        class PrincipalTransport(MCPTransport):
+            is_modern = True
+
+            def __init__(self):
+                self.headers = None
+                self.calls = 0
+
+            def send(self, message, **kwargs):
+                self.calls += 1
+                if self.calls == 1:
+                    self.headers = kwargs.get("header_overrides")
+                    return {"result": {"resultType": "input_required", "requestState": "principal-bound-state"}}
+                self.headers = kwargs.get("header_overrides")
+                return {"error": {"code": -32000, "message": "principal mismatch"}}
+
+        transport = PrincipalTransport()
+        suite = MCPSecurityTests(
+            transport,
+            json_output=True,
+            mrtr_probe={"method": "tools/call", "params": {"name": "approval_probe", "arguments": {}}},
+            mrtr_input_responses={"approve": {"action": "accept"}},
+            mrtr_attacker_headers={"Authorization": "Bearer attacker"},
+        )
+        suite.test_mcp_request_state_principal_binding()
+        self.assertTrue(suite.results[0].passed)
+        self.assertEqual(transport.headers, {"Authorization": "Bearer attacker"})
+
 
 if __name__ == "__main__":
     unittest.main()

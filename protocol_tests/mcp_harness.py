@@ -419,6 +419,7 @@ class MCPSecurityTests:
         simulate: bool = False,
         mrtr_probe: dict | None = None,
         mrtr_input_responses: dict | None = None,
+        mrtr_attacker_headers: dict | None = None,
     ):
         self.transport = transport
         self.results: list[MCPTestResult] = []
@@ -428,6 +429,7 @@ class MCPSecurityTests:
         self.simulate = simulate
         self.mrtr_probe = mrtr_probe
         self.mrtr_input_responses = mrtr_input_responses
+        self.mrtr_attacker_headers = mrtr_attacker_headers
         self.selected_protocol_version: str | None = None
 
     def _record(self, result: MCPTestResult):
@@ -756,6 +758,62 @@ class MCPSecurityTests:
             mcp_method=initial["method"],
             request_sent={"initial": initial, "retry_params": retry_params},
             response_received=replay, elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_mcp_request_state_principal_binding(self):
+        """MCP-RC-004: requestState from one principal must fail for another."""
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-004", name="MRTR requestState Principal Binding",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="[simulate] Compiled cross-principal requestState reuse vector",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if (not getattr(self.transport, "is_modern", False) or not self.mrtr_probe
+                or self.mrtr_input_responses is None or not self.mrtr_attacker_headers):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-004", name="MRTR requestState Principal Binding",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details=("Not applicable: requires modern mode, authorized probe/input responses, "
+                         "and --mrtr-attacker-header"),
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        initial = jsonrpc_request(self.mrtr_probe["method"], dict(self.mrtr_probe.get("params") or {}))
+        initial_response = self.transport.send(initial)
+        result = initial_response.get("result", {}) if initial_response else {}
+        state = result.get("requestState")
+        if result.get("resultType") != "input_required" or not isinstance(state, str) or not state:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-004", name="MRTR requestState Principal Binding",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: probe did not return an InputRequiredResult with requestState",
+                mcp_method=initial["method"], request_sent=initial,
+                response_received=initial_response, elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        retry_params = dict(self.mrtr_probe.get("params") or {})
+        retry_params.update({"requestState": state, "inputResponses": self.mrtr_input_responses})
+        retry = jsonrpc_request(self.mrtr_probe["method"], retry_params)
+        response = self.transport.send(retry, header_overrides=self.mrtr_attacker_headers)
+        rejected = bool(response and (response.get("_error") or response.get("_status", 200) >= 400 or "error" in response))
+        self._record(MCPTestResult(
+            test_id="MCP-RC-004", name="MRTR requestState Principal Binding",
+            category="mrtr_request_state", owasp_asi="ASI02",
+            severity=Severity.HIGH.value, passed=rejected,
+            details=("Server rejected requestState presented by a different principal" if rejected
+                     else "Server accepted requestState presented under attacker identity"),
+            mcp_method=initial["method"],
+            request_sent={"initial": initial, "cross_principal_retry": retry,
+                          "attacker_headers": sorted(self.mrtr_attacker_headers)},
+            response_received=response, elapsed_s=round(time.monotonic() - t0, 3),
         ))
 
     def test_mcp_tool_description_injection(self):
@@ -2294,6 +2352,7 @@ class MCPSecurityTests:
             "mrtr_request_state": [
                 self.test_mcp_request_state_integrity,
                 self.test_mcp_request_state_replay,
+                self.test_mcp_request_state_principal_binding,
             ],
             "capability_negotiation": [
                 self.test_mcp_capability_escalation,
@@ -2498,6 +2557,11 @@ def main():
               "Enables exact-state replay testing after the continuation completes."),
     )
     ap.add_argument(
+        "--mrtr-attacker-header", action="append", default=[],
+        help=("Header override for an authorized cross-principal MRTR test, key:value. "
+              "Repeat for multiple headers."),
+    )
+    ap.add_argument(
         "--protocol-version",
         choices=[MODERN_PROTOCOL_VERSION, AUTO_PROTOCOL_VERSION, DIFFERENTIAL_PROTOCOL_VERSION],
         help=("Use the stateless 2026-07-28 protocol flow, or 'auto' to probe "
@@ -2535,6 +2599,7 @@ def main():
     categories = args.categories.split(",") if args.categories else None
     mrtr_probe = None
     mrtr_input_responses = None
+    mrtr_attacker_headers = {}
     if args.mrtr_probe:
         try:
             mrtr_probe = json.loads(args.mrtr_probe)
@@ -2553,6 +2618,15 @@ def main():
             ap.error("--mrtr-input-responses must be a JSON object")
     if mrtr_input_responses is not None and mrtr_probe is None:
         ap.error("--mrtr-input-responses requires --mrtr-probe")
+    for header in args.mrtr_attacker_header:
+        if ":" not in header:
+            ap.error("--mrtr-attacker-header must use key:value form")
+        key, value = header.split(":", 1)
+        if not key.strip():
+            ap.error("--mrtr-attacker-header must include a header name")
+        mrtr_attacker_headers[key.strip()] = value.strip()
+    if mrtr_attacker_headers and (mrtr_probe is None or mrtr_input_responses is None):
+        ap.error("--mrtr-attacker-header requires --mrtr-probe and --mrtr-input-responses")
 
     def _make_transport(protocol_version: str | None = None):
         """Create a fresh transport instance to avoid state bleed between trials."""
@@ -2580,7 +2654,8 @@ def main():
         def _run_protocol(protocol_version: str) -> dict:
             transport = _make_transport(protocol_version)
             suite = MCPSecurityTests(transport, json_output=json_output, mrtr_probe=mrtr_probe,
-                                     mrtr_input_responses=mrtr_input_responses)
+                                     mrtr_input_responses=mrtr_input_responses,
+                                     mrtr_attacker_headers=mrtr_attacker_headers)
             try:
                 results = suite.run_all(categories=categories)
                 return build_report(
@@ -2617,7 +2692,8 @@ def main():
         def _single_run():
             transport = _make_transport()
             suite = MCPSecurityTests(transport, json_output=json_output, simulate=args.simulate, mrtr_probe=mrtr_probe,
-                                     mrtr_input_responses=mrtr_input_responses)
+                                     mrtr_input_responses=mrtr_input_responses,
+                                     mrtr_attacker_headers=mrtr_attacker_headers)
             try:
                 return {"results": suite.run_all(categories=categories)}
             finally:
@@ -2638,7 +2714,8 @@ def main():
         # Single run mode - create transport only here
         transport = _make_transport()
         suite = MCPSecurityTests(transport, json_output=json_output, simulate=args.simulate, mrtr_probe=mrtr_probe,
-                                 mrtr_input_responses=mrtr_input_responses)
+                                 mrtr_input_responses=mrtr_input_responses,
+                                 mrtr_attacker_headers=mrtr_attacker_headers)
         conn_error = None
         try:
             results = suite.run_all(categories=categories)
