@@ -47,7 +47,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-mcp-server = ["mcp>=1.0.0"]
+mcp-server = ["mcp>=1.28.1,<2"]
 
 [project.urls]
 Homepage = "https://github.com/msaleme/red-team-blue-team-agent-fabric"
@@ -63,4 +63,4 @@ agent-security = "protocol_tests.cli:main"
 ash = "protocol_tests.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["protocol_tests*", "scripts*"]
+include = ["protocol_tests*", "scripts*", "mcp_server*"]
