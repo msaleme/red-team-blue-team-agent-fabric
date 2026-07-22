@@ -412,13 +412,20 @@ class MCPTestResult:
 class MCPSecurityTests:
     """Protocol-level security tests for MCP servers."""
 
-    def __init__(self, transport: MCPTransport, json_output: bool = False, simulate: bool = False):
+    def __init__(
+        self,
+        transport: MCPTransport,
+        json_output: bool = False,
+        simulate: bool = False,
+        mrtr_probe: dict | None = None,
+    ):
         self.transport = transport
         self.results: list[MCPTestResult] = []
         self.server_info: dict = {}
         self.server_capabilities: dict = {}
         self.json_output = json_output or os.environ.get("AGENT_SECURITY_JSON_OUTPUT") == "1"
         self.simulate = simulate
+        self.mrtr_probe = mrtr_probe
         self.selected_protocol_version: str | None = None
 
     def _record(self, result: MCPTestResult):
@@ -622,6 +629,66 @@ class MCPSecurityTests:
                      else "Server accepted conflicting header and JSON-RPC routing fields"),
             mcp_method="tools/list", request_sent={"body": msg, "headers": forged},
             response_received=resp, elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_mcp_request_state_integrity(self):
+        """MCP-RC-002: A tampered MRTR requestState must be rejected.
+
+        The probe is opt-in because only an authorized test endpoint can safely
+        expose a workflow that returns ``resultType: input_required``. A server
+        that does not expose MRTR on the supplied probe is reported as not
+        applicable rather than treated as secure.
+        """
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-002", name="MRTR requestState Integrity",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="[simulate] Compiled tampered requestState retry vector",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "is_modern", False) or not self.mrtr_probe:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-002", name="MRTR requestState Integrity",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: requires modern mode and an authorized --mrtr-probe request",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        initial = jsonrpc_request(self.mrtr_probe["method"], dict(self.mrtr_probe.get("params") or {}))
+        initial_response = self.transport.send(initial)
+        result = initial_response.get("result", {}) if initial_response else {}
+        state = result.get("requestState")
+        if result.get("resultType") != "input_required" or not isinstance(state, str) or not state:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-002", name="MRTR requestState Integrity",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: probe did not return an InputRequiredResult with requestState",
+                mcp_method=initial["method"], request_sent=initial,
+                response_received=initial_response, elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        tampered = state[:-1] + ("A" if state[-1] != "A" else "B")
+        retry_params = dict(self.mrtr_probe.get("params") or {})
+        retry_params["requestState"] = tampered
+        retry_params["inputResponses"] = {}
+        retry = jsonrpc_request(self.mrtr_probe["method"], retry_params)
+        response = self.transport.send(retry)
+        rejected = bool(response and (response.get("_error") or response.get("_status", 200) >= 400 or "error" in response))
+        self._record(MCPTestResult(
+            test_id="MCP-RC-002", name="MRTR requestState Integrity",
+            category="mrtr_request_state", owasp_asi="ASI02",
+            severity=Severity.HIGH.value, passed=rejected,
+            details=("Server rejected a tampered requestState" if rejected
+                     else "Server accepted a tampered requestState on an MRTR retry"),
+            mcp_method=initial["method"], request_sent={"initial": initial, "retry": retry},
+            response_received=response, elapsed_s=round(time.monotonic() - t0, 3),
         ))
 
     def test_mcp_tool_description_injection(self):
@@ -2157,6 +2224,9 @@ class MCPSecurityTests:
             "stateless_header_binding": [
                 self.test_mcp_stateless_header_body_binding,
             ],
+            "mrtr_request_state": [
+                self.test_mcp_request_state_integrity,
+            ],
             "capability_negotiation": [
                 self.test_mcp_capability_escalation,
                 self.test_mcp_protocol_version_downgrade,
@@ -2349,6 +2419,12 @@ def main():
                     help="Output results as JSON to stdout (no human-readable text)")
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")
     ap.add_argument(
+        "--mrtr-probe",
+        help=("Authorized test request as JSON, for example "
+              "'{\"method\":\"tools/call\",\"params\":{\"name\":\"approval_probe\",\"arguments\":{}}}'. "
+              "Enables MRTR requestState integrity tests only."),
+    )
+    ap.add_argument(
         "--protocol-version",
         choices=[MODERN_PROTOCOL_VERSION, AUTO_PROTOCOL_VERSION, DIFFERENTIAL_PROTOCOL_VERSION],
         help=("Use the stateless 2026-07-28 protocol flow, or 'auto' to probe "
@@ -2384,6 +2460,16 @@ def main():
             sys.exit(1)
 
     categories = args.categories.split(",") if args.categories else None
+    mrtr_probe = None
+    if args.mrtr_probe:
+        try:
+            mrtr_probe = json.loads(args.mrtr_probe)
+        except json.JSONDecodeError as exc:
+            ap.error(f"--mrtr-probe must be a JSON object: {exc.msg}")
+        if not isinstance(mrtr_probe, dict) or not isinstance(mrtr_probe.get("method"), str):
+            ap.error("--mrtr-probe must be a JSON object with a string 'method'")
+        if "params" in mrtr_probe and not isinstance(mrtr_probe["params"], dict):
+            ap.error("--mrtr-probe 'params' must be a JSON object")
 
     def _make_transport(protocol_version: str | None = None):
         """Create a fresh transport instance to avoid state bleed between trials."""
@@ -2410,7 +2496,7 @@ def main():
 
         def _run_protocol(protocol_version: str) -> dict:
             transport = _make_transport(protocol_version)
-            suite = MCPSecurityTests(transport, json_output=json_output)
+            suite = MCPSecurityTests(transport, json_output=json_output, mrtr_probe=mrtr_probe)
             try:
                 results = suite.run_all(categories=categories)
                 return build_report(
@@ -2446,7 +2532,7 @@ def main():
 
         def _single_run():
             transport = _make_transport()
-            suite = MCPSecurityTests(transport, json_output=json_output, simulate=args.simulate)
+            suite = MCPSecurityTests(transport, json_output=json_output, simulate=args.simulate, mrtr_probe=mrtr_probe)
             try:
                 return {"results": suite.run_all(categories=categories)}
             finally:
@@ -2466,7 +2552,7 @@ def main():
     else:
         # Single run mode - create transport only here
         transport = _make_transport()
-        suite = MCPSecurityTests(transport, json_output=json_output, simulate=args.simulate)
+        suite = MCPSecurityTests(transport, json_output=json_output, simulate=args.simulate, mrtr_probe=mrtr_probe)
         conn_error = None
         try:
             results = suite.run_all(categories=categories)

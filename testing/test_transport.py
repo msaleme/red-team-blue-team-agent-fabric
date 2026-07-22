@@ -147,5 +147,33 @@ class TestDifferentialReport(unittest.TestCase):
         self.assertEqual(report["summary"], {"equivalent": 1, "changed": 1, "legacy_only": 0, "modern_only": 1})
 
 
+class _MRTRTransport(MCPTransport):
+    is_modern = True
+
+    def __init__(self):
+        self.requests = []
+
+    def send(self, message, **kwargs):
+        self.requests.append(message)
+        if len(self.requests) == 1:
+            return {"result": {"resultType": "input_required", "requestState": "signed-state-A"}}
+        return {"error": {"code": -32020, "message": "HeaderMismatchError"}}
+
+
+class TestMRTRRequestState(unittest.TestCase):
+    def test_tampered_request_state_is_rejected(self):
+        transport = _MRTRTransport()
+        suite = MCPSecurityTests(
+            transport,
+            json_output=True,
+            mrtr_probe={"method": "tools/call", "params": {"name": "approval_probe", "arguments": {}}},
+        )
+        suite.test_mcp_request_state_integrity()
+        self.assertTrue(suite.results[0].passed)
+        retry = transport.requests[1]
+        self.assertNotEqual(retry["params"]["requestState"], "signed-state-A")
+        self.assertEqual(retry["params"]["inputResponses"], {})
+
+
 if __name__ == "__main__":
     unittest.main()
