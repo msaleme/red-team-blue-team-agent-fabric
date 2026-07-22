@@ -226,6 +226,31 @@ class TestMRTRRequestState(unittest.TestCase):
         self.assertTrue(suite.results[0].passed)
         self.assertEqual(transport.headers, {"Authorization": "Bearer attacker"})
 
+    def test_cross_request_request_state_is_rejected(self):
+        class BindingTransport(MCPTransport):
+            is_modern = True
+
+            def __init__(self):
+                self.calls = []
+
+            def send(self, message, **kwargs):
+                self.calls.append(message)
+                if len(self.calls) == 1:
+                    return {"result": {"resultType": "input_required", "requestState": "request-bound-state"}}
+                return {"error": {"code": -32000, "message": "request binding mismatch"}}
+
+        transport = BindingTransport()
+        suite = MCPSecurityTests(
+            transport,
+            json_output=True,
+            mrtr_probe={"method": "tools/call", "params": {"name": "approve_transfer", "arguments": {"amount": 10}}},
+            mrtr_input_responses={"approve": {"action": "accept"}},
+            mrtr_altered_probe={"method": "tools/call", "params": {"name": "approve_transfer", "arguments": {"amount": 1000}}},
+        )
+        suite.test_mcp_request_state_request_binding()
+        self.assertTrue(suite.results[0].passed)
+        self.assertEqual(transport.calls[1]["params"]["arguments"]["amount"], 1000)
+
 
 if __name__ == "__main__":
     unittest.main()
