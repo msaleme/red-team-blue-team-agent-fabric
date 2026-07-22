@@ -299,6 +299,48 @@ class TestCacheScopeMetadata(unittest.TestCase):
         suite.test_mcp_cache_scope_metadata()
         self.assertTrue(suite.results[0].passed)
 
+    def test_authorized_revocation_removes_stale_capability(self):
+        class CacheRevocationTransport(MCPTransport):
+            is_modern = True
+
+            def __init__(self):
+                self.calls = []
+
+            def send(self, message, **kwargs):
+                self.calls.append(message)
+                if message["method"] == "admin/revoke-capability":
+                    return {"result": {"revoked": "deploy"}}
+                return {"result": {"tools": [{"name": "read_status"}]}}
+
+        transport = CacheRevocationTransport()
+        suite = MCPSecurityTests(
+            transport, json_output=True,
+            cache_invalidation={"method": "admin/revoke-capability", "params": {"name": "deploy"}},
+            cache_verify={"method": "tools/list", "params": {}},
+            cache_forbidden_tool="deploy",
+        )
+        suite.test_mcp_cache_revocation()
+        self.assertTrue(suite.results[0].passed)
+        self.assertEqual([call["method"] for call in transport.calls], ["admin/revoke-capability", "tools/list"])
+
+    def test_stale_capability_after_revocation_fails(self):
+        class StaleCacheTransport(MCPTransport):
+            is_modern = True
+
+            def send(self, message, **kwargs):
+                if message["method"] == "admin/revoke-capability":
+                    return {"result": {"revoked": "deploy"}}
+                return {"result": {"tools": [{"name": "deploy"}]}}
+
+        suite = MCPSecurityTests(
+            StaleCacheTransport(), json_output=True,
+            cache_invalidation={"method": "admin/revoke-capability", "params": {"name": "deploy"}},
+            cache_verify={"method": "tools/list", "params": {}},
+            cache_forbidden_tool="deploy",
+        )
+        suite.test_mcp_cache_revocation()
+        self.assertFalse(suite.results[0].passed)
+
 
 if __name__ == "__main__":
     unittest.main()

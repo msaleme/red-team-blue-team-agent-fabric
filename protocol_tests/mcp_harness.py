@@ -452,6 +452,9 @@ class MCPSecurityTests:
         handle_create: dict | None = None,
         handle_access: dict | None = None,
         handle_attacker_headers: dict | None = None,
+        cache_invalidation: dict | None = None,
+        cache_verify: dict | None = None,
+        cache_forbidden_tool: str | None = None,
     ):
         self.transport = transport
         self.results: list[MCPTestResult] = []
@@ -466,6 +469,9 @@ class MCPSecurityTests:
         self.handle_create = handle_create
         self.handle_access = handle_access
         self.handle_attacker_headers = handle_attacker_headers
+        self.cache_invalidation = cache_invalidation
+        self.cache_verify = cache_verify
+        self.cache_forbidden_tool = cache_forbidden_tool
         self.selected_protocol_version: str | None = None
 
     def _record(self, result: MCPTestResult):
@@ -997,6 +1003,69 @@ class MCPSecurityTests:
             details=(f"tools/list declares cacheScope={scope!r}, ttlMs={ttl!r}" if passed
                      else "tools/list omitted valid cacheScope and/or non-negative ttlMs"),
             mcp_method="tools/list", request_sent=msg, response_received=response,
+            elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_mcp_cache_revocation(self):
+        """MCP-RC-008: an authorized capability revocation must invalidate cached tools.
+
+        This probe never invokes a discovered tool.  It requires an explicitly
+        authorized invalidation request and then performs a read-only tools/list
+        verification, reporting not-applicable when no fixture is supplied.
+        """
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-008", name="Cached Capability Revocation",
+                category="cache_security", owasp_asi="ASI04", severity=Severity.HIGH.value,
+                passed=True, details="[simulate] Compiled cache-invalidation and stale-capability vector",
+                mcp_method="tools/list", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if (not getattr(self.transport, "is_modern", False) or not self.cache_invalidation
+                or not self.cache_verify or not self.cache_forbidden_tool):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-008", name="Cached Capability Revocation",
+                category="cache_security", owasp_asi="ASI04", severity=Severity.HIGH.value,
+                passed=True,
+                details=("Not applicable: requires modern mode plus authorized cache invalidation, "
+                         "verification, and forbidden-tool fixtures"),
+                mcp_method="tools/list", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        invalidate = jsonrpc_request(
+            self.cache_invalidation["method"], dict(self.cache_invalidation.get("params") or {})
+        )
+        invalidation_response = self.transport.send(invalidate)
+        invalidation_failed = not invalidation_response or bool(
+            invalidation_response.get("_error")
+            or invalidation_response.get("_status", 200) >= 400
+            or "error" in invalidation_response
+        )
+        verify = jsonrpc_request(self.cache_verify["method"], dict(self.cache_verify.get("params") or {}))
+        verification_response = self.transport.send(verify)
+        result = verification_response.get("result", {}) if verification_response else {}
+        tools = result.get("tools")
+        if not isinstance(tools, list):
+            passed = False
+            details = "Verification did not return a tools list after authorized invalidation"
+        else:
+            names = {tool.get("name") for tool in tools if isinstance(tool, dict)}
+            passed = not invalidation_failed and self.cache_forbidden_tool not in names
+            details = (
+                "Revoked capability was absent from the post-invalidation tools list"
+                if passed else "Revoked capability remained discoverable after invalidation"
+            )
+            if invalidation_failed:
+                details = "Authorized cache invalidation request was rejected or failed"
+        self._record(MCPTestResult(
+            test_id="MCP-RC-008", name="Cached Capability Revocation",
+            category="cache_security", owasp_asi="ASI04", severity=Severity.HIGH.value,
+            passed=passed, details=details, mcp_method=verify["method"],
+            request_sent={"invalidate": invalidate, "verify": verify,
+                          "forbidden_tool": self.cache_forbidden_tool},
+            response_received={"invalidation": invalidation_response, "verification": verification_response},
             elapsed_s=round(time.monotonic() - t0, 3),
         ))
 
@@ -2540,7 +2609,7 @@ class MCPSecurityTests:
                 self.test_mcp_request_state_request_binding,
             ],
             "explicit_handle_isolation": [self.test_mcp_explicit_handle_isolation],
-            "cache_security": [self.test_mcp_cache_scope_metadata],
+            "cache_security": [self.test_mcp_cache_scope_metadata, self.test_mcp_cache_revocation],
             "capability_negotiation": [
                 self.test_mcp_capability_escalation,
                 self.test_mcp_protocol_version_downgrade,
@@ -2763,6 +2832,9 @@ def main():
     ap.add_argument("--handle-create", help="Authorized handle-creation request as JSON (method, params, optional handlePath).")
     ap.add_argument("--handle-access", help="Authorized handle-access request as JSON; use $HANDLE in params as the created-handle placeholder.")
     ap.add_argument("--handle-attacker-header", action="append", default=[], help="Attacker identity header for explicit-handle isolation, key:value.")
+    ap.add_argument("--cache-invalidation", help="Authorized JSON-RPC request that revokes a capability and invalidates its cache entry.")
+    ap.add_argument("--cache-verify", help="Read-only JSON-RPC request that returns the post-invalidation tools list.")
+    ap.add_argument("--cache-forbidden-tool", help="Tool name that must be absent after --cache-invalidation.")
     ap.add_argument(
         "--protocol-version",
         choices=[MODERN_PROTOCOL_VERSION, AUTO_PROTOCOL_VERSION, DIFFERENTIAL_PROTOCOL_VERSION],
@@ -2812,6 +2884,7 @@ def main():
     mrtr_altered_probe = None
     handle_create = handle_access = None
     handle_attacker_headers = {}
+    cache_invalidation = cache_verify = None
     if args.mrtr_probe:
         try:
             mrtr_probe = json.loads(args.mrtr_probe)
@@ -2866,6 +2939,24 @@ def main():
         handle_attacker_headers[key.strip()] = value.strip()
     if any((handle_create, handle_access, handle_attacker_headers)) and not all((handle_create, handle_access, handle_attacker_headers)):
         ap.error("--handle-create, --handle-access, and --handle-attacker-header must be supplied together")
+    for option, raw in (("--cache-invalidation", args.cache_invalidation), ("--cache-verify", args.cache_verify)):
+        if raw:
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                ap.error(f"{option} must be a JSON object: {exc.msg}")
+            if not isinstance(parsed, dict) or not isinstance(parsed.get("method"), str):
+                ap.error(f"{option} must be a JSON object with a string 'method'")
+            if "params" in parsed and not isinstance(parsed["params"], dict):
+                ap.error(f"{option} 'params' must be a JSON object")
+            if option == "--cache-invalidation":
+                cache_invalidation = parsed
+            else:
+                cache_verify = parsed
+    if any((cache_invalidation, cache_verify, args.cache_forbidden_tool)) and not all(
+        (cache_invalidation, cache_verify, args.cache_forbidden_tool)
+    ):
+        ap.error("--cache-invalidation, --cache-verify, and --cache-forbidden-tool must be supplied together")
     for header in args.mrtr_attacker_header:
         if ":" not in header:
             ap.error("--mrtr-attacker-header must use key:value form")
@@ -2905,7 +2996,9 @@ def main():
                                      mrtr_input_responses=mrtr_input_responses,
                                      mrtr_attacker_headers=mrtr_attacker_headers,
                                      mrtr_altered_probe=mrtr_altered_probe, handle_create=handle_create,
-                                     handle_access=handle_access, handle_attacker_headers=handle_attacker_headers)
+                                     handle_access=handle_access, handle_attacker_headers=handle_attacker_headers,
+                                     cache_invalidation=cache_invalidation, cache_verify=cache_verify,
+                                     cache_forbidden_tool=args.cache_forbidden_tool)
             try:
                 results = suite.run_all(categories=categories)
                 return build_report(
@@ -2944,7 +3037,9 @@ def main():
                                      mrtr_input_responses=mrtr_input_responses,
                                      mrtr_attacker_headers=mrtr_attacker_headers,
                                      mrtr_altered_probe=mrtr_altered_probe, handle_create=handle_create,
-                                     handle_access=handle_access, handle_attacker_headers=handle_attacker_headers)
+                                     handle_access=handle_access, handle_attacker_headers=handle_attacker_headers,
+                                     cache_invalidation=cache_invalidation, cache_verify=cache_verify,
+                                     cache_forbidden_tool=args.cache_forbidden_tool)
             try:
                 return {"results": suite.run_all(categories=categories)}
             finally:
@@ -2968,7 +3063,9 @@ def main():
                                  mrtr_input_responses=mrtr_input_responses,
                                  mrtr_attacker_headers=mrtr_attacker_headers,
                                  mrtr_altered_probe=mrtr_altered_probe, handle_create=handle_create,
-                                 handle_access=handle_access, handle_attacker_headers=handle_attacker_headers)
+                                 handle_access=handle_access, handle_attacker_headers=handle_attacker_headers,
+                                 cache_invalidation=cache_invalidation, cache_verify=cache_verify,
+                                 cache_forbidden_tool=args.cache_forbidden_tool)
         conn_error = None
         try:
             results = suite.run_all(categories=categories)
