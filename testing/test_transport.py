@@ -5,6 +5,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from protocol_tests.mcp_harness import (
     AUTO_PROTOCOL_VERSION,
+    build_differential_report,
     LEGACY_PROTOCOL_VERSION,
     MODERN_PROTOCOL_VERSION,
     MCPSecurityTests,
@@ -113,6 +114,19 @@ class TestProtocolAutoSelection(unittest.TestCase):
         self.assertEqual(suite.selected_protocol_version, LEGACY_PROTOCOL_VERSION)
         self.assertEqual(transport.protocol_version, LEGACY_PROTOCOL_VERSION)
         self.assertEqual([message["method"] for message in transport.sent], ["server/discover", "initialize", "notifications/initialized"])
+
+
+class TestDifferentialReport(unittest.TestCase):
+    def test_marks_claim_changes_and_missing_coverage(self):
+        report = build_differential_report(
+            {"results": [{"test_id": "MCP-001", "passed": True}, {"test_id": "MCP-002", "passed": False}]},
+            {"results": [{"test_id": "MCP-001", "passed": True}, {"test_id": "MCP-002", "passed": True}, {"test_id": "MCP-RC-001", "passed": True}]},
+        )
+        claims = {claim["test_id"]: claim for claim in report["claims"]}
+        self.assertEqual(claims["MCP-001"]["status"], "equivalent")
+        self.assertEqual(claims["MCP-002"]["status"], "changed")
+        self.assertEqual(claims["MCP-RC-001"]["status"], "modern_only")
+        self.assertEqual(report["summary"], {"equivalent": 1, "changed": 1, "legacy_only": 0, "modern_only": 1})
 
 
 if __name__ == "__main__":

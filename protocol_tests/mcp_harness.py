@@ -65,6 +65,7 @@ from protocol_tests._utils import (
 LEGACY_PROTOCOL_VERSION = "2025-03-26"
 MODERN_PROTOCOL_VERSION = "2026-07-28"
 AUTO_PROTOCOL_VERSION = "auto"
+DIFFERENTIAL_PROTOCOL_VERSION = "differential"
 HARNESS_CLIENT_INFO = {"name": "agent-security-harness", "version": "4.9.1"}
 
 
@@ -2231,6 +2232,47 @@ def build_report(
     return report
 
 
+def build_differential_report(legacy: dict, modern: dict) -> dict:
+    """Compare equivalent security claims across legacy and stateless runs.
+
+    A differing verdict is evidence that a protocol migration changed observable
+    enforcement. It is not, by itself, a finding: callers must inspect the
+    version-tagged request/response evidence before assigning a security claim.
+    """
+    legacy_by_id = {result["test_id"]: result for result in legacy.get("results", [])}
+    modern_by_id = {result["test_id"]: result for result in modern.get("results", [])}
+    claims = []
+    for test_id in sorted(legacy_by_id.keys() | modern_by_id.keys()):
+        before = legacy_by_id.get(test_id)
+        after = modern_by_id.get(test_id)
+        if before is None:
+            status = "modern_only"
+        elif after is None:
+            status = "legacy_only"
+        elif before.get("passed") == after.get("passed"):
+            status = "equivalent"
+        else:
+            status = "changed"
+        claims.append({
+            "test_id": test_id,
+            "legacy_passed": before.get("passed") if before else None,
+            "modern_passed": after.get("passed") if after else None,
+            "status": status,
+        })
+    return {
+        "suite": "MCP Protocol Security Differential",
+        "legacy": legacy,
+        "modern": modern,
+        "summary": {
+            "equivalent": sum(c["status"] == "equivalent" for c in claims),
+            "changed": sum(c["status"] == "changed" for c in claims),
+            "legacy_only": sum(c["status"] == "legacy_only" for c in claims),
+            "modern_only": sum(c["status"] == "modern_only" for c in claims),
+        },
+        "claims": claims,
+    }
+
+
 def generate_report(
     results: list[MCPTestResult],
     output_path: str,
@@ -2260,9 +2302,10 @@ def main():
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")
     ap.add_argument(
         "--protocol-version",
-        choices=[MODERN_PROTOCOL_VERSION, AUTO_PROTOCOL_VERSION],
+        choices=[MODERN_PROTOCOL_VERSION, AUTO_PROTOCOL_VERSION, DIFFERENTIAL_PROTOCOL_VERSION],
         help=("Use the stateless 2026-07-28 protocol flow, or 'auto' to probe "
-              "server/discover with modern metadata before falling back to legacy initialization."),
+              "server/discover with modern metadata before falling back to legacy initialization. "
+              "Use 'differential' to run and compare explicit legacy and stateless claims."),
     )
     ap.add_argument("--trials", type=int, default=1, help="Run each test N times for statistical analysis (NIST AI 800-2)")
     ap.add_argument("--simulate", action="store_true", help="Run in simulate mode (no live endpoint needed)")
@@ -2294,7 +2337,7 @@ def main():
 
     categories = args.categories.split(",") if args.categories else None
 
-    def _make_transport():
+    def _make_transport(protocol_version: str | None = None):
         """Create a fresh transport instance to avoid state bleed between trials."""
         if args.simulate:
             return None
@@ -2306,10 +2349,46 @@ def main():
             return StreamableHTTPTransport(
                 args.url,
                 headers=hdrs,
-                protocol_version=args.protocol_version,
+                protocol_version=protocol_version if protocol_version is not None else args.protocol_version,
             )
         else:
             return StdioTransport(args.command.split())
+
+    if args.protocol_version == DIFFERENTIAL_PROTOCOL_VERSION:
+        if args.trials > 1:
+            ap.error("--protocol-version differential does not support --trials; compare one run per protocol")
+        if args.simulate:
+            ap.error("--protocol-version differential requires a reachable HTTP or stdio target")
+
+        def _run_protocol(protocol_version: str) -> dict:
+            transport = _make_transport(protocol_version)
+            suite = MCPSecurityTests(transport, json_output=json_output)
+            try:
+                results = suite.run_all(categories=categories)
+                return build_report(
+                    results,
+                    error=getattr(suite, "_connection_error", None),
+                    protocol_version=suite.selected_protocol_version or protocol_version,
+                )
+            finally:
+                transport.close()
+
+        differential = build_differential_report(
+            _run_protocol(LEGACY_PROTOCOL_VERSION),
+            _run_protocol(MODERN_PROTOCOL_VERSION),
+        )
+        if args.report:
+            with open(args.report, "w") as f:
+                json.dump(differential, f, indent=2, default=str)
+            if not json_output:
+                print(f"Report written to {args.report}")
+        if json_output:
+            print(json.dumps(differential, indent=2, default=str))
+        failed = sum(
+            1 for report in (differential["legacy"], differential["modern"])
+            for result in report["results"] if not result["passed"]
+        )
+        sys.exit(1 if failed else 0)
 
     if args.trials > 1:
         # Multi-trial statistical mode via shared trial runner
