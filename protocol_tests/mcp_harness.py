@@ -455,6 +455,7 @@ class MCPSecurityTests:
         cache_invalidation: dict | None = None,
         cache_verify: dict | None = None,
         cache_forbidden_tool: str | None = None,
+        cache_resource_uri: str | None = None,
     ):
         self.transport = transport
         self.results: list[MCPTestResult] = []
@@ -472,6 +473,7 @@ class MCPSecurityTests:
         self.cache_invalidation = cache_invalidation
         self.cache_verify = cache_verify
         self.cache_forbidden_tool = cache_forbidden_tool
+        self.cache_resource_uri = cache_resource_uri
         self.selected_protocol_version: str | None = None
 
     def _record(self, result: MCPTestResult):
@@ -1066,6 +1068,46 @@ class MCPSecurityTests:
             request_sent={"invalidate": invalidate, "verify": verify,
                           "forbidden_tool": self.cache_forbidden_tool},
             response_received={"invalidation": invalidation_response, "verification": verification_response},
+            elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_mcp_resource_cache_metadata(self):
+        """MCP-RC-009: modern resource reads must declare cache scope and TTL.
+
+        A resource URI is explicitly supplied by the operator. The probe only
+        reads it, so it can verify freshness and sharing policy without causing
+        target-side state changes.
+        """
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-009", name="Resource Cache Metadata",
+                category="cache_security", owasp_asi="ASI04", severity=Severity.MEDIUM.value,
+                passed=True, details="[simulate] Compiled modern resources/read cache metadata check",
+                mcp_method="resources/read", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "is_modern", False) or not self.cache_resource_uri:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-009", name="Resource Cache Metadata",
+                category="cache_security", owasp_asi="ASI04", severity=Severity.MEDIUM.value,
+                passed=True,
+                details="Not applicable: requires modern mode and an operator-authorized --cache-resource-uri",
+                mcp_method="resources/read", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        msg = jsonrpc_request("resources/read", {"uri": self.cache_resource_uri})
+        response = self.transport.send(msg)
+        result = response.get("result", {}) if response else {}
+        scope, ttl = result.get("cacheScope"), result.get("ttlMs")
+        passed = scope in {"public", "private"} and isinstance(ttl, int) and ttl >= 0
+        self._record(MCPTestResult(
+            test_id="MCP-RC-009", name="Resource Cache Metadata",
+            category="cache_security", owasp_asi="ASI04", severity=Severity.MEDIUM.value,
+            passed=passed,
+            details=(f"resources/read declares cacheScope={scope!r}, ttlMs={ttl!r}" if passed
+                     else "resources/read omitted valid cacheScope and/or non-negative ttlMs"),
+            mcp_method="resources/read", request_sent=msg, response_received=response,
             elapsed_s=round(time.monotonic() - t0, 3),
         ))
 
@@ -2609,7 +2651,8 @@ class MCPSecurityTests:
                 self.test_mcp_request_state_request_binding,
             ],
             "explicit_handle_isolation": [self.test_mcp_explicit_handle_isolation],
-            "cache_security": [self.test_mcp_cache_scope_metadata, self.test_mcp_cache_revocation],
+            "cache_security": [self.test_mcp_cache_scope_metadata, self.test_mcp_cache_revocation,
+                                self.test_mcp_resource_cache_metadata],
             "capability_negotiation": [
                 self.test_mcp_capability_escalation,
                 self.test_mcp_protocol_version_downgrade,
@@ -2835,6 +2878,7 @@ def main():
     ap.add_argument("--cache-invalidation", help="Authorized JSON-RPC request that revokes a capability and invalidates its cache entry.")
     ap.add_argument("--cache-verify", help="Read-only JSON-RPC request that returns the post-invalidation tools list.")
     ap.add_argument("--cache-forbidden-tool", help="Tool name that must be absent after --cache-invalidation.")
+    ap.add_argument("--cache-resource-uri", help="Operator-authorized resource URI for the read-only cache-metadata probe.")
     ap.add_argument(
         "--protocol-version",
         choices=[MODERN_PROTOCOL_VERSION, AUTO_PROTOCOL_VERSION, DIFFERENTIAL_PROTOCOL_VERSION],
@@ -2998,7 +3042,8 @@ def main():
                                      mrtr_altered_probe=mrtr_altered_probe, handle_create=handle_create,
                                      handle_access=handle_access, handle_attacker_headers=handle_attacker_headers,
                                      cache_invalidation=cache_invalidation, cache_verify=cache_verify,
-                                     cache_forbidden_tool=args.cache_forbidden_tool)
+                                     cache_forbidden_tool=args.cache_forbidden_tool,
+                                     cache_resource_uri=args.cache_resource_uri)
             try:
                 results = suite.run_all(categories=categories)
                 return build_report(
@@ -3039,7 +3084,8 @@ def main():
                                      mrtr_altered_probe=mrtr_altered_probe, handle_create=handle_create,
                                      handle_access=handle_access, handle_attacker_headers=handle_attacker_headers,
                                      cache_invalidation=cache_invalidation, cache_verify=cache_verify,
-                                     cache_forbidden_tool=args.cache_forbidden_tool)
+                                     cache_forbidden_tool=args.cache_forbidden_tool,
+                                     cache_resource_uri=args.cache_resource_uri)
             try:
                 return {"results": suite.run_all(categories=categories)}
             finally:
@@ -3065,7 +3111,8 @@ def main():
                                  mrtr_altered_probe=mrtr_altered_probe, handle_create=handle_create,
                                  handle_access=handle_access, handle_attacker_headers=handle_attacker_headers,
                                  cache_invalidation=cache_invalidation, cache_verify=cache_verify,
-                                 cache_forbidden_tool=args.cache_forbidden_tool)
+                                 cache_forbidden_tool=args.cache_forbidden_tool,
+                                 cache_resource_uri=args.cache_resource_uri)
         conn_error = None
         try:
             results = suite.run_all(categories=categories)

@@ -299,6 +299,20 @@ class TestCacheScopeMetadata(unittest.TestCase):
         suite.test_mcp_cache_scope_metadata()
         self.assertTrue(suite.results[0].passed)
 
+    def test_modern_resource_read_requires_scope_and_ttl(self):
+        class ResourceCacheTransport(MCPTransport):
+            is_modern = True
+
+            def send(self, message, **kwargs):
+                self.message = message
+                return {"result": {"contents": [], "cacheScope": "private", "ttlMs": 5000}}
+
+        transport = ResourceCacheTransport()
+        suite = MCPSecurityTests(transport, json_output=True, cache_resource_uri="file:///approved/status")
+        suite.test_mcp_resource_cache_metadata()
+        self.assertTrue(suite.results[0].passed)
+        self.assertEqual(transport.message["params"], {"uri": "file:///approved/status"})
+
     def test_authorized_revocation_removes_stale_capability(self):
         class CacheRevocationTransport(MCPTransport):
             is_modern = True
