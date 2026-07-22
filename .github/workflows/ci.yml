@@ -25,8 +25,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install package
-        run: pip install -e . pyyaml pytest
+      - name: Install package with MCP server extra
+        run: pip install -e '.[mcp-server]' pyyaml pytest
+
+      - name: Verify packaged MCP server installation
+        run: |
+          pip install build
+          python -m build --wheel
+          pip uninstall -y agent-security-harness
+          wheel=$(find dist -name '*.whl' -print -quit)
+          pip install "${wheel}[mcp-server]"
+          python -c "from mcp_server.server import create_server; assert create_server().name == 'Agent Security Harness'"
 
       - name: Verify CLI
         run: |
@@ -60,6 +69,7 @@ jobs:
           import protocol_tests.cloud_agent_harness
           import protocol_tests.statistical
           import protocol_tests.cli
+          import mcp_server.server
           import protocol_tests.kill_switch_harness
           import protocol_tests.watermark_harness
           import protocol_tests.memory_harness
