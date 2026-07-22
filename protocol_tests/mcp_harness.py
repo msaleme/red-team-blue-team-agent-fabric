@@ -151,6 +151,15 @@ def jsonrpc_notification(method: str, params: dict | None = None) -> dict:
     return msg
 
 
+def _probe_failed(response: dict | None) -> bool:
+    """Whether a configured probe failed before it could yield a valid result."""
+    return not response or bool(
+        response.get("_error")
+        or response.get("_status", 200) >= 400
+        or "error" in response
+    )
+
+
 # ---------------------------------------------------------------------------
 # Transport layer
 # ---------------------------------------------------------------------------
@@ -712,6 +721,16 @@ class MCPSecurityTests:
 
         initial = jsonrpc_request(self.mrtr_probe["method"], dict(self.mrtr_probe.get("params") or {}))
         initial_response = self.transport.send(initial)
+        if _probe_failed(initial_response):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-002", name="MRTR requestState Integrity",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=False,
+                details="Configured MRTR probe failed before requestState validation",
+                mcp_method=initial["method"], request_sent=initial,
+                response_received=initial_response, elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
         result = initial_response.get("result", {}) if initial_response else {}
         state = result.get("requestState")
         if result.get("resultType") != "input_required" or not isinstance(state, str) or not state:
@@ -766,6 +785,16 @@ class MCPSecurityTests:
 
         initial = jsonrpc_request(self.mrtr_probe["method"], dict(self.mrtr_probe.get("params") or {}))
         initial_response = self.transport.send(initial)
+        if _probe_failed(initial_response):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-003", name="MRTR requestState Replay Protection",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=False,
+                details="Configured MRTR probe failed before replay validation",
+                mcp_method=initial["method"], request_sent=initial,
+                response_received=initial_response, elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
         result = initial_response.get("result", {}) if initial_response else {}
         state = result.get("requestState")
         if result.get("resultType") != "input_required" or not isinstance(state, str) or not state:
@@ -833,6 +862,16 @@ class MCPSecurityTests:
 
         initial = jsonrpc_request(self.mrtr_probe["method"], dict(self.mrtr_probe.get("params") or {}))
         initial_response = self.transport.send(initial)
+        if _probe_failed(initial_response):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-004", name="MRTR requestState Principal Binding",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=False,
+                details="Configured MRTR probe failed before principal-binding validation",
+                mcp_method=initial["method"], request_sent=initial,
+                response_received=initial_response, elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
         result = initial_response.get("result", {}) if initial_response else {}
         state = result.get("requestState")
         if result.get("resultType") != "input_required" or not isinstance(state, str) or not state:
@@ -889,6 +928,16 @@ class MCPSecurityTests:
 
         initial = jsonrpc_request(self.mrtr_probe["method"], dict(self.mrtr_probe.get("params") or {}))
         initial_response = self.transport.send(initial)
+        if _probe_failed(initial_response):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-005", name="MRTR requestState Request Binding",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=False,
+                details="Configured MRTR probe failed before request-binding validation",
+                mcp_method=initial["method"], request_sent=initial,
+                response_received=initial_response, elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
         result = initial_response.get("result", {}) if initial_response else {}
         state = result.get("requestState")
         if result.get("resultType") != "input_required" or not isinstance(state, str) or not state:
@@ -950,6 +999,16 @@ class MCPSecurityTests:
             return
         create = jsonrpc_request(self.handle_create["method"], dict(self.handle_create.get("params") or {}))
         created = self.transport.send(create)
+        if _probe_failed(created):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-006", name="Explicit Handle Cross-Principal Isolation",
+                category="explicit_handle_isolation", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=False,
+                details="Configured handle-create fixture failed before isolation validation",
+                mcp_method=create["method"], request_sent=create, response_received=created,
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
         handle = _json_path(created, self.handle_create.get("handlePath", "result.handle"))
         if not isinstance(handle, str) or not handle:
             self._record(MCPTestResult(
@@ -997,7 +1056,7 @@ class MCPSecurityTests:
         response = self.transport.send(msg)
         result = response.get("result", {}) if response else {}
         scope, ttl = result.get("cacheScope"), result.get("ttlMs")
-        passed = scope in {"public", "private"} and isinstance(ttl, int) and ttl >= 0
+        passed = scope in {"public", "private"} and type(ttl) is int and ttl >= 0
         self._record(MCPTestResult(
             test_id="MCP-RC-007", name="Cache Scope Metadata",
             category="cache_security", owasp_asi="ASI04", severity=Severity.MEDIUM.value,
@@ -1036,38 +1095,51 @@ class MCPSecurityTests:
             ))
             return
 
-        invalidate = jsonrpc_request(
-            self.cache_invalidation["method"], dict(self.cache_invalidation.get("params") or {})
-        )
-        invalidation_response = self.transport.send(invalidate)
-        invalidation_failed = not invalidation_response or bool(
-            invalidation_response.get("_error")
-            or invalidation_response.get("_status", 200) >= 400
-            or "error" in invalidation_response
-        )
         verify = jsonrpc_request(self.cache_verify["method"], dict(self.cache_verify.get("params") or {}))
-        verification_response = self.transport.send(verify)
-        result = verification_response.get("result", {}) if verification_response else {}
-        tools = result.get("tools")
-        if not isinstance(tools, list):
+        before_response = self.transport.send(verify)
+        before_result = before_response.get("result", {}) if before_response else {}
+        before_tools = before_result.get("tools")
+        if not isinstance(before_tools, list):
             passed = False
-            details = "Verification did not return a tools list after authorized invalidation"
+            details = "Pre-invalidation verification did not return a tools list"
+            invalidation_response = None
+            verification_response = None
+        elif self.cache_forbidden_tool not in {
+            tool.get("name") for tool in before_tools if isinstance(tool, dict)
+        }:
+            passed = False
+            details = "Revoked capability was not discoverable before invalidation"
+            invalidation_response = None
+            verification_response = None
         else:
-            names = {tool.get("name") for tool in tools if isinstance(tool, dict)}
-            passed = not invalidation_failed and self.cache_forbidden_tool not in names
-            details = (
-                "Revoked capability was absent from the post-invalidation tools list"
-                if passed else "Revoked capability remained discoverable after invalidation"
+            invalidate = jsonrpc_request(
+                self.cache_invalidation["method"], dict(self.cache_invalidation.get("params") or {})
             )
-            if invalidation_failed:
-                details = "Authorized cache invalidation request was rejected or failed"
+            invalidation_response = self.transport.send(invalidate)
+            invalidation_failed = _probe_failed(invalidation_response)
+            verification_response = self.transport.send(verify)
+            result = verification_response.get("result", {}) if verification_response else {}
+            tools = result.get("tools")
+            if not isinstance(tools, list):
+                passed = False
+                details = "Post-invalidation verification did not return a tools list"
+            else:
+                names = {tool.get("name") for tool in tools if isinstance(tool, dict)}
+                passed = not invalidation_failed and self.cache_forbidden_tool not in names
+                details = (
+                    "Revoked capability was absent from the post-invalidation tools list"
+                    if passed else "Revoked capability remained discoverable after invalidation"
+                )
+                if invalidation_failed:
+                    details = "Authorized cache invalidation request was rejected or failed"
         self._record(MCPTestResult(
             test_id="MCP-RC-008", name="Cached Capability Revocation",
             category="cache_security", owasp_asi="ASI04", severity=Severity.HIGH.value,
             passed=passed, details=details, mcp_method=verify["method"],
-            request_sent={"invalidate": invalidate, "verify": verify,
+            request_sent={"verify": verify,
                           "forbidden_tool": self.cache_forbidden_tool},
-            response_received={"invalidation": invalidation_response, "verification": verification_response},
+            response_received={"before": before_response, "invalidation": invalidation_response,
+                               "after": verification_response},
             elapsed_s=round(time.monotonic() - t0, 3),
         ))
 
@@ -1100,7 +1172,7 @@ class MCPSecurityTests:
         response = self.transport.send(msg)
         result = response.get("result", {}) if response else {}
         scope, ttl = result.get("cacheScope"), result.get("ttlMs")
-        passed = scope in {"public", "private"} and isinstance(ttl, int) and ttl >= 0
+        passed = scope in {"public", "private"} and type(ttl) is int and ttl >= 0
         self._record(MCPTestResult(
             test_id="MCP-RC-009", name="Resource Cache Metadata",
             category="cache_security", owasp_asi="ASI04", severity=Severity.MEDIUM.value,

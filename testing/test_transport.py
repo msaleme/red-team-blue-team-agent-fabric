@@ -169,6 +169,21 @@ class _MRTRTransport(MCPTransport):
 
 
 class TestMRTRRequestState(unittest.TestCase):
+    def test_failed_configured_probe_is_not_marked_not_applicable(self):
+        class FailingTransport(MCPTransport):
+            is_modern = True
+
+            def send(self, message, **kwargs):
+                return {"_error": "connection refused"}
+
+        suite = MCPSecurityTests(
+            FailingTransport(), json_output=True,
+            mrtr_probe={"method": "tools/call", "params": {"name": "approval_probe"}},
+        )
+        suite.test_mcp_request_state_integrity()
+        self.assertFalse(suite.results[0].passed)
+        self.assertIn("failed", suite.results[0].details)
+
     def test_tampered_request_state_is_rejected(self):
         transport = _MRTRTransport()
         suite = MCPSecurityTests(
@@ -261,6 +276,23 @@ class TestMRTRRequestState(unittest.TestCase):
 
 
 class TestExplicitHandleIsolation(unittest.TestCase):
+    def test_failed_handle_create_is_not_marked_not_applicable(self):
+        class FailingHandleTransport(MCPTransport):
+            supports_header_overrides = True
+
+            def send(self, message, **kwargs):
+                return {"error": {"code": -32000, "message": "create failed"}}
+
+        suite = MCPSecurityTests(
+            FailingHandleTransport(), json_output=True,
+            handle_create={"method": "tools/call", "params": {"name": "create_basket"}},
+            handle_access={"method": "tools/call", "params": {"name": "read_basket"}},
+            handle_attacker_headers={"Authorization": "Bearer tenant-b"},
+        )
+        suite.test_mcp_explicit_handle_isolation()
+        self.assertFalse(suite.results[0].passed)
+        self.assertIn("failed", suite.results[0].details)
+
     def test_replaces_handle_and_rejects_cross_principal_access(self):
         class HandleTransport(MCPTransport):
             supports_header_overrides = True
@@ -313,18 +345,40 @@ class TestCacheScopeMetadata(unittest.TestCase):
         self.assertTrue(suite.results[0].passed)
         self.assertEqual(transport.message["params"], {"uri": "file:///approved/status"})
 
+    def test_boolean_ttl_is_not_accepted_as_cache_metadata(self):
+        class BooleanTTLTransport(MCPTransport):
+            is_modern = True
+
+            def send(self, message, **kwargs):
+                return {"result": {"tools": [], "cacheScope": "private", "ttlMs": True}}
+
+        suite = MCPSecurityTests(BooleanTTLTransport(), json_output=True)
+        suite.test_mcp_cache_scope_metadata()
+        self.assertFalse(suite.results[0].passed)
+
+    def test_boolean_ttl_is_not_accepted_for_resources(self):
+        class BooleanResourceTTLTransport(MCPTransport):
+            is_modern = True
+
+            def send(self, message, **kwargs):
+                return {"result": {"contents": [], "cacheScope": "private", "ttlMs": False}}
+
+        suite = MCPSecurityTests(
+            BooleanResourceTTLTransport(), json_output=True, cache_resource_uri="file:///approved/status"
+        )
+        suite.test_mcp_resource_cache_metadata()
+        self.assertFalse(suite.results[0].passed)
+
     def test_authorized_revocation_removes_stale_capability(self):
         class CacheRevocationTransport(MCPTransport):
             is_modern = True
 
-            def __init__(self):
-                self.calls = []
-
             def send(self, message, **kwargs):
-                self.calls.append(message)
+                if message["method"] == "tools/list":
+                    self.tool_reads = getattr(self, "tool_reads", 0) + 1
+                    return {"result": {"tools": ([{"name": "deploy"}] if self.tool_reads == 1 else [{"name": "read_status"}])}}
                 if message["method"] == "admin/revoke-capability":
                     return {"result": {"revoked": "deploy"}}
-                return {"result": {"tools": [{"name": "read_status"}]}}
 
         transport = CacheRevocationTransport()
         suite = MCPSecurityTests(
@@ -335,7 +389,6 @@ class TestCacheScopeMetadata(unittest.TestCase):
         )
         suite.test_mcp_cache_revocation()
         self.assertTrue(suite.results[0].passed)
-        self.assertEqual([call["method"] for call in transport.calls], ["admin/revoke-capability", "tools/list"])
 
     def test_stale_capability_after_revocation_fails(self):
         class StaleCacheTransport(MCPTransport):
@@ -354,6 +407,28 @@ class TestCacheScopeMetadata(unittest.TestCase):
         )
         suite.test_mcp_cache_revocation()
         self.assertFalse(suite.results[0].passed)
+
+    def test_undiscoverable_capability_does_not_pass_revocation(self):
+        class MissingCapabilityTransport(MCPTransport):
+            is_modern = True
+
+            def __init__(self):
+                self.calls = []
+
+            def send(self, message, **kwargs):
+                self.calls.append(message["method"])
+                return {"result": {"tools": [{"name": "read_status"}]}}
+
+        transport = MissingCapabilityTransport()
+        suite = MCPSecurityTests(
+            transport, json_output=True,
+            cache_invalidation={"method": "admin/revoke-capability", "params": {"name": "deploy"}},
+            cache_verify={"method": "tools/list", "params": {}},
+            cache_forbidden_tool="deploy",
+        )
+        suite.test_mcp_cache_revocation()
+        self.assertFalse(suite.results[0].passed)
+        self.assertEqual(transport.calls, ["tools/list"])
 
 
 if __name__ == "__main__":
