@@ -100,6 +100,27 @@ def _sanitize_url(url: str) -> str:
     return url
 
 
+def _json_path(value: object, path: str) -> object | None:
+    """Resolve a simple dotted path in a JSON result for opt-in test fixtures."""
+    current = value
+    for part in path.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return None
+        current = current[part]
+    return current
+
+
+def _replace_handle(value: object, handle: str) -> object:
+    """Deep-copy JSON-compatible fixture data while replacing $HANDLE tokens."""
+    if isinstance(value, str):
+        return value.replace("$HANDLE", handle)
+    if isinstance(value, list):
+        return [_replace_handle(item, handle) for item in value]
+    if isinstance(value, dict):
+        return {key: _replace_handle(item, handle) for key, item in value.items()}
+    return value
+
+
 # ---------------------------------------------------------------------------
 # MCP JSON-RPC 2.0 primitives
 # ---------------------------------------------------------------------------
@@ -421,6 +442,9 @@ class MCPSecurityTests:
         mrtr_input_responses: dict | None = None,
         mrtr_attacker_headers: dict | None = None,
         mrtr_altered_probe: dict | None = None,
+        handle_create: dict | None = None,
+        handle_access: dict | None = None,
+        handle_attacker_headers: dict | None = None,
     ):
         self.transport = transport
         self.results: list[MCPTestResult] = []
@@ -432,6 +456,9 @@ class MCPSecurityTests:
         self.mrtr_input_responses = mrtr_input_responses
         self.mrtr_attacker_headers = mrtr_attacker_headers
         self.mrtr_altered_probe = mrtr_altered_probe
+        self.handle_create = handle_create
+        self.handle_access = handle_access
+        self.handle_attacker_headers = handle_attacker_headers
         self.selected_protocol_version: str | None = None
 
     def _record(self, result: MCPTestResult):
@@ -870,6 +897,53 @@ class MCPSecurityTests:
                      else "Server accepted requestState replayed on a different request"),
             mcp_method=initial["method"],
             request_sent={"initial": initial, "altered_retry": altered},
+            response_received=response, elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_mcp_explicit_handle_isolation(self):
+        """MCP-RC-006: A model-visible handle must not cross principals."""
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-006", name="Explicit Handle Cross-Principal Isolation",
+                category="explicit_handle_isolation", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="[simulate] Compiled cross-principal explicit-handle substitution vector",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not self.handle_create or not self.handle_access or not self.handle_attacker_headers:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-006", name="Explicit Handle Cross-Principal Isolation",
+                category="explicit_handle_isolation", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: requires authorized handle create/access fixtures and attacker headers",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        create = jsonrpc_request(self.handle_create["method"], dict(self.handle_create.get("params") or {}))
+        created = self.transport.send(create)
+        handle = _json_path(created, self.handle_create.get("handlePath", "result.handle"))
+        if not isinstance(handle, str) or not handle:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-006", name="Explicit Handle Cross-Principal Isolation",
+                category="explicit_handle_isolation", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: create fixture did not return a string handle at handlePath",
+                mcp_method=create["method"], request_sent=create, response_received=created,
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        access = jsonrpc_request(self.handle_access["method"], _replace_handle(dict(self.handle_access.get("params") or {}), handle))
+        response = self.transport.send(access, header_overrides=self.handle_attacker_headers)
+        rejected = bool(response and (response.get("_error") or response.get("_status", 200) >= 400 or "error" in response))
+        self._record(MCPTestResult(
+            test_id="MCP-RC-006", name="Explicit Handle Cross-Principal Isolation",
+            category="explicit_handle_isolation", owasp_asi="ASI02",
+            severity=Severity.HIGH.value, passed=rejected,
+            details=("Server rejected a handle presented by a different principal" if rejected
+                     else "Server accepted a handle presented by a different principal"),
+            mcp_method=access["method"], request_sent={"create": create, "cross_principal_access": access},
             response_received=response, elapsed_s=round(time.monotonic() - t0, 3),
         ))
 
@@ -2412,6 +2486,7 @@ class MCPSecurityTests:
                 self.test_mcp_request_state_principal_binding,
                 self.test_mcp_request_state_request_binding,
             ],
+            "explicit_handle_isolation": [self.test_mcp_explicit_handle_isolation],
             "capability_negotiation": [
                 self.test_mcp_capability_escalation,
                 self.test_mcp_protocol_version_downgrade,
@@ -2624,6 +2699,9 @@ def main():
         help=("Authorized alternate request as JSON for cross-request MRTR binding tests. "
               "It must differ materially from --mrtr-probe."),
     )
+    ap.add_argument("--handle-create", help="Authorized handle-creation request as JSON (method, params, optional handlePath).")
+    ap.add_argument("--handle-access", help="Authorized handle-access request as JSON; use $HANDLE in params as the created-handle placeholder.")
+    ap.add_argument("--handle-attacker-header", action="append", default=[], help="Attacker identity header for explicit-handle isolation, key:value.")
     ap.add_argument(
         "--protocol-version",
         choices=[MODERN_PROTOCOL_VERSION, AUTO_PROTOCOL_VERSION, DIFFERENTIAL_PROTOCOL_VERSION],
@@ -2664,6 +2742,8 @@ def main():
     mrtr_input_responses = None
     mrtr_attacker_headers = {}
     mrtr_altered_probe = None
+    handle_create = handle_access = None
+    handle_attacker_headers = {}
     if args.mrtr_probe:
         try:
             mrtr_probe = json.loads(args.mrtr_probe)
@@ -2695,6 +2775,29 @@ def main():
         ap.error("--mrtr-altered-probe requires --mrtr-probe and --mrtr-input-responses")
     if mrtr_altered_probe == mrtr_probe and mrtr_altered_probe is not None:
         ap.error("--mrtr-altered-probe must differ from --mrtr-probe")
+    for option, raw in (("--handle-create", args.handle_create), ("--handle-access", args.handle_access)):
+        if raw:
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                ap.error(f"{option} must be a JSON object: {exc.msg}")
+            if not isinstance(parsed, dict) or not isinstance(parsed.get("method"), str):
+                ap.error(f"{option} must be a JSON object with a string 'method'")
+            if "params" in parsed and not isinstance(parsed["params"], dict):
+                ap.error(f"{option} 'params' must be a JSON object")
+            if option == "--handle-create":
+                handle_create = parsed
+            else:
+                handle_access = parsed
+    for header in args.handle_attacker_header:
+        if ":" not in header:
+            ap.error("--handle-attacker-header must use key:value form")
+        key, value = header.split(":", 1)
+        if not key.strip():
+            ap.error("--handle-attacker-header must include a header name")
+        handle_attacker_headers[key.strip()] = value.strip()
+    if any((handle_create, handle_access, handle_attacker_headers)) and not all((handle_create, handle_access, handle_attacker_headers)):
+        ap.error("--handle-create, --handle-access, and --handle-attacker-header must be supplied together")
     for header in args.mrtr_attacker_header:
         if ":" not in header:
             ap.error("--mrtr-attacker-header must use key:value form")
@@ -2733,7 +2836,8 @@ def main():
             suite = MCPSecurityTests(transport, json_output=json_output, mrtr_probe=mrtr_probe,
                                      mrtr_input_responses=mrtr_input_responses,
                                      mrtr_attacker_headers=mrtr_attacker_headers,
-                                     mrtr_altered_probe=mrtr_altered_probe)
+                                     mrtr_altered_probe=mrtr_altered_probe, handle_create=handle_create,
+                                     handle_access=handle_access, handle_attacker_headers=handle_attacker_headers)
             try:
                 results = suite.run_all(categories=categories)
                 return build_report(
@@ -2772,7 +2876,8 @@ def main():
             suite = MCPSecurityTests(transport, json_output=json_output, simulate=args.simulate, mrtr_probe=mrtr_probe,
                                      mrtr_input_responses=mrtr_input_responses,
                                      mrtr_attacker_headers=mrtr_attacker_headers,
-                                     mrtr_altered_probe=mrtr_altered_probe)
+                                     mrtr_altered_probe=mrtr_altered_probe, handle_create=handle_create,
+                                     handle_access=handle_access, handle_attacker_headers=handle_attacker_headers)
             try:
                 return {"results": suite.run_all(categories=categories)}
             finally:
@@ -2795,7 +2900,8 @@ def main():
         suite = MCPSecurityTests(transport, json_output=json_output, simulate=args.simulate, mrtr_probe=mrtr_probe,
                                  mrtr_input_responses=mrtr_input_responses,
                                  mrtr_attacker_headers=mrtr_attacker_headers,
-                                 mrtr_altered_probe=mrtr_altered_probe)
+                                 mrtr_altered_probe=mrtr_altered_probe, handle_create=handle_create,
+                                 handle_access=handle_access, handle_attacker_headers=handle_attacker_headers)
         conn_error = None
         try:
             results = suite.run_all(categories=categories)

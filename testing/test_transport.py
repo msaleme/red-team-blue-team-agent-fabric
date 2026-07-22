@@ -10,6 +10,8 @@ from protocol_tests.mcp_harness import (
     LEGACY_PROTOCOL_VERSION,
     MODERN_PROTOCOL_VERSION,
     MCPSecurityTests,
+    _json_path,
+    _replace_handle,
     MCPTransport,
     StreamableHTTPTransport,
     _header_value,
@@ -250,6 +252,33 @@ class TestMRTRRequestState(unittest.TestCase):
         suite.test_mcp_request_state_request_binding()
         self.assertTrue(suite.results[0].passed)
         self.assertEqual(transport.calls[1]["params"]["arguments"]["amount"], 1000)
+
+
+class TestExplicitHandleIsolation(unittest.TestCase):
+    def test_replaces_handle_and_rejects_cross_principal_access(self):
+        class HandleTransport(MCPTransport):
+            def __init__(self):
+                self.calls = []
+
+            def send(self, message, **kwargs):
+                self.calls.append((message, kwargs))
+                if len(self.calls) == 1:
+                    return {"result": {"basket": {"id": "tenant-a-handle"}}}
+                return {"error": {"code": -32000, "message": "handle not authorized"}}
+
+        transport = HandleTransport()
+        suite = MCPSecurityTests(
+            transport, json_output=True,
+            handle_create={"method": "tools/call", "params": {"name": "create_basket"}, "handlePath": "result.basket.id"},
+            handle_access={"method": "tools/call", "params": {"name": "read_basket", "arguments": {"basket_id": "$HANDLE"}}},
+            handle_attacker_headers={"Authorization": "Bearer tenant-b"},
+        )
+        suite.test_mcp_explicit_handle_isolation()
+        self.assertTrue(suite.results[0].passed)
+        self.assertEqual(transport.calls[1][0]["params"]["arguments"]["basket_id"], "tenant-a-handle")
+        self.assertEqual(transport.calls[1][1]["header_overrides"], {"Authorization": "Bearer tenant-b"})
+        self.assertEqual(_json_path({"a": {"b": 1}}, "a.b"), 1)
+        self.assertEqual(_replace_handle({"x": ["$HANDLE"]}, "h"), {"x": ["h"]})
 
 
 if __name__ == "__main__":
