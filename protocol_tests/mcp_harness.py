@@ -139,7 +139,13 @@ class MCPTransport:
     def send(self, message: dict) -> dict | None:
         raise NotImplementedError
 
-    def send_raw(self, raw_bytes: bytes) -> bytes | None:
+    def send_raw(
+        self,
+        raw_bytes: bytes,
+        *,
+        mcp_method: str | None = None,
+        mcp_name: str | None = None,
+    ) -> bytes | None:
         """Send raw bytes (for malformed message testing)."""
         raise NotImplementedError
 
@@ -268,9 +274,27 @@ class StreamableHTTPTransport(MCPTransport):
         except Exception as e:
             return {"_error": True, "_exception": str(e)}
 
-    def send_raw(self, raw_bytes: bytes) -> bytes | None:
-        headers = {"Content-Type": "application/json"}
-        if self.session_id:
+    def send_raw(
+        self,
+        raw_bytes: bytes,
+        *,
+        mcp_method: str | None = None,
+        mcp_name: str | None = None,
+    ) -> bytes | None:
+        """Send a deliberately raw payload while preserving selected transport semantics.
+
+        Stateless MCP still requires routing headers for malformed, batch, and
+        oversized-body probes. Callers supply the intended operation because a
+        deliberately malformed body cannot be trusted or parsed to derive it.
+        """
+        headers = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream", **self.headers}
+        if self.is_modern:
+            headers["MCP-Protocol-Version"] = self.protocol_version
+            if mcp_method is not None:
+                headers["Mcp-Method"] = _header_value(mcp_method)
+            if mcp_name is not None:
+                headers["Mcp-Name"] = _header_value(mcp_name)
+        elif self.session_id:
             headers["Mcp-Session-Id"] = self.session_id
         req = urllib.request.Request(self.url, data=raw_bytes, headers=headers, method="POST")
         try:
@@ -316,7 +340,15 @@ class StdioTransport(MCPTransport):
                 return _strip_server_sentinels(json.loads(resp_line))
         return None
 
-    def send_raw(self, raw_bytes: bytes) -> bytes | None:
+    def send_raw(
+        self,
+        raw_bytes: bytes,
+        *,
+        mcp_method: str | None = None,
+        mcp_name: str | None = None,
+    ) -> bytes | None:
+        # Stdio has no HTTP headers. Keep the common interface so raw probes
+        # retain their intent when run against either transport.
         self.proc.stdin.write(raw_bytes + b"\n")
         self.proc.stdin.flush()
         import select
@@ -958,7 +990,7 @@ class MCPSecurityTests:
 
         handled_count = 0
         for raw in malformed_messages:
-            resp_bytes = self.transport.send_raw(raw)
+            resp_bytes = self.transport.send_raw(raw, mcp_method="tools/list")
             if resp_bytes:
                 try:
                     resp = json.loads(resp_bytes)
@@ -1008,7 +1040,7 @@ class MCPSecurityTests:
             ))
             return
 
-        resp_bytes = self.transport.send_raw(batch_json)
+        resp_bytes = self.transport.send_raw(batch_json, mcp_method="tools/list")
         elapsed = time.monotonic() - t0
 
         # Pass if server either rejected (4xx) or responded within reasonable time
@@ -2025,7 +2057,9 @@ class MCPSecurityTests:
         # Live mode: send the oversized body and check the server's reaction.
         # A patched server (>= 0.2.22) should return HTTP 413 or a JSON-RPC error.
         # A vulnerable server may hang, crash, or return an unexpected 5xx.
-        resp_bytes = self.transport.send_raw(oversized_payload)
+        resp_bytes = self.transport.send_raw(
+            oversized_payload, mcp_method="tools/call", mcp_name="any_tool"
+        )
         elapsed = time.monotonic() - t0
 
         resp_preview = ""

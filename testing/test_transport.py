@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Unit tests for MCP transport and JSON-RPC primitives."""
 import json, os, sys, unittest
+from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from protocol_tests.mcp_harness import (
     AUTO_PROTOCOL_VERSION,
@@ -58,6 +59,18 @@ class TestTransport(unittest.TestCase):
         self.assertEqual(_header_value("safe-value"), "safe-value")
         self.assertTrue(_header_value(" leading").startswith("=?base64?"))
         self.assertTrue(_header_value("=?base64?literal?=").startswith("=?base64?"))
+
+    def test_modern_raw_probe_carries_routing_headers(self):
+        t = StreamableHTTPTransport("http://localhost:8080", protocol_version=MODERN_PROTOCOL_VERSION)
+        with patch("urllib.request.urlopen") as urlopen:
+            response = urlopen.return_value.__enter__.return_value
+            response.read.return_value = b"{}"
+            t.send_raw(b"not-json", mcp_method="tools/call", mcp_name="scan")
+        request = urlopen.call_args.args[0]
+        self.assertEqual(request.get_header("Mcp-protocol-version"), MODERN_PROTOCOL_VERSION)
+        self.assertEqual(request.get_header("Mcp-method"), "tools/call")
+        self.assertEqual(request.get_header("Mcp-name"), "scan")
+        self.assertIsNone(request.get_header("Mcp-session-id"))
 
 
 class _AutoTransport(MCPTransport):
