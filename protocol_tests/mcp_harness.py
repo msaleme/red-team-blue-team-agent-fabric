@@ -34,6 +34,7 @@ Requires: Python 3.10+, no external dependencies for core tests.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import re
 import os
@@ -57,6 +58,32 @@ from protocol_tests._utils import (
     FORWARD_BRIDGE_PATTERN,
     CREDENTIAL_MATERIAL_PATTERN,
 )
+
+
+# Preserve the harness's existing Streamable HTTP baseline. Dual-era discovery
+# will select newer legacy revisions when a target advertises them.
+LEGACY_PROTOCOL_VERSION = "2025-03-26"
+MODERN_PROTOCOL_VERSION = "2026-07-28"
+HARNESS_CLIENT_INFO = {"name": "agent-security-harness", "version": "4.9.1"}
+
+
+def _header_value(value: object) -> str:
+    """Encode an MCP mirrored-header value per the 2026-07-28 draft.
+
+    HTTP field values must be plain visible ASCII without leading/trailing
+    whitespace. Values outside that subset (and literal base64 sentinels) use
+    the protocol's UTF-8 base64 sentinel form.
+    """
+    value = str(value)
+    safe = (
+        value == value.strip()
+        and all(0x21 <= ord(char) <= 0x7E for char in value)
+        and not (value.startswith("=?base64?") and value.endswith("?="))
+    )
+    if safe:
+        return value
+    encoded = base64.b64encode(value.encode("utf-8")).decode("ascii")
+    return f"=?base64?{encoded}?="
 
 
 def _sanitize_url(url: str) -> str:
@@ -142,33 +169,75 @@ def _strip_server_sentinels(obj):
 class StreamableHTTPTransport(MCPTransport):
     """MCP over Streamable HTTP (POST with JSON-RPC 2.0 body).
 
-    Per MCP spec (2025-03-26): client sends POST requests with
-    Content-Type: application/json, server responds with application/json
-    or text/event-stream for streaming.
+    Supports legacy session-based Streamable HTTP and the stateless
+    ``2026-07-28`` revision. Modern requests carry their identity and
+    capabilities in the JSON-RPC body and mirror routable fields into headers.
     """
 
-    def __init__(self, url: str, headers: dict | None = None):
+    def __init__(
+        self,
+        url: str,
+        headers: dict | None = None,
+        protocol_version: str | None = None,
+        client_info: dict | None = None,
+        client_capabilities: dict | None = None,
+    ):
         self.url = url
         self.headers = headers or {}
+        self.protocol_version = protocol_version
+        self.client_info = client_info or HARNESS_CLIENT_INFO.copy()
+        self.client_capabilities = client_capabilities or {}
         self.session_id: str | None = None
 
-    def send(self, message: dict) -> dict | None:
-        data = json.dumps(message).encode("utf-8")
+    @property
+    def is_modern(self) -> bool:
+        return self.protocol_version == MODERN_PROTOCOL_VERSION
+
+    def _prepare_modern_message(self, message: dict) -> dict:
+        """Return a copy with required 2026-07-28 request metadata."""
+        prepared = {**message}
+        params = dict(prepared.get("params") or {})
+        meta = dict(params.get("_meta") or {})
+        meta.setdefault("io.modelcontextprotocol/protocolVersion", self.protocol_version)
+        meta.setdefault("io.modelcontextprotocol/clientInfo", self.client_info)
+        meta.setdefault("io.modelcontextprotocol/clientCapabilities", self.client_capabilities)
+        params["_meta"] = meta
+        prepared["params"] = params
+        return prepared
+
+    def _request_headers(self, message: dict) -> dict:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
             **self.headers,
         }
-        if self.session_id:
+        if self.is_modern:
+            params = message.get("params") or {}
+            headers["MCP-Protocol-Version"] = self.protocol_version
+            headers["Mcp-Method"] = _header_value(message.get("method", ""))
+            if message.get("method") in {"tools/call", "resources/read", "prompts/get"}:
+                name = params.get("name", params.get("uri"))
+                if name is not None:
+                    headers["Mcp-Name"] = _header_value(name)
+        elif self.session_id:
             headers["Mcp-Session-Id"] = self.session_id
+        return headers
+
+    def send(self, message: dict) -> dict | None:
+        if self.is_modern:
+            message = self._prepare_modern_message(message)
+        data = json.dumps(message).encode("utf-8")
+        headers = self._request_headers(message)
 
         req = urllib.request.Request(self.url, data=data, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
-                # Capture session ID from response headers
-                sid = resp.headers.get("Mcp-Session-Id")
-                if sid:
-                    self.session_id = sid
+                if not self.is_modern:
+                    # Sessions were removed in 2026-07-28. Keep this only for
+                    # explicit legacy operation.
+                    sid = resp.headers.get("Mcp-Session-Id")
+                    if sid:
+                        self.session_id = sid
 
                 content_type = resp.headers.get("Content-Type", "")
                 body = resp.read().decode("utf-8")
@@ -315,11 +384,13 @@ class MCPSecurityTests:
     # ------------------------------------------------------------------
 
     def initialize(self) -> bool:
-        """Perform MCP initialize handshake."""
+        """Establish legacy state or discover a stateless modern server."""
         if not self.json_output:
             print("\n[Initializing MCP connection]")
+        if getattr(self.transport, "is_modern", False):
+            return self._discover_modern_server()
         msg = jsonrpc_request("initialize", {
-            "protocolVersion": "2025-03-26",
+            "protocolVersion": LEGACY_PROTOCOL_VERSION,
             "capabilities": {},
             "clientInfo": {
                 "name": "red-team-mcp-harness",
@@ -335,6 +406,7 @@ class MCPSecurityTests:
                 print(f"  {err_msg}", file=sys.stderr)
             self._connection_error = err_msg
             return False
+
         except socket.timeout:
             url = _sanitize_url(getattr(self.transport, "url", "unknown"))
             err_msg = f"Could not connect to {url} — is the server running? (connection timed out)"
@@ -373,15 +445,33 @@ class MCPSecurityTests:
                       f"v{self.server_info.get('version', '?')}")
                 print(f"  Capabilities: {list(self.server_capabilities.keys())}")
 
-            # Send initialized notification
             self.transport.send(jsonrpc_notification("notifications/initialized"))
             return True
-        else:
-            err_msg = f"Initialize failed: {resp}"
+
+        err_msg = f"Initialize failed: {resp}"
+        if not self.json_output:
+            print(f"  ⚠️  {err_msg}")
+        self._connection_error = err_msg
+        return False
+
+    def _discover_modern_server(self) -> bool:
+        """Discover capabilities without creating a protocol-level session."""
+        msg = jsonrpc_request("server/discover", {})
+        resp = self.transport.send(msg)
+        if resp and "result" in resp:
+            result = resp["result"]
+            self.server_info = result.get("serverInfo", {})
+            self.server_capabilities = result.get("capabilities", {})
             if not self.json_output:
-                print(f"  ⚠️  {err_msg}")
-            self._connection_error = err_msg
-            return False
+                print(f"  Server: {self.server_info.get('name', 'unknown')} "
+                      f"v{self.server_info.get('version', '?')}")
+                print(f"  Capabilities: {list(self.server_capabilities.keys())}")
+            return True
+
+        self._connection_error = f"Modern server discovery failed: {resp}"
+        if not self.json_output:
+            print(f"  ⚠️  {self._connection_error}")
+        return False
 
     # ------------------------------------------------------------------
     # Category 1: Tool Discovery Poisoning (ASI04)
@@ -2103,6 +2193,12 @@ def main():
     ap.add_argument("--json", action="store_true", dest="json_output",
                     help="Output results as JSON to stdout (no human-readable text)")
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")
+    ap.add_argument(
+        "--protocol-version",
+        choices=[MODERN_PROTOCOL_VERSION],
+        help=("Use the stateless 2026-07-28 protocol flow. Legacy handshake "
+              "support remains the default while dual-era discovery is completed."),
+    )
     ap.add_argument("--trials", type=int, default=1, help="Run each test N times for statistical analysis (NIST AI 800-2)")
     ap.add_argument("--simulate", action="store_true", help="Run in simulate mode (no live endpoint needed)")
     args = ap.parse_args()
@@ -2142,7 +2238,11 @@ def main():
             for h in args.header:
                 k, v = h.split(":", 1)
                 hdrs[k.strip()] = v.strip()
-            return StreamableHTTPTransport(args.url, headers=hdrs)
+            return StreamableHTTPTransport(
+                args.url,
+                headers=hdrs,
+                protocol_version=args.protocol_version,
+            )
         else:
             return StdioTransport(args.command.split())
 

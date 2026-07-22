@@ -2,7 +2,14 @@
 """Unit tests for MCP transport and JSON-RPC primitives."""
 import json, os, sys, unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from protocol_tests.mcp_harness import jsonrpc_request, jsonrpc_notification, MCPTransport, StreamableHTTPTransport
+from protocol_tests.mcp_harness import (
+    MODERN_PROTOCOL_VERSION,
+    MCPTransport,
+    StreamableHTTPTransport,
+    _header_value,
+    jsonrpc_notification,
+    jsonrpc_request,
+)
 
 
 class TestJSONRPCRequest(unittest.TestCase):
@@ -27,6 +34,27 @@ class TestTransport(unittest.TestCase):
     def test_http_init(self):
         t = StreamableHTTPTransport("http://localhost:8080")
         self.assertEqual(t.url, "http://localhost:8080"); self.assertIsNone(t.session_id)
+
+    def test_modern_request_metadata_and_headers(self):
+        t = StreamableHTTPTransport("http://localhost:8080", protocol_version=MODERN_PROTOCOL_VERSION)
+        request = t._prepare_modern_message(jsonrpc_request("tools/call", {"name": "scan"}))
+        self.assertEqual(request["params"]["_meta"]["io.modelcontextprotocol/protocolVersion"], MODERN_PROTOCOL_VERSION)
+        self.assertIn("io.modelcontextprotocol/clientInfo", request["params"]["_meta"])
+        headers = t._request_headers(request)
+        self.assertEqual(headers["MCP-Protocol-Version"], MODERN_PROTOCOL_VERSION)
+        self.assertEqual(headers["Mcp-Method"], "tools/call")
+        self.assertEqual(headers["Mcp-Name"], "scan")
+        self.assertNotIn("Mcp-Session-Id", headers)
+
+    def test_modern_resource_name_is_mirrored_and_encoded(self):
+        t = StreamableHTTPTransport("http://localhost:8080", protocol_version=MODERN_PROTOCOL_VERSION)
+        request = t._prepare_modern_message(jsonrpc_request("resources/read", {"uri": "file:///你好"}))
+        self.assertTrue(t._request_headers(request)["Mcp-Name"].startswith("=?base64?"))
+
+    def test_header_value_encodes_unsafe_values(self):
+        self.assertEqual(_header_value("safe-value"), "safe-value")
+        self.assertTrue(_header_value(" leading").startswith("=?base64?"))
+        self.assertTrue(_header_value("=?base64?literal?=").startswith("=?base64?"))
 
 
 if __name__ == "__main__":
