@@ -281,5 +281,16 @@ class TestExplicitHandleIsolation(unittest.TestCase):
         self.assertEqual(_replace_handle({"x": ["$HANDLE"]}, "h"), {"x": ["h"]})
 
 
+class TestCacheScopeMetadata(unittest.TestCase):
+    def test_modern_listing_requires_scope_and_ttl(self):
+        class CacheTransport(MCPTransport):
+            is_modern = True
+            def send(self, message, **kwargs):
+                return {"result": {"tools": [], "cacheScope": "private", "ttlMs": 5000}}
+        suite = MCPSecurityTests(CacheTransport(), json_output=True)
+        suite.test_mcp_cache_scope_metadata()
+        self.assertTrue(suite.results[0].passed)
+
+
 if __name__ == "__main__":
     unittest.main()

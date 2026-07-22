@@ -947,6 +947,40 @@ class MCPSecurityTests:
             response_received=response, elapsed_s=round(time.monotonic() - t0, 3),
         ))
 
+    def test_mcp_cache_scope_metadata(self):
+        """MCP-RC-007: Modern tool listings must declare cache scope and TTL."""
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-007", name="Cache Scope Metadata",
+                category="cache_security", owasp_asi="ASI04", severity=Severity.MEDIUM.value,
+                passed=True, details="[simulate] Compiled modern tools/list cache metadata check",
+                mcp_method="tools/list", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "is_modern", False):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-007", name="Cache Scope Metadata",
+                category="cache_security", owasp_asi="ASI04", severity=Severity.MEDIUM.value,
+                passed=True, details="Not applicable: target selected a legacy MCP transport",
+                mcp_method="tools/list", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        msg = jsonrpc_request("tools/list", {})
+        response = self.transport.send(msg)
+        result = response.get("result", {}) if response else {}
+        scope, ttl = result.get("cacheScope"), result.get("ttlMs")
+        passed = scope in {"public", "private"} and isinstance(ttl, int) and ttl >= 0
+        self._record(MCPTestResult(
+            test_id="MCP-RC-007", name="Cache Scope Metadata",
+            category="cache_security", owasp_asi="ASI04", severity=Severity.MEDIUM.value,
+            passed=passed,
+            details=(f"tools/list declares cacheScope={scope!r}, ttlMs={ttl!r}" if passed
+                     else "tools/list omitted valid cacheScope and/or non-negative ttlMs"),
+            mcp_method="tools/list", request_sent=msg, response_received=response,
+            elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
     def test_mcp_tool_description_injection(self):
         """MCP-002: Attempt to register a tool with malicious description via tool call."""
         t0 = time.monotonic()
@@ -2487,6 +2521,7 @@ class MCPSecurityTests:
                 self.test_mcp_request_state_request_binding,
             ],
             "explicit_handle_isolation": [self.test_mcp_explicit_handle_isolation],
+            "cache_security": [self.test_mcp_cache_scope_metadata],
             "capability_negotiation": [
                 self.test_mcp_capability_escalation,
                 self.test_mcp_protocol_version_downgrade,
