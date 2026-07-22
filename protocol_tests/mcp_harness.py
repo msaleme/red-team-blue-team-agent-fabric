@@ -34,6 +34,7 @@ Requires: Python 3.10+, no external dependencies for core tests.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import re
 import os
@@ -59,6 +60,34 @@ from protocol_tests._utils import (
 )
 
 
+# Preserve the harness's existing Streamable HTTP baseline. Dual-era discovery
+# will select newer legacy revisions when a target advertises them.
+LEGACY_PROTOCOL_VERSION = "2025-03-26"
+MODERN_PROTOCOL_VERSION = "2026-07-28"
+AUTO_PROTOCOL_VERSION = "auto"
+DIFFERENTIAL_PROTOCOL_VERSION = "differential"
+HARNESS_CLIENT_INFO = {"name": "agent-security-harness", "version": "4.9.1"}
+
+
+def _header_value(value: object) -> str:
+    """Encode an MCP mirrored-header value per the 2026-07-28 draft.
+
+    HTTP field values must be plain visible ASCII without leading/trailing
+    whitespace. Values outside that subset (and literal base64 sentinels) use
+    the protocol's UTF-8 base64 sentinel form.
+    """
+    value = str(value)
+    safe = (
+        value == value.strip()
+        and all(0x21 <= ord(char) <= 0x7E for char in value)
+        and not (value.startswith("=?base64?") and value.endswith("?="))
+    )
+    if safe:
+        return value
+    encoded = base64.b64encode(value.encode("utf-8")).decode("ascii")
+    return f"=?base64?{encoded}?="
+
+
 def _sanitize_url(url: str) -> str:
     """Remove credentials from URL for safe display in error messages and reports."""
     try:
@@ -69,6 +98,27 @@ def _sanitize_url(url: str) -> str:
     except Exception:
         pass
     return url
+
+
+def _json_path(value: object, path: str) -> object | None:
+    """Resolve a simple dotted path in a JSON result for opt-in test fixtures."""
+    current = value
+    for part in path.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return None
+        current = current[part]
+    return current
+
+
+def _replace_handle(value: object, handle: str) -> object:
+    """Deep-copy JSON-compatible fixture data while replacing $HANDLE tokens."""
+    if isinstance(value, str):
+        return value.replace("$HANDLE", handle)
+    if isinstance(value, list):
+        return [_replace_handle(item, handle) for item in value]
+    if isinstance(value, dict):
+        return {key: _replace_handle(item, handle) for key, item in value.items()}
+    return value
 
 
 # ---------------------------------------------------------------------------
@@ -108,10 +158,21 @@ def jsonrpc_notification(method: str, params: dict | None = None) -> dict:
 class MCPTransport:
     """Abstract base for MCP transports."""
 
+    # Only HTTP transports can faithfully apply an alternate request principal
+    # through header overrides. Tests that require that property must not claim
+    # to exercise it over stdio.
+    supports_header_overrides = False
+
     def send(self, message: dict) -> dict | None:
         raise NotImplementedError
 
-    def send_raw(self, raw_bytes: bytes) -> bytes | None:
+    def send_raw(
+        self,
+        raw_bytes: bytes,
+        *,
+        mcp_method: str | None = None,
+        mcp_name: str | None = None,
+    ) -> bytes | None:
         """Send raw bytes (for malformed message testing)."""
         raise NotImplementedError
 
@@ -142,33 +203,90 @@ def _strip_server_sentinels(obj):
 class StreamableHTTPTransport(MCPTransport):
     """MCP over Streamable HTTP (POST with JSON-RPC 2.0 body).
 
-    Per MCP spec (2025-03-26): client sends POST requests with
-    Content-Type: application/json, server responds with application/json
-    or text/event-stream for streaming.
+    Supports legacy session-based Streamable HTTP and the stateless
+    ``2026-07-28`` revision. Modern requests carry their identity and
+    capabilities in the JSON-RPC body and mirror routable fields into headers.
     """
 
-    def __init__(self, url: str, headers: dict | None = None):
+    supports_header_overrides = True
+
+    def __init__(
+        self,
+        url: str,
+        headers: dict | None = None,
+        protocol_version: str | None = None,
+        client_info: dict | None = None,
+        client_capabilities: dict | None = None,
+    ):
         self.url = url
         self.headers = headers or {}
+        self.protocol_version = protocol_version
+        self.client_info = client_info or HARNESS_CLIENT_INFO.copy()
+        self.client_capabilities = client_capabilities or {}
         self.session_id: str | None = None
 
-    def send(self, message: dict) -> dict | None:
-        data = json.dumps(message).encode("utf-8")
+    @property
+    def is_modern(self) -> bool:
+        return self.protocol_version == MODERN_PROTOCOL_VERSION
+
+    @property
+    def is_auto(self) -> bool:
+        """Whether protocol selection should probe stateless discovery first."""
+        return self.protocol_version == AUTO_PROTOCOL_VERSION
+
+    def _prepare_modern_message(self, message: dict) -> dict:
+        """Return a copy with required 2026-07-28 request metadata."""
+        prepared = {**message}
+        params = dict(prepared.get("params") or {})
+        meta = dict(params.get("_meta") or {})
+        meta.setdefault("io.modelcontextprotocol/protocolVersion", self.protocol_version)
+        meta.setdefault("io.modelcontextprotocol/clientInfo", self.client_info)
+        meta.setdefault("io.modelcontextprotocol/clientCapabilities", self.client_capabilities)
+        params["_meta"] = meta
+        prepared["params"] = params
+        return prepared
+
+    def _request_headers(self, message: dict) -> dict:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
             **self.headers,
         }
-        if self.session_id:
+        if self.is_modern:
+            params = message.get("params") or {}
+            headers["MCP-Protocol-Version"] = self.protocol_version
+            headers["Mcp-Method"] = _header_value(message.get("method", ""))
+            if message.get("method") in {"tools/call", "resources/read", "prompts/get"}:
+                name = params.get("name", params.get("uri"))
+                if name is not None:
+                    headers["Mcp-Name"] = _header_value(name)
+        elif self.session_id:
             headers["Mcp-Session-Id"] = self.session_id
+        return headers
+
+    def send(self, message: dict, *, header_overrides: dict | None = None) -> dict | None:
+        """Send a JSON-RPC request, optionally overriding final HTTP fields.
+
+        Header overrides are intentionally available to security probes so the
+        harness can verify that gateways reject routing fields which disagree
+        with the JSON-RPC body. Production callers should not use them.
+        """
+        if self.is_modern:
+            message = self._prepare_modern_message(message)
+        data = json.dumps(message).encode("utf-8")
+        headers = self._request_headers(message)
+        if header_overrides:
+            headers.update(header_overrides)
 
         req = urllib.request.Request(self.url, data=data, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
-                # Capture session ID from response headers
-                sid = resp.headers.get("Mcp-Session-Id")
-                if sid:
-                    self.session_id = sid
+                if not self.is_modern:
+                    # Sessions were removed in 2026-07-28. Keep this only for
+                    # explicit legacy operation.
+                    sid = resp.headers.get("Mcp-Session-Id")
+                    if sid:
+                        self.session_id = sid
 
                 content_type = resp.headers.get("Content-Type", "")
                 body = resp.read().decode("utf-8")
@@ -193,9 +311,27 @@ class StreamableHTTPTransport(MCPTransport):
         except Exception as e:
             return {"_error": True, "_exception": str(e)}
 
-    def send_raw(self, raw_bytes: bytes) -> bytes | None:
-        headers = {"Content-Type": "application/json"}
-        if self.session_id:
+    def send_raw(
+        self,
+        raw_bytes: bytes,
+        *,
+        mcp_method: str | None = None,
+        mcp_name: str | None = None,
+    ) -> bytes | None:
+        """Send a deliberately raw payload while preserving selected transport semantics.
+
+        Stateless MCP still requires routing headers for malformed, batch, and
+        oversized-body probes. Callers supply the intended operation because a
+        deliberately malformed body cannot be trusted or parsed to derive it.
+        """
+        headers = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream", **self.headers}
+        if self.is_modern:
+            headers["MCP-Protocol-Version"] = self.protocol_version
+            if mcp_method is not None:
+                headers["Mcp-Method"] = _header_value(mcp_method)
+            if mcp_name is not None:
+                headers["Mcp-Name"] = _header_value(mcp_name)
+        elif self.session_id:
             headers["Mcp-Session-Id"] = self.session_id
         req = urllib.request.Request(self.url, data=raw_bytes, headers=headers, method="POST")
         try:
@@ -241,7 +377,15 @@ class StdioTransport(MCPTransport):
                 return _strip_server_sentinels(json.loads(resp_line))
         return None
 
-    def send_raw(self, raw_bytes: bytes) -> bytes | None:
+    def send_raw(
+        self,
+        raw_bytes: bytes,
+        *,
+        mcp_method: str | None = None,
+        mcp_name: str | None = None,
+    ) -> bytes | None:
+        # Stdio has no HTTP headers. Keep the common interface so raw probes
+        # retain their intent when run against either transport.
         self.proc.stdin.write(raw_bytes + b"\n")
         self.proc.stdin.flush()
         import select
@@ -296,13 +440,33 @@ class MCPTestResult:
 class MCPSecurityTests:
     """Protocol-level security tests for MCP servers."""
 
-    def __init__(self, transport: MCPTransport, json_output: bool = False, simulate: bool = False):
+    def __init__(
+        self,
+        transport: MCPTransport,
+        json_output: bool = False,
+        simulate: bool = False,
+        mrtr_probe: dict | None = None,
+        mrtr_input_responses: dict | None = None,
+        mrtr_attacker_headers: dict | None = None,
+        mrtr_altered_probe: dict | None = None,
+        handle_create: dict | None = None,
+        handle_access: dict | None = None,
+        handle_attacker_headers: dict | None = None,
+    ):
         self.transport = transport
         self.results: list[MCPTestResult] = []
         self.server_info: dict = {}
         self.server_capabilities: dict = {}
         self.json_output = json_output or os.environ.get("AGENT_SECURITY_JSON_OUTPUT") == "1"
         self.simulate = simulate
+        self.mrtr_probe = mrtr_probe
+        self.mrtr_input_responses = mrtr_input_responses
+        self.mrtr_attacker_headers = mrtr_attacker_headers
+        self.mrtr_altered_probe = mrtr_altered_probe
+        self.handle_create = handle_create
+        self.handle_access = handle_access
+        self.handle_attacker_headers = handle_attacker_headers
+        self.selected_protocol_version: str | None = None
 
     def _record(self, result: MCPTestResult):
         self.results.append(result)
@@ -315,11 +479,26 @@ class MCPSecurityTests:
     # ------------------------------------------------------------------
 
     def initialize(self) -> bool:
-        """Perform MCP initialize handshake."""
+        """Establish legacy state or discover a stateless modern server."""
         if not self.json_output:
             print("\n[Initializing MCP connection]")
+        if getattr(self.transport, "is_auto", False):
+            # The RC requires server/discover for stateless servers. Probe it with
+            # the complete modern request envelope first; only then fall back to
+            # the legacy handshake for deployed servers that do not implement it.
+            self.transport.protocol_version = MODERN_PROTOCOL_VERSION
+            if self._discover_modern_server(quiet=True):
+                self.selected_protocol_version = MODERN_PROTOCOL_VERSION
+                return True
+            self.transport.protocol_version = LEGACY_PROTOCOL_VERSION
+            self.transport.session_id = None
+        if getattr(self.transport, "is_modern", False):
+            discovered = self._discover_modern_server()
+            if discovered:
+                self.selected_protocol_version = MODERN_PROTOCOL_VERSION
+            return discovered
         msg = jsonrpc_request("initialize", {
-            "protocolVersion": "2025-03-26",
+            "protocolVersion": LEGACY_PROTOCOL_VERSION,
             "capabilities": {},
             "clientInfo": {
                 "name": "red-team-mcp-harness",
@@ -335,6 +514,7 @@ class MCPSecurityTests:
                 print(f"  {err_msg}", file=sys.stderr)
             self._connection_error = err_msg
             return False
+
         except socket.timeout:
             url = _sanitize_url(getattr(self.transport, "url", "unknown"))
             err_msg = f"Could not connect to {url} — is the server running? (connection timed out)"
@@ -373,15 +553,37 @@ class MCPSecurityTests:
                       f"v{self.server_info.get('version', '?')}")
                 print(f"  Capabilities: {list(self.server_capabilities.keys())}")
 
-            # Send initialized notification
             self.transport.send(jsonrpc_notification("notifications/initialized"))
+            self.selected_protocol_version = LEGACY_PROTOCOL_VERSION
+            # Auto-mode discovery failure is expected when falling back to a
+            # legacy server. Do not leak it into a successful legacy report.
+            self._connection_error = None
             return True
-        else:
-            err_msg = f"Initialize failed: {resp}"
+
+        err_msg = f"Initialize failed: {resp}"
+        if not self.json_output:
+            print(f"  ⚠️  {err_msg}")
+        self._connection_error = err_msg
+        return False
+
+    def _discover_modern_server(self, quiet: bool = False) -> bool:
+        """Discover capabilities without creating a protocol-level session."""
+        msg = jsonrpc_request("server/discover", {})
+        resp = self.transport.send(msg)
+        if resp and "result" in resp:
+            result = resp["result"]
+            self.server_info = result.get("serverInfo", {})
+            self.server_capabilities = result.get("capabilities", {})
             if not self.json_output:
-                print(f"  ⚠️  {err_msg}")
-            self._connection_error = err_msg
-            return False
+                print(f"  Server: {self.server_info.get('name', 'unknown')} "
+                      f"v{self.server_info.get('version', '?')}")
+                print(f"  Capabilities: {list(self.server_capabilities.keys())}")
+            return True
+
+        self._connection_error = f"Modern server discovery failed: {resp}"
+        if not self.json_output and not quiet:
+            print(f"  ⚠️  {self._connection_error}")
+        return False
 
     # ------------------------------------------------------------------
     # Category 1: Tool Discovery Poisoning (ASI04)
@@ -433,6 +635,369 @@ class MCPSecurityTests:
             request_sent=msg,
             response_received=resp,
             elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_mcp_stateless_header_body_binding(self):
+        """MCP-RC-001: A stateless server must reject conflicting routing metadata."""
+        t0 = time.monotonic()
+        msg = jsonrpc_request("tools/list", {})
+        forged = {"Mcp-Method": "tools/call", "Mcp-Name": "__mcp_header_probe__"}
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-001", name="Stateless Header/Body Binding",
+                category="stateless_header_binding", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="[simulate] Compiled conflicting method/name routing fields",
+                mcp_method="tools/list", request_sent={"body": msg, "headers": forged},
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "is_modern", False):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-001", name="Stateless Header/Body Binding",
+                category="stateless_header_binding", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: target selected a legacy MCP transport",
+                mcp_method="tools/list", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        resp = self.transport.send(msg, header_overrides=forged)
+        rejected = bool(resp and (resp.get("_error") or resp.get("_status", 200) >= 400 or "error" in resp))
+        self._record(MCPTestResult(
+            test_id="MCP-RC-001", name="Stateless Header/Body Binding",
+            category="stateless_header_binding", owasp_asi="ASI02",
+            severity=Severity.HIGH.value, passed=rejected,
+            details=("Server rejected conflicting Mcp-Method/Mcp-Name routing fields" if rejected
+                     else "Server accepted conflicting header and JSON-RPC routing fields"),
+            mcp_method="tools/list", request_sent={"body": msg, "headers": forged},
+            response_received=resp, elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_mcp_request_state_integrity(self):
+        """MCP-RC-002: A tampered MRTR requestState must be rejected.
+
+        The probe is opt-in because only an authorized test endpoint can safely
+        expose a workflow that returns ``resultType: input_required``. A server
+        that does not expose MRTR on the supplied probe is reported as not
+        applicable rather than treated as secure.
+        """
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-002", name="MRTR requestState Integrity",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="[simulate] Compiled tampered requestState retry vector",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "is_modern", False) or not self.mrtr_probe:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-002", name="MRTR requestState Integrity",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: requires modern mode and an authorized --mrtr-probe request",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        initial = jsonrpc_request(self.mrtr_probe["method"], dict(self.mrtr_probe.get("params") or {}))
+        initial_response = self.transport.send(initial)
+        result = initial_response.get("result", {}) if initial_response else {}
+        state = result.get("requestState")
+        if result.get("resultType") != "input_required" or not isinstance(state, str) or not state:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-002", name="MRTR requestState Integrity",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: probe did not return an InputRequiredResult with requestState",
+                mcp_method=initial["method"], request_sent=initial,
+                response_received=initial_response, elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        tampered = state[:-1] + ("A" if state[-1] != "A" else "B")
+        retry_params = dict(self.mrtr_probe.get("params") or {})
+        retry_params["requestState"] = tampered
+        retry_params["inputResponses"] = {}
+        retry = jsonrpc_request(self.mrtr_probe["method"], retry_params)
+        response = self.transport.send(retry)
+        rejected = bool(response and (response.get("_error") or response.get("_status", 200) >= 400 or "error" in response))
+        self._record(MCPTestResult(
+            test_id="MCP-RC-002", name="MRTR requestState Integrity",
+            category="mrtr_request_state", owasp_asi="ASI02",
+            severity=Severity.HIGH.value, passed=rejected,
+            details=("Server rejected a tampered requestState" if rejected
+                     else "Server accepted a tampered requestState on an MRTR retry"),
+            mcp_method=initial["method"], request_sent={"initial": initial, "retry": retry},
+            response_received=response, elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_mcp_request_state_replay(self):
+        """MCP-RC-003: A completed one-time MRTR continuation must not replay."""
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-003", name="MRTR requestState Replay Protection",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="[simulate] Compiled exact requestState replay vector",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "is_modern", False) or not self.mrtr_probe or self.mrtr_input_responses is None:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-003", name="MRTR requestState Replay Protection",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: requires modern mode, --mrtr-probe, and authorized --mrtr-input-responses",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        initial = jsonrpc_request(self.mrtr_probe["method"], dict(self.mrtr_probe.get("params") or {}))
+        initial_response = self.transport.send(initial)
+        result = initial_response.get("result", {}) if initial_response else {}
+        state = result.get("requestState")
+        if result.get("resultType") != "input_required" or not isinstance(state, str) or not state:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-003", name="MRTR requestState Replay Protection",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: probe did not return an InputRequiredResult with requestState",
+                mcp_method=initial["method"], request_sent=initial,
+                response_received=initial_response, elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        retry_params = dict(self.mrtr_probe.get("params") or {})
+        retry_params.update({"requestState": state, "inputResponses": self.mrtr_input_responses})
+        completion = self.transport.send(jsonrpc_request(self.mrtr_probe["method"], retry_params))
+        completion_result = completion.get("result", {}) if completion else {}
+        if completion_result.get("resultType") == "input_required":
+            self._record(MCPTestResult(
+                test_id="MCP-RC-003", name="MRTR requestState Replay Protection",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: supplied input responses did not complete the authorized continuation",
+                mcp_method=initial["method"], response_received=completion,
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        replay = self.transport.send(jsonrpc_request(self.mrtr_probe["method"], retry_params))
+        rejected = bool(replay and (replay.get("_error") or replay.get("_status", 200) >= 400 or "error" in replay))
+        self._record(MCPTestResult(
+            test_id="MCP-RC-003", name="MRTR requestState Replay Protection",
+            category="mrtr_request_state", owasp_asi="ASI02",
+            severity=Severity.HIGH.value, passed=rejected,
+            details=("Server rejected exact replay after a completed continuation" if rejected
+                     else "Server accepted exact requestState replay after completion"),
+            mcp_method=initial["method"],
+            request_sent={"initial": initial, "retry_params": retry_params},
+            response_received=replay, elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_mcp_request_state_principal_binding(self):
+        """MCP-RC-004: requestState from one principal must fail for another."""
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-004", name="MRTR requestState Principal Binding",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="[simulate] Compiled cross-principal requestState reuse vector",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if (not getattr(self.transport, "is_modern", False) or not self.mrtr_probe
+                or self.mrtr_input_responses is None or not self.mrtr_attacker_headers):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-004", name="MRTR requestState Principal Binding",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details=("Not applicable: requires modern mode, authorized probe/input responses, "
+                         "and --mrtr-attacker-header"),
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        initial = jsonrpc_request(self.mrtr_probe["method"], dict(self.mrtr_probe.get("params") or {}))
+        initial_response = self.transport.send(initial)
+        result = initial_response.get("result", {}) if initial_response else {}
+        state = result.get("requestState")
+        if result.get("resultType") != "input_required" or not isinstance(state, str) or not state:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-004", name="MRTR requestState Principal Binding",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: probe did not return an InputRequiredResult with requestState",
+                mcp_method=initial["method"], request_sent=initial,
+                response_received=initial_response, elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        retry_params = dict(self.mrtr_probe.get("params") or {})
+        retry_params.update({"requestState": state, "inputResponses": self.mrtr_input_responses})
+        retry = jsonrpc_request(self.mrtr_probe["method"], retry_params)
+        response = self.transport.send(retry, header_overrides=self.mrtr_attacker_headers)
+        rejected = bool(response and (response.get("_error") or response.get("_status", 200) >= 400 or "error" in response))
+        self._record(MCPTestResult(
+            test_id="MCP-RC-004", name="MRTR requestState Principal Binding",
+            category="mrtr_request_state", owasp_asi="ASI02",
+            severity=Severity.HIGH.value, passed=rejected,
+            details=("Server rejected requestState presented by a different principal" if rejected
+                     else "Server accepted requestState presented under attacker identity"),
+            mcp_method=initial["method"],
+            request_sent={"initial": initial, "cross_principal_retry": retry,
+                          "attacker_headers": sorted(self.mrtr_attacker_headers)},
+            response_received=response, elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_mcp_request_state_request_binding(self):
+        """MCP-RC-005: requestState must not authorize a different request."""
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-005", name="MRTR requestState Request Binding",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="[simulate] Compiled cross-request requestState reuse vector",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if (not getattr(self.transport, "is_modern", False) or not self.mrtr_probe
+                or self.mrtr_input_responses is None or not self.mrtr_altered_probe):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-005", name="MRTR requestState Request Binding",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details=("Not applicable: requires modern mode, authorized probe/input responses, "
+                         "and --mrtr-altered-probe"),
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        initial = jsonrpc_request(self.mrtr_probe["method"], dict(self.mrtr_probe.get("params") or {}))
+        initial_response = self.transport.send(initial)
+        result = initial_response.get("result", {}) if initial_response else {}
+        state = result.get("requestState")
+        if result.get("resultType") != "input_required" or not isinstance(state, str) or not state:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-005", name="MRTR requestState Request Binding",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: probe did not return an InputRequiredResult with requestState",
+                mcp_method=initial["method"], request_sent=initial,
+                response_received=initial_response, elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        altered_params = dict(self.mrtr_altered_probe.get("params") or {})
+        altered_params.update({"requestState": state, "inputResponses": self.mrtr_input_responses})
+        altered = jsonrpc_request(self.mrtr_altered_probe["method"], altered_params)
+        response = self.transport.send(altered)
+        rejected = bool(response and (response.get("_error") or response.get("_status", 200) >= 400 or "error" in response))
+        self._record(MCPTestResult(
+            test_id="MCP-RC-005", name="MRTR requestState Request Binding",
+            category="mrtr_request_state", owasp_asi="ASI02",
+            severity=Severity.HIGH.value, passed=rejected,
+            details=("Server rejected requestState replayed on a different request" if rejected
+                     else "Server accepted requestState replayed on a different request"),
+            mcp_method=initial["method"],
+            request_sent={"initial": initial, "altered_retry": altered},
+            response_received=response, elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_mcp_explicit_handle_isolation(self):
+        """MCP-RC-006: A model-visible handle must not cross principals."""
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-006", name="Explicit Handle Cross-Principal Isolation",
+                category="explicit_handle_isolation", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="[simulate] Compiled cross-principal explicit-handle substitution vector",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "supports_header_overrides", False):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-006", name="Explicit Handle Cross-Principal Isolation",
+                category="explicit_handle_isolation", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: requires an HTTP transport that can present alternate-principal headers",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not self.handle_create or not self.handle_access or not self.handle_attacker_headers:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-006", name="Explicit Handle Cross-Principal Isolation",
+                category="explicit_handle_isolation", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: requires authorized handle create/access fixtures and attacker headers",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        create = jsonrpc_request(self.handle_create["method"], dict(self.handle_create.get("params") or {}))
+        created = self.transport.send(create)
+        handle = _json_path(created, self.handle_create.get("handlePath", "result.handle"))
+        if not isinstance(handle, str) or not handle:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-006", name="Explicit Handle Cross-Principal Isolation",
+                category="explicit_handle_isolation", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: create fixture did not return a string handle at handlePath",
+                mcp_method=create["method"], request_sent=create, response_received=created,
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        access = jsonrpc_request(self.handle_access["method"], _replace_handle(dict(self.handle_access.get("params") or {}), handle))
+        response = self.transport.send(access, header_overrides=self.handle_attacker_headers)
+        rejected = bool(response and (response.get("_error") or response.get("_status", 200) >= 400 or "error" in response))
+        self._record(MCPTestResult(
+            test_id="MCP-RC-006", name="Explicit Handle Cross-Principal Isolation",
+            category="explicit_handle_isolation", owasp_asi="ASI02",
+            severity=Severity.HIGH.value, passed=rejected,
+            details=("Server rejected a handle presented by a different principal" if rejected
+                     else "Server accepted a handle presented by a different principal"),
+            mcp_method=access["method"], request_sent={"create": create, "cross_principal_access": access},
+            response_received=response, elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_mcp_cache_scope_metadata(self):
+        """MCP-RC-007: Modern tool listings must declare cache scope and TTL."""
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-007", name="Cache Scope Metadata",
+                category="cache_security", owasp_asi="ASI04", severity=Severity.MEDIUM.value,
+                passed=True, details="[simulate] Compiled modern tools/list cache metadata check",
+                mcp_method="tools/list", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "is_modern", False):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-007", name="Cache Scope Metadata",
+                category="cache_security", owasp_asi="ASI04", severity=Severity.MEDIUM.value,
+                passed=True, details="Not applicable: target selected a legacy MCP transport",
+                mcp_method="tools/list", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        msg = jsonrpc_request("tools/list", {})
+        response = self.transport.send(msg)
+        result = response.get("result", {}) if response else {}
+        scope, ttl = result.get("cacheScope"), result.get("ttlMs")
+        passed = scope in {"public", "private"} and isinstance(ttl, int) and ttl >= 0
+        self._record(MCPTestResult(
+            test_id="MCP-RC-007", name="Cache Scope Metadata",
+            category="cache_security", owasp_asi="ASI04", severity=Severity.MEDIUM.value,
+            passed=passed,
+            details=(f"tools/list declares cacheScope={scope!r}, ttlMs={ttl!r}" if passed
+                     else "tools/list omitted valid cacheScope and/or non-negative ttlMs"),
+            mcp_method="tools/list", request_sent=msg, response_received=response,
+            elapsed_s=round(time.monotonic() - t0, 3),
         ))
 
     def test_mcp_tool_description_injection(self):
@@ -847,7 +1412,7 @@ class MCPSecurityTests:
 
         handled_count = 0
         for raw in malformed_messages:
-            resp_bytes = self.transport.send_raw(raw)
+            resp_bytes = self.transport.send_raw(raw, mcp_method="tools/list")
             if resp_bytes:
                 try:
                     resp = json.loads(resp_bytes)
@@ -897,7 +1462,7 @@ class MCPSecurityTests:
             ))
             return
 
-        resp_bytes = self.transport.send_raw(batch_json)
+        resp_bytes = self.transport.send_raw(batch_json, mcp_method="tools/list")
         elapsed = time.monotonic() - t0
 
         # Pass if server either rejected (4xx) or responded within reasonable time
@@ -1914,7 +2479,9 @@ class MCPSecurityTests:
         # Live mode: send the oversized body and check the server's reaction.
         # A patched server (>= 0.2.22) should return HTTP 413 or a JSON-RPC error.
         # A vulnerable server may hang, crash, or return an unexpected 5xx.
-        resp_bytes = self.transport.send_raw(oversized_payload)
+        resp_bytes = self.transport.send_raw(
+            oversized_payload, mcp_method="tools/call", mcp_name="any_tool"
+        )
         elapsed = time.monotonic() - t0
 
         resp_preview = ""
@@ -1963,6 +2530,17 @@ class MCPSecurityTests:
                 self.test_mcp_tool_list_injection,
                 self.test_mcp_tool_description_injection,
             ],
+            "stateless_header_binding": [
+                self.test_mcp_stateless_header_body_binding,
+            ],
+            "mrtr_request_state": [
+                self.test_mcp_request_state_integrity,
+                self.test_mcp_request_state_replay,
+                self.test_mcp_request_state_principal_binding,
+                self.test_mcp_request_state_request_binding,
+            ],
+            "explicit_handle_isolation": [self.test_mcp_explicit_handle_isolation],
+            "cache_security": [self.test_mcp_cache_scope_metadata],
             "capability_negotiation": [
                 self.test_mcp_capability_escalation,
                 self.test_mcp_protocol_version_downgrade,
@@ -2063,7 +2641,11 @@ class MCPSecurityTests:
 # Report generation
 # ---------------------------------------------------------------------------
 
-def build_report(results: list[MCPTestResult], error: str | None = None) -> dict:
+def build_report(
+    results: list[MCPTestResult],
+    error: str | None = None,
+    protocol_version: str | None = None,
+) -> dict:
     """Build report dict from results."""
     report = {
         "suite": "MCP Protocol Security Tests v3.0",
@@ -2077,12 +2659,66 @@ def build_report(results: list[MCPTestResult], error: str | None = None) -> dict
     }
     if error:
         report["error"] = error
+    if protocol_version:
+        report["protocol_version"] = protocol_version
     return report
 
 
-def generate_report(results: list[MCPTestResult], output_path: str):
+def build_differential_report(legacy: dict, modern: dict) -> dict:
+    """Compare equivalent security claims across legacy and stateless runs.
+
+    A differing verdict is evidence that a protocol migration changed observable
+    enforcement. It is not, by itself, a finding: callers must inspect the
+    version-tagged request/response evidence before assigning a security claim.
+    """
+    legacy_by_id = {result["test_id"]: result for result in legacy.get("results", [])}
+    modern_by_id = {result["test_id"]: result for result in modern.get("results", [])}
+    claims = []
+    for test_id in sorted(legacy_by_id.keys() | modern_by_id.keys()):
+        before = legacy_by_id.get(test_id)
+        after = modern_by_id.get(test_id)
+        if before is None:
+            status = "modern_only"
+        elif after is None:
+            status = "legacy_only"
+        elif before.get("passed") == after.get("passed"):
+            status = "equivalent"
+        else:
+            status = "changed"
+        claims.append({
+            "test_id": test_id,
+            "legacy_passed": before.get("passed") if before else None,
+            "modern_passed": after.get("passed") if after else None,
+            "status": status,
+        })
+    return {
+        "suite": "MCP Protocol Security Differential",
+        "legacy": legacy,
+        "modern": modern,
+        "summary": {
+            "equivalent": sum(c["status"] == "equivalent" for c in claims),
+            "changed": sum(c["status"] == "changed" for c in claims),
+            "legacy_only": sum(c["status"] == "legacy_only" for c in claims),
+            "modern_only": sum(c["status"] == "modern_only" for c in claims),
+        },
+        "claims": claims,
+    }
+
+
+def report_has_failure(report: dict) -> bool:
+    """Return whether a completed protocol report is unsafe to treat as passing."""
+    return bool(report.get("error")) or any(
+        not result.get("passed", False) for result in report.get("results", [])
+    )
+
+
+def generate_report(
+    results: list[MCPTestResult],
+    output_path: str,
+    protocol_version: str | None = None,
+):
     """Write JSON report."""
-    report = build_report(results)
+    report = build_report(results, protocol_version=protocol_version)
     with open(output_path, "w") as f:
         json.dump(report, f, indent=2, default=str)
     print(f"Report written to {output_path}")
@@ -2103,6 +2739,37 @@ def main():
     ap.add_argument("--json", action="store_true", dest="json_output",
                     help="Output results as JSON to stdout (no human-readable text)")
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")
+    ap.add_argument(
+        "--mrtr-probe",
+        help=("Authorized test request as JSON, for example "
+              "'{\"method\":\"tools/call\",\"params\":{\"name\":\"approval_probe\",\"arguments\":{}}}'. "
+              "Enables MRTR requestState integrity tests only."),
+    )
+    ap.add_argument(
+        "--mrtr-input-responses",
+        help=("Authorized InputResponses JSON for completing an MRTR probe. "
+              "Enables exact-state replay testing after the continuation completes."),
+    )
+    ap.add_argument(
+        "--mrtr-attacker-header", action="append", default=[],
+        help=("Header override for an authorized cross-principal MRTR test, key:value. "
+              "Repeat for multiple headers."),
+    )
+    ap.add_argument(
+        "--mrtr-altered-probe",
+        help=("Authorized alternate request as JSON for cross-request MRTR binding tests. "
+              "It must differ materially from --mrtr-probe."),
+    )
+    ap.add_argument("--handle-create", help="Authorized handle-creation request as JSON (method, params, optional handlePath).")
+    ap.add_argument("--handle-access", help="Authorized handle-access request as JSON; use $HANDLE in params as the created-handle placeholder.")
+    ap.add_argument("--handle-attacker-header", action="append", default=[], help="Attacker identity header for explicit-handle isolation, key:value.")
+    ap.add_argument(
+        "--protocol-version",
+        choices=[MODERN_PROTOCOL_VERSION, AUTO_PROTOCOL_VERSION, DIFFERENTIAL_PROTOCOL_VERSION],
+        help=("Use the stateless 2026-07-28 protocol flow, or 'auto' to probe "
+              "server/discover with modern metadata before falling back to legacy initialization. "
+              "Use 'differential' to run and compare explicit legacy and stateless claims."),
+    )
     ap.add_argument("--trials", type=int, default=1, help="Run each test N times for statistical analysis (NIST AI 800-2)")
     ap.add_argument("--simulate", action="store_true", help="Run in simulate mode (no live endpoint needed)")
     args = ap.parse_args()
@@ -2131,9 +2798,85 @@ def main():
                 print("ERROR: --command required for stdio transport", file=sys.stderr)
             sys.exit(1)
 
-    categories = args.categories.split(",") if args.categories else None
+    if args.transport == "stdio" and args.protocol_version:
+        ap.error(
+            "--protocol-version currently requires --transport http: the RC's "
+            "per-request routing-header and header-bound principal probes cannot "
+            "be faithfully exercised over stdio"
+        )
 
-    def _make_transport():
+    categories = args.categories.split(",") if args.categories else None
+    mrtr_probe = None
+    mrtr_input_responses = None
+    mrtr_attacker_headers = {}
+    mrtr_altered_probe = None
+    handle_create = handle_access = None
+    handle_attacker_headers = {}
+    if args.mrtr_probe:
+        try:
+            mrtr_probe = json.loads(args.mrtr_probe)
+        except json.JSONDecodeError as exc:
+            ap.error(f"--mrtr-probe must be a JSON object: {exc.msg}")
+        if not isinstance(mrtr_probe, dict) or not isinstance(mrtr_probe.get("method"), str):
+            ap.error("--mrtr-probe must be a JSON object with a string 'method'")
+        if "params" in mrtr_probe and not isinstance(mrtr_probe["params"], dict):
+            ap.error("--mrtr-probe 'params' must be a JSON object")
+    if args.mrtr_input_responses:
+        try:
+            mrtr_input_responses = json.loads(args.mrtr_input_responses)
+        except json.JSONDecodeError as exc:
+            ap.error(f"--mrtr-input-responses must be a JSON object: {exc.msg}")
+        if not isinstance(mrtr_input_responses, dict):
+            ap.error("--mrtr-input-responses must be a JSON object")
+    if mrtr_input_responses is not None and mrtr_probe is None:
+        ap.error("--mrtr-input-responses requires --mrtr-probe")
+    if args.mrtr_altered_probe:
+        try:
+            mrtr_altered_probe = json.loads(args.mrtr_altered_probe)
+        except json.JSONDecodeError as exc:
+            ap.error(f"--mrtr-altered-probe must be a JSON object: {exc.msg}")
+        if not isinstance(mrtr_altered_probe, dict) or not isinstance(mrtr_altered_probe.get("method"), str):
+            ap.error("--mrtr-altered-probe must be a JSON object with a string 'method'")
+        if "params" in mrtr_altered_probe and not isinstance(mrtr_altered_probe["params"], dict):
+            ap.error("--mrtr-altered-probe 'params' must be a JSON object")
+    if mrtr_altered_probe is not None and (mrtr_probe is None or mrtr_input_responses is None):
+        ap.error("--mrtr-altered-probe requires --mrtr-probe and --mrtr-input-responses")
+    if mrtr_altered_probe == mrtr_probe and mrtr_altered_probe is not None:
+        ap.error("--mrtr-altered-probe must differ from --mrtr-probe")
+    for option, raw in (("--handle-create", args.handle_create), ("--handle-access", args.handle_access)):
+        if raw:
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                ap.error(f"{option} must be a JSON object: {exc.msg}")
+            if not isinstance(parsed, dict) or not isinstance(parsed.get("method"), str):
+                ap.error(f"{option} must be a JSON object with a string 'method'")
+            if "params" in parsed and not isinstance(parsed["params"], dict):
+                ap.error(f"{option} 'params' must be a JSON object")
+            if option == "--handle-create":
+                handle_create = parsed
+            else:
+                handle_access = parsed
+    for header in args.handle_attacker_header:
+        if ":" not in header:
+            ap.error("--handle-attacker-header must use key:value form")
+        key, value = header.split(":", 1)
+        if not key.strip():
+            ap.error("--handle-attacker-header must include a header name")
+        handle_attacker_headers[key.strip()] = value.strip()
+    if any((handle_create, handle_access, handle_attacker_headers)) and not all((handle_create, handle_access, handle_attacker_headers)):
+        ap.error("--handle-create, --handle-access, and --handle-attacker-header must be supplied together")
+    for header in args.mrtr_attacker_header:
+        if ":" not in header:
+            ap.error("--mrtr-attacker-header must use key:value form")
+        key, value = header.split(":", 1)
+        if not key.strip():
+            ap.error("--mrtr-attacker-header must include a header name")
+        mrtr_attacker_headers[key.strip()] = value.strip()
+    if mrtr_attacker_headers and (mrtr_probe is None or mrtr_input_responses is None):
+        ap.error("--mrtr-attacker-header requires --mrtr-probe and --mrtr-input-responses")
+
+    def _make_transport(protocol_version: str | None = None):
         """Create a fresh transport instance to avoid state bleed between trials."""
         if args.simulate:
             return None
@@ -2142,9 +2885,52 @@ def main():
             for h in args.header:
                 k, v = h.split(":", 1)
                 hdrs[k.strip()] = v.strip()
-            return StreamableHTTPTransport(args.url, headers=hdrs)
+            return StreamableHTTPTransport(
+                args.url,
+                headers=hdrs,
+                protocol_version=protocol_version if protocol_version is not None else args.protocol_version,
+            )
         else:
             return StdioTransport(args.command.split())
+
+    if args.protocol_version == DIFFERENTIAL_PROTOCOL_VERSION:
+        if args.trials > 1:
+            ap.error("--protocol-version differential does not support --trials; compare one run per protocol")
+        if args.simulate:
+            ap.error("--protocol-version differential requires a reachable HTTP target")
+
+        def _run_protocol(protocol_version: str) -> dict:
+            transport = _make_transport(protocol_version)
+            suite = MCPSecurityTests(transport, json_output=json_output, mrtr_probe=mrtr_probe,
+                                     mrtr_input_responses=mrtr_input_responses,
+                                     mrtr_attacker_headers=mrtr_attacker_headers,
+                                     mrtr_altered_probe=mrtr_altered_probe, handle_create=handle_create,
+                                     handle_access=handle_access, handle_attacker_headers=handle_attacker_headers)
+            try:
+                results = suite.run_all(categories=categories)
+                return build_report(
+                    results,
+                    error=getattr(suite, "_connection_error", None),
+                    protocol_version=suite.selected_protocol_version or protocol_version,
+                )
+            finally:
+                transport.close()
+
+        differential = build_differential_report(
+            _run_protocol(LEGACY_PROTOCOL_VERSION),
+            _run_protocol(MODERN_PROTOCOL_VERSION),
+        )
+        if args.report:
+            with open(args.report, "w") as f:
+                json.dump(differential, f, indent=2, default=str)
+            if not json_output:
+                print(f"Report written to {args.report}")
+        if json_output:
+            print(json.dumps(differential, indent=2, default=str))
+        failed = any(report_has_failure(report) for report in (
+            differential["legacy"], differential["modern"]
+        ))
+        sys.exit(1 if failed else 0)
 
     if args.trials > 1:
         # Multi-trial statistical mode via shared trial runner
@@ -2154,7 +2940,11 @@ def main():
 
         def _single_run():
             transport = _make_transport()
-            suite = MCPSecurityTests(transport, json_output=json_output, simulate=args.simulate)
+            suite = MCPSecurityTests(transport, json_output=json_output, simulate=args.simulate, mrtr_probe=mrtr_probe,
+                                     mrtr_input_responses=mrtr_input_responses,
+                                     mrtr_attacker_headers=mrtr_attacker_headers,
+                                     mrtr_altered_probe=mrtr_altered_probe, handle_create=handle_create,
+                                     handle_access=handle_access, handle_attacker_headers=handle_attacker_headers)
             try:
                 return {"results": suite.run_all(categories=categories)}
             finally:
@@ -2174,7 +2964,11 @@ def main():
     else:
         # Single run mode - create transport only here
         transport = _make_transport()
-        suite = MCPSecurityTests(transport, json_output=json_output, simulate=args.simulate)
+        suite = MCPSecurityTests(transport, json_output=json_output, simulate=args.simulate, mrtr_probe=mrtr_probe,
+                                 mrtr_input_responses=mrtr_input_responses,
+                                 mrtr_attacker_headers=mrtr_attacker_headers,
+                                 mrtr_altered_probe=mrtr_altered_probe, handle_create=handle_create,
+                                 handle_access=handle_access, handle_attacker_headers=handle_attacker_headers)
         conn_error = None
         try:
             results = suite.run_all(categories=categories)
@@ -2184,10 +2978,10 @@ def main():
                 transport.close()
 
         if args.report:
-            generate_report(results, args.report)
+            generate_report(results, args.report, protocol_version=suite.selected_protocol_version)
 
         if json_output:
-            report = build_report(results, error=conn_error)
+            report = build_report(results, error=conn_error, protocol_version=suite.selected_protocol_version)
             print(json.dumps(report, indent=2, default=str))
 
     # Exit code
