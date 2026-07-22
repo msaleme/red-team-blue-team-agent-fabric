@@ -64,6 +64,7 @@ from protocol_tests._utils import (
 # will select newer legacy revisions when a target advertises them.
 LEGACY_PROTOCOL_VERSION = "2025-03-26"
 MODERN_PROTOCOL_VERSION = "2026-07-28"
+AUTO_PROTOCOL_VERSION = "auto"
 HARNESS_CLIENT_INFO = {"name": "agent-security-harness", "version": "4.9.1"}
 
 
@@ -192,6 +193,11 @@ class StreamableHTTPTransport(MCPTransport):
     @property
     def is_modern(self) -> bool:
         return self.protocol_version == MODERN_PROTOCOL_VERSION
+
+    @property
+    def is_auto(self) -> bool:
+        """Whether protocol selection should probe stateless discovery first."""
+        return self.protocol_version == AUTO_PROTOCOL_VERSION
 
     def _prepare_modern_message(self, message: dict) -> dict:
         """Return a copy with required 2026-07-28 request metadata."""
@@ -372,6 +378,7 @@ class MCPSecurityTests:
         self.server_capabilities: dict = {}
         self.json_output = json_output or os.environ.get("AGENT_SECURITY_JSON_OUTPUT") == "1"
         self.simulate = simulate
+        self.selected_protocol_version: str | None = None
 
     def _record(self, result: MCPTestResult):
         self.results.append(result)
@@ -387,8 +394,21 @@ class MCPSecurityTests:
         """Establish legacy state or discover a stateless modern server."""
         if not self.json_output:
             print("\n[Initializing MCP connection]")
+        if getattr(self.transport, "is_auto", False):
+            # The RC requires server/discover for stateless servers. Probe it with
+            # the complete modern request envelope first; only then fall back to
+            # the legacy handshake for deployed servers that do not implement it.
+            self.transport.protocol_version = MODERN_PROTOCOL_VERSION
+            if self._discover_modern_server(quiet=True):
+                self.selected_protocol_version = MODERN_PROTOCOL_VERSION
+                return True
+            self.transport.protocol_version = LEGACY_PROTOCOL_VERSION
+            self.transport.session_id = None
         if getattr(self.transport, "is_modern", False):
-            return self._discover_modern_server()
+            discovered = self._discover_modern_server()
+            if discovered:
+                self.selected_protocol_version = MODERN_PROTOCOL_VERSION
+            return discovered
         msg = jsonrpc_request("initialize", {
             "protocolVersion": LEGACY_PROTOCOL_VERSION,
             "capabilities": {},
@@ -446,6 +466,7 @@ class MCPSecurityTests:
                 print(f"  Capabilities: {list(self.server_capabilities.keys())}")
 
             self.transport.send(jsonrpc_notification("notifications/initialized"))
+            self.selected_protocol_version = LEGACY_PROTOCOL_VERSION
             return True
 
         err_msg = f"Initialize failed: {resp}"
@@ -454,7 +475,7 @@ class MCPSecurityTests:
         self._connection_error = err_msg
         return False
 
-    def _discover_modern_server(self) -> bool:
+    def _discover_modern_server(self, quiet: bool = False) -> bool:
         """Discover capabilities without creating a protocol-level session."""
         msg = jsonrpc_request("server/discover", {})
         resp = self.transport.send(msg)
@@ -469,7 +490,7 @@ class MCPSecurityTests:
             return True
 
         self._connection_error = f"Modern server discovery failed: {resp}"
-        if not self.json_output:
+        if not self.json_output and not quiet:
             print(f"  ⚠️  {self._connection_error}")
         return False
 
@@ -2153,7 +2174,11 @@ class MCPSecurityTests:
 # Report generation
 # ---------------------------------------------------------------------------
 
-def build_report(results: list[MCPTestResult], error: str | None = None) -> dict:
+def build_report(
+    results: list[MCPTestResult],
+    error: str | None = None,
+    protocol_version: str | None = None,
+) -> dict:
     """Build report dict from results."""
     report = {
         "suite": "MCP Protocol Security Tests v3.0",
@@ -2167,12 +2192,18 @@ def build_report(results: list[MCPTestResult], error: str | None = None) -> dict
     }
     if error:
         report["error"] = error
+    if protocol_version:
+        report["protocol_version"] = protocol_version
     return report
 
 
-def generate_report(results: list[MCPTestResult], output_path: str):
+def generate_report(
+    results: list[MCPTestResult],
+    output_path: str,
+    protocol_version: str | None = None,
+):
     """Write JSON report."""
-    report = build_report(results)
+    report = build_report(results, protocol_version=protocol_version)
     with open(output_path, "w") as f:
         json.dump(report, f, indent=2, default=str)
     print(f"Report written to {output_path}")
@@ -2195,9 +2226,9 @@ def main():
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")
     ap.add_argument(
         "--protocol-version",
-        choices=[MODERN_PROTOCOL_VERSION],
-        help=("Use the stateless 2026-07-28 protocol flow. Legacy handshake "
-              "support remains the default while dual-era discovery is completed."),
+        choices=[MODERN_PROTOCOL_VERSION, AUTO_PROTOCOL_VERSION],
+        help=("Use the stateless 2026-07-28 protocol flow, or 'auto' to probe "
+              "server/discover with modern metadata before falling back to legacy initialization."),
     )
     ap.add_argument("--trials", type=int, default=1, help="Run each test N times for statistical analysis (NIST AI 800-2)")
     ap.add_argument("--simulate", action="store_true", help="Run in simulate mode (no live endpoint needed)")
@@ -2284,10 +2315,10 @@ def main():
                 transport.close()
 
         if args.report:
-            generate_report(results, args.report)
+            generate_report(results, args.report, protocol_version=suite.selected_protocol_version)
 
         if json_output:
-            report = build_report(results, error=conn_error)
+            report = build_report(results, error=conn_error, protocol_version=suite.selected_protocol_version)
             print(json.dumps(report, indent=2, default=str))
 
     # Exit code
