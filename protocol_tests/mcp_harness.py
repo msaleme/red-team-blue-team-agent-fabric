@@ -236,11 +236,19 @@ class StreamableHTTPTransport(MCPTransport):
             headers["Mcp-Session-Id"] = self.session_id
         return headers
 
-    def send(self, message: dict) -> dict | None:
+    def send(self, message: dict, *, header_overrides: dict | None = None) -> dict | None:
+        """Send a JSON-RPC request, optionally overriding final HTTP fields.
+
+        Header overrides are intentionally available to security probes so the
+        harness can verify that gateways reject routing fields which disagree
+        with the JSON-RPC body. Production callers should not use them.
+        """
         if self.is_modern:
             message = self._prepare_modern_message(message)
         data = json.dumps(message).encode("utf-8")
         headers = self._request_headers(message)
+        if header_overrides:
+            headers.update(header_overrides)
 
         req = urllib.request.Request(self.url, data=data, headers=headers, method="POST")
         try:
@@ -577,6 +585,43 @@ class MCPSecurityTests:
             request_sent=msg,
             response_received=resp,
             elapsed_s=round(elapsed, 3),
+        ))
+
+    def test_mcp_stateless_header_body_binding(self):
+        """MCP-RC-001: A stateless server must reject conflicting routing metadata."""
+        t0 = time.monotonic()
+        msg = jsonrpc_request("tools/list", {})
+        forged = {"Mcp-Method": "tools/call", "Mcp-Name": "__mcp_header_probe__"}
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-001", name="Stateless Header/Body Binding",
+                category="stateless_header_binding", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="[simulate] Compiled conflicting method/name routing fields",
+                mcp_method="tools/list", request_sent={"body": msg, "headers": forged},
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "is_modern", False):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-001", name="Stateless Header/Body Binding",
+                category="stateless_header_binding", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: target selected a legacy MCP transport",
+                mcp_method="tools/list", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        resp = self.transport.send(msg, header_overrides=forged)
+        rejected = bool(resp and (resp.get("_error") or resp.get("_status", 200) >= 400 or "error" in resp))
+        self._record(MCPTestResult(
+            test_id="MCP-RC-001", name="Stateless Header/Body Binding",
+            category="stateless_header_binding", owasp_asi="ASI02",
+            severity=Severity.HIGH.value, passed=rejected,
+            details=("Server rejected conflicting Mcp-Method/Mcp-Name routing fields" if rejected
+                     else "Server accepted conflicting header and JSON-RPC routing fields"),
+            mcp_method="tools/list", request_sent={"body": msg, "headers": forged},
+            response_received=resp, elapsed_s=round(time.monotonic() - t0, 3),
         ))
 
     def test_mcp_tool_description_injection(self):
@@ -2108,6 +2153,9 @@ class MCPSecurityTests:
             "tool_discovery": [
                 self.test_mcp_tool_list_injection,
                 self.test_mcp_tool_description_injection,
+            ],
+            "stateless_header_binding": [
+                self.test_mcp_stateless_header_body_binding,
             ],
             "capability_negotiation": [
                 self.test_mcp_capability_escalation,
