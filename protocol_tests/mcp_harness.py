@@ -418,6 +418,7 @@ class MCPSecurityTests:
         json_output: bool = False,
         simulate: bool = False,
         mrtr_probe: dict | None = None,
+        mrtr_input_responses: dict | None = None,
     ):
         self.transport = transport
         self.results: list[MCPTestResult] = []
@@ -426,6 +427,7 @@ class MCPSecurityTests:
         self.json_output = json_output or os.environ.get("AGENT_SECURITY_JSON_OUTPUT") == "1"
         self.simulate = simulate
         self.mrtr_probe = mrtr_probe
+        self.mrtr_input_responses = mrtr_input_responses
         self.selected_protocol_version: str | None = None
 
     def _record(self, result: MCPTestResult):
@@ -689,6 +691,71 @@ class MCPSecurityTests:
                      else "Server accepted a tampered requestState on an MRTR retry"),
             mcp_method=initial["method"], request_sent={"initial": initial, "retry": retry},
             response_received=response, elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_mcp_request_state_replay(self):
+        """MCP-RC-003: A completed one-time MRTR continuation must not replay."""
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-003", name="MRTR requestState Replay Protection",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="[simulate] Compiled exact requestState replay vector",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "is_modern", False) or not self.mrtr_probe or self.mrtr_input_responses is None:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-003", name="MRTR requestState Replay Protection",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: requires modern mode, --mrtr-probe, and authorized --mrtr-input-responses",
+                mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        initial = jsonrpc_request(self.mrtr_probe["method"], dict(self.mrtr_probe.get("params") or {}))
+        initial_response = self.transport.send(initial)
+        result = initial_response.get("result", {}) if initial_response else {}
+        state = result.get("requestState")
+        if result.get("resultType") != "input_required" or not isinstance(state, str) or not state:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-003", name="MRTR requestState Replay Protection",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: probe did not return an InputRequiredResult with requestState",
+                mcp_method=initial["method"], request_sent=initial,
+                response_received=initial_response, elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        retry_params = dict(self.mrtr_probe.get("params") or {})
+        retry_params.update({"requestState": state, "inputResponses": self.mrtr_input_responses})
+        completion = self.transport.send(jsonrpc_request(self.mrtr_probe["method"], retry_params))
+        completion_result = completion.get("result", {}) if completion else {}
+        if completion_result.get("resultType") == "input_required":
+            self._record(MCPTestResult(
+                test_id="MCP-RC-003", name="MRTR requestState Replay Protection",
+                category="mrtr_request_state", owasp_asi="ASI02",
+                severity=Severity.HIGH.value, passed=True,
+                details="Not applicable: supplied input responses did not complete the authorized continuation",
+                mcp_method=initial["method"], response_received=completion,
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        replay = self.transport.send(jsonrpc_request(self.mrtr_probe["method"], retry_params))
+        rejected = bool(replay and (replay.get("_error") or replay.get("_status", 200) >= 400 or "error" in replay))
+        self._record(MCPTestResult(
+            test_id="MCP-RC-003", name="MRTR requestState Replay Protection",
+            category="mrtr_request_state", owasp_asi="ASI02",
+            severity=Severity.HIGH.value, passed=rejected,
+            details=("Server rejected exact replay after a completed continuation" if rejected
+                     else "Server accepted exact requestState replay after completion"),
+            mcp_method=initial["method"],
+            request_sent={"initial": initial, "retry_params": retry_params},
+            response_received=replay, elapsed_s=round(time.monotonic() - t0, 3),
         ))
 
     def test_mcp_tool_description_injection(self):
@@ -2226,6 +2293,7 @@ class MCPSecurityTests:
             ],
             "mrtr_request_state": [
                 self.test_mcp_request_state_integrity,
+                self.test_mcp_request_state_replay,
             ],
             "capability_negotiation": [
                 self.test_mcp_capability_escalation,
@@ -2425,6 +2493,11 @@ def main():
               "Enables MRTR requestState integrity tests only."),
     )
     ap.add_argument(
+        "--mrtr-input-responses",
+        help=("Authorized InputResponses JSON for completing an MRTR probe. "
+              "Enables exact-state replay testing after the continuation completes."),
+    )
+    ap.add_argument(
         "--protocol-version",
         choices=[MODERN_PROTOCOL_VERSION, AUTO_PROTOCOL_VERSION, DIFFERENTIAL_PROTOCOL_VERSION],
         help=("Use the stateless 2026-07-28 protocol flow, or 'auto' to probe "
@@ -2461,6 +2534,7 @@ def main():
 
     categories = args.categories.split(",") if args.categories else None
     mrtr_probe = None
+    mrtr_input_responses = None
     if args.mrtr_probe:
         try:
             mrtr_probe = json.loads(args.mrtr_probe)
@@ -2470,6 +2544,15 @@ def main():
             ap.error("--mrtr-probe must be a JSON object with a string 'method'")
         if "params" in mrtr_probe and not isinstance(mrtr_probe["params"], dict):
             ap.error("--mrtr-probe 'params' must be a JSON object")
+    if args.mrtr_input_responses:
+        try:
+            mrtr_input_responses = json.loads(args.mrtr_input_responses)
+        except json.JSONDecodeError as exc:
+            ap.error(f"--mrtr-input-responses must be a JSON object: {exc.msg}")
+        if not isinstance(mrtr_input_responses, dict):
+            ap.error("--mrtr-input-responses must be a JSON object")
+    if mrtr_input_responses is not None and mrtr_probe is None:
+        ap.error("--mrtr-input-responses requires --mrtr-probe")
 
     def _make_transport(protocol_version: str | None = None):
         """Create a fresh transport instance to avoid state bleed between trials."""
@@ -2496,7 +2579,8 @@ def main():
 
         def _run_protocol(protocol_version: str) -> dict:
             transport = _make_transport(protocol_version)
-            suite = MCPSecurityTests(transport, json_output=json_output, mrtr_probe=mrtr_probe)
+            suite = MCPSecurityTests(transport, json_output=json_output, mrtr_probe=mrtr_probe,
+                                     mrtr_input_responses=mrtr_input_responses)
             try:
                 results = suite.run_all(categories=categories)
                 return build_report(
@@ -2532,7 +2616,8 @@ def main():
 
         def _single_run():
             transport = _make_transport()
-            suite = MCPSecurityTests(transport, json_output=json_output, simulate=args.simulate, mrtr_probe=mrtr_probe)
+            suite = MCPSecurityTests(transport, json_output=json_output, simulate=args.simulate, mrtr_probe=mrtr_probe,
+                                     mrtr_input_responses=mrtr_input_responses)
             try:
                 return {"results": suite.run_all(categories=categories)}
             finally:
@@ -2552,7 +2637,8 @@ def main():
     else:
         # Single run mode - create transport only here
         transport = _make_transport()
-        suite = MCPSecurityTests(transport, json_output=json_output, simulate=args.simulate, mrtr_probe=mrtr_probe)
+        suite = MCPSecurityTests(transport, json_output=json_output, simulate=args.simulate, mrtr_probe=mrtr_probe,
+                                 mrtr_input_responses=mrtr_input_responses)
         conn_error = None
         try:
             results = suite.run_all(categories=categories)

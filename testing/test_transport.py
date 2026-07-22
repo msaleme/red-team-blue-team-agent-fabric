@@ -174,6 +174,30 @@ class TestMRTRRequestState(unittest.TestCase):
         self.assertNotEqual(retry["params"]["requestState"], "signed-state-A")
         self.assertEqual(retry["params"]["inputResponses"], {})
 
+    def test_completed_request_state_replay_is_rejected(self):
+        class ReplayTransport(MCPTransport):
+            is_modern = True
+
+            def __init__(self):
+                self.calls = 0
+
+            def send(self, message, **kwargs):
+                self.calls += 1
+                if self.calls == 1:
+                    return {"result": {"resultType": "input_required", "requestState": "single-use-state"}}
+                if self.calls == 2:
+                    return {"result": {"resultType": "complete", "content": []}}
+                return {"error": {"code": -32000, "message": "requestState already consumed"}}
+
+        suite = MCPSecurityTests(
+            ReplayTransport(),
+            json_output=True,
+            mrtr_probe={"method": "tools/call", "params": {"name": "approval_probe", "arguments": {}}},
+            mrtr_input_responses={"approve": {"action": "accept"}},
+        )
+        suite.test_mcp_request_state_replay()
+        self.assertTrue(suite.results[0].passed)
+
 
 if __name__ == "__main__":
     unittest.main()
