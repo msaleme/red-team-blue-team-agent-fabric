@@ -121,6 +121,26 @@ def _replace_handle(value: object, handle: str) -> object:
     return value
 
 
+def _replace_task_id(value: object, task_id: str) -> object:
+    """Deep-copy JSON-compatible fixture data while replacing $TASK_ID tokens."""
+    if isinstance(value, str):
+        return value.replace("$TASK_ID", task_id)
+    if isinstance(value, list):
+        return [_replace_task_id(item, task_id) for item in value]
+    if isinstance(value, dict):
+        return {key: _replace_task_id(item, task_id) for key, item in value.items()}
+    return value
+
+
+def _redact_sensitive_headers(headers: dict[str, str]) -> dict[str, str]:
+    """Keep credential-bearing probe headers out of evidence records."""
+    sensitive = {"authorization", "cookie", "proxy-authorization"}
+    return {
+        key: "[REDACTED]" if key.lower() in sensitive else value
+        for key, value in headers.items()
+    }
+
+
 # ---------------------------------------------------------------------------
 # MCP JSON-RPC 2.0 primitives
 # ---------------------------------------------------------------------------
@@ -269,6 +289,10 @@ class StreamableHTTPTransport(MCPTransport):
                 name = params.get("name", params.get("uri"))
                 if name is not None:
                     headers["Mcp-Name"] = _header_value(name)
+            elif message.get("method") in {"tasks/get", "tasks/update", "tasks/cancel"}:
+                task_id = params.get("taskId")
+                if task_id is not None:
+                    headers["Mcp-Name"] = _header_value(task_id)
         elif self.session_id:
             headers["Mcp-Session-Id"] = self.session_id
         return headers
@@ -465,6 +489,13 @@ class MCPSecurityTests:
         cache_verify: dict | None = None,
         cache_forbidden_tool: str | None = None,
         cache_resource_uri: str | None = None,
+        task_create: dict | None = None,
+        task_read: dict | None = None,
+        task_attacker_headers: dict | None = None,
+        trace_probe: dict | None = None,
+        trace_attacker_headers: dict | None = None,
+        issuer_probe: dict | None = None,
+        issuer_attacker_headers: dict | None = None,
     ):
         self.transport = transport
         self.results: list[MCPTestResult] = []
@@ -483,6 +514,13 @@ class MCPSecurityTests:
         self.cache_verify = cache_verify
         self.cache_forbidden_tool = cache_forbidden_tool
         self.cache_resource_uri = cache_resource_uri
+        self.task_create = task_create
+        self.task_read = task_read
+        self.task_attacker_headers = task_attacker_headers
+        self.trace_probe = trace_probe
+        self.trace_attacker_headers = trace_attacker_headers
+        self.issuer_probe = issuer_probe
+        self.issuer_attacker_headers = issuer_attacker_headers
         self.selected_protocol_version: str | None = None
 
     def _record(self, result: MCPTestResult):
@@ -1183,6 +1221,183 @@ class MCPSecurityTests:
             elapsed_s=round(time.monotonic() - t0, 3),
         ))
 
+    def test_mcp_task_cross_principal_isolation(self):
+        """MCP-RC-010: a durable task handle must not cross principals.
+
+        The 2026-07-28-RC Tasks extension requires authentication and
+        authorization checks on every task request. This opt-in probe creates
+        only an operator-authorized task, then attempts a read under a distinct
+        authorized test principal. It never cancels or supplies task input.
+        """
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-010", name="Task Cross-Principal Isolation",
+                category="task_isolation", owasp_asi="ASI02", severity=Severity.HIGH.value,
+                passed=True, details="[simulate] Compiled cross-principal task-handle vector",
+                mcp_method="tasks/get", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "is_modern", False):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-010", name="Task Cross-Principal Isolation",
+                category="task_isolation", owasp_asi="ASI02", severity=Severity.HIGH.value,
+                passed=True, details="Not applicable: target selected a legacy MCP transport",
+                mcp_method="tasks/get", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "supports_header_overrides", False):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-010", name="Task Cross-Principal Isolation",
+                category="task_isolation", owasp_asi="ASI02", severity=Severity.HIGH.value,
+                passed=True, details="Not applicable: requires HTTP header overrides for an alternate principal",
+                mcp_method="tasks/get", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not self.task_create or not self.task_read or not self.task_attacker_headers:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-010", name="Task Cross-Principal Isolation",
+                category="task_isolation", owasp_asi="ASI02", severity=Severity.HIGH.value,
+                passed=True,
+                details=("Not applicable: requires authorized task-create/read fixtures and "
+                         "--task-attacker-header"),
+                mcp_method="tasks/get", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        create = jsonrpc_request(self.task_create["method"], dict(self.task_create.get("params") or {}))
+        created = self.transport.send(create)
+        if _probe_failed(created):
+            self._record(MCPTestResult(
+                test_id="MCP-RC-010", name="Task Cross-Principal Isolation",
+                category="task_isolation", owasp_asi="ASI02", severity=Severity.HIGH.value,
+                passed=False, details="Configured task-create fixture failed before isolation validation",
+                mcp_method=create["method"], request_sent=create, response_received=created,
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        task_id = _json_path(created, self.task_create.get("taskIdPath", "result.taskId"))
+        if not isinstance(task_id, str) or not task_id:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-010", name="Task Cross-Principal Isolation",
+                category="task_isolation", owasp_asi="ASI02", severity=Severity.HIGH.value,
+                passed=True,
+                details="Not applicable: create fixture did not return a string task ID at taskIdPath",
+                mcp_method=create["method"], request_sent=create, response_received=created,
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        read = jsonrpc_request(
+            self.task_read["method"],
+            _replace_task_id(dict(self.task_read.get("params") or {}), task_id),
+        )
+        response = self.transport.send(read, header_overrides=self.task_attacker_headers)
+        rejected = _probe_failed(response)
+        self._record(MCPTestResult(
+            test_id="MCP-RC-010", name="Task Cross-Principal Isolation",
+            category="task_isolation", owasp_asi="ASI02", severity=Severity.HIGH.value,
+            passed=rejected,
+            details=("Server rejected task access by a different principal" if rejected
+                     else "Server accepted task access by a different principal"),
+            mcp_method=read["method"],
+            request_sent={"create": create, "cross_principal_read": read},
+            response_received=response, elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_mcp_trace_context_request_binding(self):
+        """MCP-RC-011: an authorized request must reject conflicting trace context.
+
+        Trace context is outside JSON-RPC, so a target that uses it for routing
+        must bind it to the authenticated request. This opt-in probe replays only
+        an operator-authorized, read-only fixture with a distinct W3C trace header.
+        It does not claim legacy/modern equivalence or infer a target's tracing model.
+        """
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-011", name="Trace Context Request Binding",
+                category="trace_context_binding", owasp_asi="ASI02", severity=Severity.HIGH.value,
+                passed=True, details="[simulate] Compiled conflicting trace-context fixture",
+                mcp_method="authorized fixture",
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "is_modern", False):
+            details = "Not applicable: target selected a legacy MCP transport"
+        elif not getattr(self.transport, "supports_header_overrides", False):
+            details = "Not applicable: requires HTTP header overrides for trace-context validation"
+        elif not self.trace_probe or not self.trace_attacker_headers:
+            details = "Not applicable: requires an authorized read-only --trace-probe and --trace-attacker-header"
+        else:
+            probe = jsonrpc_request(
+                self.trace_probe["method"], dict(self.trace_probe.get("params") or {})
+            )
+            response = self.transport.send(probe, header_overrides=self.trace_attacker_headers)
+            rejected = _probe_failed(response)
+            self._record(MCPTestResult(
+                test_id="MCP-RC-011", name="Trace Context Request Binding",
+                category="trace_context_binding", owasp_asi="ASI02", severity=Severity.HIGH.value,
+                passed=rejected,
+                details=("Server rejected a request with conflicting trace context" if rejected
+                         else "Server accepted the authorized request with conflicting trace context"),
+                mcp_method=probe["method"],
+                request_sent={"body": probe, "trace_headers": self.trace_attacker_headers},
+                response_received=response, elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        self._record(MCPTestResult(
+            test_id="MCP-RC-011", name="Trace Context Request Binding",
+            category="trace_context_binding", owasp_asi="ASI02", severity=Severity.HIGH.value,
+            passed=True, details=details, mcp_method="authorized fixture",
+            elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_mcp_oauth_issuer_binding(self):
+        """MCP-RC-012: an authorized fixture must reject a credential from another issuer.
+
+        This opt-in probe requires two operator-authorized test credentials with
+        distinct issuers. It exercises only a read-only JSON-RPC fixture and does
+        not infer token validation behavior beyond the observed target boundary.
+        Credential-bearing headers are redacted from the evidence record.
+        """
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-012", name="OAuth Issuer Request Binding",
+                category="oauth_issuer_binding", owasp_asi="ASI02", severity=Severity.HIGH.value,
+                passed=True, details="[simulate] Compiled alternate-issuer authorized-fixture vector",
+                mcp_method="authorized fixture", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "supports_header_overrides", False):
+            details = "Not applicable: requires HTTP header overrides for an alternate issuer credential"
+        elif not self.issuer_probe or not self.issuer_attacker_headers:
+            details = ("Not applicable: requires an authorized read-only --issuer-probe and "
+                       "--issuer-attacker-header")
+        else:
+            probe = jsonrpc_request(
+                self.issuer_probe["method"], dict(self.issuer_probe.get("params") or {})
+            )
+            response = self.transport.send(probe, header_overrides=self.issuer_attacker_headers)
+            rejected = _probe_failed(response)
+            self._record(MCPTestResult(
+                test_id="MCP-RC-012", name="OAuth Issuer Request Binding",
+                category="oauth_issuer_binding", owasp_asi="ASI02", severity=Severity.HIGH.value,
+                passed=rejected,
+                details=("Server rejected the authorized fixture under an alternate issuer credential" if rejected
+                         else "Server accepted the authorized fixture under an alternate issuer credential"),
+                mcp_method=probe["method"],
+                request_sent={"body": probe, "alternate_issuer_headers": _redact_sensitive_headers(self.issuer_attacker_headers)},
+                response_received=response, elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        self._record(MCPTestResult(
+            test_id="MCP-RC-012", name="OAuth Issuer Request Binding",
+            category="oauth_issuer_binding", owasp_asi="ASI02", severity=Severity.HIGH.value,
+            passed=True, details=details, mcp_method="authorized fixture",
+            elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
     def test_mcp_tool_description_injection(self):
         """MCP-002: Attempt to register a tool with malicious description via tool call."""
         t0 = time.monotonic()
@@ -1645,15 +1860,11 @@ class MCPSecurityTests:
             ))
             return
 
-        resp_bytes = self.transport.send_raw(batch_json, mcp_method="tools/list")
+        self.transport.send_raw(batch_json, mcp_method="tools/list")
         elapsed = time.monotonic() - t0
 
         # Pass if server either rejected (4xx) or responded within reasonable time
         passed = elapsed < 10.0  # Should handle within 10 seconds
-
-        resp_preview = ""
-        if resp_bytes:
-            resp_preview = resp_bytes[:200].decode("utf-8", errors="replace")
 
         self._record(MCPTestResult(
             test_id="MCP-009",
@@ -2725,6 +2936,9 @@ class MCPSecurityTests:
             "explicit_handle_isolation": [self.test_mcp_explicit_handle_isolation],
             "cache_security": [self.test_mcp_cache_scope_metadata, self.test_mcp_cache_revocation,
                                 self.test_mcp_resource_cache_metadata],
+            "task_isolation": [self.test_mcp_task_cross_principal_isolation],
+            "trace_context_binding": [self.test_mcp_trace_context_request_binding],
+            "oauth_issuer_binding": [self.test_mcp_oauth_issuer_binding],
             "capability_negotiation": [
                 self.test_mcp_capability_escalation,
                 self.test_mcp_protocol_version_downgrade,
@@ -2796,7 +3010,8 @@ class MCPSecurityTests:
                 try:
                     test_fn()
                 except Exception as e:
-                    _eid = re.search(r"([A-Z]{2,}-\d{3})", test_fn.__doc__ or "") ; _eid = _eid.group(1) if _eid else test_fn.__name__
+                    match = re.search(r"([A-Z]{2,}-\d{3})", test_fn.__doc__ or "")
+                    _eid = match.group(1) if match else test_fn.__name__
                     if not self.json_output:
                         print(f"  ERROR ⚠️  {_eid}: {e}")
                     self.results.append(MCPTestResult(
@@ -2952,6 +3167,40 @@ def main():
     ap.add_argument("--cache-forbidden-tool", help="Tool name that must be absent after --cache-invalidation.")
     ap.add_argument("--cache-resource-uri", help="Operator-authorized resource URI for the read-only cache-metadata probe.")
     ap.add_argument(
+        "--task-create",
+        help=("Authorized JSON-RPC request that creates a harmless task. Include optional "
+              "taskIdPath (default result.taskId) for the returned durable task handle."),
+    )
+    ap.add_argument(
+        "--task-read",
+        help=("Read-only JSON-RPC request for that task. Use $TASK_ID in params as the "
+              "created task-handle placeholder (for example tasks/get with taskId)."),
+    )
+    ap.add_argument(
+        "--task-attacker-header", action="append", default=[],
+        help="Alternate authorized test-principal header for task isolation, key:value.",
+    )
+    ap.add_argument(
+        "--trace-probe",
+        help=("Operator-authorized read-only JSON-RPC request for trace-context binding. "
+              "Must be used with --trace-attacker-header."),
+    )
+    ap.add_argument(
+        "--trace-attacker-header", action="append", default=[],
+        help=("Conflicting W3C trace-context header for the authorized trace probe, key:value. "
+              "For example Traceparent:00-..."),
+    )
+    ap.add_argument(
+        "--issuer-probe",
+        help=("Operator-authorized read-only JSON-RPC request for OAuth issuer binding. "
+              "Must be used with --issuer-attacker-header."),
+    )
+    ap.add_argument(
+        "--issuer-attacker-header", action="append", default=[],
+        help=("Credential/header override from a distinct, operator-authorized test issuer, key:value. "
+              "It is redacted from reports."),
+    )
+    ap.add_argument(
         "--protocol-version",
         choices=[MODERN_PROTOCOL_VERSION, AUTO_PROTOCOL_VERSION, DIFFERENTIAL_PROTOCOL_VERSION],
         help=("Use the stateless 2026-07-28 protocol flow, or 'auto' to probe "
@@ -3001,6 +3250,12 @@ def main():
     handle_create = handle_access = None
     handle_attacker_headers = {}
     cache_invalidation = cache_verify = None
+    task_create = task_read = None
+    task_attacker_headers = {}
+    trace_probe = None
+    trace_attacker_headers = {}
+    issuer_probe = None
+    issuer_attacker_headers = {}
     if args.mrtr_probe:
         try:
             mrtr_probe = json.loads(args.mrtr_probe)
@@ -3073,6 +3328,67 @@ def main():
         (cache_invalidation, cache_verify, args.cache_forbidden_tool)
     ):
         ap.error("--cache-invalidation, --cache-verify, and --cache-forbidden-tool must be supplied together")
+    for option, raw in (("--task-create", args.task_create), ("--task-read", args.task_read)):
+        if raw:
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                ap.error(f"{option} must be a JSON object: {exc.msg}")
+            if not isinstance(parsed, dict) or not isinstance(parsed.get("method"), str):
+                ap.error(f"{option} must be a JSON object with a string 'method'")
+            if "params" in parsed and not isinstance(parsed["params"], dict):
+                ap.error(f"{option} 'params' must be a JSON object")
+            if option == "--task-create":
+                task_create = parsed
+            else:
+                task_read = parsed
+    for header in args.task_attacker_header:
+        if ":" not in header:
+            ap.error("--task-attacker-header must use key:value form")
+        key, value = header.split(":", 1)
+        if not key.strip():
+            ap.error("--task-attacker-header must include a header name")
+        task_attacker_headers[key.strip()] = value.strip()
+    if any((task_create, task_read, task_attacker_headers)) and not all(
+        (task_create, task_read, task_attacker_headers)
+    ):
+        ap.error("--task-create, --task-read, and --task-attacker-header must be supplied together")
+    if args.trace_probe:
+        try:
+            trace_probe = json.loads(args.trace_probe)
+        except json.JSONDecodeError as exc:
+            ap.error(f"--trace-probe must be a JSON object: {exc.msg}")
+        if not isinstance(trace_probe, dict) or not isinstance(trace_probe.get("method"), str):
+            ap.error("--trace-probe must be a JSON object with a string 'method'")
+        if "params" in trace_probe and not isinstance(trace_probe["params"], dict):
+            ap.error("--trace-probe 'params' must be a JSON object")
+    for header in args.trace_attacker_header:
+        if ":" not in header:
+            ap.error("--trace-attacker-header must use key:value form")
+        key, value = header.split(":", 1)
+        if not key.strip():
+            ap.error("--trace-attacker-header must include a header name")
+        trace_attacker_headers[key.strip()] = value.strip()
+    if any((trace_probe, trace_attacker_headers)) and not all((trace_probe, trace_attacker_headers)):
+        ap.error("--trace-probe and --trace-attacker-header must be supplied together")
+    if args.issuer_probe:
+        try:
+            issuer_probe = json.loads(args.issuer_probe)
+        except json.JSONDecodeError as exc:
+            ap.error(f"--issuer-probe must be a JSON object: {exc.msg}")
+        if not isinstance(issuer_probe, dict) or not isinstance(issuer_probe.get("method"), str):
+            ap.error("--issuer-probe must be a JSON object with a string 'method'")
+        if "params" in issuer_probe and not isinstance(issuer_probe["params"], dict):
+            ap.error("--issuer-probe 'params' must be a JSON object")
+    for header in args.issuer_attacker_header:
+        if ":" not in header:
+            ap.error("--issuer-attacker-header must use key:value form")
+        key, value = header.split(":", 1)
+        if not key.strip():
+            ap.error("--issuer-attacker-header must include a header name")
+        issuer_attacker_headers[key.strip()] = value.strip()
+    if any((issuer_probe, issuer_attacker_headers)) and not all((issuer_probe, issuer_attacker_headers)):
+        ap.error("--issuer-probe and --issuer-attacker-header must be supplied together")
     for header in args.mrtr_attacker_header:
         if ":" not in header:
             ap.error("--mrtr-attacker-header must use key:value form")
@@ -3115,7 +3431,10 @@ def main():
                                      handle_access=handle_access, handle_attacker_headers=handle_attacker_headers,
                                      cache_invalidation=cache_invalidation, cache_verify=cache_verify,
                                      cache_forbidden_tool=args.cache_forbidden_tool,
-                                     cache_resource_uri=args.cache_resource_uri)
+                                     cache_resource_uri=args.cache_resource_uri, task_create=task_create,
+                                     task_read=task_read, task_attacker_headers=task_attacker_headers,
+                                     trace_probe=trace_probe, trace_attacker_headers=trace_attacker_headers,
+                                     issuer_probe=issuer_probe, issuer_attacker_headers=issuer_attacker_headers)
             try:
                 results = suite.run_all(categories=categories)
                 return build_report(
@@ -3157,7 +3476,10 @@ def main():
                                      handle_access=handle_access, handle_attacker_headers=handle_attacker_headers,
                                      cache_invalidation=cache_invalidation, cache_verify=cache_verify,
                                      cache_forbidden_tool=args.cache_forbidden_tool,
-                                     cache_resource_uri=args.cache_resource_uri)
+                                     cache_resource_uri=args.cache_resource_uri, task_create=task_create,
+                                     task_read=task_read, task_attacker_headers=task_attacker_headers,
+                                     trace_probe=trace_probe, trace_attacker_headers=trace_attacker_headers,
+                                     issuer_probe=issuer_probe, issuer_attacker_headers=issuer_attacker_headers)
             try:
                 return {"results": suite.run_all(categories=categories)}
             finally:
@@ -3184,7 +3506,10 @@ def main():
                                  handle_access=handle_access, handle_attacker_headers=handle_attacker_headers,
                                  cache_invalidation=cache_invalidation, cache_verify=cache_verify,
                                  cache_forbidden_tool=args.cache_forbidden_tool,
-                                 cache_resource_uri=args.cache_resource_uri)
+                                 cache_resource_uri=args.cache_resource_uri, task_create=task_create,
+                                 task_read=task_read, task_attacker_headers=task_attacker_headers,
+                                 trace_probe=trace_probe, trace_attacker_headers=trace_attacker_headers,
+                                 issuer_probe=issuer_probe, issuer_attacker_headers=issuer_attacker_headers)
         conn_error = None
         try:
             results = suite.run_all(categories=categories)
