@@ -180,11 +180,11 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 ## Test Harness Modules (representative summary)
 
 > This table lists the largest modules; the full harness spans **37 test-bearing
-> modules / 553 tests** (verified 2026-07-12 via `scripts/count_tests.py`).
+> modules / 563 tests** (verified 2026-07-22 via `scripts/count_tests.py`).
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|
-| **MCP Protocol** | 18 | JSON-RPC 2.0 | Anthropic MCP wire-protocol testing |
+| **MCP Protocol** | 30 | JSON-RPC 2.0 | MCP wire-protocol testing, including stateless routing, MRTR, cache, and task-isolation probes |
 | **A2A Protocol** | 13 | JSON-RPC/HTTP | Google Agent-to-Agent communication |
 | **L402 Payment** | 33 | HTTP/Lightning | Bitcoin/Lightning payment flow security (macaroons, preimages, caveats) |
 | **x402 Payment** | 52 | HTTP/USDC | Coinbase/Stripe agent payment protocol (recipient manipulation, session theft, facilitator trust, cross-chain confusion) |

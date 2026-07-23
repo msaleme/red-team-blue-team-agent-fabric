@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Unit tests for MCP transport and JSON-RPC primitives."""
-import json, os, sys, unittest
+import json
+import os
+import sys
+import unittest
 from unittest.mock import MagicMock, patch
-from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from protocol_tests.mcp_harness import (
     AUTO_PROTOCOL_VERSION,
@@ -12,6 +14,7 @@ from protocol_tests.mcp_harness import (
     MCPSecurityTests,
     _json_path,
     _replace_handle,
+    _replace_task_id,
     MCPTransport,
     report_has_failure,
     StreamableHTTPTransport,
@@ -24,7 +27,9 @@ from protocol_tests.mcp_harness import (
 class TestJSONRPCRequest(unittest.TestCase):
     def test_structure(self):
         msg = jsonrpc_request("tools/list")
-        self.assertEqual(msg["jsonrpc"], "2.0"); self.assertEqual(msg["method"], "tools/list"); self.assertIn("id", msg)
+        self.assertEqual(msg["jsonrpc"], "2.0")
+        self.assertEqual(msg["method"], "tools/list")
+        self.assertIn("id", msg)
     def test_params(self): self.assertEqual(jsonrpc_request("x", {"k":"v"})["params"], {"k":"v"})
     def test_custom_id(self): self.assertEqual(jsonrpc_request("x", id="abc")["id"], "abc")
     def test_none_params(self): self.assertNotIn("params", jsonrpc_request("x", params=None))
@@ -38,11 +43,13 @@ class TestJSONRPCNotification(unittest.TestCase):
 
 class TestTransport(unittest.TestCase):
     def test_send_not_impl(self):
-        with self.assertRaises(NotImplementedError): MCPTransport().send({})
+        with self.assertRaises(NotImplementedError):
+            MCPTransport().send({})
     def test_close_noop(self): MCPTransport().close()
     def test_http_init(self):
         t = StreamableHTTPTransport("http://localhost:8080")
-        self.assertEqual(t.url, "http://localhost:8080"); self.assertIsNone(t.session_id)
+        self.assertEqual(t.url, "http://localhost:8080")
+        self.assertIsNone(t.session_id)
 
     def test_modern_request_metadata_and_headers(self):
         t = StreamableHTTPTransport("http://localhost:8080", protocol_version=MODERN_PROTOCOL_VERSION)
@@ -59,6 +66,13 @@ class TestTransport(unittest.TestCase):
         t = StreamableHTTPTransport("http://localhost:8080", protocol_version=MODERN_PROTOCOL_VERSION)
         request = t._prepare_modern_message(jsonrpc_request("resources/read", {"uri": "file:///你好"}))
         self.assertTrue(t._request_headers(request)["Mcp-Name"].startswith("=?base64?"))
+
+    def test_modern_task_id_is_mirrored_as_routing_name(self):
+        t = StreamableHTTPTransport("http://localhost:8080", protocol_version=MODERN_PROTOCOL_VERSION)
+        request = t._prepare_modern_message(jsonrpc_request("tasks/get", {"taskId": "tenant-a/task-42"}))
+        headers = t._request_headers(request)
+        self.assertEqual(headers["Mcp-Method"], "tasks/get")
+        self.assertEqual(headers["Mcp-Name"], "tenant-a/task-42")
 
     def test_header_value_encodes_unsafe_values(self):
         self.assertEqual(_header_value("safe-value"), "safe-value")
@@ -319,6 +333,72 @@ class TestExplicitHandleIsolation(unittest.TestCase):
         self.assertEqual(transport.calls[1][1]["header_overrides"], {"Authorization": "Bearer tenant-b"})
         self.assertEqual(_json_path({"a": {"b": 1}}, "a.b"), 1)
         self.assertEqual(_replace_handle({"x": ["$HANDLE"]}, "h"), {"x": ["h"]})
+
+
+class TestTaskIsolation(unittest.TestCase):
+    def test_failed_task_create_is_not_marked_not_applicable(self):
+        class FailingTaskTransport(MCPTransport):
+            is_modern = True
+            supports_header_overrides = True
+
+            def send(self, message, **kwargs):
+                return {"error": {"code": -32000, "message": "task create failed"}}
+
+        suite = MCPSecurityTests(
+            FailingTaskTransport(), json_output=True,
+            task_create={"method": "tools/call", "params": {"name": "create_test_task"}},
+            task_read={"method": "tasks/get", "params": {"taskId": "$TASK_ID"}},
+            task_attacker_headers={"Authorization": "Bearer tenant-b"},
+        )
+        suite.test_mcp_task_cross_principal_isolation()
+        self.assertFalse(suite.results[0].passed)
+        self.assertIn("failed", suite.results[0].details)
+
+    def test_cross_principal_task_read_is_rejected_and_task_id_is_replaced(self):
+        class TaskTransport(MCPTransport):
+            is_modern = True
+            supports_header_overrides = True
+
+            def __init__(self):
+                self.calls = []
+
+            def send(self, message, **kwargs):
+                self.calls.append((message, kwargs))
+                if len(self.calls) == 1:
+                    return {"result": {"taskId": "tenant-a-task"}}
+                return {"error": {"code": -32001, "message": "task not authorized"}}
+
+        transport = TaskTransport()
+        suite = MCPSecurityTests(
+            transport, json_output=True,
+            task_create={"method": "tools/call", "params": {"name": "create_test_task"}},
+            task_read={"method": "tasks/get", "params": {"taskId": "$TASK_ID"}},
+            task_attacker_headers={"Authorization": "Bearer tenant-b"},
+        )
+        suite.test_mcp_task_cross_principal_isolation()
+        self.assertTrue(suite.results[0].passed)
+        self.assertEqual(transport.calls[1][0]["params"]["taskId"], "tenant-a-task")
+        self.assertEqual(transport.calls[1][1]["header_overrides"], {"Authorization": "Bearer tenant-b"})
+        self.assertEqual(_replace_task_id({"task": "$TASK_ID"}, "task-1"), {"task": "task-1"})
+
+    def test_cross_principal_task_read_that_succeeds_fails(self):
+        class LeakyTaskTransport(MCPTransport):
+            is_modern = True
+            supports_header_overrides = True
+
+            def send(self, message, **kwargs):
+                if message["method"] == "tools/call":
+                    return {"result": {"taskId": "tenant-a-task"}}
+                return {"result": {"taskId": "tenant-a-task", "status": "working"}}
+
+        suite = MCPSecurityTests(
+            LeakyTaskTransport(), json_output=True,
+            task_create={"method": "tools/call", "params": {"name": "create_test_task"}},
+            task_read={"method": "tasks/get", "params": {"taskId": "$TASK_ID"}},
+            task_attacker_headers={"Authorization": "Bearer tenant-b"},
+        )
+        suite.test_mcp_task_cross_principal_isolation()
+        self.assertFalse(suite.results[0].passed)
 
 
 class TestCacheScopeMetadata(unittest.TestCase):
