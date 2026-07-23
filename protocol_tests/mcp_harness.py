@@ -132,6 +132,15 @@ def _replace_task_id(value: object, task_id: str) -> object:
     return value
 
 
+def _redact_sensitive_headers(headers: dict[str, str]) -> dict[str, str]:
+    """Keep credential-bearing probe headers out of evidence records."""
+    sensitive = {"authorization", "cookie", "proxy-authorization"}
+    return {
+        key: "[REDACTED]" if key.lower() in sensitive else value
+        for key, value in headers.items()
+    }
+
+
 # ---------------------------------------------------------------------------
 # MCP JSON-RPC 2.0 primitives
 # ---------------------------------------------------------------------------
@@ -485,6 +494,8 @@ class MCPSecurityTests:
         task_attacker_headers: dict | None = None,
         trace_probe: dict | None = None,
         trace_attacker_headers: dict | None = None,
+        issuer_probe: dict | None = None,
+        issuer_attacker_headers: dict | None = None,
     ):
         self.transport = transport
         self.results: list[MCPTestResult] = []
@@ -508,6 +519,8 @@ class MCPSecurityTests:
         self.task_attacker_headers = task_attacker_headers
         self.trace_probe = trace_probe
         self.trace_attacker_headers = trace_attacker_headers
+        self.issuer_probe = issuer_probe
+        self.issuer_attacker_headers = issuer_attacker_headers
         self.selected_protocol_version: str | None = None
 
     def _record(self, result: MCPTestResult):
@@ -1335,6 +1348,52 @@ class MCPSecurityTests:
         self._record(MCPTestResult(
             test_id="MCP-RC-011", name="Trace Context Request Binding",
             category="trace_context_binding", owasp_asi="ASI02", severity=Severity.HIGH.value,
+            passed=True, details=details, mcp_method="authorized fixture",
+            elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_mcp_oauth_issuer_binding(self):
+        """MCP-RC-012: an authorized fixture must reject a credential from another issuer.
+
+        This opt-in probe requires two operator-authorized test credentials with
+        distinct issuers. It exercises only a read-only JSON-RPC fixture and does
+        not infer token validation behavior beyond the observed target boundary.
+        Credential-bearing headers are redacted from the evidence record.
+        """
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-012", name="OAuth Issuer Request Binding",
+                category="oauth_issuer_binding", owasp_asi="ASI02", severity=Severity.HIGH.value,
+                passed=True, details="[simulate] Compiled alternate-issuer authorized-fixture vector",
+                mcp_method="authorized fixture", elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "supports_header_overrides", False):
+            details = "Not applicable: requires HTTP header overrides for an alternate issuer credential"
+        elif not self.issuer_probe or not self.issuer_attacker_headers:
+            details = ("Not applicable: requires an authorized read-only --issuer-probe and "
+                       "--issuer-attacker-header")
+        else:
+            probe = jsonrpc_request(
+                self.issuer_probe["method"], dict(self.issuer_probe.get("params") or {})
+            )
+            response = self.transport.send(probe, header_overrides=self.issuer_attacker_headers)
+            rejected = _probe_failed(response)
+            self._record(MCPTestResult(
+                test_id="MCP-RC-012", name="OAuth Issuer Request Binding",
+                category="oauth_issuer_binding", owasp_asi="ASI02", severity=Severity.HIGH.value,
+                passed=rejected,
+                details=("Server rejected the authorized fixture under an alternate issuer credential" if rejected
+                         else "Server accepted the authorized fixture under an alternate issuer credential"),
+                mcp_method=probe["method"],
+                request_sent={"body": probe, "alternate_issuer_headers": _redact_sensitive_headers(self.issuer_attacker_headers)},
+                response_received=response, elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        self._record(MCPTestResult(
+            test_id="MCP-RC-012", name="OAuth Issuer Request Binding",
+            category="oauth_issuer_binding", owasp_asi="ASI02", severity=Severity.HIGH.value,
             passed=True, details=details, mcp_method="authorized fixture",
             elapsed_s=round(time.monotonic() - t0, 3),
         ))
@@ -2879,6 +2938,7 @@ class MCPSecurityTests:
                                 self.test_mcp_resource_cache_metadata],
             "task_isolation": [self.test_mcp_task_cross_principal_isolation],
             "trace_context_binding": [self.test_mcp_trace_context_request_binding],
+            "oauth_issuer_binding": [self.test_mcp_oauth_issuer_binding],
             "capability_negotiation": [
                 self.test_mcp_capability_escalation,
                 self.test_mcp_protocol_version_downgrade,
@@ -3131,6 +3191,16 @@ def main():
               "For example Traceparent:00-..."),
     )
     ap.add_argument(
+        "--issuer-probe",
+        help=("Operator-authorized read-only JSON-RPC request for OAuth issuer binding. "
+              "Must be used with --issuer-attacker-header."),
+    )
+    ap.add_argument(
+        "--issuer-attacker-header", action="append", default=[],
+        help=("Credential/header override from a distinct, operator-authorized test issuer, key:value. "
+              "It is redacted from reports."),
+    )
+    ap.add_argument(
         "--protocol-version",
         choices=[MODERN_PROTOCOL_VERSION, AUTO_PROTOCOL_VERSION, DIFFERENTIAL_PROTOCOL_VERSION],
         help=("Use the stateless 2026-07-28 protocol flow, or 'auto' to probe "
@@ -3184,6 +3254,8 @@ def main():
     task_attacker_headers = {}
     trace_probe = None
     trace_attacker_headers = {}
+    issuer_probe = None
+    issuer_attacker_headers = {}
     if args.mrtr_probe:
         try:
             mrtr_probe = json.loads(args.mrtr_probe)
@@ -3299,6 +3371,24 @@ def main():
         trace_attacker_headers[key.strip()] = value.strip()
     if any((trace_probe, trace_attacker_headers)) and not all((trace_probe, trace_attacker_headers)):
         ap.error("--trace-probe and --trace-attacker-header must be supplied together")
+    if args.issuer_probe:
+        try:
+            issuer_probe = json.loads(args.issuer_probe)
+        except json.JSONDecodeError as exc:
+            ap.error(f"--issuer-probe must be a JSON object: {exc.msg}")
+        if not isinstance(issuer_probe, dict) or not isinstance(issuer_probe.get("method"), str):
+            ap.error("--issuer-probe must be a JSON object with a string 'method'")
+        if "params" in issuer_probe and not isinstance(issuer_probe["params"], dict):
+            ap.error("--issuer-probe 'params' must be a JSON object")
+    for header in args.issuer_attacker_header:
+        if ":" not in header:
+            ap.error("--issuer-attacker-header must use key:value form")
+        key, value = header.split(":", 1)
+        if not key.strip():
+            ap.error("--issuer-attacker-header must include a header name")
+        issuer_attacker_headers[key.strip()] = value.strip()
+    if any((issuer_probe, issuer_attacker_headers)) and not all((issuer_probe, issuer_attacker_headers)):
+        ap.error("--issuer-probe and --issuer-attacker-header must be supplied together")
     for header in args.mrtr_attacker_header:
         if ":" not in header:
             ap.error("--mrtr-attacker-header must use key:value form")
@@ -3343,7 +3433,8 @@ def main():
                                      cache_forbidden_tool=args.cache_forbidden_tool,
                                      cache_resource_uri=args.cache_resource_uri, task_create=task_create,
                                      task_read=task_read, task_attacker_headers=task_attacker_headers,
-                                     trace_probe=trace_probe, trace_attacker_headers=trace_attacker_headers)
+                                     trace_probe=trace_probe, trace_attacker_headers=trace_attacker_headers,
+                                     issuer_probe=issuer_probe, issuer_attacker_headers=issuer_attacker_headers)
             try:
                 results = suite.run_all(categories=categories)
                 return build_report(
@@ -3387,7 +3478,8 @@ def main():
                                      cache_forbidden_tool=args.cache_forbidden_tool,
                                      cache_resource_uri=args.cache_resource_uri, task_create=task_create,
                                      task_read=task_read, task_attacker_headers=task_attacker_headers,
-                                     trace_probe=trace_probe, trace_attacker_headers=trace_attacker_headers)
+                                     trace_probe=trace_probe, trace_attacker_headers=trace_attacker_headers,
+                                     issuer_probe=issuer_probe, issuer_attacker_headers=issuer_attacker_headers)
             try:
                 return {"results": suite.run_all(categories=categories)}
             finally:
@@ -3416,7 +3508,8 @@ def main():
                                  cache_forbidden_tool=args.cache_forbidden_tool,
                                  cache_resource_uri=args.cache_resource_uri, task_create=task_create,
                                  task_read=task_read, task_attacker_headers=task_attacker_headers,
-                                 trace_probe=trace_probe, trace_attacker_headers=trace_attacker_headers)
+                                 trace_probe=trace_probe, trace_attacker_headers=trace_attacker_headers,
+                                 issuer_probe=issuer_probe, issuer_attacker_headers=issuer_attacker_headers)
         conn_error = None
         try:
             results = suite.run_all(categories=categories)

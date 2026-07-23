@@ -442,6 +442,54 @@ class TestTraceContextBinding(unittest.TestCase):
         self.assertFalse(suite.results[0].passed)
 
 
+class TestOAuthIssuerBinding(unittest.TestCase):
+    def test_alternate_issuer_is_rejected_and_credential_is_redacted(self):
+        class IssuerTransport(MCPTransport):
+            supports_header_overrides = True
+
+            def __init__(self):
+                self.calls = []
+
+            def send(self, message, **kwargs):
+                self.calls.append((message, kwargs))
+                return {"error": {"code": -32001, "message": "issuer mismatch"}}
+
+        transport = IssuerTransport()
+        headers = {"Authorization": "Bearer synthetic-other-issuer", "X-Test-Issuer": "issuer-b"}
+        suite = MCPSecurityTests(
+            transport, json_output=True,
+            issuer_probe={"method": "tools/list", "params": {}},
+            issuer_attacker_headers=headers,
+        )
+        suite.test_mcp_oauth_issuer_binding()
+        self.assertTrue(suite.results[0].passed)
+        self.assertEqual(transport.calls[0][1]["header_overrides"], headers)
+        evidence_headers = suite.results[0].request_sent["alternate_issuer_headers"]
+        self.assertEqual(evidence_headers["Authorization"], "[REDACTED]")
+        self.assertEqual(evidence_headers["X-Test-Issuer"], "issuer-b")
+
+    def test_alternate_issuer_acceptance_is_a_failure(self):
+        class LeakyIssuerTransport(MCPTransport):
+            supports_header_overrides = True
+
+            def send(self, message, **kwargs):
+                return {"result": {"tools": []}}
+
+        suite = MCPSecurityTests(
+            LeakyIssuerTransport(), json_output=True,
+            issuer_probe={"method": "tools/list", "params": {}},
+            issuer_attacker_headers={"Authorization": "Bearer synthetic-other-issuer"},
+        )
+        suite.test_mcp_oauth_issuer_binding()
+        self.assertFalse(suite.results[0].passed)
+
+    def test_missing_authorized_fixture_is_not_applicable(self):
+        suite = MCPSecurityTests(MCPTransport(), json_output=True)
+        suite.test_mcp_oauth_issuer_binding()
+        self.assertTrue(suite.results[0].passed)
+        self.assertIn("Not applicable", suite.results[0].details)
+
+
 class TestCacheScopeMetadata(unittest.TestCase):
     def test_modern_listing_requires_scope_and_ttl(self):
         class CacheTransport(MCPTransport):
