@@ -401,6 +401,47 @@ class TestTaskIsolation(unittest.TestCase):
         self.assertFalse(suite.results[0].passed)
 
 
+class TestTraceContextBinding(unittest.TestCase):
+    def test_conflicting_trace_context_is_rejected(self):
+        class TraceTransport(MCPTransport):
+            is_modern = True
+            supports_header_overrides = True
+
+            def __init__(self):
+                self.calls = []
+
+            def send(self, message, **kwargs):
+                self.calls.append((message, kwargs))
+                return {"error": {"code": -32001, "message": "trace context mismatch"}}
+
+        transport = TraceTransport()
+        trace_header = {"Traceparent": "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01"}
+        suite = MCPSecurityTests(
+            transport, json_output=True,
+            trace_probe={"method": "tools/list", "params": {}},
+            trace_attacker_headers=trace_header,
+        )
+        suite.test_mcp_trace_context_request_binding()
+        self.assertTrue(suite.results[0].passed)
+        self.assertEqual(transport.calls[0][1]["header_overrides"], trace_header)
+
+    def test_trace_probe_success_is_a_failure(self):
+        class LeakyTraceTransport(MCPTransport):
+            is_modern = True
+            supports_header_overrides = True
+
+            def send(self, message, **kwargs):
+                return {"result": {"tools": []}}
+
+        suite = MCPSecurityTests(
+            LeakyTraceTransport(), json_output=True,
+            trace_probe={"method": "tools/list", "params": {}},
+            trace_attacker_headers={"Traceparent": "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01"},
+        )
+        suite.test_mcp_trace_context_request_binding()
+        self.assertFalse(suite.results[0].passed)
+
+
 class TestCacheScopeMetadata(unittest.TestCase):
     def test_modern_listing_requires_scope_and_ttl(self):
         class CacheTransport(MCPTransport):

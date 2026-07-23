@@ -483,6 +483,8 @@ class MCPSecurityTests:
         task_create: dict | None = None,
         task_read: dict | None = None,
         task_attacker_headers: dict | None = None,
+        trace_probe: dict | None = None,
+        trace_attacker_headers: dict | None = None,
     ):
         self.transport = transport
         self.results: list[MCPTestResult] = []
@@ -504,6 +506,8 @@ class MCPSecurityTests:
         self.task_create = task_create
         self.task_read = task_read
         self.task_attacker_headers = task_attacker_headers
+        self.trace_probe = trace_probe
+        self.trace_attacker_headers = trace_attacker_headers
         self.selected_protocol_version: str | None = None
 
     def _record(self, result: MCPTestResult):
@@ -1285,6 +1289,54 @@ class MCPSecurityTests:
             mcp_method=read["method"],
             request_sent={"create": create, "cross_principal_read": read},
             response_received=response, elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_mcp_trace_context_request_binding(self):
+        """MCP-RC-011: an authorized request must reject conflicting trace context.
+
+        Trace context is outside JSON-RPC, so a target that uses it for routing
+        must bind it to the authenticated request. This opt-in probe replays only
+        an operator-authorized, read-only fixture with a distinct W3C trace header.
+        It does not claim legacy/modern equivalence or infer a target's tracing model.
+        """
+        t0 = time.monotonic()
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-RC-011", name="Trace Context Request Binding",
+                category="trace_context_binding", owasp_asi="ASI02", severity=Severity.HIGH.value,
+                passed=True, details="[simulate] Compiled conflicting trace-context fixture",
+                mcp_method="authorized fixture",
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        if not getattr(self.transport, "is_modern", False):
+            details = "Not applicable: target selected a legacy MCP transport"
+        elif not getattr(self.transport, "supports_header_overrides", False):
+            details = "Not applicable: requires HTTP header overrides for trace-context validation"
+        elif not self.trace_probe or not self.trace_attacker_headers:
+            details = "Not applicable: requires an authorized read-only --trace-probe and --trace-attacker-header"
+        else:
+            probe = jsonrpc_request(
+                self.trace_probe["method"], dict(self.trace_probe.get("params") or {})
+            )
+            response = self.transport.send(probe, header_overrides=self.trace_attacker_headers)
+            rejected = _probe_failed(response)
+            self._record(MCPTestResult(
+                test_id="MCP-RC-011", name="Trace Context Request Binding",
+                category="trace_context_binding", owasp_asi="ASI02", severity=Severity.HIGH.value,
+                passed=rejected,
+                details=("Server rejected a request with conflicting trace context" if rejected
+                         else "Server accepted the authorized request with conflicting trace context"),
+                mcp_method=probe["method"],
+                request_sent={"body": probe, "trace_headers": self.trace_attacker_headers},
+                response_received=response, elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+        self._record(MCPTestResult(
+            test_id="MCP-RC-011", name="Trace Context Request Binding",
+            category="trace_context_binding", owasp_asi="ASI02", severity=Severity.HIGH.value,
+            passed=True, details=details, mcp_method="authorized fixture",
+            elapsed_s=round(time.monotonic() - t0, 3),
         ))
 
     def test_mcp_tool_description_injection(self):
@@ -2826,6 +2878,7 @@ class MCPSecurityTests:
             "cache_security": [self.test_mcp_cache_scope_metadata, self.test_mcp_cache_revocation,
                                 self.test_mcp_resource_cache_metadata],
             "task_isolation": [self.test_mcp_task_cross_principal_isolation],
+            "trace_context_binding": [self.test_mcp_trace_context_request_binding],
             "capability_negotiation": [
                 self.test_mcp_capability_escalation,
                 self.test_mcp_protocol_version_downgrade,
@@ -3068,6 +3121,16 @@ def main():
         help="Alternate authorized test-principal header for task isolation, key:value.",
     )
     ap.add_argument(
+        "--trace-probe",
+        help=("Operator-authorized read-only JSON-RPC request for trace-context binding. "
+              "Must be used with --trace-attacker-header."),
+    )
+    ap.add_argument(
+        "--trace-attacker-header", action="append", default=[],
+        help=("Conflicting W3C trace-context header for the authorized trace probe, key:value. "
+              "For example Traceparent:00-..."),
+    )
+    ap.add_argument(
         "--protocol-version",
         choices=[MODERN_PROTOCOL_VERSION, AUTO_PROTOCOL_VERSION, DIFFERENTIAL_PROTOCOL_VERSION],
         help=("Use the stateless 2026-07-28 protocol flow, or 'auto' to probe "
@@ -3119,6 +3182,8 @@ def main():
     cache_invalidation = cache_verify = None
     task_create = task_read = None
     task_attacker_headers = {}
+    trace_probe = None
+    trace_attacker_headers = {}
     if args.mrtr_probe:
         try:
             mrtr_probe = json.loads(args.mrtr_probe)
@@ -3216,6 +3281,24 @@ def main():
         (task_create, task_read, task_attacker_headers)
     ):
         ap.error("--task-create, --task-read, and --task-attacker-header must be supplied together")
+    if args.trace_probe:
+        try:
+            trace_probe = json.loads(args.trace_probe)
+        except json.JSONDecodeError as exc:
+            ap.error(f"--trace-probe must be a JSON object: {exc.msg}")
+        if not isinstance(trace_probe, dict) or not isinstance(trace_probe.get("method"), str):
+            ap.error("--trace-probe must be a JSON object with a string 'method'")
+        if "params" in trace_probe and not isinstance(trace_probe["params"], dict):
+            ap.error("--trace-probe 'params' must be a JSON object")
+    for header in args.trace_attacker_header:
+        if ":" not in header:
+            ap.error("--trace-attacker-header must use key:value form")
+        key, value = header.split(":", 1)
+        if not key.strip():
+            ap.error("--trace-attacker-header must include a header name")
+        trace_attacker_headers[key.strip()] = value.strip()
+    if any((trace_probe, trace_attacker_headers)) and not all((trace_probe, trace_attacker_headers)):
+        ap.error("--trace-probe and --trace-attacker-header must be supplied together")
     for header in args.mrtr_attacker_header:
         if ":" not in header:
             ap.error("--mrtr-attacker-header must use key:value form")
@@ -3259,7 +3342,8 @@ def main():
                                      cache_invalidation=cache_invalidation, cache_verify=cache_verify,
                                      cache_forbidden_tool=args.cache_forbidden_tool,
                                      cache_resource_uri=args.cache_resource_uri, task_create=task_create,
-                                     task_read=task_read, task_attacker_headers=task_attacker_headers)
+                                     task_read=task_read, task_attacker_headers=task_attacker_headers,
+                                     trace_probe=trace_probe, trace_attacker_headers=trace_attacker_headers)
             try:
                 results = suite.run_all(categories=categories)
                 return build_report(
@@ -3302,7 +3386,8 @@ def main():
                                      cache_invalidation=cache_invalidation, cache_verify=cache_verify,
                                      cache_forbidden_tool=args.cache_forbidden_tool,
                                      cache_resource_uri=args.cache_resource_uri, task_create=task_create,
-                                     task_read=task_read, task_attacker_headers=task_attacker_headers)
+                                     task_read=task_read, task_attacker_headers=task_attacker_headers,
+                                     trace_probe=trace_probe, trace_attacker_headers=trace_attacker_headers)
             try:
                 return {"results": suite.run_all(categories=categories)}
             finally:
@@ -3330,7 +3415,8 @@ def main():
                                  cache_invalidation=cache_invalidation, cache_verify=cache_verify,
                                  cache_forbidden_tool=args.cache_forbidden_tool,
                                  cache_resource_uri=args.cache_resource_uri, task_create=task_create,
-                                 task_read=task_read, task_attacker_headers=task_attacker_headers)
+                                 task_read=task_read, task_attacker_headers=task_attacker_headers,
+                                 trace_probe=trace_probe, trace_attacker_headers=trace_attacker_headers)
         conn_error = None
         try:
             results = suite.run_all(categories=categories)
