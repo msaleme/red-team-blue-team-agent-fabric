@@ -13,7 +13,7 @@ import json
 import http.server
 import socketserver
 import sys
-from typing import Dict, Any, Optional
+from typing import Any, Dict
 
 
 class MockMCPHandler(http.server.BaseHTTPRequestHandler):
@@ -260,6 +260,12 @@ class MockMCPHandler(http.server.BaseHTTPRequestHandler):
         print(f"[{self.address_string()}] {format % args}")
 
 
+class ReusableTCPServer(socketserver.TCPServer):
+    """Permit the integration fixture to restart without a TIME_WAIT delay."""
+
+    allow_reuse_address = True
+
+
 def run_server(port: int = 8402):
     """Run the mock MCP server"""
     print(f"Starting Mock MCP Server on http://localhost:{port}")
@@ -268,7 +274,7 @@ def run_server(port: int = 8402):
     print("Press Ctrl+C to stop")
     print()
     
-    with socketserver.TCPServer(("localhost", port), MockMCPHandler) as httpd:
+    with ReusableTCPServer(("localhost", port), MockMCPHandler) as httpd:
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
