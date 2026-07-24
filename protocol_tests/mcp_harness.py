@@ -100,6 +100,20 @@ def _sanitize_url(url: str) -> str:
     return url
 
 
+def _is_unsupported_protocol_version_error(response: object) -> bool:
+    """Return whether an HTTP discovery response rejects the modern version.
+
+    The 2026-07-28 RC reserves JSON-RPC code -32022 for
+    ``UnsupportedProtocolVersionError``.  In auto mode that is an explicit
+    modern-protocol response, not evidence of a legacy server, so falling back
+    to ``initialize`` would violate the stateless negotiation path.
+    """
+    if not isinstance(response, dict) or response.get("_status") != 400:
+        return False
+    error = response.get("error")
+    return isinstance(error, dict) and error.get("code") == -32022
+
+
 def _json_path(value: object, path: str) -> object | None:
     """Resolve a simple dotted path in a JSON result for opt-in test fixtures."""
     current = value
@@ -340,7 +354,16 @@ class StreamableHTTPTransport(MCPTransport):
                 body = e.read().decode("utf-8")
             except Exception:
                 pass
-            return {"_error": True, "_status": e.code, "_body": body[:500]}
+            # HTTP transports surface JSON-RPC errors in a non-2xx body. Keep
+            # the parsed body so auto negotiation can distinguish an explicit
+            # modern version rejection from a legacy-server probe failure.
+            try:
+                parsed = _strip_server_sentinels(json.loads(body)) if body else {}
+            except (TypeError, ValueError):
+                parsed = {}
+            if not isinstance(parsed, dict):
+                parsed = {}
+            return {**parsed, "_error": True, "_status": e.code, "_body": body[:500]}
         except Exception as e:
             return {"_error": True, "_exception": str(e)}
 
@@ -545,6 +568,12 @@ class MCPSecurityTests:
             if self._discover_modern_server(quiet=True):
                 self.selected_protocol_version = MODERN_PROTOCOL_VERSION
                 return True
+            if _is_unsupported_protocol_version_error(
+                getattr(self, "_modern_discovery_response", None)
+            ):
+                # A recognized modern error is authoritative: do not send the
+                # removed legacy handshake to a stateless server.
+                return False
             self.transport.protocol_version = LEGACY_PROTOCOL_VERSION
             self.transport.session_id = None
         if getattr(self.transport, "is_modern", False):
@@ -625,6 +654,7 @@ class MCPSecurityTests:
         """Discover capabilities without creating a protocol-level session."""
         msg = jsonrpc_request("server/discover", {})
         resp = self.transport.send(msg)
+        self._modern_discovery_response = resp
         if resp and "result" in resp:
             result = resp["result"]
             self.server_info = result.get("serverInfo", {})
