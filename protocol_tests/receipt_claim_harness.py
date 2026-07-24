@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Receipt Claim-Level Verification Harness (RCL-001..RCL-008).
+"""Receipt Claim-Level Verification Harness (RCL-001..RCL-011).
 
 The point this suite makes executable: a **format-valid, correctly signed
 receipt** can still be **claim-invalid**, and a claim-level verifier must reject
@@ -8,10 +8,15 @@ it on semantic grounds even though envelope-signature verification succeeds.
 An action receipt is decomposed into four separately assessable properties;
 signing supports only the first:
 
-    integrity/provenance | occurrence | authorization | check execution+integrity
+    content authentication/integrity | occurrence | authorization | check execution+integrity
 
-Evidence for the other three must be attested by *distinct trust domains*, not by
-the receipt emitter (which the threat model permits to lie):
+Content authentication/integrity is what the envelope signature establishes;
+attribution to a claimed authority additionally depends on trustworthy
+key-to-identity binding and key custody. Evidence for the other three properties
+must be bound to the receipt and anchored in the authorities competent to
+establish them; where those roles share an operator the trust concentration
+should be explicit, and the receipt emitter's unsupported self-assertion is
+insufficient (the threat model permits the emitter to lie):
 
     emitter        — signs the receipt envelope
     checker auth   — attests a check ran (id/version/policy/input digest, output)
@@ -23,9 +28,12 @@ authority, fresh, and bound to this action. Each negative vector below builds a
 receipt whose *envelope signature verifies* but whose claims are missing, stale,
 substituted, replayed, or bound to the wrong thing; the verifier must reject it.
 
-Attestations use Ed25519 signatures (RFC 8032, pure-stdlib reference in
-``_ed25519.py``) with a distinct keypair per trust domain; the verifier holds
-only the public keys, so one authority cannot forge another's attestation.
+Envelope and per-authority attestations use Ed25519 (RFC 8032, pure-stdlib
+reference in ``_ed25519.py``) with one deterministic test keypair per modeled
+authority. The verification path consults only the corresponding public keys.
+Under that modeled key separation an emitter can re-sign its envelope but cannot
+produce another authority's attestation. (This is an in-process model of key
+separation, not operational key custody.)
 
 Usage:
     python -m protocol_tests.receipt_claim_harness --simulate

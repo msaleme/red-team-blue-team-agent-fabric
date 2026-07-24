@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Receipt claim-level verification (RCP-001..RCP-008).
+"""Receipt claim-level verification (RCL-001..RCL-011).
 
 The property under test: a format-valid receipt whose *envelope signature
 verifies* must still be rejected when its claims are not semantically supported
-by the correct trust domain. Each negative asserts BOTH that the envelope is
-valid AND that the claim-level verdict is reject; the control asserts accept.
+by the competent authority. Each negative asserts BOTH that the envelope is
+valid AND that the claim-level verdict is reject; the controls assert accept.
 """
 import os
 import sys
