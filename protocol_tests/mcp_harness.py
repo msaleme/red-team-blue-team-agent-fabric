@@ -103,7 +103,7 @@ def _sanitize_url(url: str) -> str:
 def _is_unsupported_protocol_version_error(response: object) -> bool:
     """Return whether an HTTP discovery response rejects the modern version.
 
-    The 2026-07-28 RC reserves JSON-RPC code -32022 for
+    The 2026-07-28 RC reserves JSON-RPC code -32004 for
     ``UnsupportedProtocolVersionError``.  In auto mode that is an explicit
     modern-protocol response, not evidence of a legacy server, so falling back
     to ``initialize`` would violate the stateless negotiation path.
@@ -111,7 +111,7 @@ def _is_unsupported_protocol_version_error(response: object) -> bool:
     if not isinstance(response, dict) or response.get("_status") != 400:
         return False
     error = response.get("error")
-    return isinstance(error, dict) and error.get("code") == -32022
+    return isinstance(error, dict) and error.get("code") == -32004
 
 
 def _json_path(value: object, path: str) -> object | None:

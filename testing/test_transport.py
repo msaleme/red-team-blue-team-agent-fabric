@@ -114,14 +114,14 @@ class TestTransport(unittest.TestCase):
 
     def test_http_error_preserves_jsonrpc_protocol_error(self):
         transport = StreamableHTTPTransport("http://localhost:8080", protocol_version=MODERN_PROTOCOL_VERSION)
-        error_body = b'{"jsonrpc":"2.0","id":"discover","error":{"code":-32022,"message":"UnsupportedProtocolVersionError"}}'
+        error_body = b'{"jsonrpc":"2.0","id":"discover","error":{"code":-32004,"message":"Unsupported protocol version","data":{"supported":["2026-07-28"],"requested":"1900-01-01"}}}'
         http_error = urllib.error.HTTPError(
             "http://localhost:8080", 400, "Bad Request", {}, io.BytesIO(error_body)
         )
         with patch("protocol_tests.mcp_harness.urllib.request.urlopen", side_effect=http_error):
             response = transport.send(jsonrpc_request("server/discover", {}))
         self.assertEqual(response["_status"], 400)
-        self.assertEqual(response["error"]["code"], -32022)
+        self.assertEqual(response["error"]["code"], -32004)
         self.assertTrue(_is_unsupported_protocol_version_error(response))
 
 
@@ -170,7 +170,7 @@ class TestProtocolAutoSelection(unittest.TestCase):
     def test_auto_does_not_fallback_after_modern_version_rejection(self):
         transport = _AutoTransport({
             "_status": 400,
-            "error": {"code": -32022, "message": "UnsupportedProtocolVersionError"},
+            "error": {"code": -32004, "message": "Unsupported protocol version", "data": {"supported": ["2026-07-28"], "requested": "1900-01-01"}},
         })
         suite = MCPSecurityTests(transport, json_output=True)
         self.assertFalse(suite.initialize())
