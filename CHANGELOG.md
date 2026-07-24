@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.10.0] - 2026-07-24
+
 ### Fixed
 
 - **MCP-020 oracle corrected: a persistent origin id no longer authorizes a
@@ -29,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   schemes regardless of determinism. AP2-014 reclassified normative N -> I
   (inferred: standard payment-security practice, not mapped to a cited AP2
   clause). Test count unchanged (AP2-014 retained).
+- **MCP transport/runtime hardening.** Require supported MCP SDK versions (#256); fail closed on cache
+  and probe fixtures; correct HTTP bind settings on FastMCP construction; stop legacy fallback after a
+  modern version error; keep task IDs out of the standard name header.
 
 ### Added
 
@@ -70,6 +75,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   snapshots or an origin-bound (legitimately versioned) update. MCP-019 + MCP-020
   form the composition + runtime tool-poisoning evidence pair.
 - Test count 540 → 542 (MCP Protocol module 18 → 20).
+- **MCP hardening probes: issuer / trace-context / task-principal / cache.** OAuth issuer-binding and
+  trace-context-binding probes, a task-principal isolation probe, and resource-cache probes
+  (cache-metadata validation, cache revocation, fail-closed resolution) — each fails closed on a missing
+  or unverifiable binding.
+- **MCP 2026-07-28 stateless security profile (#257).** Coverage for the stateless MCP transport profile.
+- Test count 553 → 565 (MCP hardening probes + stateless profile).
 
 ## [4.9.1] - 2026-07-10
 

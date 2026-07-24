@@ -66,7 +66,7 @@ LEGACY_PROTOCOL_VERSION = "2025-03-26"
 MODERN_PROTOCOL_VERSION = "2026-07-28"
 AUTO_PROTOCOL_VERSION = "auto"
 DIFFERENTIAL_PROTOCOL_VERSION = "differential"
-HARNESS_CLIENT_INFO = {"name": "agent-security-harness", "version": "4.9.1"}
+HARNESS_CLIENT_INFO = {"name": "agent-security-harness", "version": "4.10.0"}
 
 
 def _header_value(value: object) -> str:
