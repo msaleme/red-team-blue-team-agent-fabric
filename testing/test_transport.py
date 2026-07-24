@@ -59,6 +59,7 @@ class TestTransport(unittest.TestCase):
         request = t._prepare_modern_message(jsonrpc_request("tools/call", {"name": "scan"}))
         self.assertEqual(request["params"]["_meta"]["io.modelcontextprotocol/protocolVersion"], MODERN_PROTOCOL_VERSION)
         self.assertIn("io.modelcontextprotocol/clientInfo", request["params"]["_meta"])
+        self.assertEqual(request["params"]["_meta"]["io.modelcontextprotocol/clientCapabilities"], {})
         headers = t._request_headers(request)
         self.assertEqual(headers["MCP-Protocol-Version"], MODERN_PROTOCOL_VERSION)
         self.assertEqual(headers["Mcp-Method"], "tools/call")
