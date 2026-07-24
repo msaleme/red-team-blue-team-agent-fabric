@@ -2,9 +2,9 @@
 
 - **Round:** VS-R04 (reports/round_26)
 - **Date:** 2026-07-17
-- **Module:** `protocol_tests/receipt_claim_harness.py` (RCL-001..008)
+- **Module:** `protocol_tests/receipt_claim_harness.py` (RCL-001..011)
 - **Artifact:** `vsr04-receipt-claim-evidence.json`
-- **Method:** offline, stdlib-only (HMAC-SHA256 models the envelope signature and each authority's attestation). Deterministic; independently recomputable.
+- **Method:** offline, stdlib-only. Envelope and per-authority attestations use Ed25519 signatures (RFC 8032, pure-stdlib `_ed25519.py`), one keypair per trust domain, verifier holding only the public keys. Deterministic; independently recomputable.
 
 ## The property demonstrated
 
