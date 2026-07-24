@@ -8,7 +8,7 @@
 
 ## The property demonstrated
 
-A **format-valid, correctly signed receipt** can still be **claim-invalid**. For each negative vector the receipt's *envelope signature verifies*, yet the claim-level verifier rejects it on semantic grounds, each for its own distinct reason. This is the executable form of the four-property receipt decomposition: signing supports integrity/provenance only; occurrence, authorization, and check-integrity require attestations from distinct trust domains (checker, authorization, execution/settlement), not from the receipt emitter.
+A **format-valid, correctly signed receipt** can still be **claim-invalid**. For each negative vector the receipt's *envelope signature verifies*, yet the claim-level verifier rejects it on semantic grounds, each for its own distinct reason. This is the executable form of the four-property receipt decomposition: signing supports content authentication/integrity only; occurrence, authorization, and check-integrity require evidence anchored in the authorities competent to establish them (checker, authorization, execution/settlement). Where those roles share an operator the trust concentration should be explicit, and the receipt emitter's unsupported self-assertion is insufficient.
 
 | Test | Negative vector | Envelope valid | Claim verdict |
 |---|---|---|---|
@@ -44,4 +44,4 @@ python3 -m unittest testing.test_receipt_claim
 
 ## Significance
 
-This closes the gap the position note (Section 4/8) identified as its central missing experiment: it shows the claim-level verifier rejecting validly-signed-but-claim-invalid receipts, turning the four-property distinction from prose into executable evidence.
+This instantiates the concrete experiment the position note (Section 4/8) proposed: it shows the claim-level verifier rejecting validly-signed-but-claim-invalid receipts, turning the four-property distinction from prose into executable evidence.
