@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Unit tests for MCP transport and JSON-RPC primitives."""
 import json
+import io
 import os
 import sys
 import unittest
+import urllib.error
 from unittest.mock import MagicMock, patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from protocol_tests.mcp_harness import (
@@ -15,6 +17,7 @@ from protocol_tests.mcp_harness import (
     _json_path,
     _replace_handle,
     _replace_task_id,
+    _is_unsupported_protocol_version_error,
     MCPTransport,
     report_has_failure,
     StreamableHTTPTransport,
@@ -108,6 +111,18 @@ class TestTransport(unittest.TestCase):
         self.assertEqual(request.get_header("Mcp-name"), "scan")
         self.assertIsNone(request.get_header("Mcp-session-id"))
 
+    def test_http_error_preserves_jsonrpc_protocol_error(self):
+        transport = StreamableHTTPTransport("http://localhost:8080", protocol_version=MODERN_PROTOCOL_VERSION)
+        error_body = b'{"jsonrpc":"2.0","id":"discover","error":{"code":-32022,"message":"UnsupportedProtocolVersionError"}}'
+        http_error = urllib.error.HTTPError(
+            "http://localhost:8080", 400, "Bad Request", {}, io.BytesIO(error_body)
+        )
+        with patch("protocol_tests.mcp_harness.urllib.request.urlopen", side_effect=http_error):
+            response = transport.send(jsonrpc_request("server/discover", {}))
+        self.assertEqual(response["_status"], 400)
+        self.assertEqual(response["error"]["code"], -32022)
+        self.assertTrue(_is_unsupported_protocol_version_error(response))
+
 
 class _AutoTransport(MCPTransport):
     def __init__(self, modern_response):
@@ -150,6 +165,16 @@ class TestProtocolAutoSelection(unittest.TestCase):
         self.assertEqual(transport.protocol_version, LEGACY_PROTOCOL_VERSION)
         self.assertEqual([message["method"] for message in transport.sent], ["server/discover", "initialize", "notifications/initialized"])
         self.assertIsNone(getattr(suite, "_connection_error", None))
+
+    def test_auto_does_not_fallback_after_modern_version_rejection(self):
+        transport = _AutoTransport({
+            "_status": 400,
+            "error": {"code": -32022, "message": "UnsupportedProtocolVersionError"},
+        })
+        suite = MCPSecurityTests(transport, json_output=True)
+        self.assertFalse(suite.initialize())
+        self.assertEqual(transport.protocol_version, MODERN_PROTOCOL_VERSION)
+        self.assertEqual([message["method"] for message in transport.sent], ["server/discover"])
 
 
 class TestDifferentialReport(unittest.TestCase):
