@@ -101,7 +101,7 @@ Full taxonomy: [PAYMENT-ATTACK-TAXONOMY.md](PAYMENT-ATTACK-TAXONOMY.md)
 
 ## External Validation
 
-- **HRAO-E Assessment (Mar 28, 2026):** 146 tests, 97.9% pass rate, Wilson 95% CI [0.943, 0.994]. 100% pass on jailbreak (25 tests), GTG-1002 full APT campaign (17 tests), harmful output AIUC-1 (10 tests), and advanced polymorphic attacks (10 tests).
+- **HRAO-E Assessment (Mar 28, 2026):** 143 of 146 tests passing (97.9%), Wilson 95% CI [0.941, 0.993]. 100% pass on jailbreak (25 tests), GTG-1002 full APT campaign (17 tests), harmful output AIUC-1 (10 tests), and advanced polymorphic attacks (10 tests).
 - **DrCookies84 independent validation** against live production infrastructure, confirmed in [AutoGen #7432](https://github.com/microsoft/autogen/discussions/7432).
 - **NULL AI (Anhul / DrCookies84) -- v3.6.0 (Mar 24, 2026):**
   - Return channel 8/8 (100%), Capability profile 9/10 (90%), Jailbreak 25/25 (100%), Provenance 15/15 (100%), Advanced attacks 10/10 (100%), Incident response 8/8 (100%), Harmful output 6/10 (expected partial: closed network), CBRN 6/8 (expected partial: closed network)
