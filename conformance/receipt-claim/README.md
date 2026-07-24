@@ -9,10 +9,10 @@ These are generated from this repo's own claim-level verifier ([`protocol_tests/
 An action receipt decomposes into four separately assessable properties, and signing supports only the first:
 
 ```
-integrity/provenance | authorization | occurrence | check (execution + integrity)
+content authentication/integrity | authorization | occurrence | check (execution + integrity)
 ```
 
-Evidence for the last three must be attested by **distinct trust domains** (authorization authority, execution/settlement authority, independent checker authority), never by the receipt emitter, which the threat model permits to lie. The emitter can validly re-sign its own envelope; it cannot forge another authority's attestation (Ed25519, one keypair per domain, verifier holds only the public keys).
+Content authentication/integrity is what the envelope signature establishes; attribution to a claimed authority additionally depends on trustworthy key-to-identity binding and key custody. Strong evidence for the last three properties must be **bound to the receipt and anchored in the authorities competent to establish them** (the authorization authority, the execution/settlement authority, and an independent checker). Where those roles share an operator, the resulting concentration of trust should be explicit; in all cases the receipt emitter's unsupported self-assertion is insufficient, and the threat model permits the emitter to lie. The emitter can validly re-sign its own envelope; it cannot forge another authority's attestation (Ed25519, one keypair per domain, verifier holds only the public keys).
 
 ## Contents
 
