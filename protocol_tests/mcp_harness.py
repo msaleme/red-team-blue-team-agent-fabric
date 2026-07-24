@@ -289,10 +289,6 @@ class StreamableHTTPTransport(MCPTransport):
                 name = params.get("name", params.get("uri"))
                 if name is not None:
                     headers["Mcp-Name"] = _header_value(name)
-            elif message.get("method") in {"tasks/get", "tasks/update", "tasks/cancel"}:
-                task_id = params.get("taskId")
-                if task_id is not None:
-                    headers["Mcp-Name"] = _header_value(task_id)
         elif self.session_id:
             headers["Mcp-Session-Id"] = self.session_id
         return headers

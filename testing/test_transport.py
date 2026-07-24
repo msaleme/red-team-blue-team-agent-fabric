@@ -67,12 +67,13 @@ class TestTransport(unittest.TestCase):
         request = t._prepare_modern_message(jsonrpc_request("resources/read", {"uri": "file:///你好"}))
         self.assertTrue(t._request_headers(request)["Mcp-Name"].startswith("=?base64?"))
 
-    def test_modern_task_id_is_mirrored_as_routing_name(self):
+    def test_modern_task_id_stays_in_body_not_standard_name_header(self):
         t = StreamableHTTPTransport("http://localhost:8080", protocol_version=MODERN_PROTOCOL_VERSION)
         request = t._prepare_modern_message(jsonrpc_request("tasks/get", {"taskId": "tenant-a/task-42"}))
         headers = t._request_headers(request)
         self.assertEqual(headers["Mcp-Method"], "tasks/get")
-        self.assertEqual(headers["Mcp-Name"], "tenant-a/task-42")
+        self.assertEqual(request["params"]["taskId"], "tenant-a/task-42")
+        self.assertNotIn("Mcp-Name", headers)
 
     def test_header_value_encodes_unsafe_values(self):
         self.assertEqual(_header_value("safe-value"), "safe-value")
