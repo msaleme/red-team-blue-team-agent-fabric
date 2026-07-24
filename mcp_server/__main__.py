@@ -64,8 +64,8 @@ def main() -> None:
             file=sys.stderr,
         )
 
-    server = create_server(api_key=args.api_key)
-    run_server(server, transport=args.transport, host=args.host, port=args.port)
+    server = create_server(api_key=args.api_key, host=args.host, port=args.port)
+    run_server(server, transport=args.transport)
 
 
 if __name__ == "__main__":
