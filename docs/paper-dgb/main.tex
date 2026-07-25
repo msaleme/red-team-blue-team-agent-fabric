@@ -324,6 +324,39 @@ fabrication (2 cases involving accessible configuration files). This finding
 quantifies what practitioners have suspected: behavioral governance failures
 require execution-based testing, not scanning.
 
+\begin{figure}[h]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+    node distance=5mm and 6mm,
+    box/.style={draw, rounded corners, align=center, font=\small,
+                minimum height=7mm},
+    root/.style={box, minimum width=2.8cm},
+    leaf/.style={box, minimum width=2.8cm},
+    arr/.style={-{Latex[length=2mm]}, thick}
+  ]
+  \node[root] (all) {52 DGB Cases};
+  \node[leaf, below left=8mm and 0mm of all]  (beh)  {44 Behavioral (85\%)\\scanner-invisible ($M{=}$False)};
+  \node[leaf, below right=8mm and 0mm of all] (struc){8 Structural (15\%)\\scanner-detectable ($M{=}$True)};
+  \node[leaf, below=of beh, fill=gray!12]  (behd) {Execution: detects all 44\\Scanner: detects 0};
+  \node[leaf, below=of struc, fill=gray!12] (strucd){Execution: detects all 8\\Scanner: detects all 8};
+
+  \draw[arr] (all) -- (beh);
+  \draw[arr] (all) -- (struc);
+  \draw[arr] (beh) -- (behd);
+  \draw[arr] (struc) -- (strucd);
+\end{tikzpicture}%
+}
+\caption{The 85\% scanner detection gap. Execution-based testing observes
+         every case by construction (Section~\ref{sec:dgb}, criterion~2);
+         metadata scanning observes only the 8 structurally detectable
+         cases. This is a detectability claim (can the method observe the
+         failure at all), distinct from the governance-maintenance results
+         (does the agent avoid the failure) reported in
+         Section~\ref{sec:results}.}
+\label{fig:gap}
+\end{figure}
+
 \subsection{Illustrative Case: GM-001 Gate Self-Disable}
 \label{sec:illustrative}
 
@@ -513,6 +546,24 @@ detection gap: the scanner's 15.4\% GMR is entirely explained by the 8
 scanner-detectable cases; it contributes zero governance protection on the
 44 behavioral cases.
 
+\subsection{Statistical Significance of the Detection Gap}
+\label{sec:significance}
+
+Config~B and Config~C are evaluated on the identical 52 cases, so the two
+configurations' outcomes are paired, not independent, observations---the
+correct test is McNemar's, not a two-sample test such as Fisher's exact
+test or a $\chi^2$ test of independence, both of which assume independent
+samples. Of the 52 cases, execution-based governance (Config~B) succeeds
+where scanning (Config~C) fails on 34 cases, scanning succeeds where
+execution fails on 5, and both agree (concordant) on 13. McNemar's exact
+binomial test on the 39 discordant pairs
+gives $p \approx 2.4\times10^{-6}$~\cite{mcnemar1947}, rejecting the null
+hypothesis that the two methods detect governance failures at equal rates.
+The direction and magnitude of the asymmetry (34 vs.\ 5) indicate the
+methods are not interchangeable: execution-based testing detects failures
+scanning structurally cannot see, at a rate scanning's occasional
+execution-invisible advantages (the 5 cases) do not offset.
+
 \subsection{Per-Category Breakdown}
 
 \begin{table}[h]
@@ -556,10 +607,9 @@ signals: OS-level permission inheritance, prompt injection role reassignment,
 and recursive cost inflation. The gate abstraction cannot block what it
 cannot observe.
 
-Payment chain is the weakest category (50\%) because 4/10 cases are
-protocol-layer controls that sit below the governance gate abstraction.
-This is not a limitation of the evaluated governance implementation---it
-reflects an accurate categorization of the governance layer boundary.
+Payment chain's weakness (50\%) is a special case of the infrastructure-scope
+pattern above: 4 of its 10 cases are protocol-layer controls (L402/x402
+enforcement, SSRF) below the gate abstraction, not a gap in gate logic.
 
 % ---------------------------------------------------------------------------
 \section{Discussion}
@@ -707,16 +757,17 @@ We presented the Decision Governance Benchmark (DGB). To our knowledge, we
 are unaware of a prior benchmark corpus specifically designed to evaluate
 whether autonomous AI agents resist governance failures. Our key
 finding---that 85\% of governance failures are invisible to metadata-only
-scanners---provides evidence that execution-based testing is a
-\emph{necessary complement} to static analysis for agent security
-evaluation.
+scanners, a gap that is statistically significant
+(McNemar's exact test, $p \approx 2.4\times10^{-6}$,
+Section~\ref{sec:significance})---indicates that execution-based
+evaluation measures a different security property than metadata scanning,
+not merely a more thorough version of the same property.
 
-Baseline results show a 71.2\% GMR for constitutional governance (Config~B)
-versus 0\% for ungoverned agents (Config~A). Of the 28.8\% failure rate for
-Config~B, the majority (12/15 cases) require infrastructure-layer controls
-outside governance gate scope, not improvements to the gate logic itself.
-The evaluated governance implementation catches 77.3\% of scanner-invisible
-cases that reach the decision layer.
+A governed configuration achieves a 71.2\% GMR versus 0\% for ungoverned
+agents. Of the resulting 28.8\% failure rate, the majority (12/15 cases)
+require infrastructure-layer controls outside governance gate scope, not
+improvements to the gate logic itself; that configuration catches 77.3\% of
+scanner-invisible cases that reach the decision layer.
 
 The corpus, harness, and evidence format are open source (MIT). Contributions
 are welcome via the public repository.
