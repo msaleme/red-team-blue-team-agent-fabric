@@ -109,6 +109,12 @@ class TestRegTestCount(unittest.TestCase):
         prose = re.findall(r'\*\*(\d+)\s+executable security tests\*\*', readme)
         if badges: self.assertEqual(badges[0], count)
         if prose: self.assertEqual(prose[0], count)
+    def test_skill_md(self):
+        count = self._canonical_count()
+        with open(os.path.join(REPO_ROOT, "SKILL.md")) as f: skill = f.read()
+        mentions = re.findall(r'(\d+)\s+executable security tests', skill)
+        self.assertTrue(mentions, "SKILL.md must mention test count")
+        for m in mentions: self.assertEqual(m, count)
 
 
 class TestRegPassFail(unittest.TestCase):
