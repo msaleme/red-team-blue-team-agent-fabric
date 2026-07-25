@@ -326,6 +326,14 @@ HARNESSES = {
         "module": "protocol_tests.skill_security_harness",
         "description": "Skill supply chain security (8 tests, SSP RFC #99)",
     },
+    "tool-search": {
+        "module": "protocol_tests.tool_search_harness",
+        "description": "Embedding-based tool search security (6 tests, ranking manipulation + unsigned injection + post-discovery access control)",
+    },
+    "ptc": {
+        "module": "protocol_tests.ptc_harness",
+        "description": "Programmatic Tool Calling sandbox security (6 tests, destructive opt-in + sandbox exfiltration + container isolation)",
+    },
 }
 
 

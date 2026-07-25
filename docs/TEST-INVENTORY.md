@@ -1,9 +1,9 @@
 # Test Inventory
 
-**565 security tests across 38 modules** on `main` (verified 2026-07-24 by `scripts/count_tests.py`)
+**577 security tests across 40 modules** on `main` (verified 2026-07-25 by `scripts/count_tests.py`)
 
-> **Canonical figures (verified 2026-07-24).** Main branch: 565 test IDs across
-> 38 test-bearing modules in `protocol_tests/` (files with no `test_id` — CLI,
+> **Canonical figures (verified 2026-07-25).** Main branch: 577 test IDs across
+> 40 test-bearing modules in `protocol_tests/` (files with no `test_id` — CLI,
 > helpers, telemetry, registry — are not counted as modules). The latest PyPI
 > release, `agent-security-harness` v4.9.1, ships 540; `main` is ahead of the
 > last release. Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: 19 of
@@ -180,8 +180,8 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 
 ## Test Harness Modules (representative summary)
 
-> This table lists the largest modules; the full harness spans **38 test-bearing
-> modules / 565 tests** on `main` (verified 2026-07-24 via `scripts/count_tests.py`).
+> This table lists the largest modules; the full harness spans **40 test-bearing
+> modules / 577 tests** on `main` (verified 2026-07-25 via `scripts/count_tests.py`).
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|
@@ -205,3 +205,5 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 | **MCP Tool Poisoning Reproduction** | 10 | MCP Supply Chain | Nested schema injection, fork fingerprinting, marketplace contamination, encoded payload detection (Invariant Labs Tool Poisoning, 2025; ClawHub RFC #99) |
 | **AIUC-1 Compliance** | 12 | Agent Safety | Incident response, CBRN prevention, harmful content, scope creep, authority impersonation |
 | **Cloud Agent Platforms** | 25 | Platform APIs | AWS Bedrock, Azure AI Agent Service, Google Vertex, Salesforce Agentforce, IBM watsonx |
+| **Tool Search (Embeddings)** | 6 | Claude API | Embedding-based tool-discovery ranking manipulation, unsigned library injection, description-borne prompt injection, post-discovery access control, keyword stuffing, missing permission metadata |
+| **Programmatic Tool Calling** | 6 | Claude API | Sandboxed code-execution security: destructive-tool opt-in, sandbox-to-exfil side channel, cross-session container isolation, caller-type spoofing, unbounded batch execution, expired-container reuse |

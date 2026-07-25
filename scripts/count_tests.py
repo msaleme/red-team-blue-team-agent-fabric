@@ -66,6 +66,8 @@ MODULE_NAMES = {
     "ucp_acp_harness.py": "UCP/ACP Merchant Journey",
     "card_token_harness.py": "Card-Network Agentic Tokens",
     "settlement_finality_harness.py": "Denial-of-Settlement / Finality",
+    "tool_search_harness.py": "Tool Search (Embeddings)",
+    "ptc_harness.py": "Programmatic Tool Calling",
 }
 
 
