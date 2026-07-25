@@ -292,7 +292,7 @@ HARNESSES = {
     },
     "multi-agent": {
         "module": "protocol_tests.multi_agent_harness",
-        "description": "Multi-agent interaction security tests (12 tests, delegation poisoning + trust boundary bypass)",
+        "description": "Multi-agent interaction security tests (18 tests, delegation poisoning + trust boundary bypass + race-condition pretexts)",
     },
     "crewai-cve": {
         "module": "protocol_tests.crewai_cve_harness",
@@ -325,6 +325,22 @@ HARNESSES = {
     "skill-security": {
         "module": "protocol_tests.skill_security_harness",
         "description": "Skill supply chain security (8 tests, SSP RFC #99)",
+    },
+    "tool-search": {
+        "module": "protocol_tests.tool_search_harness",
+        "description": "Embedding-based tool search security (6 tests, ranking manipulation + unsigned injection + post-discovery access control)",
+    },
+    "ptc": {
+        "module": "protocol_tests.ptc_harness",
+        "description": "Programmatic Tool Calling sandbox security (6 tests, destructive opt-in + sandbox exfiltration + container isolation)",
+    },
+    "prompt-caching": {
+        "module": "protocol_tests.prompt_caching_harness",
+        "description": "Prompt caching isolation security (6 tests, cross-session bleed + tenant key collision + cache-prefix injection)",
+    },
+    "extended-thinking": {
+        "module": "protocol_tests.extended_thinking_harness",
+        "description": "Extended thinking tamper-evidence conformance (6 tests, signature tampering + cross-conversation replay + redaction leakage)",
     },
 }
 
