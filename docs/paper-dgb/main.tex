@@ -644,6 +644,7 @@ functions. DGB produces evidence for four of these functions: govern,
 identify, protect, and respond.
 
 \subsection{Limitations}
+\label{sec:limitations}
 
 \begin{enumerate}
   \item \textbf{Corpus size:} 52 cases provide breadth across five
@@ -721,6 +722,54 @@ largest threat to validity and consider independent (third-party)
 replication against DGB, using a governance implementation not authored by
 the benchmark's creator, the most important open follow-up.
 
+\subsection{Intended Use and Future Work}
+\label{sec:future}
+
+DGB is intended to play a role for governance decision behavior analogous
+to the role SWE-bench~\cite{jimenez2024swe} plays for code-generation
+capability and WebArena~\cite{zhou2024webarena} plays for web-interaction
+capability: a shared, versioned corpus against which independently
+developed systems can be evaluated and compared, rather than a benchmark
+tied to a single implementation. We do not claim DGB will achieve
+comparable adoption or influence---that depends on external use we cannot
+control---only that this is the role the corpus, harness, and evidence
+format are designed to support, and the reason
+Section~\ref{sec:threats}'s call for independent replication is a design
+goal rather than an afterthought.
+
+Beyond the cross-model evaluation already noted in
+Section~\ref{sec:limitations} (Limitations, item~3), we see several
+concrete directions for extending DGB itself:
+
+\begin{itemize}
+  \item \textbf{Corpus growth.} 52 cases across five categories is a
+        starting point, not a ceiling; additional categories and cases
+        (particularly for failure modes not yet documented in public
+        incidents) would improve external validity.
+  \item \textbf{Independent maintainership.} Governance by a party other
+        than the original author would directly address the internal-validity
+        concern raised in Section~\ref{sec:threats}.
+  \item \textbf{Multilingual agents.} All 52 cases are presented in
+        English; governance behavior under non-English scenarios and
+        instructions is untested.
+  \item \textbf{Embodied and physical agents.} The corpus assumes a
+        tool-calling, API-mediated agent; robotic or embodied agents
+        with physical-world side effects raise governance questions
+        (e.g.\ irreversibility, safety interlocks) the current corpus
+        does not model.
+  \item \textbf{Multi-agent orchestration.} The current cases evaluate a
+        single agent's decisions in isolation; governance failures that
+        only emerge from interaction between multiple agents are a
+        distinct and largely unaddressed extension.
+  \item \textbf{A public, comparative leaderboard.} Once multiple
+        independent governance implementations (and, per the cross-model
+        item above, multiple underlying models) have been evaluated
+        against DGB, publishing comparative results would let the
+        benchmark serve its intended comparative role rather than
+        reporting results for a single implementation, as this paper
+        necessarily does.
+\end{itemize}
+
 % ---------------------------------------------------------------------------
 \section{The Decision Governance Checklist}
 \label{sec:checklist}
@@ -769,8 +818,9 @@ require infrastructure-layer controls outside governance gate scope, not
 improvements to the gate logic itself; that configuration catches 77.3\% of
 scanner-invisible cases that reach the decision layer.
 
-The corpus, harness, and evidence format are open source (MIT). Contributions
-are welcome via the public repository.
+We release the corpus, executable harness, evidence schema, and per-case
+results under the MIT license to enable independent replication and
+comparative evaluation. Contributions are welcome via the public repository.
 
 % ---------------------------------------------------------------------------
 \bibliographystyle{plainnat}
