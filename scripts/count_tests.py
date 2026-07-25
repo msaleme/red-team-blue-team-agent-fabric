@@ -68,6 +68,7 @@ MODULE_NAMES = {
     "settlement_finality_harness.py": "Denial-of-Settlement / Finality",
     "tool_search_harness.py": "Tool Search (Embeddings)",
     "ptc_harness.py": "Programmatic Tool Calling",
+    "prompt_caching_harness.py": "Prompt Caching",
 }
 
 

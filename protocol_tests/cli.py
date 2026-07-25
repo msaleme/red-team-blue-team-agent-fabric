@@ -334,6 +334,10 @@ HARNESSES = {
         "module": "protocol_tests.ptc_harness",
         "description": "Programmatic Tool Calling sandbox security (6 tests, destructive opt-in + sandbox exfiltration + container isolation)",
     },
+    "prompt-caching": {
+        "module": "protocol_tests.prompt_caching_harness",
+        "description": "Prompt caching isolation security (6 tests, cross-session bleed + tenant key collision + cache-prefix injection)",
+    },
 }
 
 

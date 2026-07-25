@@ -1,9 +1,9 @@
 # Test Inventory
 
-**583 security tests across 40 modules** on `main` (verified 2026-07-25 by `scripts/count_tests.py`)
+**589 security tests across 41 modules** on `main` (verified 2026-07-25 by `scripts/count_tests.py`)
 
-> **Canonical figures (verified 2026-07-25).** Main branch: 583 test IDs across
-> 40 test-bearing modules in `protocol_tests/` (files with no `test_id` — CLI,
+> **Canonical figures (verified 2026-07-25).** Main branch: 589 test IDs across
+> 41 test-bearing modules in `protocol_tests/` (files with no `test_id` — CLI,
 > helpers, telemetry, registry — are not counted as modules). The latest PyPI
 > release, `agent-security-harness` v4.9.1, ships 540; `main` is ahead of the
 > last release. Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: 19 of
@@ -180,8 +180,8 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 
 ## Test Harness Modules (representative summary)
 
-> This table lists the largest modules; the full harness spans **40 test-bearing
-> modules / 583 tests** on `main` (verified 2026-07-25 via `scripts/count_tests.py`).
+> This table lists the largest modules; the full harness spans **41 test-bearing
+> modules / 589 tests** on `main` (verified 2026-07-25 via `scripts/count_tests.py`).
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|
@@ -207,3 +207,4 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 | **Cloud Agent Platforms** | 25 | Platform APIs | AWS Bedrock, Azure AI Agent Service, Google Vertex, Salesforce Agentforce, IBM watsonx |
 | **Tool Search (Embeddings)** | 6 | Claude API | Embedding-based tool-discovery ranking manipulation, unsigned library injection, description-borne prompt injection, post-discovery access control, keyword stuffing, missing permission metadata |
 | **Programmatic Tool Calling** | 6 | Claude API | Sandboxed code-execution security: destructive-tool opt-in, sandbox-to-exfil side channel, cross-session container isolation, caller-type spoofing, unbounded batch execution, expired-container reuse |
+| **Prompt Caching** | 6 | Claude API | Cache isolation/lifecycle security: cross-session bleed, stale cached policy, cache-prefix injection, TTL-refresh retention abuse, cross-tenant key collision, cost/latency side channel |
