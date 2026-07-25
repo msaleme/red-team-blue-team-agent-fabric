@@ -35,6 +35,10 @@ citations, and the final two passes resolve cross-references.
 | `microtype` | Microtypographic refinements |
 | `xcolor` | Color support |
 | `array` | Extended column formatting |
+| `multirow` | Multi-row table cells |
+| `longtable` | Multi-page appendix table (Table~\ref{tab:appendix-cases}) |
+| `pifont` | ✓/✗ symbols (`\ding{51}`/`\ding{55}`) in the appendix table |
+| `tikz` (+ `arrows.meta`, `positioning` libraries) | Pipeline architecture figure (Figure~\ref{fig:pipeline}) |
 
 All packages are included in TeX Live (full) and MikTeX. No custom `.sty`
 files are required — the paper uses the standard `article` class with
@@ -47,7 +51,8 @@ files are required — the paper uses the standard `article` class with
 | File | Description |
 |------|-------------|
 | `main.tex` | Full paper source |
-| `references.bib` | BibTeX bibliography (15 entries) |
+| `references.bib` | BibTeX bibliography (16 entries) |
+| `_gen_appendix.py` | Regenerates Appendix~A's per-case table from `benchmarks/evaluation_results.json` + `benchmarks/decision_behavior_corpus.py`; not part of the build, run manually if the underlying data changes |
 | `README.md` | This file |
 
 ---
@@ -67,10 +72,17 @@ files are required — the paper uses the standard `article` class with
 
 ## Data
 
-Section 5 results are sourced from:
+Section 5 results and Appendix A (per-case table) are sourced from:
 - `benchmarks/evaluation_results.json` — aggregate and per-case results
 - `benchmarks/decision_behavior_corpus.py` — 52-case corpus definition
 - Corpus run timestamp: `2026-04-17T12:07:43Z`
+
+To regenerate Appendix A's LaTeX table after a corpus/results change:
+
+```bash
+python3 docs/paper-dgb/_gen_appendix.py > /tmp/appendix.tex
+# paste the longtable block into main.tex's Appendix A section
+```
 
 ---
 
