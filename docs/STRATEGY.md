@@ -10,7 +10,7 @@
 | 4 | Multi-protocol coverage (MCP+A2A+L402+x402) | Y | Y | N | Y | Temporary (6-12 mo) |
 | 5 | AIUC-1 compliance mapping + evidence generation | Y | Y | N | Y | Temporary (1 release cycle) |
 | 6 | Attestation registry/schema | Y | Y | N | Partial | Temporary → sustained if standardized |
-| 7 | Test corpus depth (553 tests) | Y | Y | N | Y | Temporary (velocity-dependent) |
+| 7 | Test corpus depth (595 tests) | Y | Y | N | Y | Temporary (velocity-dependent) |
 | 8 | Decision governance framing ("WHO vs HOW") | Y | N | N | Partial | Parity |
 | 9 | Community contributions | Y | N | N | Partial | Parity |
 | 10 | Open source (Apache 2.0) | Y | N | N | Y | Parity |
@@ -37,6 +37,8 @@ The three moves that convert temporary → sustained:
 ### Existential risk
 
 Not a competitor — tier collapse. If Snyk adds behavioral testing to their scanner, or Anthropic builds security into MCP, the standalone category narrows. Counter: become the verification layer regulated industries require regardless of platform.
+
+A sharper version of this risk shows up whenever coverage is built directly against an Anthropic-published reference pattern (e.g. the July 2026 additions testing tool search, programmatic tool calling, prompt caching, and extended thinking — all lifted from Anthropic's own Claude Cookbook recipes). That's a legitimate first-mover move — no other tool tests these primitives yet — but it's also the most Anthropic-copyable slice of the whole corpus: the moment Anthropic ships native guardrails for its own reference patterns, that specific coverage collapses fastest, not slowest. Treat cookbook-derived modules as a rotating leading edge, not a durable moat — the moat is being first and staying current, not the modules themselves.
 
 ### Industry attractiveness
 
