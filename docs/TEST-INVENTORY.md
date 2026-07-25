@@ -4,9 +4,10 @@
 
 > **Canonical figures (verified 2026-07-25).** Main branch: 595 test IDs across
 > 43 test-bearing modules in `protocol_tests/` (files with no `test_id` — CLI,
-> helpers, telemetry, registry — are not counted as modules). The latest PyPI
-> release, `agent-security-harness` v4.9.1, ships 540; `main` is ahead of the
-> last release. Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: 19 of
+> helpers, telemetry, registry — are not counted as modules). `main`'s
+> `pyproject.toml` is at `agent-security-harness` v4.10.0 (595 tests); PyPI
+> itself will show this version once the release is published (see
+> `CHANGELOG.md`). Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: 19 of
 > 20 testable requirements (95%). Research: 5 public Zenodo preprints (not
 > peer-reviewed) + 3 NIST submissions. Regenerate with `python
 > scripts/count_tests.py`. Per-module counts below are reconciled to this run;

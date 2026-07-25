@@ -1,7 +1,7 @@
 # Decision Governance Benchmark (DGB) — Changelog
 
 Versioned independently of the `agent-security-harness` package
-(`pyproject.toml`, currently 4.9.1) and of the wire-protocol test suite in
+(`pyproject.toml`, currently 4.10.0) and of the wire-protocol test suite in
 `protocol_tests/`. This changelog covers only the benchmark corpus,
 evaluation harness, baseline results, and paper under `benchmarks/` and
 `docs/paper-dgb/`.

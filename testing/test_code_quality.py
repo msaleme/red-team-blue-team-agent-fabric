@@ -115,6 +115,16 @@ class TestRegTestCount(unittest.TestCase):
         mentions = re.findall(r'(\d+)\s+executable security tests', skill)
         self.assertTrue(mentions, "SKILL.md must mention test count")
         for m in mentions: self.assertEqual(m, count)
+    def test_cli_total_tests_matches_canonical(self):
+        """cli.py's per-harness description counts (summed by _total_tests(),
+        what `agent-security version` prints) must match the canonical count.
+        Catches a harness module growing (e.g. mcp_harness.py 20->32 tests)
+        without its cli.py HARNESSES description being updated to match --
+        found via round evaluation: 'mcp' still said 20 tests when the
+        module actually had 32, silently undercounting `agent-security
+        version`'s headline number by 12."""
+        from protocol_tests.cli import _total_tests
+        self.assertEqual(str(_total_tests()), self._canonical_count())
     def _harness_count(self):
         from protocol_tests.cli import HARNESSES
         return str(len(HARNESSES))
