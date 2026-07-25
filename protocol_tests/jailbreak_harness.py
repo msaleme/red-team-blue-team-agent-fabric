@@ -1004,7 +1004,7 @@ class JailbreakTests:
             test_map = all_tests
 
         print(f"\n{'='*60}")
-        print("EXPANDED JAILBREAK CORPUS TEST SUITE v3.0")
+        print("EXPANDED JAILBREAK CORPUS TEST SUITE v3.1")
         print(f"{'='*60}")
         print(f"Target: {self.url}")
 
@@ -1055,7 +1055,7 @@ def generate_report(results: list[JailbreakTestResult], output_path: str):
     ci = wilson_ci(passed, total)
 
     report = {
-        "suite": "Expanded Jailbreak Corpus Tests v3.0",
+        "suite": "Expanded Jailbreak Corpus Tests v3.1",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "total": total,
@@ -1107,7 +1107,7 @@ def main():
             return {"results": suite.run_all(categories=categories)}
 
         merged = _run_trials(_single_run, trials=args.trials,
-                             suite_name="Expanded Jailbreak Corpus Tests v3.4")
+                             suite_name="Expanded Jailbreak Corpus Tests v3.1")
         if args.report:
             with open(args.report, "w") as f:
                 json.dump(merged, f, indent=2, default=str)

@@ -32,6 +32,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Four new Claude Cookbook-primitive harnesses + multi-agent race-condition
+  tests + jailbreak model-based grading (PRs #271-274).** `tool_search_harness.py`
+  (TS-001..006: embedding-based tool-discovery ranking manipulation, unsigned
+  library injection, description-borne prompt injection, post-discovery access
+  control, keyword stuffing, missing permission metadata), `ptc_harness.py`
+  (PTC-001..006: Programmatic Tool Calling sandbox security — destructive-tool
+  opt-in, sandbox exfiltration, cross-session container isolation, caller-type
+  spoofing, unbounded batch execution, expired-container reuse),
+  `prompt_caching_harness.py` (PCH-001..006: cache isolation/lifecycle —
+  cross-session bleed, stale cached policy, cache-prefix injection, TTL-refresh
+  retention abuse, cross-tenant key collision, cost/latency side channel), and
+  `extended_thinking_harness.py` (ET-001..006: thinking-block tamper-evidence
+  conformance — signature tampering, missing thinking block before tool use,
+  redacted-thinking exposure, fabricated intermediate reasoning,
+  cross-conversation signature replay, silent budget truncation). All four
+  follow the simulate/live dual-mode + `--trials` convention. `multi_agent_harness.py`
+  v3.4 -> v3.5 adds MAG-013..018 (race-condition-pretext attacks, 12 -> 18
+  tests). `jailbreak_harness.py` v3.0 -> v3.1 adds an opt-in `--judge`
+  model-based grading corroboration pass (Building Evals recipe pattern) via
+  new shared helper `protocol_tests._utils.model_judge_compliance()`. Also
+  recovered stalled DGB arXiv-paper reviewer edits (`docs/paper-dgb/main.tex`)
+  and dropped a dead NeurIPS 2026 submission target. Test count 565 -> 595;
+  harnesses 39 -> 43.
 - **RCL-001..008: Receipt claim-level verification (new module `receipt_claim_harness.py`).**
   Makes executable the distinction that a format-valid, correctly signed receipt
   can still be claim-invalid. An action receipt is decomposed into four
