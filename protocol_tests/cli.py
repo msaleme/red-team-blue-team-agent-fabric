@@ -338,6 +338,10 @@ HARNESSES = {
         "module": "protocol_tests.prompt_caching_harness",
         "description": "Prompt caching isolation security (6 tests, cross-session bleed + tenant key collision + cache-prefix injection)",
     },
+    "extended-thinking": {
+        "module": "protocol_tests.extended_thinking_harness",
+        "description": "Extended thinking tamper-evidence conformance (6 tests, signature tampering + cross-conversation replay + redaction leakage)",
+    },
 }
 
 

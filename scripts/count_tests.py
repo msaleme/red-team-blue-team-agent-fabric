@@ -69,6 +69,7 @@ MODULE_NAMES = {
     "tool_search_harness.py": "Tool Search (Embeddings)",
     "ptc_harness.py": "Programmatic Tool Calling",
     "prompt_caching_harness.py": "Prompt Caching",
+    "extended_thinking_harness.py": "Extended Thinking",
 }
 
 
