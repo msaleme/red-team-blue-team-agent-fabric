@@ -3,7 +3,7 @@
 LaTeX source for: *Decision Governance Benchmark: Executable Behavioral Tests
 for Autonomous AI Agent Security* (Saleme 2026).
 
-**Targets:** arXiv CS.CR (primary) | NeurIPS 2026 Evaluations & Datasets (stretch, deadline May 6 2026)
+**Target:** arXiv CS.CR (primary). (The NeurIPS 2026 Evaluations & Datasets stretch track's May 6 2026 deadline has passed without a submission — dropped as a target.)
 
 ---
 
@@ -82,7 +82,6 @@ Section 5 results are sourced from:
   title        = {Decision Governance Benchmark: Executable Behavioral Tests
                   for Autonomous {AI} Agent Security},
   year         = {2026},
-  howpublished = {arXiv preprint},
-  note         = {NeurIPS 2026 Evaluations \& Datasets track submission}
+  howpublished = {arXiv preprint}
 }
 ```
