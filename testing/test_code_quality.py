@@ -115,6 +115,69 @@ class TestRegTestCount(unittest.TestCase):
         mentions = re.findall(r'(\d+)\s+executable security tests', skill)
         self.assertTrue(mentions, "SKILL.md must mention test count")
         for m in mentions: self.assertEqual(m, count)
+    def _harness_count(self):
+        from protocol_tests.cli import HARNESSES
+        return str(len(HARNESSES))
+    def test_readme_module_count(self):
+        count = self._harness_count()
+        with open(os.path.join(REPO_ROOT, "README.md")) as f: readme = f.read()
+        m = re.search(r'security tests across (\d+) modules', readme)
+        self.assertIsNotNone(m, "README.md must state a module count")
+        self.assertEqual(m.group(1), count)
+    def test_test_inventory_module_count(self):
+        count = self._harness_count()
+        with open(os.path.join(REPO_ROOT, "docs", "TEST-INVENTORY.md")) as f: inv = f.read()
+        found = re.findall(r'security tests across (\d+) modules', inv)
+        found += re.findall(r'test IDs across\s*>?\s*(\d+)\s+test-bearing', inv)
+        found += re.findall(r'spans \*\*(\d+) test-bearing\s*>?\s*modules', inv)
+        self.assertTrue(found, "docs/TEST-INVENTORY.md must state a module count")
+        for f_ in found: self.assertEqual(f_, count)
+
+
+class TestRegJailbreakVersionConsistency(unittest.TestCase):
+    """jailbreak_harness.py cites its version in 4 places (docstring, run_all
+    banner print, generate_report suite name, trial_runner suite_name) that
+    must agree -- issue found in round evaluation after v3.0->v3.1 (--judge)."""
+    def test_consistent_version(self):
+        path = os.path.join(REPO_ROOT, "protocol_tests", "jailbreak_harness.py")
+        with open(path) as f: src = f.read()
+        patterns = {
+            "docstring": r'Jailbreak Corpus Security Test Harness \(v(\d+\.\d+)\)',
+            "banner": r'CORPUS TEST SUITE v(\d+\.\d+)',
+            "report": r'"suite":\s*"Expanded Jailbreak Corpus Tests v(\d+\.\d+)"',
+            "trial_suite_name": r'suite_name="Expanded Jailbreak Corpus Tests v(\d+\.\d+)"',
+        }
+        found = {}
+        for name, pat in patterns.items():
+            m = re.search(pat, src)
+            self.assertIsNotNone(m, f"{name} version string not found (pattern may need updating)")
+            found[name] = m.group(1)
+        self.assertEqual(len(set(found.values())), 1,
+            f"jailbreak_harness.py version strings disagree: {found}")
+
+
+class TestRegExtendedThinkingET003(unittest.TestCase):
+    """ET-003's simulate-mode leak check must not be a self-referential
+    tautology (x == x, always true regardless of any real detection logic) --
+    found in round evaluation after extended_thinking_harness.py was added."""
+    def test_not_tautological(self):
+        path = os.path.join(REPO_ROOT, "protocol_tests", "extended_thinking_harness.py")
+        with open(path) as f: src = f.read()
+        m = re.search(
+            r'def test_et_003_redacted_thinking_exposed.*?(?=\n    def test_et_004)',
+            src, re.DOTALL,
+        )
+        self.assertIsNotNone(m, "ET-003 test method not found")
+        body = m.group(0)
+        self.assertNotIn(
+            'naive_output == redacted_block["data"]', body,
+            "ET-003's naive_leaks check must not be a self-referential tautology (x == x)",
+        )
+        self.assertIn(
+            "_exposes_raw_payload", body,
+            "ET-003 should route detection through a real detector function, "
+            "not a bare identity comparison",
+        )
 
 
 class TestRegPassFail(unittest.TestCase):

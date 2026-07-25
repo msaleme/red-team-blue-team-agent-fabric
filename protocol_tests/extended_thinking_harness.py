@@ -316,16 +316,27 @@ class ExtendedThinkingTests:
         }
 
         def _naive_render(block: dict) -> str:
-            return block["data"]  # leaks raw opaque payload
+            # Realistic naive UI/logging behavior: embed the raw payload in a
+            # larger rendered string rather than returning it bare, so
+            # detecting the leak requires an actual containment check.
+            return f"[thinking block] data={block['data']}"
 
         def _safe_render(block: dict) -> str:
             return "[reasoning redacted]"
 
+        def _exposes_raw_payload(rendered_text: str, block: dict) -> bool:
+            """Real detector: does rendered_text verbatim contain the raw
+            opaque payload anywhere in it? Has an actual branch (the `in`
+            check) that a future edit could get wrong, unlike a bare
+            self-comparison."""
+            raw = block.get("data", "")
+            return bool(raw) and raw in rendered_text
+
         if self.simulate:
             naive_output = _naive_render(redacted_block)
             safe_output = _safe_render(redacted_block)
-            naive_leaks = naive_output == redacted_block["data"]
-            safe_clean = safe_output != redacted_block["data"]
+            naive_leaks = _exposes_raw_payload(naive_output, redacted_block)
+            safe_clean = not _exposes_raw_payload(safe_output, redacted_block)
             passed = naive_leaks and safe_clean  # detection: we correctly tell them apart
 
             self._record(ExtendedThinkingResult(
