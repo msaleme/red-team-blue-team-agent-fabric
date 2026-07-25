@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.10.0] - 2026-07-25
+
 ### Fixed
 
 - **MCP-020 oracle corrected: a persistent origin id no longer authorizes a
@@ -29,6 +31,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   schemes regardless of determinism. AP2-014 reclassified normative N -> I
   (inferred: standard payment-security practice, not mapped to a cited AP2
   clause). Test count unchanged (AP2-014 retained).
+- **Round-35 self-audit fixes (PR #275, issues #275-278).** ET-003's
+  simulate check was a self-referential tautology (`x == x`, always true) --
+  fixed with a real `_exposes_raw_payload()` containment-check detector.
+  `jailbreak_harness.py` cited 4 disagreeing version strings across its
+  docstring/banner/report/trial-runner paths -- reconciled to v3.1
+  everywhere. "42 modules" was stale in README.md/TEST-INVENTORY.md (should
+  have been 43). 4 new regression tests added, each verified to actually
+  fail against pre-fix source before being counted as a real guard.
+- **`mcp_harness.py`'s `HARNESS_CLIENT_INFO` had a hardcoded version string**
+  (`"4.9.1"`, literal) that would have drifted out of sync with every future
+  release exactly like this one -- now derived from `protocol_tests.version.get_harness_version()`,
+  the same pyproject.toml-backed source of truth `cli.py` already uses
+  (issue #5 pattern).
+- **`benchmarks/README.md` had drifted from the actual corpus**: stated "50
+  cases" / "70%+ scanner miss rate" against the real 52-case / 85%-miss-rate
+  corpus, with an incomplete Sources table. Corrected while preparing the
+  `dgb-v1.0.0` benchmark release tag (versioned independently of this
+  package).
 
 ### Added
 

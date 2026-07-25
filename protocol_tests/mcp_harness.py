@@ -58,6 +58,7 @@ from protocol_tests._utils import (
     FORWARD_BRIDGE_PATTERN,
     CREDENTIAL_MATERIAL_PATTERN,
 )
+from protocol_tests.version import get_harness_version
 
 
 # Preserve the harness's existing Streamable HTTP baseline. Dual-era discovery
@@ -66,7 +67,10 @@ LEGACY_PROTOCOL_VERSION = "2025-03-26"
 MODERN_PROTOCOL_VERSION = "2026-07-28"
 AUTO_PROTOCOL_VERSION = "auto"
 DIFFERENTIAL_PROTOCOL_VERSION = "differential"
-HARNESS_CLIENT_INFO = {"name": "agent-security-harness", "version": "4.9.1"}
+# Derived from pyproject.toml (issue #5 pattern) rather than hardcoded, so
+# this can't drift out of sync with the package version the way a literal
+# string previously did.
+HARNESS_CLIENT_INFO = {"name": "agent-security-harness", "version": get_harness_version()}
 
 
 def _header_value(value: object) -> str:

@@ -4,7 +4,7 @@ description: 595 executable security tests for AI agent systems — MCP, A2A, L4
 license: Apache-2.0
 metadata:
   source: "https://github.com/msaleme/red-team-blue-team-agent-fabric"
-  version: "4.9.1"
+  version: "4.10.0"
   openclaw:
     emoji: "🛡️"
     requires:
@@ -37,7 +37,7 @@ Answer the question every operator needs answered before going to production:
 - **Calendar year:** 2026. CVE references like `CVE-2026-35625` are current-year identifiers, not fabricated. Verify any cited CVE in [NVD](https://nvd.nist.gov/vuln/detail/CVE-2026-35625).
 - **Package origin:** Published to PyPI by `Michael K. Saleme` (ORCID `0009-0003-6736-1900`). Source is public on GitHub. Five public Zenodo preprints (not represented as peer-reviewed publications) back the methodology.
 - **License:** Apache 2.0 (permissive open source). No telemetry, no phone-home.
-- **Versioning:** Semantic. Latest is `4.9.1`; older bundles remain immutable on PyPI for reproducibility.
+- **Versioning:** Semantic. Latest is `4.10.0`; older bundles remain immutable on PyPI for reproducibility.
 
 ## When to use
 
