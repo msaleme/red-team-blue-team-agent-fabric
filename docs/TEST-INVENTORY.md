@@ -1,8 +1,8 @@
 # Test Inventory
 
-**577 security tests across 40 modules** on `main` (verified 2026-07-25 by `scripts/count_tests.py`)
+**583 security tests across 40 modules** on `main` (verified 2026-07-25 by `scripts/count_tests.py`)
 
-> **Canonical figures (verified 2026-07-25).** Main branch: 577 test IDs across
+> **Canonical figures (verified 2026-07-25).** Main branch: 583 test IDs across
 > 40 test-bearing modules in `protocol_tests/` (files with no `test_id` — CLI,
 > helpers, telemetry, registry — are not counted as modules). The latest PyPI
 > release, `agent-security-harness` v4.9.1, ships 540; `main` is ahead of the
@@ -181,7 +181,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 ## Test Harness Modules (representative summary)
 
 > This table lists the largest modules; the full harness spans **40 test-bearing
-> modules / 577 tests** on `main` (verified 2026-07-25 via `scripts/count_tests.py`).
+> modules / 583 tests** on `main` (verified 2026-07-25 via `scripts/count_tests.py`).
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|

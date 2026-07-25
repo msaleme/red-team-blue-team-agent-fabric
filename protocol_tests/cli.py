@@ -292,7 +292,7 @@ HARNESSES = {
     },
     "multi-agent": {
         "module": "protocol_tests.multi_agent_harness",
-        "description": "Multi-agent interaction security tests (12 tests, delegation poisoning + trust boundary bypass)",
+        "description": "Multi-agent interaction security tests (18 tests, delegation poisoning + trust boundary bypass + race-condition pretexts)",
     },
     "crewai-cve": {
         "module": "protocol_tests.crewai_cve_harness",
