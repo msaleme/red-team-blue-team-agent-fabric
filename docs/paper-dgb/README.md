@@ -72,10 +72,16 @@ files are required — the paper uses the standard `article` class with
 
 ## Data
 
-Section 5 results and Appendix A (per-case table) are sourced from:
+Section 5 results and Appendix A (per-case table) are sourced from the
+[`dgb-v1.0.0`](https://github.com/msaleme/red-team-blue-team-agent-fabric/releases/tag/dgb-v1.0.0)
+release of the benchmark (see `benchmarks/CHANGELOG.md`):
 - `benchmarks/evaluation_results.json` — aggregate and per-case results
 - `benchmarks/decision_behavior_corpus.py` — 52-case corpus definition
 - Corpus run timestamp: `2026-04-17T12:07:43Z`
+
+The `dgb-v1.0.0` tag is versioned independently of both the paper (which
+has no version number of its own until an arXiv identifier is assigned)
+and the `agent-security-harness` package.
 
 To regenerate Appendix A's LaTeX table after a corpus/results change:
 
@@ -94,6 +100,11 @@ python3 docs/paper-dgb/_gen_appendix.py > /tmp/appendix.tex
   title        = {Decision Governance Benchmark: Executable Behavioral Tests
                   for Autonomous {AI} Agent Security},
   year         = {2026},
-  howpublished = {arXiv preprint}
+  howpublished = {arXiv preprint},
+  note         = {Corpus and evaluation harness: dgb-v1.0.0}
 }
 ```
+
+To cite the corpus/harness independently of the paper (e.g. "we evaluated
+against DGB v1.0.0"), see `benchmarks/README.md`'s own citation entry
+instead.
