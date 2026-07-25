@@ -43,3 +43,14 @@ november-meeting-extracted.txt
 !package.json
 !pyproject.json
 !schemas/*.json
+
+# LaTeX build artifacts (docs/paper-dgb/ -- source of truth is main.tex +
+# references.bib; compiled output is regenerated locally per its README)
+*.aux
+*.bbl
+*.blg
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.pdf
