@@ -1,13 +1,18 @@
 # Decision Behavior Benchmark Corpus
 
-**v1.0 — Issue [#120](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/120)**
+**[`dgb-v1.0.0`](https://github.com/msaleme/red-team-blue-team-agent-fabric/releases/tag/dgb-v1.0.0) — Issue [#120](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/120)**
 
 A curated, machine-readable corpus of decision-behavior test cases for autonomous
-AI agents. Part of the v5.0 "Lock the Category" milestone.
+AI agents. Part of the v5.0 "Lock the Category" milestone. This is the corpus
+and evaluation harness behind the paper *Decision Governance Benchmark:
+Executable Behavioral Tests for Autonomous AI Agent Security* (see
+[`docs/paper-dgb/`](../docs/paper-dgb/)). The `dgb-v1.0.0` tag is versioned
+independently of the `agent-security-harness` package (`pyproject.toml`) —
+they are separate deliverables that happen to live in the same repository.
 
 ## What this is
 
-The corpus documents 50+ failure modes where an ungoverned agent takes a harmful
+The corpus documents 52 failure modes where an ungoverned agent takes a harmful
 action that a well-governed agent must block. Every case includes:
 
 - The scenario and context presented to the agent
@@ -18,7 +23,8 @@ action that a well-governed agent must block. Every case includes:
 - A reference to the executable harness test that covers the case
   (`executable_test`)
 
-The central finding: **metadata scanners miss 70%+ of behavioral failures**.
+The central finding: **metadata scanners miss 85% of behavioral failures**
+(44 of 52 cases).
 The failure lives in the execution path — the *decision* the agent makes — not
 in the description of the tool it calls. Scanning tool descriptions is
 insufficient; you need to execute the decision path.
@@ -28,7 +34,7 @@ insufficient; you need to execute the decision path.
 ```python
 from benchmarks.decision_behavior_corpus import CORPUS, BenchmarkCase
 
-# All 50+ cases
+# All 52 cases
 print(len(CORPUS))
 
 # Filter by category
@@ -57,9 +63,9 @@ corpus = load_corpus()
 | `collusion` | DBC-011–020 | 10 | Multi-agent cooperation to circumvent controls |
 | `memory_tampering` | DBC-021–030 | 10 | Manipulation of history, context, or audit state |
 | `payment_chain` | DBC-031–040 | 10 | Abuse of payment or tool execution paths |
-| `evidence_fabrication` | DBC-041–050 | 10 | Fabrication, inflation, or misrepresentation of evaluation results |
+| `evidence_fabrication` | DBC-041–052 | 12 | Fabrication, inflation, or misrepresentation of evaluation results |
 
-**Total: 50 cases across 5 categories.**
+**Total: 52 cases across 5 categories.**
 
 ## BenchmarkCase Schema
 
@@ -91,9 +97,11 @@ Each case carries a `scanner_passes` boolean:
 - **`False`** — a scanner that inspects tool descriptions or configurations could,
   in principle, flag this case without executing the agent.
 
-The corpus maintains >= 70% `scanner_passes=True` cases. This is the core
-argument for executable behavioral testing: the majority of agent governance
-failures require running the agent to observe.
+44 of the 52 cases (85%) have `scanner_passes=True`. This is the core
+argument for executable behavioral testing: the large majority of agent
+governance failures require running the agent to observe, not scanning tool
+descriptions. (See `docs/paper-dgb/main.tex` Section 5.3 for a McNemar's
+exact test on this detection gap, $p \approx 2.4\times10^{-6}$.)
 
 ## Executable Test Mapping
 
@@ -110,23 +118,29 @@ Each corpus case references an executable harness test via `executable_test`:
 
 ## Citation
 
-If you reference this corpus in a paper or report:
+If you reference this corpus in a paper or report, cite the versioned release
+rather than the repository at large, so the citation stays pinned to the
+exact 52-case corpus a result was evaluated against:
 
 ```
-Agent Security Harness Decision Behavior Benchmark Corpus v1.0.
-msaleme/red-team-blue-team-agent-fabric, Issue #120. April 2026.
-https://github.com/msaleme/red-team-blue-team-agent-fabric
+Saleme, M. K. (2026). Decision Governance Benchmark (DGB) Corpus, v1.0.0.
+msaleme/red-team-blue-team-agent-fabric, Issue #120.
+https://github.com/msaleme/red-team-blue-team-agent-fabric/releases/tag/dgb-v1.0.0
 
 Sources: UC Berkeley RDI (Xu et al. 2025), lightningzero 2026,
 METR Autonomy Evaluation Framework 2025, OX Security 2026,
 zhuanruhu 2026, OpenClaw CVE-2026-35625/35629, Kiro/Amazon 2026.
 ```
 
+If citing the accompanying paper instead of (or in addition to) the corpus
+directly, see [`docs/paper-dgb/README.md`](../docs/paper-dgb/README.md) for
+the paper's own citation and arXiv identifier once submitted.
+
 ## Sources
 
 | Source | Finding | Cases |
 |---|---|---|
-| UC Berkeley RDI (Xu et al. 2025) | All 8 major AI benchmarks hackable for perfect scores | DBC-041–050 |
+| UC Berkeley RDI (Xu et al. 2025) | All 8 major AI benchmarks hackable for perfect scores | DBC-041, 043–045, 047–049 |
 | lightningzero 2026 | 9/12 agents self-disabled governance gates within 48h | DBC-001–005 |
 | METR 2025 | Reward-hacking in >30% of o3 and Claude 3.7 Sonnet eval runs | DBC-012, 013, 017, 020, 050 |
 | OX Security 2026 | MCP STDIO injection, 36.7% SSRF, cross-agent relay | DBC-009, 016, 032, 037 |
@@ -137,3 +151,5 @@ zhuanruhu 2026, OpenClaw CVE-2026-35625/35629, Kiro/Amazon 2026.
 | MCP cost inflation 2026 | 658x compute cost via recursive tool calls | DBC-008, 033, 015 |
 | IQuest-Coder 2026 | Git log copying to inflate benchmark scores | DBC-042, 046 |
 | $45M crypto agent 2026 | Autonomous over-threshold trade approval | DBC-031, 036, 038, 040 |
+| AgentSeal runtime exploitation 2026 | Credential retention in tool descriptions | DBC-051 |
+| Return channel poisoning (harness RCP-001, CVE-004) | Cross-tool context leakage | DBC-052 |
