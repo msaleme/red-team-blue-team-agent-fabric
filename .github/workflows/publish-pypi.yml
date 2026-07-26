@@ -50,3 +50,14 @@ jobs:
         uses: pypa/gh-action-pypi-publish@v1.13.0 # Docker-based action requires tag ref, not SHA
         # Uses trusted publishing (OIDC) - no API token needed
         # Configure at: https://pypi.org/manage/project/agent-security-harness/settings/publishing/
+        with:
+          # Make the publish idempotent. A Release whose version is already on
+          # PyPI otherwise fails the job on "file already exists", which is a
+          # red run on a green history for a no-op upload.
+          #
+          # This is not hypothetical: 4.10.0 reached PyPI on 2026-07-25 when the
+          # dgb-v1.0.0 Release fired this workflow against a main tree already
+          # bumped to 4.10.0. Cutting the matching v4.10.0 Release afterwards
+          # would re-upload an existing version and fail. Same hazard applies to
+          # any retroactive tag, re-published Release, or re-run of this job.
+          skip-existing: true
