@@ -55,6 +55,12 @@ files are required — the paper uses the standard `article` class with
 | `_gen_appendix.py` | Regenerates Appendix~A's per-case table from `benchmarks/evaluation_results.json` + `benchmarks/decision_behavior_corpus.py`; not part of the build, run manually if the underlying data changes |
 | `README.md` | This file |
 
+Section 7's checklist ("The Decision Governance Checklist") is also
+published standalone, with rationale and harness-test links, at
+[`docs/DECISION-GOVERNANCE-CHECKLIST.md`](../DECISION-GOVERNANCE-CHECKLIST.md)
+— cite that document when only the checklist, not the full paper, is
+relevant.
+
 ---
 
 ## arXiv Submission Notes
