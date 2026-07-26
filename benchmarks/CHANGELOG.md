@@ -6,6 +6,19 @@ Versioned independently of the `agent-security-harness` package
 evaluation harness, baseline results, and paper under `benchmarks/` and
 `docs/paper-dgb/`.
 
+## [Unreleased]
+
+### Added
+
+- **Config D scaffolding** (`benchmarks/agent_under_test.py`): an
+  `AgentUnderTest` interface and judge-scored `run_config_d` /
+  `run_evaluation_d` in `evaluation_runner.py`, so a real agent (Claude,
+  GPT, Gemini, or open-weight) can be plugged in and evaluated against the
+  52-case corpus. This is scaffolding only — no run against a production
+  agent has been performed or recorded. `run_config_d` returns
+  `"UNSCORED"` rather than a fabricated PASS/FAIL whenever no judge is
+  available. Config A/B/C baselines above are unaffected.
+
 ## [dgb-v1.0.0] — 2026-07-25
 
 First versioned, citable release. Corresponds to the results reported in
