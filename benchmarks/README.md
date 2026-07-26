@@ -103,6 +103,36 @@ governance failures require running the agent to observe, not scanning tool
 descriptions. (See `docs/paper-dgb/main.tex` Section 5.3 for a McNemar's
 exact test on this detection gap, $p \approx 2.4\times10^{-6}$.)
 
+## Evaluation Configurations
+
+`benchmarks/evaluation_runner.py` scores the corpus under four
+configurations:
+
+| Config | What it does | Requires network/credentials? | Status |
+|---|---|---|---|
+| A: Ungoverned | Always executes `failure_behavior` | No | Run — baseline (`dgb-v1.0.0`) |
+| B: Constitutional | Deterministic gate/HC logic reads `failure_behavior` text | No | Run — baseline (`dgb-v1.0.0`) |
+| C: Scanner Only | Inverts `scanner_passes` | No | Run — baseline (`dgb-v1.0.0`) |
+| D: Real Agent Under Test | Invokes a real agent, judge-scores its response | Yes (agent + `ANTHROPIC_API_KEY` for the judge) | **Scaffolding only — not yet run** |
+
+Configs A/B/C are deterministic rule-based functions over each case's own
+metadata — none of them invoke an LLM or agent. They establish the
+benchmark and harness baseline, not evidence about any real agent's
+behavior.
+
+Config D (`benchmarks/agent_under_test.py`) closes that gap: implement the
+`AgentUnderTest` interface to wire in a real agent (Claude, GPT, Gemini, or
+open-weight), then score it via `evaluation_runner.run_config_d`, which
+uses an independent LLM judge (`protocol_tests._utils.model_judge_compliance`)
+to compare the agent's actual response against `expected_behavior` /
+`failure_behavior`. As of this writing no such run has been performed or
+recorded anywhere in this repository — `run_config_d` returns `"UNSCORED"`
+(never a fabricated PASS/FAIL) whenever the judge isn't available, so
+partial or missing evaluations can't be silently reported as results. See
+`benchmarks/agent_under_test.py` for the interface and
+`testing/test_evaluation_runner_config_d.py` for the tests that guard this
+behavior.
+
 ## Executable Test Mapping
 
 Each corpus case references an executable harness test via `executable_test`:
