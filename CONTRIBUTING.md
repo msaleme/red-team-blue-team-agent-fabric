@@ -110,6 +110,7 @@ Promoted patterns keep contributor attribution in the code and docs.
 - Grafana dashboard enhancements
 - Bug fixes in the test automation suite
 - Documentation improvements
+- **Decision Governance Benchmark (DGB) contributions** - new corpus cases, or a real-agent (Config D) evaluation run. See [`benchmarks/CONTRIBUTING.md`](benchmarks/CONTRIBUTING.md) and [`benchmarks/LEADERBOARD.md`](benchmarks/LEADERBOARD.md) - independent Config D submissions are currently the highest-value gap in that benchmark.
 
 ## Before You Contribute
 

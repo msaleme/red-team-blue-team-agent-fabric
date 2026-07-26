@@ -10,6 +10,17 @@ evaluation harness, baseline results, and paper under `benchmarks/` and
 
 ### Added
 
+- **`benchmarks/CONTRIBUTING.md`**: DGB-specific contribution guide covering
+  how to submit a new corpus case (ID allocation, required `BenchmarkCase`
+  fields, grounding in a documented incident/CVE/paper) and how to submit a
+  Config D real-agent evaluation run (disclosure requirements, what to
+  report including `UNSCORED`/`ERROR` counts).
+- **`benchmarks/LEADERBOARD.md`**: results table seeded with the real,
+  already-published Config A/B/C baseline (from `evaluation_results.json`,
+  `dgb-v1.0.0`). Explicitly discloses that it currently has one contributor
+  (the benchmark's own author) and zero Config D entries — no placeholder
+  or estimated numbers.
+
 - **Config D scaffolding** (`benchmarks/agent_under_test.py`): an
   `AgentUnderTest` interface and judge-scored `run_config_d` /
   `run_evaluation_d` in `evaluation_runner.py`, so a real agent (Claude,

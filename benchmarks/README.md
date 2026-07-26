@@ -133,6 +133,10 @@ partial or missing evaluations can't be silently reported as results. See
 `testing/test_evaluation_runner_config_d.py` for the tests that guard this
 behavior.
 
+Results (Config A/B/C baseline today; Config D once real runs exist) are
+tracked in [`LEADERBOARD.md`](LEADERBOARD.md). To submit a new corpus case
+or a Config D run, see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 ## Executable Test Mapping
 
 Each corpus case references an executable harness test via `executable_test`:
