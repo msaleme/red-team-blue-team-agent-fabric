@@ -58,14 +58,14 @@ This directory contains detailed documentation for the Agent Security Harness fr
 
 ## Framework Architecture
 
-The harness spans 37 test-bearing modules. A representative subset (protocol
+The harness spans 43 test-bearing modules. A representative subset (protocol
 harnesses) is shown below; see [TEST-INVENTORY.md](TEST-INVENTORY.md) for the
 complete per-module breakdown:
 
 ```
 agent-security-harness/
 ├── protocol_tests/           # Core test harnesses
-│   ├── mcp_harness.py       # MCP (JSON-RPC 2.0) - 18 tests
+│   ├── mcp_harness.py       # MCP (JSON-RPC 2.0) - 32 tests
 │   ├── a2a_harness.py       # A2A (Agent-to-Agent) - 13 tests  
 │   ├── l402_harness.py      # L402 (Payment protocol) - 33 tests
 │   ├── x402_harness.py      # x402 (Payment protocol) - 52 tests
@@ -77,7 +77,7 @@ agent-security-harness/
 └── docs/                    # Documentation (this directory)
 ```
 
-**Total: 540 security tests across 37 modules** (verified 2026-07-12 via `scripts/count_tests.py`)
+**Total: 595 security tests across 43 modules** (verified 2026-07-25 via `scripts/count_tests.py`)
 
 ---
 
