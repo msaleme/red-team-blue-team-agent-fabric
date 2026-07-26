@@ -118,6 +118,7 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 | CI/CD GitHub Action | [docs/github-action.md](docs/github-action.md) |
 | Payment Attack Taxonomy | [docs/PAYMENT-ATTACK-TAXONOMY.md](docs/PAYMENT-ATTACK-TAXONOMY.md) |
 | Decision Governance Checklist | [docs/DECISION-GOVERNANCE-CHECKLIST.md](docs/DECISION-GOVERNANCE-CHECKLIST.md) |
+| Decision Governance Benchmark Leaderboard | [benchmarks/LEADERBOARD.md](benchmarks/LEADERBOARD.md) |
 | Related Work | [docs/RELATED-WORK.md](docs/RELATED-WORK.md) |
 | Comparison (detailed) | [docs/COMPARISON.md](docs/COMPARISON.md) |
 | Privacy & Telemetry | [docs/PRIVACY.md](docs/PRIVACY.md) |
