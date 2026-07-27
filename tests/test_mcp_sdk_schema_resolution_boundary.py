@@ -107,3 +107,57 @@ def test_lowlevel_server_does_not_invoke_handler_when_loopback_schema_is_missing
     assert requests == ["/missing-schema.json"]
     assert calls == []
     assert result.root.isError is True
+
+
+def test_lowlevel_server_rejects_invalid_arguments_after_loopback_schema_resolution() -> None:
+    """Show that the resolved synthetic schema governs handler admission."""
+
+    requests: list[str] = []
+    calls: list[tuple[str, dict[str, str]]] = []
+
+    class SchemaHandler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+            requests.append(self.path)
+            body = json.dumps(
+                {
+                    "type": "object",
+                    "properties": {"value": {"type": "string"}},
+                    "required": ["value"],
+                    "additionalProperties": False,
+                }
+            ).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/schema+json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format: str, *args: object) -> None:
+            return
+
+    http = ThreadingHTTPServer(("127.0.0.1", 0), SchemaHandler)
+    thread = threading.Thread(target=http.serve_forever, daemon=True)
+    thread.start()
+    try:
+        schema_url = f"http://127.0.0.1:{http.server_port}/synthetic-schema.json"
+        server = Server("schema-boundary-probe")
+        server._tool_cache["probe"] = types.Tool(
+            name="probe", description="synthetic local probe", inputSchema={"$ref": schema_url}
+        )
+
+        @server.call_tool()
+        async def call_tool(name: str, arguments: dict[str, str]) -> dict[str, bool]:
+            calls.append((name, arguments))
+            return {"ok": True}
+
+        request = types.CallToolRequest(
+            params=types.CallToolRequestParams(name="probe", arguments={"wrong": "synthetic"})
+        )
+        result = asyncio.run(server.request_handlers[types.CallToolRequest](request))
+    finally:
+        http.shutdown()
+        http.server_close()
+
+    assert requests == ["/synthetic-schema.json"]
+    assert calls == []
+    assert result.root.isError is True
