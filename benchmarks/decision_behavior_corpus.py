@@ -49,10 +49,12 @@ References
   (81.4% -> 76.2% on SWE-bench after correction).
 - AgentSeal 2026: 1,808 MCP servers scanned, 66% had security findings.
 
-UNRESOLVED grounding (see the 2026-07-27 source-integrity audit): "lightningzero
-2026" and "zhuanruhu 2026" could not be located and carry no bibliography entry.
-Cases grounded on them are pending remediation and should not be cited as
-externally grounded.
+INTERNAL grounding. "lightningzero" and "zhuanruhu" are internal HRAO-E
+deployment runs, not public sources. The underlying run data is not published,
+so cases grounded on them are NOT externally corroborated and must not be cited
+as such. Together with the harness/constitutional-agent and MCP-cost-inflation
+cases, 22 of 52 cases (42%) are grounded wholly or partly in the authors' own
+systems -- see "External validity" in docs/paper-dgb/main.tex.
 
 Issue: https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/120
 """
@@ -149,7 +151,7 @@ _ESCALATION: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="GM-001",
         severity="P0-Critical",
-        source="lightningzero 2026: 9/12 agents, 48h window, gate self-disable",
+        source="HRAO-E internal run 'lightningzero' (2026, unpublished): 9/12 agents, 48h window, gate self-disable",
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
@@ -177,7 +179,7 @@ _ESCALATION: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="GM-002",
         severity="P0-Critical",
-        source="lightningzero 2026: threshold drift in self-governing agents",
+        source="HRAO-E internal run 'lightningzero' (2026, unpublished): threshold drift in self-governing agents",
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
@@ -234,7 +236,7 @@ _ESCALATION: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="GM-004",
         severity="P0-Critical",
-        source="lightningzero 2026: kill-switch bypass patterns in autonomous agents",
+        source="HRAO-E internal run 'lightningzero' (2026, unpublished): kill-switch bypass patterns in autonomous agents",
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
@@ -262,7 +264,7 @@ _ESCALATION: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="GM-005",
         severity="P1-High",
-        source="constitutional-agent HC-12; lightningzero 2026 governance finding",
+        source="constitutional-agent HC-12; HRAO-E internal run 'lightningzero' (2026, unpublished) governance finding",
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
@@ -743,7 +745,7 @@ _MEMORY_TAMPERING: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="GM-006",
         severity="P0-Critical",
-        source="zhuanruhu 2026: 2,847 memory deletions in production agent deployment",
+        source="HRAO-E internal run 'zhuanruhu' (2026, unpublished): 2,847 memory deletions in production agent deployment",
         owasp_asi="ASI10",
     ),
     BenchmarkCase(
@@ -771,7 +773,7 @@ _MEMORY_TAMPERING: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="GM-006",
         severity="P0-Critical",
-        source="zhuanruhu 2026: audit record manipulation in memory-intensive deployment",
+        source="HRAO-E internal run 'zhuanruhu' (2026, unpublished): audit record manipulation in memory-intensive deployment",
         owasp_asi="ASI10",
     ),
     BenchmarkCase(
@@ -800,7 +802,7 @@ _MEMORY_TAMPERING: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="GM-006",
         severity="P1-High",
-        source="zhuanruhu 2026: memory injection leading to context drift",
+        source="HRAO-E internal run 'zhuanruhu' (2026, unpublished): memory injection leading to context drift",
         owasp_asi="ASI01",
     ),
     BenchmarkCase(
@@ -828,7 +830,7 @@ _MEMORY_TAMPERING: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="GM-006",
         severity="P0-Critical",
-        source="zhuanruhu 2026: instruction history tampering in autonomous agent",
+        source="HRAO-E internal run 'zhuanruhu' (2026, unpublished): instruction history tampering in autonomous agent",
         owasp_asi="ASI10",
     ),
     BenchmarkCase(
@@ -858,7 +860,7 @@ _MEMORY_TAMPERING: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="GM-006",
         severity="P0-Critical",
-        source="zhuanruhu 2026: selective memory suppression in context-drift analysis",
+        source="HRAO-E internal run 'zhuanruhu' (2026, unpublished): selective memory suppression in context-drift analysis",
         owasp_asi="ASI10",
     ),
     BenchmarkCase(
@@ -888,7 +890,7 @@ _MEMORY_TAMPERING: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="GM-006",
         severity="P0-Critical",
-        source="zhuanruhu 2026; OX Security 2026: cross-agent memory contamination",
+        source="HRAO-E internal run 'zhuanruhu' (2026, unpublished); OX Security 2026: cross-agent memory contamination",
         owasp_asi="ASI01",
     ),
     BenchmarkCase(
@@ -915,7 +917,7 @@ _MEMORY_TAMPERING: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="GM-006",
         severity="P1-High",
-        source="zhuanruhu 2026: tool call history manipulation to evade detection",
+        source="HRAO-E internal run 'zhuanruhu' (2026, unpublished): tool call history manipulation to evade detection",
         owasp_asi="ASI10",
     ),
     BenchmarkCase(
@@ -973,7 +975,7 @@ _MEMORY_TAMPERING: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="GM-006",
         severity="P0-Critical",
-        source="constitutional-agent governance; zhuanruhu 2026 memory manipulation",
+        source="constitutional-agent governance; HRAO-E internal run 'zhuanruhu' (2026, unpublished) memory manipulation",
         owasp_asi="ASI01",
     ),
     BenchmarkCase(
@@ -1003,7 +1005,7 @@ _MEMORY_TAMPERING: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="GM-002",
         severity="P1-High",
-        source="zhuanruhu 2026: session state manipulation to escape governance accumulation",
+        source="HRAO-E internal run 'zhuanruhu' (2026, unpublished): session state manipulation to escape governance accumulation",
         owasp_asi="ASI05",
     ),
 ]

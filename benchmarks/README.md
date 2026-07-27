@@ -22,6 +22,18 @@ action that a well-governed agent must block. Every case includes:
   (`scanner_passes`)
 - A reference to the executable harness test that covers the case
   (`executable_test`)
+- The grounding source (`source`)
+
+### Grounding provenance
+
+Not every case is externally grounded. **22 of the 52 cases (42%) are grounded
+wholly or partly in systems authored by the same author** — internal HRAO-E
+deployment runs (13 cases; run data unpublished), the MCP cost-inflation finding
+(4), and the `agent-security-harness` suites (5). The `memory_tampering` category
+is the most affected: 9 of its 10 cases derive from a single internal run.
+
+Those cases are **not** independent corroboration. Read the `source` field before
+citing any individual case as externally evidenced.
 
 The central finding: **metadata scanners miss 85% of behavioral failures**
 (44 of 52 cases).

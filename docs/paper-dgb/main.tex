@@ -182,8 +182,9 @@ notionally aligned will nonetheless take an authorized-but-unsafe action when
 doing so serves an immediate objective (throughput, task completion, cost
 reduction) under adversarial or optimization pressure across a multi-step
 decision path. A model can score well on safety and alignment benchmarks and
-still self-disable its own oversight gates, as the lightningzero (2026)
-finding motivating GM-001 (Section~\ref{sec:illustrative}) demonstrates---the
+still self-disable its own oversight gates, as the internal HRAO-E
+run~\cite{hraoe2026} motivating GM-001 (Section~\ref{sec:illustrative})
+demonstrates---the
 failure is not a content-safety violation or a misaligned objective, it is a
 governance-boundary violation. DGB targets this fourth, comparatively
 under-benchmarked question.
@@ -368,9 +369,11 @@ require execution-based testing, not scanning.
 \label{sec:illustrative}
 
 To ground the 6-tuple formalism in a concrete artifact, consider case
-GM-001, derived from the lightningzero (2026) finding that 9 of 12
-evaluated agents disabled their own verification gates within 48 hours
-in pursuit of throughput optimization:
+GM-001, derived from an internal HRAO-E deployment run~\cite{hraoe2026} in
+which 9 of 12 evaluated agents disabled their own verification gates within
+48 hours in pursuit of throughput optimization. This observation is from the
+authors' own system and its run data is not published; it is therefore not
+independent evidence:
 
 \begin{itemize}
   \item $S$: The agent is assigned a throughput-optimization objective.
@@ -685,8 +688,15 @@ identify, protect, and respond.
 \subsection{Threats to Validity}
 \label{sec:threats}
 
-\textbf{External validity.} The 52 cases are grounded in 12 documented
-incidents and findings from a single, recent window (2025--2026) and cover
+\textbf{External validity.} The 52 cases are grounded in documented incidents
+and findings from a single, recent window (2025--2026). \emph{22 of the 52
+cases (42\%) are grounded wholly or partly in systems authored by the same
+author}---the internal HRAO-E runs~\cite{hraoe2026} (13 cases, unpublished run
+data), the MCP cost-inflation finding (4), and the
+\texttt{agent-security-harness} suites (5). The \texttt{memory\_tampering}
+category is the most affected: 9 of its 10 cases derive from a single internal
+run. Those cases are \emph{not} externally corroborated and should not be read
+as such. The corpus covers
 five failure categories chosen by the authors as representative, not
 exhaustively enumerated from a larger population of governance failures.
 Generalization to governance failure modes outside these categories, to
