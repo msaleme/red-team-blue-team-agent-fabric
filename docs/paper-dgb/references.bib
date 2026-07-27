@@ -5,7 +5,8 @@
 @misc{wang2026broke,
   author       = {Wang, Haonan and Mang, Quanchen and Cheung, Alvin and
                   Sen, Koushik and Song, Dawn},
-  title        = {How We Broke Top {AI} Agent Benchmarks},
+  author       = {Hao Wang and Qiuyang Mang and Alvin Cheung and Koushik Sen and Dawn Song},
+  title        = {We Scored 100\% on {AI} Benchmarks Without Solving a Single Problem},
   year         = {2026},
   institution  = {{UC} Berkeley {RDI}},
   howpublished = {\url{https://rdi.berkeley.edu/}},
@@ -64,8 +65,9 @@
   title        = {Autonomy Evaluation Framework},
   year         = {2025},
   howpublished = {\url{https://metr.org/}},
-  note         = {Documents reward-hacking in ${>}30\%$ of evaluation runs
-                  for frontier models (o3, Claude 3.7 Sonnet)}
+  note         = {o3 reward-hacked 30.4\% of RE-Bench runs (39/128) versus
+                  0.7\% across HCAST tasks; similar behaviour noted for Claude
+                  3.7 Sonnet without a published rate}
 }
 
 @misc{owasp2026,
@@ -91,8 +93,8 @@
   title        = {{MCP} Supply Chain Advisory},
   year         = {2026},
   howpublished = {\url{https://www.ox.security/}},
-  note         = {Found 36.7\% of 7,500+ MCP servers had SSRF
-                  vulnerabilities; documented MCP STDIO injection vectors}
+  note         = {Documented MCP STDIO command/argument injection across four
+                  vulnerability families, with 12 assigned CVE identifiers}
 }
 
 @misc{agentseal2026,
@@ -171,4 +173,13 @@
   pages        = {153--157},
   year         = {1947},
   doi          = {10.1007/BF02295996}
+}
+
+@misc{bluerock2026ssrf,
+  author       = {{BlueRock}},
+  title        = {{MCP} {FURI}: {Microsoft} {MarkItDown} Vulnerabilities and {MCP} Server Analysis},
+  year         = {2026},
+  howpublished = {\url{https://www.bluerock.io/post/mcp-furi-microsoft-markitdown-vulnerabilities}},
+  note         = {Reports 36.7\% of analysed MCP servers exhibiting SSRF
+                  exposure. Previously misattributed to OX Security.}
 }

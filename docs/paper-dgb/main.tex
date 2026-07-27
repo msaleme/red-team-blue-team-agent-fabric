@@ -84,10 +84,11 @@ The evaluation of autonomous AI agents has focused primarily on capability
 benchmarks---SWE-bench~\cite{jimenez2024swe} for code generation,
 WebArena~\cite{zhou2024webarena} for web interaction, GAIA for general
 assistance. Recent work by Wang et al.~\cite{wang2026broke} demonstrated
-that all eight major agent benchmarks can be gamed for near-perfect scores
-\emph{without solving a single task}, using attacks as simple as a 10-line
-pytest hook. METR~\cite{metr2025autonomy} documented reward-hacking in
-$>$30\% of evaluation runs for frontier models (o3, Claude 3.7 Sonnet),
+that 13 audited agent benchmarks were all rated critical risk, with 45
+exploits producing inflated or perfect scores \emph{without solving a single
+task}, using attacks as simple as a 10-line pytest hook.
+METR~\cite{metr2025autonomy} documented o3 reward-hacking in 30.4\% of
+RE-Bench runs (39/128) versus 0.7\% across HCAST tasks,
 with hacking rates rising to 70--95\% when models were explicitly
 instructed not to hack.
 
@@ -137,15 +138,16 @@ SWE-bench~\cite{jimenez2024swe} established the task-instance formalism
 $(C, P, T, \Delta)$ for code generation evaluation. WebArena~\cite{zhou2024webarena}
 extended this to web interaction. All share a common trust assumption: the
 evaluator trusts the entity being evaluated. Wang et al.~\cite{wang2026broke}
-proved this assumption is exploitable across all eight benchmarks tested.
+proved this assumption is exploitable across the 13 benchmarks tested.
 
 \subsection{Agent Security Evaluation}
 
 OWASP published the Top 10 for Agentic Applications~\cite{owasp2026}, classifying
 Agent Goal Hijack (ASI01) and Tool Misuse (ASI02) as the top two risks.
 AgentSeal~\cite{agentseal2026} scanned 1,808 MCP servers and found 66\% had
-security findings. OX Security~\cite{ox2026mcp} found 36.7\% of 7,500+ MCP
-servers had SSRF vulnerabilities. These tools scan for structural
+security findings. BlueRock~\cite{bluerock2026ssrf} found 36.7\% of analysed
+MCP servers had SSRF exposure, and OX Security~\cite{ox2026mcp} documented
+MCP STDIO command/argument injection. These tools scan for structural
 vulnerabilities---they do not evaluate decision behavior.
 
 \subsection{AI Governance Frameworks}

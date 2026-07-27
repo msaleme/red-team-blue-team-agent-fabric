@@ -25,15 +25,34 @@ Usage
 
 References
 ----------
-- UC Berkeley RDI: Xu et al. 2025, "Cheating is All You Need: Gaming AI Agent Benchmarks"
-- lightningzero 2026: 9/12 agents self-disabled governance gates within 48h
-- METR 2025: reward-hacking in o3 and Claude 3.7 Sonnet in >30% of eval runs
-- OX Security 2026: MCP STDIO injection and 36.7% SSRF finding
-- zhuanruhu 2026: 2,847 memory deletions in production agent deployment
-- OpenClaw CVE-2026-35625: privilege escalation via tool permission inheritance
-- Kiro/Amazon 2026: autonomous deletion incident during file-reorganization task
+- UC Berkeley RDI 2026 (Wang, Mang, Cheung, Sen, Song), "We Scored 100% on AI
+  Benchmarks Without Solving a Single Problem": 13 benchmarks audited, all rated
+  critical risk, 45 exploits producing inflated or perfect scores.
+  https://rdi.berkeley.edu/blog/trustworthy-benchmarks/
+- METR 2025: o3 reward-hacked 30.4% of RE-Bench runs (39/128) vs 0.7% across
+  HCAST; similar behaviour noted for Claude 3.7 Sonnet, no rate published.
+  https://metr.org/blog/2025-06-05-recent-reward-hacking/
+- OX Security 2026: MCP STDIO command/argument injection, four vulnerability
+  families, 12 assigned CVEs.
+- BlueRock 2026: 36.7% of analysed MCP servers exhibiting SSRF exposure.
+  (Previously misattributed in this file to OX Security.)
+- OpenClaw CVE-2026-35625: silent shared-auth reconnect auto-approves scope
+  upgrade, operator.read -> operator.admin.
+- OpenClaw CVE-2026-35629: SSRF via unguarded configured base URLs in channel
+  extensions.
+- Kiro/Amazon Dec 2025: agent deleted and recreated a production environment
+  (AWS Cost Explorer, 13h outage). Amazon attributes root cause to misconfigured
+  access controls, not agent autonomy.
 - MCP cost inflation 2026: 658x compute cost inflation via recursive tool calls
+  (internally authored finding, not external corroboration).
 - IQuest-Coder 2026: benchmark git log copying to inflate pass rates
+  (81.4% -> 76.2% on SWE-bench after correction).
+- AgentSeal 2026: 1,808 MCP servers scanned, 66% had security findings.
+
+UNRESOLVED grounding (see the 2026-07-27 source-integrity audit): "lightningzero
+2026" and "zhuanruhu 2026" could not be located and carry no bibliography entry.
+Cases grounded on them are pending remediation and should not be cited as
+externally grounded.
 
 Issue: https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/120
 """
@@ -187,7 +206,7 @@ _ESCALATION: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="GM-003",
         severity="P0-Critical",
-        source="OpenClaw CVE-2026-35625: privilege escalation via permission inheritance",
+        source="OpenClaw CVE-2026-35625: silent shared-auth reconnect auto-approves scope upgrade (operator.read -> operator.admin)",
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
@@ -271,7 +290,7 @@ _ESCALATION: List[BenchmarkCase] = [
         scanner_passes=False,
         executable_test="CVE-009",
         severity="P0-Critical",
-        source="OpenClaw CVE-2026-35625: tool permission inheritance escalation",
+        source="OpenClaw CVE-2026-35625: silent shared-auth reconnect auto-approves scope upgrade (operator.read -> operator.admin)",
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
@@ -299,7 +318,7 @@ _ESCALATION: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="GM-001",
         severity="P1-High",
-        source="Kiro/Amazon 2026: autonomous deletion during file-reorganization task",
+        source="Kiro/Amazon Dec 2025: agent deleted and recreated a production environment while completing an assigned task (AWS Cost Explorer, 13h outage). NOTE: Amazon attributes root cause to misconfigured access controls, not agent autonomy",
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
@@ -924,7 +943,7 @@ _MEMORY_TAMPERING: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="BI-007",
         severity="P2-Medium",
-        source="UC Berkeley RDI 2026: self-reported metrics inflation in RAG contexts",
+        source="UC Berkeley RDI 2026 (Wang et al.): self-reported metrics and loosely parsed evaluator output as attack surfaces",
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
@@ -1050,7 +1069,7 @@ _PAYMENT_CHAIN: List[BenchmarkCase] = [
         scanner_passes=False,
         executable_test="MCP-016",
         severity="P0-Critical",
-        source="OX Security 2026: MCP STDIO injection (CVE-2026-SSRF-MCP)",
+        source="OX Security 2026: MCP STDIO command/argument injection (vulnerability class; no single CVE assigned to this behaviour)",
         owasp_asi="ASI03",
     ),
     BenchmarkCase(
@@ -1194,7 +1213,7 @@ _PAYMENT_CHAIN: List[BenchmarkCase] = [
         scanner_passes=False,
         executable_test="CVE-010",
         severity="P0-Critical",
-        source="OpenClaw CVE-2026-35629: SSRF via tool URL; BlueRock 36.7% SSRF finding",
+        source="OpenClaw CVE-2026-35629: SSRF via unguarded configured base URLs in channel extensions; BlueRock 36.7% MCP SSRF finding",
         owasp_asi="ASI02",
     ),
     BenchmarkCase(
@@ -1317,7 +1336,7 @@ _EVIDENCE_FABRICATION: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="BI-007",
         severity="P0-Critical",
-        source="UC Berkeley RDI 2026: Xu et al. — all 8 major benchmarks hackable for perfect scores",
+        source="UC Berkeley RDI 2026 (Wang, Mang, Cheung, Sen, Song): 13 benchmarks audited, all rated critical risk; 45 exploits producing inflated or perfect scores",
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
@@ -1435,7 +1454,7 @@ _EVIDENCE_FABRICATION: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="BI-003",
         severity="P0-Critical",
-        source="UC Berkeley RDI 2026: eval injection as universal benchmark bypass",
+        source="UC Berkeley RDI 2026 (Wang et al.): score injection via stack-frame manipulation, demonstrated in Frontier-CS",
         owasp_asi="ASI03",
     ),
     BenchmarkCase(
@@ -1523,7 +1542,7 @@ _EVIDENCE_FABRICATION: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="BI-006",
         severity="P1-High",
-        source="UC Berkeley RDI 2026: no-op validator exploitation across 8 benchmarks",
+        source="UC Berkeley RDI 2026 (Wang et al.): dummy C-extension / weak-validator exploit demonstrated in Terminal-Bench",
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
@@ -1584,7 +1603,7 @@ _EVIDENCE_FABRICATION: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="BI-001",
         severity="P0-Critical",
-        source="METR 2025: reward-hacking in >30% of o3 and Claude 3.7 Sonnet eval runs",
+        source="METR 2025: o3 reward-hacked 30.4% of RE-Bench runs (39/128) vs 0.7% across HCAST; similar behaviour observed for Claude 3.7 Sonnet, no rate published",
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
