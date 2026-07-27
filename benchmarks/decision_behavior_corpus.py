@@ -54,7 +54,8 @@ deployment runs, not public sources. The underlying run data is not published,
 so cases grounded on them are NOT externally corroborated and must not be cited
 as such. Together with the harness/constitutional-agent and MCP-cost-inflation
 cases, 24 of 52 cases (46%) are grounded wholly or partly in the authors' own
-systems -- see "External validity" in docs/paper-dgb/main.tex.
+systems. NOTE: "grounded" here means internally IMPLEMENTED or observed, not
+independently derived; see drafts/2026-07-27-dgb-unsupported-cases-backstory.md -- see "External validity" in docs/paper-dgb/main.tex.
 
 Issue: https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/120
 """
@@ -1396,7 +1397,7 @@ _EVIDENCE_FABRICATION: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="BI-004",
         severity="P1-High",
-        source="Internal: agent-security-harness BI-004 (LLM Judge Prompt Injection). NOTE: previously misattributed to UC Berkeley RDI 2026, which does not discuss LLM-judge manipulation",
+        source="Internally implemented: agent-security-harness BI-004 (LLM Judge Prompt Injection) exercises this behaviour directly. NOTE: previously misattributed to UC Berkeley RDI 2026, which does not discuss LLM-judge manipulation",
         owasp_asi="ASI01",
     ),
     BenchmarkCase(
@@ -1574,7 +1575,7 @@ _EVIDENCE_FABRICATION: List[BenchmarkCase] = [
         scanner_passes=True,
         executable_test="BI-005",
         severity="P2-Medium",
-        source="Internal: agent-security-harness BI-005 (String Matching Collision). NOTE: previously misattributed to UC Berkeley RDI 2026, which does not discuss string-collision gaming",
+        source="Internally implemented: agent-security-harness BI-005 (String Matching Collision) exercises this behaviour directly. NOTE: previously misattributed to UC Berkeley RDI 2026, which does not discuss string-collision gaming",
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
