@@ -19,9 +19,21 @@ action that a well-governed agent must block. Every case includes:
 - What a well-governed agent must do (`expected_behavior`)
 - What an ungoverned agent does instead (`failure_behavior`)
 - Whether a metadata-only scanner (tool description scan) would catch it
-  (`scanner_passes`)
+  (derived — see `benchmarks/scanner_derived.py`)
 - A reference to the executable harness test that covers the case
   (`executable_test`)
+- The grounding source (`source`)
+
+### Grounding provenance
+
+Not every case is externally grounded. **24 of the 52 cases (46%) are grounded
+wholly or partly in systems authored by the same author** — internal HRAO-E
+deployment runs (13 cases; run data unpublished), the MCP cost-inflation finding
+(4), and the `agent-security-harness` suites (7). The `memory_tampering` category
+is the most affected: 9 of its 10 cases derive from a single internal run.
+
+Those cases are **not** independent corroboration. Read the `source` field before
+citing any individual case as externally evidenced.
 
 The central finding: **metadata scanners miss 85% of behavioral failures**
 (44 of 52 cases).
@@ -41,8 +53,9 @@ print(len(CORPUS))
 escalation = [c for c in CORPUS if c.category == "escalation_bypass"]
 
 # Scanner contrast set
-scanner_misses = [c for c in CORPUS if c.scanner_passes]
-scanner_catches = [c for c in CORPUS if not c.scanner_passes]
+from benchmarks.scanner_derived import scanner_detects, scanner_misses
+scanner_missed  = [c for c in CORPUS if scanner_misses(c.id)]
+scanner_caught  = [c for c in CORPUS if scanner_detects(c.id)]
 
 print(f"Scanner misses {len(scanner_misses)}/{len(CORPUS)} cases "
       f"({len(scanner_misses)/len(CORPUS)*100:.0f}%)")
@@ -80,7 +93,6 @@ class BenchmarkCase:
     scenario: str            # setup and context presented to the agent
     expected_behavior: str   # what a well-governed agent must do
     failure_behavior: str    # what an ungoverned agent does instead
-    scanner_passes: bool     # True = metadata scanner misses this
     executable_test: str     # harness test reference (e.g., "GM-001", "BI-003")
     severity: str            # P0-Critical | P1-High | P2-Medium | P3-Low
     source: str              # incident/research source
@@ -89,7 +101,8 @@ class BenchmarkCase:
 
 ## Contrast-Set Methodology
 
-Each case carries a `scanner_passes` boolean:
+Scanner visibility is **derived, not stored**. `scanner_passes` was retired on
+2026-07-27; see `benchmarks/scanner_derived.py`:
 
 - **`True`** — a metadata-only scanner (scanning tool descriptions, API schema,
   or static configuration) would not detect this failure. The failure is
@@ -97,7 +110,10 @@ Each case carries a `scanner_passes` boolean:
 - **`False`** — a scanner that inspects tool descriptions or configurations could,
   in principle, flag this case without executing the agent.
 
-44 of the 52 cases (85%) have `scanner_passes=True`. This is the core
+**Measured:** a pattern-based scanner (`scan_tool_fields`, 14 regexes) run over the
+tool-registry fixtures detects **1 of 52**; 51 are not flagged. The retired
+hand-assigned labels claimed 8 and 44. This number is a property of that scanner
+over those fixtures — report both alongside it. This is the core
 argument for executable behavioral testing: the large majority of agent
 governance failures require running the agent to observe, not scanning tool
 descriptions. (See `docs/paper-dgb/main.tex` Section 5.3 for a McNemar's
@@ -112,7 +128,7 @@ configurations:
 |---|---|---|---|
 | A: Ungoverned | Always executes `failure_behavior` | No | Run — baseline (`dgb-v1.0.0`) |
 | B: Constitutional | Deterministic gate/HC logic reads `failure_behavior` text | No | Run — baseline (`dgb-v1.0.0`) |
-| C: Scanner Only | Inverts `scanner_passes` | No | Run — baseline (`dgb-v1.0.0`) |
+| C: Scanner Only | Scans `tool_fixtures.py` | No | Run — **supersedes the `dgb-v1.0.0` baseline** |
 | D: Real Agent Under Test | Invokes a real agent, judge-scores its response | Yes (agent + `ANTHROPIC_API_KEY` for the judge) | **Scaffolding only — not yet run** |
 
 Configs A/B/C are deterministic rule-based functions over each case's own
