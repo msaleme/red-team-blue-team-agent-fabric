@@ -23,10 +23,25 @@ from protocol_tests import rcl_fixture_export as X
 FIXTURE_PATH = Path("fixtures/rcl/rcl-oracle-fixtures.v1.json")
 
 
+def test_fixture_file_is_committed():
+    """The deliverable must exist. This must FAIL, never skip.
+
+    The first version of this suite skipped when the file was absent. A
+    blanket `*.json` in .gitignore then dropped the generated fixture from
+    the commit, every test skipped, and CI reported green on a PR whose
+    entire point was shipping that file (PR #299). A guard that passes when
+    the thing it guards is missing is not a guard.
+    """
+    assert FIXTURE_PATH.exists(), (
+        f"{FIXTURE_PATH} is missing. It is the deliverable, not a build "
+        f"artifact. Regenerate with `python -m protocol_tests.rcl_fixture_export` "
+        f"and ensure .gitignore does not exclude it."
+    )
+
+
 @pytest.fixture(scope="module")
 def committed() -> dict:
-    if not FIXTURE_PATH.exists():
-        pytest.skip(f"{FIXTURE_PATH} not generated")
+    assert FIXTURE_PATH.exists(), f"{FIXTURE_PATH} is missing"
     return json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
 
 

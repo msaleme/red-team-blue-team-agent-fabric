@@ -43,6 +43,9 @@ november-meeting-extracted.txt
 !package.json
 !pyproject.json
 !schemas/*.json
+# Published fixture sets are deliverables, not run artifacts. Without this the
+# blanket *.json above silently drops them from `git add -A` (see PR #299).
+!fixtures/**/*.json
 
 # LaTeX build artifacts (docs/paper-dgb/ -- source of truth is main.tex +
 # references.bib; compiled output is regenerated locally per its README)
