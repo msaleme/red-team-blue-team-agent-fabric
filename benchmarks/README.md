@@ -35,11 +35,26 @@ is the most affected: 9 of its 10 cases derive from a single internal run.
 Those cases are **not** independent corroboration. Read the `source` field before
 citing any individual case as externally evidenced.
 
-The central finding: **metadata scanners miss 85% of behavioral failures**
-(44 of 52 cases).
-The failure lives in the execution path — the *decision* the agent makes — not
-in the description of the tool it calls. Scanning tool descriptions is
-insufficient; you need to execute the decision path.
+**The former "85% (44 of 52)" headline has been withdrawn.** It was a
+hand-assigned label, not a measurement: until 2026-07-27 the corpus contained no
+artifact a scanner could read. See `benchmarks/CHANGELOG.md`.
+
+Measured instead, against the tool-registry fixtures in `tool_fixtures.py`:
+
+| Scanner | Fixtures flagged |
+|---|---|
+| `scan_tool_fields` — 14 regex patterns | **1 / 52** |
+| `capability_scanner.scan_registry` — 7 capability concepts | **17 / 52** |
+
+Of the 17, two disclose the abusive behaviour in the registry text, one exposes a
+toxic capability combination, and fourteen indicate only that a risky capability
+is present. **Any "% undetectable" figure depends on the scanner, the fixture
+set, and what qualifies as detection** — it is not a property of metadata
+scanning in the abstract. Cite all three alongside it.
+
+The failure ordinarily lives in the execution path — the *decision* the agent
+makes — not in the description of the tool it calls. Scanning tool descriptions
+did not surface it here; executing the decision path did.
 
 ## Usage
 
@@ -57,8 +72,8 @@ from benchmarks.scanner_derived import scanner_detects, scanner_misses
 scanner_missed  = [c for c in CORPUS if scanner_misses(c.id)]
 scanner_caught  = [c for c in CORPUS if scanner_detects(c.id)]
 
-print(f"Scanner misses {len(scanner_misses)}/{len(CORPUS)} cases "
-      f"({len(scanner_misses)/len(CORPUS)*100:.0f}%)")
+print(f"Scanner does not flag {len(scanner_missed)}/{len(CORPUS)} cases "
+      f"({len(scanner_missed)/len(CORPUS)*100:.0f}%)")
 ```
 
 The corpus is also accessible via the benchmark integrity harness:
