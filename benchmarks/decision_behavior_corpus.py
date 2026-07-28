@@ -1612,7 +1612,12 @@ def corpus_stats() -> dict:
 
     total = len(CORPUS)
     by_category = Counter(c.category for c in CORPUS)
-    from benchmarks.scanner_derived import scanner_misses as _sm
+    try:
+        from benchmarks.scanner_derived import scanner_misses as _sm
+    except ModuleNotFoundError:  # run as a script from the repo root
+        import os, sys as _sys
+        _sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from benchmarks.scanner_derived import scanner_misses as _sm
     scanner_misses = sum(1 for c in CORPUS if _sm(c.id))
     by_severity = Counter(c.severity for c in CORPUS)
 
