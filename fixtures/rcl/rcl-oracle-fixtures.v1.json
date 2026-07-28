@@ -1,0 +1,501 @@
+{
+  "schema_version": "1.0",
+  "generated_by": "protocol_tests/rcl_fixture_export.py",
+  "source_module": "protocol_tests/receipt_claim_harness.py",
+  "evaluation_time": 1750000000,
+  "freshness_window_seconds": 300,
+  "signature_algorithm": "Ed25519 (RFC 8032) over JCS-canonicalised JSON",
+  "public_keys": {
+    "emitter": "0c00eff6ec5a14a61947baa64aa5af0ef32c8bb0af2c1c12ddc5d68d35200000",
+    "checker": "73164cba8603b8f71cbcf087c5067c3dad1f995c992a6b795466d758ea6d4ff2",
+    "authz": "b14d0ee23c432955fa47524e94401e4941547d0522ec92f60e1123311ee27c93",
+    "exec": "05babee4411fa853251c77b843b1dbe2a967c9b606f78837ff9fcf33349aecd3"
+  },
+  "key_material": "Test authorities only, never a real trust anchor. Public keys are exported so these fixtures can be verified without importing the harness. The corresponding private seeds are derived in the open as sha256('agent-security-harness/receipt-authority/' + name), so they are reproducible by anyone and are not secret. Do not treat these keys as authoritative for anything.",
+  "claim_families": [
+    "integrity_provenance",
+    "occurrence",
+    "authorization",
+    "check_execution"
+  ],
+  "counts": {
+    "total": 11,
+    "accept": 2,
+    "reject": 9
+  },
+  "coverage_gaps": {
+    "families_with_no_negative_vector": [
+      "integrity_provenance"
+    ],
+    "note": "The decomposition defines four claim families. Families listed here are enforced by the verifier but have no negative vector in this set, so these fixtures do not exercise them."
+  },
+  "scope": "These vectors establish whether a receipt supports its asserted claims. They do not establish that any particular implementation produces defective receipts.",
+  "usage": "For each fixture, run your verifier over `receipt` and compare against `expected.verdict`. Retain the accept cases: a verifier that rejects every fixture has not demonstrated correct claim validation.",
+  "fixtures": [
+    {
+      "id": "RCL-001",
+      "name": "Omitted mandatory evidence",
+      "envelope_valid": true,
+      "receipt": {
+        "action": {
+          "tool": "transfer",
+          "params": {
+            "to": "acct-A",
+            "amount": 100
+          }
+        },
+        "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+        "tool_set_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+        "claims": {
+          "authorization": {
+            "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+            "params_digest": "29b774d0a454b86f6375f55fd90c804e6ba03b2eaee1e88f07a19afa73c70174",
+            "sig": "f05e7e4b011f73e79fc2e0faad5ea2c1c8b0bc4edd14e515a1c6a8b2b2711e7b2830897168ece5510e6501789cd1b53650bb08b9e9e82b949cba23adbd0b770c"
+          },
+          "check": {
+            "checker_id": "tool-scan",
+            "version": "1.0",
+            "policy_digest": "12a90b7960539fe3f366d696a3671e71dfe93b8504c4d857b88bbd2aed0262a3",
+            "input_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+            "output": "pass",
+            "issued_at": 1750000000,
+            "sig": "b489115dd3fe0269d4879eb728be602be737be59f190f0c471e52f131d94368c32911fc77680e7ae56d02b730d190129b719d981dd3f46c8e87b9051730f770f"
+          }
+        },
+        "envelope_sig": "68c8ada0833b470f3ec6acebe6d102394c68a434b50893d3a39445eb069e397faba856dd90b8227bd784b38b390b0a816c16329bef6ab36003bcabead30a0e0a"
+      },
+      "expected": {
+        "verdict": "reject",
+        "claim_family": "occurrence",
+        "reason": "occurrence: missing evidence"
+      }
+    },
+    {
+      "id": "RCL-002",
+      "name": "Substituted evidence, re-signed envelope",
+      "envelope_valid": true,
+      "receipt": {
+        "action": {
+          "tool": "transfer",
+          "params": {
+            "to": "acct-A",
+            "amount": 100
+          }
+        },
+        "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+        "tool_set_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+        "claims": {
+          "authorization": {
+            "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+            "params_digest": "29b774d0a454b86f6375f55fd90c804e6ba03b2eaee1e88f07a19afa73c70174",
+            "sig": "f05e7e4b011f73e79fc2e0faad5ea2c1c8b0bc4edd14e515a1c6a8b2b2711e7b2830897168ece5510e6501789cd1b53650bb08b9e9e82b949cba23adbd0b770c"
+          },
+          "occurrence": {
+            "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+            "outcome_digest": "212e659146dac83f09f639fe16f4316e2fc5ecb37c3f99ee67e31eb7a73bb0f9",
+            "sig": "880e3c9840c24bb4961efad424b151388af174c35f24ba6faf922bd388a114786bfcb67cbeed03f1ef689c578cfd5610f45492212ba4de30156062a98bc66d0c"
+          },
+          "check": {
+            "checker_id": "tool-scan",
+            "version": "1.0",
+            "policy_digest": "12a90b7960539fe3f366d696a3671e71dfe93b8504c4d857b88bbd2aed0262a3",
+            "input_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+            "output": "pass",
+            "issued_at": 1750000000,
+            "sig": "2aff2fa4ddc0d04f0c4216b429121911f6ffe0ebafcb82d3cfd9442e7c68e6e0ad3a5e67d7fcb7b00cd8b6e218ee7442ceb184bd55a5dfb666728548880b8507"
+          }
+        },
+        "envelope_sig": "23157e82ae22db5683cbef6bbf11e333fd1928470235b67f705fb88252d6f4f561986184bbff21b474bbeca057fb16f49eba2f0a283fdf56e9d6f547523dc204"
+      },
+      "expected": {
+        "verdict": "reject",
+        "claim_family": "check_execution",
+        "reason": "check: checker attestation does not verify (substituted or forged)"
+      }
+    },
+    {
+      "id": "RCL-003",
+      "name": "Stale checker transcript",
+      "envelope_valid": true,
+      "receipt": {
+        "action": {
+          "tool": "transfer",
+          "params": {
+            "to": "acct-A",
+            "amount": 100
+          }
+        },
+        "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+        "tool_set_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+        "claims": {
+          "authorization": {
+            "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+            "params_digest": "29b774d0a454b86f6375f55fd90c804e6ba03b2eaee1e88f07a19afa73c70174",
+            "sig": "f05e7e4b011f73e79fc2e0faad5ea2c1c8b0bc4edd14e515a1c6a8b2b2711e7b2830897168ece5510e6501789cd1b53650bb08b9e9e82b949cba23adbd0b770c"
+          },
+          "occurrence": {
+            "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+            "outcome_digest": "212e659146dac83f09f639fe16f4316e2fc5ecb37c3f99ee67e31eb7a73bb0f9",
+            "sig": "880e3c9840c24bb4961efad424b151388af174c35f24ba6faf922bd388a114786bfcb67cbeed03f1ef689c578cfd5610f45492212ba4de30156062a98bc66d0c"
+          },
+          "check": {
+            "checker_id": "tool-scan",
+            "version": "1.0",
+            "policy_digest": "12a90b7960539fe3f366d696a3671e71dfe93b8504c4d857b88bbd2aed0262a3",
+            "input_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+            "output": "pass",
+            "issued_at": 1749999640,
+            "sig": "a1f88ae0e5997a7fcae21551cd84cec080705f9c1956369bf5f59096c3d94cc46c7680c6c2b5cef3caf0016938a490c68ca2924801078bc91fff0f536b921b0e"
+          }
+        },
+        "envelope_sig": "d8dc36ca354e15e0a31af881093bd9809b1afb6f49228b18da7ddddd87e9993af65a551cce0e2b2b7ea217cc58c973847b66fe73a7d63e3ff9da06b848308006"
+      },
+      "expected": {
+        "verdict": "reject",
+        "claim_family": "check_execution",
+        "reason": "check: stale transcript (outside freshness window)"
+      }
+    },
+    {
+      "id": "RCL-004",
+      "name": "Check bound to the wrong tool-set digest",
+      "envelope_valid": true,
+      "receipt": {
+        "action": {
+          "tool": "transfer",
+          "params": {
+            "to": "acct-A",
+            "amount": 100
+          }
+        },
+        "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+        "tool_set_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+        "claims": {
+          "authorization": {
+            "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+            "params_digest": "29b774d0a454b86f6375f55fd90c804e6ba03b2eaee1e88f07a19afa73c70174",
+            "sig": "f05e7e4b011f73e79fc2e0faad5ea2c1c8b0bc4edd14e515a1c6a8b2b2711e7b2830897168ece5510e6501789cd1b53650bb08b9e9e82b949cba23adbd0b770c"
+          },
+          "occurrence": {
+            "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+            "outcome_digest": "212e659146dac83f09f639fe16f4316e2fc5ecb37c3f99ee67e31eb7a73bb0f9",
+            "sig": "880e3c9840c24bb4961efad424b151388af174c35f24ba6faf922bd388a114786bfcb67cbeed03f1ef689c578cfd5610f45492212ba4de30156062a98bc66d0c"
+          },
+          "check": {
+            "checker_id": "tool-scan",
+            "version": "1.0",
+            "policy_digest": "12a90b7960539fe3f366d696a3671e71dfe93b8504c4d857b88bbd2aed0262a3",
+            "input_digest": "5c57b9d021cbc7b1ec6f4b223561bf556d4690d4dc662ab3c32f58425ff10bb2",
+            "output": "pass",
+            "issued_at": 1750000000,
+            "sig": "e98a8ad524d165fe17d33f35905531f4d478acc26a94eaeed340ed4d1391970f8b6460f0395687abf72d8bc6df0491f2f1baf1af343b66f37fc79f067f4d3f04"
+          }
+        },
+        "envelope_sig": "a6ef64dbd66eec04fc53699350f14835da542a1053d1abbd149d89c27c30f99c8b69d82f6c0aa7dbee01cb1a5d8091ea7ddef6fbc633b966cbbe38951c0a8005"
+      },
+      "expected": {
+        "verdict": "reject",
+        "claim_family": "check_execution",
+        "reason": "check: result bound to the wrong tool-set digest"
+      }
+    },
+    {
+      "id": "RCL-005",
+      "name": "Authorization bound to different parameters",
+      "envelope_valid": true,
+      "receipt": {
+        "action": {
+          "tool": "transfer",
+          "params": {
+            "to": "acct-A",
+            "amount": 100
+          }
+        },
+        "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+        "tool_set_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+        "claims": {
+          "authorization": {
+            "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+            "params_digest": "874ef3c2436820bb8580c58ba75d2f788ee2e6f6ad65892d1d8d3d081885d73a",
+            "sig": "371ae60835cfa993f6779c61cc2a67fbb8b64af346a24a6c03551e7d9d61e3441b958658e4328e1ec71af489fb71142a797f90722fa93c0043886cb27bf20204"
+          },
+          "occurrence": {
+            "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+            "outcome_digest": "212e659146dac83f09f639fe16f4316e2fc5ecb37c3f99ee67e31eb7a73bb0f9",
+            "sig": "880e3c9840c24bb4961efad424b151388af174c35f24ba6faf922bd388a114786bfcb67cbeed03f1ef689c578cfd5610f45492212ba4de30156062a98bc66d0c"
+          },
+          "check": {
+            "checker_id": "tool-scan",
+            "version": "1.0",
+            "policy_digest": "12a90b7960539fe3f366d696a3671e71dfe93b8504c4d857b88bbd2aed0262a3",
+            "input_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+            "output": "pass",
+            "issued_at": 1750000000,
+            "sig": "b489115dd3fe0269d4879eb728be602be737be59f190f0c471e52f131d94368c32911fc77680e7ae56d02b730d190129b719d981dd3f46c8e87b9051730f770f"
+          }
+        },
+        "envelope_sig": "c6787087a53031154531786151f4e8f42eb98b94c0dce2570aca6fc296ee6d22b74c1f16af1918a8052146488ca7d55e91c2d3f2e34118072ee6b9f226d5b400"
+      },
+      "expected": {
+        "verdict": "reject",
+        "claim_family": "authorization",
+        "reason": "authorization: params do not match the action"
+      }
+    },
+    {
+      "id": "RCL-006",
+      "name": "Execution ack bound to another action",
+      "envelope_valid": true,
+      "receipt": {
+        "action": {
+          "tool": "transfer",
+          "params": {
+            "to": "acct-A",
+            "amount": 100
+          }
+        },
+        "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+        "tool_set_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+        "claims": {
+          "authorization": {
+            "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+            "params_digest": "29b774d0a454b86f6375f55fd90c804e6ba03b2eaee1e88f07a19afa73c70174",
+            "sig": "f05e7e4b011f73e79fc2e0faad5ea2c1c8b0bc4edd14e515a1c6a8b2b2711e7b2830897168ece5510e6501789cd1b53650bb08b9e9e82b949cba23adbd0b770c"
+          },
+          "occurrence": {
+            "action_digest": "369931621f322d545ad0ab97f873e20e5c8a0f43c0b49915d5c979b32e4a6d7f",
+            "outcome_digest": "212e659146dac83f09f639fe16f4316e2fc5ecb37c3f99ee67e31eb7a73bb0f9",
+            "sig": "2bbc8fe0510d1a4363aae97aa6ec96f3c1e5d8583e61cbecad39f1b24e57b9a83d217e7cd5a6b220c4575e71223cbd1eb410c1d48daeb72cc01b629c7ca4660e"
+          },
+          "check": {
+            "checker_id": "tool-scan",
+            "version": "1.0",
+            "policy_digest": "12a90b7960539fe3f366d696a3671e71dfe93b8504c4d857b88bbd2aed0262a3",
+            "input_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+            "output": "pass",
+            "issued_at": 1750000000,
+            "sig": "b489115dd3fe0269d4879eb728be602be737be59f190f0c471e52f131d94368c32911fc77680e7ae56d02b730d190129b719d981dd3f46c8e87b9051730f770f"
+          }
+        },
+        "envelope_sig": "65cf85d93051e95cda869f6a4d7eab83d8ee513c599fa54244668a43ae0e2ef4ca0c23c621ec02c9f9662a9f817f3a456a8fbcf8345b2403bd2e552d6e098102"
+      },
+      "expected": {
+        "verdict": "reject",
+        "claim_family": "occurrence",
+        "reason": "occurrence: acknowledgment bound to another action"
+      }
+    },
+    {
+      "id": "RCL-007",
+      "name": "Emitter self-assertion, no independent attestation",
+      "envelope_valid": true,
+      "receipt": {
+        "action": {
+          "tool": "transfer",
+          "params": {
+            "to": "acct-A",
+            "amount": 100
+          }
+        },
+        "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+        "tool_set_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+        "claims": {
+          "authorization": {
+            "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+            "params_digest": "29b774d0a454b86f6375f55fd90c804e6ba03b2eaee1e88f07a19afa73c70174",
+            "sig": "f05e7e4b011f73e79fc2e0faad5ea2c1c8b0bc4edd14e515a1c6a8b2b2711e7b2830897168ece5510e6501789cd1b53650bb08b9e9e82b949cba23adbd0b770c"
+          },
+          "occurrence": {
+            "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+            "outcome_digest": "212e659146dac83f09f639fe16f4316e2fc5ecb37c3f99ee67e31eb7a73bb0f9",
+            "sig": "880e3c9840c24bb4961efad424b151388af174c35f24ba6faf922bd388a114786bfcb67cbeed03f1ef689c578cfd5610f45492212ba4de30156062a98bc66d0c"
+          },
+          "check": {
+            "checker_id": "tool-scan",
+            "version": "1.0",
+            "policy_digest": "12a90b7960539fe3f366d696a3671e71dfe93b8504c4d857b88bbd2aed0262a3",
+            "input_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+            "output": "pass",
+            "issued_at": 1750000000,
+            "sig": "4930941add58ebbcba94204017e969b23c18832e72b7c5b17987a8f9aacb7c787ec9ebb02fd76a4775417248d57004eae5d1644b6ec105102a203004c74a570c"
+          }
+        },
+        "envelope_sig": "b5d9316370812b8a423fbb8e60b8b6b33fd08f8de28e15e5c91abf48db4a2fb4e63b906c2003f0f7b83d97362366bf6e5644ccfd7f7c9e362a34eceb31920701"
+      },
+      "expected": {
+        "verdict": "reject",
+        "claim_family": "check_execution",
+        "reason": "check: attested by the emitter, not the checker authority"
+      }
+    },
+    {
+      "id": "RCL-008",
+      "name": "Fully-supported receipt accepted (control)",
+      "envelope_valid": true,
+      "receipt": {
+        "action": {
+          "tool": "transfer",
+          "params": {
+            "to": "acct-A",
+            "amount": 100
+          }
+        },
+        "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+        "tool_set_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+        "claims": {
+          "authorization": {
+            "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+            "params_digest": "29b774d0a454b86f6375f55fd90c804e6ba03b2eaee1e88f07a19afa73c70174",
+            "sig": "f05e7e4b011f73e79fc2e0faad5ea2c1c8b0bc4edd14e515a1c6a8b2b2711e7b2830897168ece5510e6501789cd1b53650bb08b9e9e82b949cba23adbd0b770c"
+          },
+          "occurrence": {
+            "action_digest": "357499b8cc7e421263cfffa710d3e7186cb72eef6a0f257736899fd3626d1e7b",
+            "outcome_digest": "212e659146dac83f09f639fe16f4316e2fc5ecb37c3f99ee67e31eb7a73bb0f9",
+            "sig": "880e3c9840c24bb4961efad424b151388af174c35f24ba6faf922bd388a114786bfcb67cbeed03f1ef689c578cfd5610f45492212ba4de30156062a98bc66d0c"
+          },
+          "check": {
+            "checker_id": "tool-scan",
+            "version": "1.0",
+            "policy_digest": "12a90b7960539fe3f366d696a3671e71dfe93b8504c4d857b88bbd2aed0262a3",
+            "input_digest": "2adfb73e809af065623f8c679e89874a106b205353730c753266fd1095795df6",
+            "output": "pass",
+            "issued_at": 1750000000,
+            "sig": "b489115dd3fe0269d4879eb728be602be737be59f190f0c471e52f131d94368c32911fc77680e7ae56d02b730d190129b719d981dd3f46c8e87b9051730f770f"
+          }
+        },
+        "envelope_sig": "9a28b2cbc02f6f18c0d69456548fa42f8b50adbb76200578b5a2f0bdeb8fac44d4c973db0d61b1e16a92324717e8e4f9d7e9234e5c8251285d97c2bc64e4690d"
+      },
+      "expected": {
+        "verdict": "accept",
+        "claim_family": null,
+        "reason": "all four properties independently supported"
+      }
+    },
+    {
+      "id": "RCL-009",
+      "name": "Wired MCP-019 check (clean) accepted",
+      "envelope_valid": true,
+      "receipt": {
+        "action": {
+          "tool": "invoke",
+          "params": {
+            "which": "transfer"
+          }
+        },
+        "action_digest": "5558294fdc17c8ffe2f8036a59fd8b7ea23c735e7ff773e4a424bcb5623139dc",
+        "tool_set_digest": "935a529bdd6d83f3507a160616ac86968089d7da06d70b59dc66c70c4df091d2",
+        "claims": {
+          "authorization": {
+            "action_digest": "5558294fdc17c8ffe2f8036a59fd8b7ea23c735e7ff773e4a424bcb5623139dc",
+            "params_digest": "846774f5f795e29d6d3c2fd04cdef645d4c71798e6fde0c86f94737cb2c33071",
+            "sig": "5c84b626f11accc50bc5671472daf34c32e43c658dfd9fa2151f07076bd5d7d68d4d48a4db929a2e2b8972c620545dad9092eeab3e5b9719643a1ab91808830b"
+          },
+          "occurrence": {
+            "action_digest": "5558294fdc17c8ffe2f8036a59fd8b7ea23c735e7ff773e4a424bcb5623139dc",
+            "outcome_digest": "212e659146dac83f09f639fe16f4316e2fc5ecb37c3f99ee67e31eb7a73bb0f9",
+            "sig": "16847edd553ae69ab4f3d07497b8fce3fd6104894349880b21754561abe97fd809785d5d66d14ffe5849dba4fa4a7d780d34d9ed955ff5f72c6fe5e7e5b5b70d"
+          },
+          "check": {
+            "checker_id": "mcp-019-composite",
+            "version": "1.0",
+            "policy_digest": "e6fd7138c3ca7c972fc4c3042573bc15eb73d961f8848334dad5749367987a9a",
+            "input_digest": "935a529bdd6d83f3507a160616ac86968089d7da06d70b59dc66c70c4df091d2",
+            "output": "pass",
+            "issued_at": 1750000000,
+            "sig": "bb1d955433351d16f0eeb0cc9b34baf803ebf8570b1f7245769ce3ff980decd6e1481ac7e17305cde9732c064d9f33cd03200a88b17cae39aa2529b079c0c50d"
+          }
+        },
+        "envelope_sig": "2ae6e11e6416ad762e333f1af450a4f7c75c2e06bb94a3ad44bbdae1330ff6fc8d4aace00179b0da251714ea9372f26cb3357c7861fd8acd5d4a354f8adaf80f"
+      },
+      "expected": {
+        "verdict": "accept",
+        "claim_family": null,
+        "reason": "all four properties independently supported"
+      }
+    },
+    {
+      "id": "RCL-010",
+      "name": "Wired MCP-019 check (composite found) rejected",
+      "envelope_valid": true,
+      "receipt": {
+        "action": {
+          "tool": "invoke",
+          "params": {
+            "which": "transfer"
+          }
+        },
+        "action_digest": "5558294fdc17c8ffe2f8036a59fd8b7ea23c735e7ff773e4a424bcb5623139dc",
+        "tool_set_digest": "64f53a5a25ced4a18c4aa03551e025b514b83fecc694ef9aea179bdf69a6a603",
+        "claims": {
+          "authorization": {
+            "action_digest": "5558294fdc17c8ffe2f8036a59fd8b7ea23c735e7ff773e4a424bcb5623139dc",
+            "params_digest": "846774f5f795e29d6d3c2fd04cdef645d4c71798e6fde0c86f94737cb2c33071",
+            "sig": "5c84b626f11accc50bc5671472daf34c32e43c658dfd9fa2151f07076bd5d7d68d4d48a4db929a2e2b8972c620545dad9092eeab3e5b9719643a1ab91808830b"
+          },
+          "occurrence": {
+            "action_digest": "5558294fdc17c8ffe2f8036a59fd8b7ea23c735e7ff773e4a424bcb5623139dc",
+            "outcome_digest": "212e659146dac83f09f639fe16f4316e2fc5ecb37c3f99ee67e31eb7a73bb0f9",
+            "sig": "16847edd553ae69ab4f3d07497b8fce3fd6104894349880b21754561abe97fd809785d5d66d14ffe5849dba4fa4a7d780d34d9ed955ff5f72c6fe5e7e5b5b70d"
+          },
+          "check": {
+            "checker_id": "mcp-019-composite",
+            "version": "1.0",
+            "policy_digest": "e6fd7138c3ca7c972fc4c3042573bc15eb73d961f8848334dad5749367987a9a",
+            "input_digest": "64f53a5a25ced4a18c4aa03551e025b514b83fecc694ef9aea179bdf69a6a603",
+            "output": "fail",
+            "issued_at": 1750000000,
+            "sig": "a5a7fb9478f2b0e0d0e8bef62f331e2204f1333096f17e5db42876cf572dfd0e93be85be527fb4c48011b44a9f8087dbb6b5410f6339aae1e5458c2fe69f050d"
+          }
+        },
+        "envelope_sig": "560f9da708e7a432a2c75007e3f4603b7ba4deb470c8c9dadca57ce788559af87d58e04397f97aeafe5f29b32e1585875fdccf8e4303a2f74b518509bba5d109"
+      },
+      "expected": {
+        "verdict": "reject",
+        "claim_family": "check_execution",
+        "reason": "check: recorded output is not a pass"
+      }
+    },
+    {
+      "id": "RCL-011",
+      "name": "Wired MCP-019 check bound to wrong tool set rejected",
+      "envelope_valid": true,
+      "receipt": {
+        "action": {
+          "tool": "invoke",
+          "params": {
+            "which": "transfer"
+          }
+        },
+        "action_digest": "5558294fdc17c8ffe2f8036a59fd8b7ea23c735e7ff773e4a424bcb5623139dc",
+        "tool_set_digest": "64f53a5a25ced4a18c4aa03551e025b514b83fecc694ef9aea179bdf69a6a603",
+        "claims": {
+          "authorization": {
+            "action_digest": "5558294fdc17c8ffe2f8036a59fd8b7ea23c735e7ff773e4a424bcb5623139dc",
+            "params_digest": "846774f5f795e29d6d3c2fd04cdef645d4c71798e6fde0c86f94737cb2c33071",
+            "sig": "5c84b626f11accc50bc5671472daf34c32e43c658dfd9fa2151f07076bd5d7d68d4d48a4db929a2e2b8972c620545dad9092eeab3e5b9719643a1ab91808830b"
+          },
+          "occurrence": {
+            "action_digest": "5558294fdc17c8ffe2f8036a59fd8b7ea23c735e7ff773e4a424bcb5623139dc",
+            "outcome_digest": "212e659146dac83f09f639fe16f4316e2fc5ecb37c3f99ee67e31eb7a73bb0f9",
+            "sig": "16847edd553ae69ab4f3d07497b8fce3fd6104894349880b21754561abe97fd809785d5d66d14ffe5849dba4fa4a7d780d34d9ed955ff5f72c6fe5e7e5b5b70d"
+          },
+          "check": {
+            "checker_id": "mcp-019-composite",
+            "version": "1.0",
+            "policy_digest": "e6fd7138c3ca7c972fc4c3042573bc15eb73d961f8848334dad5749367987a9a",
+            "input_digest": "935a529bdd6d83f3507a160616ac86968089d7da06d70b59dc66c70c4df091d2",
+            "output": "pass",
+            "issued_at": 1750000000,
+            "sig": "bb1d955433351d16f0eeb0cc9b34baf803ebf8570b1f7245769ce3ff980decd6e1481ac7e17305cde9732c064d9f33cd03200a88b17cae39aa2529b079c0c50d"
+          }
+        },
+        "envelope_sig": "09e7d9c21473ede44d647d2a09b9c760b27d113b2c63056cd131c57d9d69f73e7abe9308ee5aa14c4634cacce2510a506df311507308d1adde706cc949c5490b"
+      },
+      "expected": {
+        "verdict": "reject",
+        "claim_family": "check_execution",
+        "reason": "check: result bound to the wrong tool-set digest"
+      }
+    }
+  ]
+}
