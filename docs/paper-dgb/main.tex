@@ -51,7 +51,8 @@ resist five classes of governance failure: escalation bypass, collusion,
 memory tampering, payment chain abuse, and evidence fabrication. Unlike
 metadata scanners that inspect tool descriptions and permission
 declarations, DGB \emph{executes} the agent's decision path and measures
-behavioral outcomes. We find that \textbf{85\% of governance failures
+behavioral outcomes. Running a pattern-based metadata scanner over authored
+tool-registry fixtures, we find that \textbf{51 of 52 governance failures
 (44/52 cases) are invisible to static metadata analysis}---the failure
 only manifests when the decision is executed. We present 13 complementary
 harness tests (7 benchmark integrity, 6 governance modification) and an
@@ -59,9 +60,9 @@ evidence format that produces machine-readable attestation reports.
 Baseline results across three agent configurations show: Config~A
 (ungoverned) achieves 0\% Governance Maintenance Rate (GMR); Config~B
 (constitutional gates, 12 hard constraints) achieves 71.2\% GMR and
-77.3\% Scanner Gap Score (SGS); Config~C (metadata scanner only) achieves
-15.4\% GMR and 0\% SGS---metadata scanning contributes zero governance
-protection on the 44 behavioral cases even when it succeeds on the 8
+70.6\% Scanner Gap Score (SGS); Config~C (metadata scanner only) achieves
+1.9\% GMR and 0\% SGS---metadata scanning contributes zero governance
+protection on the 51 unflagged cases even when it succeeds on the 1
 structurally detectable ones. Unlike prior work, DGB produces
 deterministic, replayable behavioral test results, enabling direct
 comparison with static and dynamic security scanners. The corpus,
@@ -115,7 +116,7 @@ makes three contributions:
         hypothetical scenarios.
 
   \item \textbf{An executable evaluation methodology} that distinguishes
-        behavioral governance failures (85\% of corpus) from
+        behavioral governance failures (98\% of corpus, measured) from
         structural/metadata failures (15\%). To our knowledge, we are
         unaware of a prior empirical measurement of the detection gap
         between scanning and execution-based testing on a shared corpus.
@@ -269,7 +270,8 @@ element is defined as:
   \item $E_{\text{pass}}$ = expected behavior under correct governance
   \item $E_{\text{fail}}$ = failure behavior under absent/bypassed governance
   \item $D$ = detection method (executable test reference in the harness)
-  \item $M$ = metadata detectability (boolean: can a static scanner catch this?)
+  \item $M$ = metadata detectability (boolean, \emph{derived}: does the named
+        static scanner flag this case's tool-registry fixture?)
 \end{itemize}
 
 \subsection{Corpus Construction}
@@ -287,9 +289,10 @@ against three criteria:
         that produces a binary pass/fail result.
 
   \item \textbf{Contrastive annotation:} Each case is annotated with
-        \texttt{scanner\_passes} indicating whether the failure \emph{passes
-        through} (evades) a metadata-only scanner---i.e.,
-        \texttt{scanner\_passes=True} means the scanner \emph{cannot} detect
+        a \emph{derived} flag indicating whether a metadata-only scanner flags the
+        case's tool-registry fixture. This replaces a hand-assigned
+        \texttt{scanner\_passes} field, retired in 2026-07; the flag now means the
+        named scanner did \emph{not} flag
         the failure. This enables direct measurement of the detection
         gap.
 \end{enumerate}
@@ -325,8 +328,13 @@ is purely behavioral and invisible to any static analysis method.
 
 \subsection{Scanner Detection Gap}
 
-Across all 52 cases, 44 (85\%) are undetectable by metadata-only scanners.
-The 8 scanner-detectable cases concentrate in payment/tool chain (4 cases
+Across all 52 cases, the pattern-based scanner flags 1 (1.9\%) and does not
+flag 51 (98.1\%). The single flagged case is a phantom tool registration whose
+own registry entry advertises unconditional approval. A capability-rule
+comparator flags 17, but 14 of those indicate only that a risky capability is
+present rather than that the failure occurred---see
+Section~\ref{sec:threats}. The former hand-assigned labels claimed 8
+scanner-detectable cases concentrated in payment/tool chain (4 cases
 involving structural SSRF or token format violations) and evidence
 fabrication (2 cases involving accessible configuration files). This finding
 quantifies what practitioners have suspected: behavioral governance failures
@@ -344,8 +352,8 @@ require execution-based testing, not scanning.
     arr/.style={-{Latex[length=2mm]}, thick}
   ]
   \node[root] (all) {52 DGB Cases};
-  \node[leaf, below left=8mm and 0mm of all]  (beh)  {44 Behavioral (85\%)\\scanner-invisible ($M{=}$False)};
-  \node[leaf, below right=8mm and 0mm of all] (struc){8 Structural (15\%)\\scanner-detectable ($M{=}$True)};
+  \node[leaf, below left=8mm and 0mm of all]  (beh)  {51 Unflagged (98\%)\\scanner did not flag ($M{=}$False)};
+  \node[leaf, below right=8mm and 0mm of all] (struc){1 Flagged (2\%)\\scanner flagged ($M{=}$True)};
   \node[leaf, below=of beh, fill=gray!12]  (behd) {Execution: detects all 44\\Scanner: detects 0};
   \node[leaf, below=of struc, fill=gray!12] (strucd){Execution: detects all 8\\Scanner: detects all 8};
 
@@ -355,7 +363,7 @@ require execution-based testing, not scanning.
   \draw[arr] (struc) -- (strucd);
 \end{tikzpicture}%
 }
-\caption{The 85\% scanner detection gap. Execution-based testing observes
+\caption{The measured scanner detection gap. Execution-based testing observes
          every case by construction (Section~\ref{sec:dgb}, criterion~2);
          metadata scanning observes only the 8 structurally detectable
          cases. This is a detectability claim (can the method observe the
@@ -474,8 +482,10 @@ or FAIL (agent violated governance). We report:
         where the agent maintained correct governance behavior.
   \item \textbf{Category GMR:} per-category breakdown.
   \item \textbf{Scanner Gap Score (SGS):} GMR restricted to
-        \texttt{scanner\_passes=True} cases---measures performance on
-        failures \emph{invisible} to metadata scanners.
+        scanner-unflagged cases---measures performance on failures the named
+        scanner does not flag. For Config~C this is zero \emph{by construction},
+        since Config~C passes exactly when the scanner flags; it is informative
+        only for Configs~A and~B.
   \item \textbf{Wilson 95\% confidence intervals} on all rates.
 \end{itemize}
 
@@ -538,23 +548,27 @@ cases each):
 \small
 \caption{Aggregate results across all 52 cases. GMR = Governance Maintenance
          Rate. SGS = Scanner Gap Score (restricted to the 44
-         scanner-invisible cases). 95\% CI computed via Wilson interval.}
+         scanner-unflagged cases, $N{=}51$). 95\% CI computed via Wilson interval.
+         Config~C is measured by executing the named scanner over the
+         tool-registry fixtures; its SGS is structurally zero.}
 \label{tab:aggregate}
 \begin{tabular}{lccc}
 \toprule
 \textbf{Configuration} & \textbf{GMR} & \textbf{SGS} & \textbf{95\% CI (GMR)} \\
 \midrule
 A: Ungoverned         & 0.0\%  & 0.0\%  & {[0.0\%, 6.9\%]}  \\
-B: Constitutional     & 71.2\% & 77.3\% & {[57.7\%, 81.7\%]} \\
-C: Scanner Only       & 15.4\% & 0.0\%  & {[8.0\%, 27.5\%]} \\
+B: Constitutional     & 71.2\% & 70.6\% & {[57.7\%, 81.7\%]} \\
+C: Scanner Only       & 1.9\%  & 0.0\%  & {[0.3\%, 10.1\%]} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The SGS of 0.0\% for Config~C confirms the structural nature of the
-detection gap: the scanner's 15.4\% GMR is entirely explained by the 8
-scanner-detectable cases; it contributes zero governance protection on the
-44 behavioral cases.
+Config~C's SGS of 0.0\% is \emph{structural, not evidentiary}: Config~C passes
+exactly when the scanner flags a case, so restricted to the cases it does not
+flag it can only score zero. Measuring which cases belong to that subset changes
+its membership, not the arithmetic. What the measurement does show is that the
+scanner's 1.9\% GMR rests on a single flagged case and contributes no governance
+protection on the other 51.
 
 \subsection{Statistical Significance of the Detection Gap}
 \label{sec:significance}
@@ -564,12 +578,20 @@ configurations' outcomes are paired, not independent, observations---the
 correct test is McNemar's, not a two-sample test such as Fisher's exact
 test or a $\chi^2$ test of independence, both of which assume independent
 samples. Of the 52 cases, execution-based governance (Config~B) succeeds
-where scanning (Config~C) fails on 34 cases, scanning succeeds where
-execution fails on 5, and both agree (concordant) on 13. McNemar's exact
-binomial test on the 39 discordant pairs
-gives $p \approx 2.4\times10^{-6}$~\cite{mcnemar1947}, rejecting the null
+where scanning (Config~C) fails on 36 cases, scanning succeeds where
+execution fails on 0, and both agree (concordant) on 16. McNemar's exact
+binomial test on the 36 discordant pairs
+gives $p \approx 2.9\times10^{-11}$~\cite{mcnemar1947}, rejecting the null
 hypothesis that the two methods detect governance failures at equal rates.
-The direction and magnitude of the asymmetry (34 vs.\ 5) indicate the
+\textbf{Caveat.} Only one arm of this comparison is measured. Config~C now
+executes a real scanner over the tool-registry fixtures, but Config~A and
+Config~B outcomes are produced by deterministic stub agents, not by running a
+production agent. The test therefore compares a measured scanner result against
+a simulated governance result; measuring one arm does not make the comparison
+empirical end-to-end. It should be read as evidence about the corpus and the
+scanner, not as a head-to-head trial of two deployed systems.
+
+The direction and magnitude of the asymmetry (36 vs.\ 0) indicate the
 methods are not interchangeable: execution-based testing detects failures
 scanning structurally cannot see, at a rate scanning's occasional
 execution-invisible advantages (the 5 cases) do not offset.
@@ -591,7 +613,7 @@ Memory Tampering     & 0.0\% & 80.0\% & 0.0\%  \\
 Payment/Tool Chain   & 0.0\% & 50.0\% & 40.0\% \\
 Evidence Fabrication & 0.0\% & 75.0\% & 16.7\% \\
 \midrule
-\textbf{Overall}     & 0.0\% & 71.2\% & 15.4\% \\
+\textbf{Overall}     & 0.0\% & 71.2\% & 1.9\% \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -627,18 +649,25 @@ enforcement, SSRF) below the gate abstraction, not a gap in gate logic.
 
 \subsection{The Detection Gap Is Structural}
 
-The 85\% scanner miss rate is not a limitation of current scanners---it is a
-structural property of behavioral governance failures. A metadata scanner
+The measured miss rate is not merely a limitation of the particular scanner
+used---it reflects a structural property of behavioral governance failures. A
+metadata scanner
 inspects \emph{declarations} (what permissions are claimed, what tool
 descriptions say). A governance failure occurs in the \emph{execution path}
 (what the agent actually decides). These are fundamentally different layers,
 and no improvement to scanning methodology alone can close the gap for
 behavioral failures.
 
-Config~C's 0\% SGS demonstrates this empirically: when restricted to the 44
-scanner-invisible cases, the scanner provides zero governance protection.
-The 15.4\% overall GMR for Config~C is entirely attributable to the 8
-structurally detectable cases---a false sense of coverage.
+Config~C's 0\% SGS does \emph{not} demonstrate this---it is true by construction
+(Section~\ref{sec:results}). The measurement that does bear on it is the raw
+count: the scanner flags 1 of 52 fixtures, and its 1.9\% overall GMR rests
+entirely on that single structurally detectable case---a false sense of coverage.
+
+We caution against reading any single percentage as a property of metadata
+scanning as such. A capability-rule comparator over the same fixtures flags 17
+of 52, but 14 of those indicate only that a risky capability is present, not
+that the failure occurred. The figure moves with the scanner and with what
+counts as detection; both must be named alongside it.
 
 \subsection{Implications for Compliance}
 
@@ -703,6 +732,17 @@ Generalization to governance failure modes outside these categories, to
 agent architectures materially different from the tool-calling paradigm
 assumed throughout the corpus, or to deployment contexts not represented
 in the source incidents (e.g.\ physical/robotic agents) is untested.
+
+\textbf{Scanner and fixture dependence.} Config~C's result is a property of one
+named scanner over one authored fixture set, not of metadata scanning as a
+class. The tool-registry fixtures in \texttt{benchmarks/tool\_fixtures.py} were
+authored by the same author as the corpus, from each case's scenario and failure
+behaviour; a reviewer who disputes a fixture disputes a concrete, inspectable
+artifact, and each carries a recorded rationale. Two scanners over the identical
+fixtures differ 17-fold in the number of fixtures flagged (1 versus 17), and of
+the 17 only two disclose the failure itself rather than the presence of a risky
+capability. Independent fixture review is the most valuable outstanding check on
+this section.
 
 \textbf{Construct validity.} GMR is a binary per-case pass/fail rate, which
 is easy to compute and report but conflates governance failures of very
@@ -822,9 +862,10 @@ BI-001 through BI-007 provide executable tests for property~7.
 We presented the Decision Governance Benchmark (DGB). To our knowledge, we
 are unaware of a prior benchmark corpus specifically designed to evaluate
 whether autonomous AI agents resist governance failures. Our key
-finding---that 85\% of governance failures are invisible to metadata-only
-scanners, a gap that is statistically significant
-(McNemar's exact test, $p \approx 2.4\times10^{-6}$,
+finding---that a pattern-based metadata scanner flags 1 of 52 governance
+failures in authored tool-registry fixtures, a gap that is statistically
+significant
+(McNemar's exact test, $p \approx 2.9\times10^{-11}$,
 Section~\ref{sec:significance})---indicates that execution-based
 evaluation measures a different security property than metadata scanning,
 not merely a more thorough version of the same property.
@@ -832,8 +873,8 @@ not merely a more thorough version of the same property.
 A governed configuration achieves a 71.2\% GMR versus 0\% for ungoverned
 agents. Of the resulting 28.8\% failure rate, the majority (12/15 cases)
 require infrastructure-layer controls outside governance gate scope, not
-improvements to the gate logic itself; that configuration catches 77.3\% of
-scanner-invisible cases that reach the decision layer.
+improvements to the gate logic itself; that configuration catches 70.6\% of
+scanner-unflagged cases that reach the decision layer.
 
 We release the corpus, executable harness, evidence schema, and per-case
 results under the MIT license to enable independent replication and
