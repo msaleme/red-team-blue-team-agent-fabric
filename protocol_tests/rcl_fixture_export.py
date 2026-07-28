@@ -129,6 +129,14 @@ def build_fixture_set(now: int = EVALUATION_TIME) -> dict:
         "freshness_window_seconds": H.FRESHNESS_WINDOW,
         "signature_algorithm": "Ed25519 (RFC 8032) over JCS-canonicalised JSON",
         "public_keys": {k: v.hex() for k, v in H.PUBKEYS.items()},
+        "key_material": (
+            "Test authorities only, never a real trust anchor. Public keys are "
+            "exported so these fixtures can be verified without importing the "
+            "harness. The corresponding private seeds are derived in the open "
+            "as sha256('agent-security-harness/receipt-authority/' + name), so "
+            "they are reproducible by anyone and are not secret. Do not treat "
+            "these keys as authoritative for anything."
+        ),
         "claim_families": CLAIM_FAMILIES,
         "counts": {
             "total": len(fixtures),

@@ -58,6 +58,7 @@ Top level:
 | `freshness_window_seconds` | how long a checker transcript stays fresh |
 | `signature_algorithm` | Ed25519 (RFC 8032) over JCS-canonicalised JSON |
 | `public_keys` | hex Ed25519 public keys per authority: `emitter`, `checker`, `authz`, `exec`. Enough to verify every signature in the file. No private material is exported |
+| `key_material` | states plainly that these are test authorities, not trust anchors |
 | `claim_families` | the four families above |
 | `counts` | `{total, accept, reject}` |
 | `coverage_gaps` | families the verifier enforces that no vector currently exercises |
@@ -99,6 +100,20 @@ exercises it** — every vector is envelope-valid by construction, which is
 the property the set was built to isolate. So these fixtures do not test a
 verifier's integrity checking. Declared in `coverage_gaps` rather than left
 for a reader to discover.
+
+## The keys are not secrets, and not trust anchors
+
+Only public keys are exported, and a test asserts no seed material is present.
+The matching private seeds are derived in the open as
+`sha256("agent-security-harness/receipt-authority/" + name)`, so anyone can
+recompute them. That is deliberate: it keeps the fixtures reproducible.
+
+It also means these keys authenticate **nothing outside this fixture set**.
+They sign fictional authorities. Do not wire them into anything.
+
+A secret scanner will flag the public keys as high-entropy strings.
+`.gitguardian.yaml` records why that is a false positive rather than
+suppressing it silently.
 
 ## Scope
 

@@ -103,7 +103,18 @@ def test_declared_coverage_gap_is_accurate(committed):
 
 
 def test_no_private_key_material_exported(committed):
+    """Assert the actual seeds are absent, not that the word 'secret' is.
+
+    The first version grepped for the substring "secret", which broke as soon
+    as the file gained a note explaining that these keys are not secret. A
+    test that a documentation change can break was testing the wrong thing.
+    This checks for the real private seed bytes.
+    """
+    from protocol_tests.receipt_claim_harness import _SEEDS
+
     raw = FIXTURE_PATH.read_text(encoding="utf-8")
-    assert "_SEEDS" not in raw
-    assert "secret" not in raw.lower()
+    for name, seed in _SEEDS.items():
+        assert seed.hex() not in raw, f"private seed for {name} leaked into the fixtures"
     assert set(committed["public_keys"]) == {"emitter", "checker", "authz", "exec"}
+    for name, hex_pub in committed["public_keys"].items():
+        assert hex_pub != _SEEDS[name].hex(), f"{name}: exported key equals the private seed"

@@ -1,0 +1,20 @@
+# GitGuardian configuration
+#
+# The RCL oracle fixtures publish Ed25519 PUBLIC keys and signatures so that an
+# outside implementation can verify them without importing this repository.
+# GitGuardian classifies the 64-hex-character public keys as "Generic High
+# Entropy Secret" (incident 35238730, PR #300).
+#
+# They are not secrets:
+#   * only public keys are exported; a regression test asserts no seed material
+#     is present (tests/test_rcl_fixture_export.py)
+#   * the corresponding private seeds are derived in the open, as
+#     sha256("agent-security-harness/receipt-authority/" + name) in
+#     protocol_tests/receipt_claim_harness.py, so anyone can recompute them
+#   * they sign fictional test authorities, never a real trust anchor
+#
+# Removing them would make the fixtures unverifiable, which is their purpose.
+version: 2
+secret:
+  ignored-paths:
+    - fixtures/rcl/*.json

@@ -11,6 +11,7 @@
     "authz": "b14d0ee23c432955fa47524e94401e4941547d0522ec92f60e1123311ee27c93",
     "exec": "05babee4411fa853251c77b843b1dbe2a967c9b606f78837ff9fcf33349aecd3"
   },
+  "key_material": "Test authorities only, never a real trust anchor. Public keys are exported so these fixtures can be verified without importing the harness. The corresponding private seeds are derived in the open as sha256('agent-security-harness/receipt-authority/' + name), so they are reproducible by anyone and are not secret. Do not treat these keys as authoritative for anything.",
   "claim_families": [
     "integrity_provenance",
     "occurrence",
