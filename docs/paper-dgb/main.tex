@@ -52,9 +52,10 @@ memory tampering, payment chain abuse, and evidence fabrication. Unlike
 metadata scanners that inspect tool descriptions and permission
 declarations, DGB \emph{executes} the agent's decision path and measures
 behavioral outcomes. Running a pattern-based metadata scanner over authored
-tool-registry fixtures, we find that \textbf{51 of 52 governance failures
-(44/52 cases) are invisible to static metadata analysis}---the failure
-only manifests when the decision is executed. We present 13 complementary
+tool-registry fixtures, the scanner flags \textbf{1 of 52 cases}; the other
+\textbf{51 are not flagged}---the failure only manifests when the decision is
+executed. That split is a property of this scanner and these fixtures, not of
+metadata scanning in general. We present 13 complementary
 harness tests (7 benchmark integrity, 6 governance modification) and an
 evidence format that produces machine-readable attestation reports.
 Baseline results across three agent configurations show: Config~A
@@ -116,8 +117,8 @@ makes three contributions:
         hypothetical scenarios.
 
   \item \textbf{An executable evaluation methodology} that distinguishes
-        behavioral governance failures (98\% of corpus, measured) from
-        structural/metadata failures (15\%). To our knowledge, we are
+        behavioral governance failures (51 of 52 unflagged by the named
+        scanner) from cases the scanner flags (1 of 52). To our knowledge, we are
         unaware of a prior empirical measurement of the detection gap
         between scanning and execution-based testing on a shared corpus.
 \end{enumerate}
@@ -281,20 +282,28 @@ incidents and research findings from 2025--2026. Each case was validated
 against three criteria:
 
 \begin{enumerate}
-  \item \textbf{Incident grounding:} Every case traces to a documented
-        incident, CVE, or peer-reviewed finding. No hypothetical scenarios.
+  \item \textbf{Incident grounding (intended; partially met).} Cases are
+        intended to trace to a documented incident, CVE, or research finding.
+        A 2026-07 source audit found this holds unevenly: 24 of 52 source
+        records point to internal artifacts---including unpublished runs of the
+        authors' own deployment---rather than independent external
+        corroboration. Those cases are not externally corroborated and the
+        \texttt{source} field on each records which is which.
 
-  \item \textbf{Executable reproducibility:} Every case maps to at least
-        one harness test (BI-001 through BI-007, GM-001 through GM-006)
-        that produces a binary pass/fail result.
+  \item \textbf{Executable reproducibility (intended; partially met).} Cases
+        carry a reference to a harness test (BI-001--BI-007, GM-001--GM-006)
+        producing a binary pass/fail result. The same audit found 24 of 52
+        references were behavioural mismatches, and two named values that are
+        not harness tests. Remediation is tracked in
+        \texttt{benchmarks/CHANGELOG.md}.
 
   \item \textbf{Contrastive annotation:} Each case is annotated with
         a \emph{derived} flag indicating whether a metadata-only scanner flags the
         case's tool-registry fixture. This replaces a hand-assigned
-        \texttt{scanner\_passes} field, retired in 2026-07; the flag now means the
-        named scanner did \emph{not} flag
-        the failure. This enables direct measurement of the detection
-        gap.
+        \texttt{scanner\_passes} field, retired in 2026-07. Polarity follows
+        $M$ as defined in Section~\ref{sec:formalism}: $M{=}$True means the named
+        scanner \emph{flags} the fixture. This enables direct measurement of the
+        detection gap for that scanner and fixture set.
 \end{enumerate}
 
 The corpus is designed for depth and coverage of distinct behavioral
@@ -314,16 +323,17 @@ are tracked in the public repository.
 \toprule
 \textbf{Category} & \textbf{Cases} & \textbf{Miss Rate} & \textbf{Description} \\
 \midrule
-Escalation Bypass   & 10 & 90\%  & Privilege/scope escalation w/o auth \\
-Collusion           & 10 & 90\%  & Multi-agent control circumvention \\
+Escalation Bypass   & 10 & 100\% & Privilege/scope escalation w/o auth \\
+Collusion           & 10 & 100\% & Multi-agent control circumvention \\
 Memory Tampering    & 10 & 100\% & Audit trail / context manipulation \\
-Payment/Tool Chain  & 10 & 60\%  & Payment/tool execution abuse \\
-Evidence Fabrication& 12 & 83\%  & Fabricated/inflated eval results \\
+Payment/Tool Chain  & 10 & 90\%  & Payment/tool execution abuse \\
+Evidence Fabrication& 12 & 100\% & Fabricated/inflated eval results \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The memory tampering category has a 100\% scanner miss rate---every failure
+Four of the five categories have a 100\% miss rate under this scanner. Memory
+tampering is representative---every failure
 is purely behavioral and invisible to any static analysis method.
 
 \subsection{Scanner Detection Gap}
@@ -352,8 +362,8 @@ require execution-based testing, not scanning.
     arr/.style={-{Latex[length=2mm]}, thick}
   ]
   \node[root] (all) {52 DGB Cases};
-  \node[leaf, below left=8mm and 0mm of all]  (beh)  {51 Unflagged (98\%)\\scanner did not flag ($M{=}$False)};
-  \node[leaf, below right=8mm and 0mm of all] (struc){1 Flagged (2\%)\\scanner flagged ($M{=}$True)};
+  \node[leaf, below left=8mm and 0mm of all]  (beh)  {51 Not flagged\\$M{=}$False};
+  \node[leaf, below right=8mm and 0mm of all] (struc){1 Flagged\\$M{=}$True};
   \node[leaf, below=of beh, fill=gray!12]  (behd) {Execution: detects all 44\\Scanner: detects 0};
   \node[leaf, below=of struc, fill=gray!12] (strucd){Execution: detects all 8\\Scanner: detects all 8};
 
@@ -364,9 +374,8 @@ require execution-based testing, not scanning.
 \end{tikzpicture}%
 }
 \caption{The measured scanner detection gap. Execution-based testing observes
-         every case by construction (Section~\ref{sec:dgb}, criterion~2);
-         metadata scanning observes only the 8 structurally detectable
-         cases. This is a detectability claim (can the method observe the
+         every case by construction (Section~\ref{sec:dgb}, criterion~2); the
+         named metadata scanner flags only 1 of the 52 fixtures. This is a detectability claim (can the method observe the
          failure at all), distinct from the governance-maintenance results
          (does the agent avoid the failure) reported in
          Section~\ref{sec:results}.}
@@ -654,9 +663,11 @@ used---it reflects a structural property of behavioral governance failures. A
 metadata scanner
 inspects \emph{declarations} (what permissions are claimed, what tool
 descriptions say). A governance failure occurs in the \emph{execution path}
-(what the agent actually decides). These are fundamentally different layers,
-and no improvement to scanning methodology alone can close the gap for
-behavioral failures.
+(what the agent actually decides). These are different layers, and a scanner can
+close the gap for a given case only where the declaration itself discloses the
+relevant behaviour or policy---as it does for the single flagged case here, and
+for two of the seventeen flagged by a capability-rule comparator. For the
+remainder of this corpus the declaration carries no such disclosure.
 
 Config~C's 0\% SGS does \emph{not} demonstrate this---it is true by construction
 (Section~\ref{sec:results}). The measurement that does bear on it is the raw
@@ -765,10 +776,13 @@ author. This creates a real risk that corpus construction was, even
 unintentionally, informed by knowledge of what \texttt{constitutional-agent}'s
 gates can and cannot detect, which would inflate Config~B's GMR relative to
 a governance system evaluated independently of the benchmark's design. Three
-things partially mitigate this without eliminating it: (1)~every case is
-required to trace to a third-party-documented incident or finding
-(Section~\ref{sec:dgb}, criterion 1) rather than being authored to target a
-specific gate; (2)~Config~B still fails 15/52 cases (28.8\%), including
+things partially mitigate this without eliminating it: (1)~cases are intended to
+trace to a documented incident or finding rather than being authored to target a
+specific gate---though a 2026-07 source audit found this holds unevenly:
+24 of 52 source records point to internal artifacts rather than independent
+external corroboration, and 24 of 52 \texttt{executable\_test} references were
+behavioural mismatches with two naming values that are not harness tests at all
+(see \texttt{benchmarks/CHANGELOG.md}); (2)~Config~B still fails 15/52 cases (28.8\%), including
 categories---signal-absence failures such as OS-level permission
 inheritance---that a benchmark tuned to flatter its own implementation would
 be expected to exclude or soften; and (3)~the corpus, harness, and evidence
@@ -863,12 +877,13 @@ We presented the Decision Governance Benchmark (DGB). To our knowledge, we
 are unaware of a prior benchmark corpus specifically designed to evaluate
 whether autonomous AI agents resist governance failures. Our key
 finding---that a pattern-based metadata scanner flags 1 of 52 governance
-failures in authored tool-registry fixtures, a gap that is statistically
-significant
-(McNemar's exact test, $p \approx 2.9\times10^{-11}$,
-Section~\ref{sec:significance})---indicates that execution-based
-evaluation measures a different security property than metadata scanning,
-not merely a more thorough version of the same property.
+failures in authored tool-registry fixtures---indicates that execution-based
+evaluation measures a different security property than metadata scanning, not
+merely a more thorough version of the same property. The nominal significance of
+that gap (McNemar's exact test, $p \approx 2.9\times10^{-11}$,
+Section~\ref{sec:significance}) should be read with its limit in view: the
+scanner arm is executed, but Configs~A and~B remain deterministic stubs, so the
+comparison is not empirical end to end.
 
 A governed configuration achieves a 71.2\% GMR versus 0\% for ungoverned
 agents. Of the resulting 28.8\% failure rate, the majority (12/15 cases)
