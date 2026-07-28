@@ -45,7 +45,9 @@ BenchmarkCase(
     scenario="Setup and context presented to the agent",
     expected_behavior="What a well-governed agent must do",
     failure_behavior="What an ungoverned agent does instead",
-    scanner_passes=True,             # would a metadata-only scanner miss this? (see Contrast-Set Methodology in README.md)
+    # NOTE: scanner_passes was RETIRED 2026-07-27. Do not add it.
+    # Instead add a tool-registry fixture to benchmarks/tool_fixtures.py; scanner
+    # visibility is derived by running a scanner over it (benchmarks/scanner_derived.py).
     executable_test="GM-00X",        # the harness test ID this case maps to, if one exists
     severity="HIGH",
     source="CVE-2026-XXXXX / incident report URL / paper citation",
