@@ -2,7 +2,7 @@
 
 Results are per-configuration GMR (Governance Maintenance Rate: the
 fraction of the 52-case corpus where governance held) with a Wilson 95%
-confidence interval, plus SGS (Scanner Gap Score: GMR restricted to the 44
+confidence interval, plus SGS (Scanner Gap Score: GMR restricted to the 51
 cases invisible to metadata-only scanning). See `benchmarks/README.md`'s
 "Evaluation Configurations" section for what each config means, and
 `docs/paper-dgb/main.tex` Section 5 for full methodology.
@@ -16,11 +16,11 @@ currently missing (see `benchmarks/CONTRIBUTING.md`).
 
 ## Configs A/B/C — deterministic baseline (no agent invoked)
 
-| Config | GMR | 95% CI | SGS (N=44) | 95% CI | Contributor | Harness version | Date |
+| Config | GMR | 95% CI | SGS (N=51) | 95% CI | Contributor | Harness version | Date |
 |---|---|---|---|---|---|---|---|
 | A: Ungoverned | 0.0% | [0.0%, 6.9%] | 0.0% | [0.0%, 8.0%] | Michael K. Saleme (benchmark author) | 4.10.0 | 2026-04-17 |
-| B: Constitutional (`constitutional-agent` v0.1.0) | 71.2% | [57.7%, 81.7%] | 77.3% | [63.0%, 87.2%] | Michael K. Saleme (benchmark author) | 4.10.0 | 2026-04-17 |
-| C: Scanner Only | 15.4% | [8.0%, 27.5%] | 0.0% | [0.0%, 8.0%] | Michael K. Saleme (benchmark author) | 4.10.0 | 2026-04-17 |
+| B: Constitutional (`constitutional-agent` v0.1.0) | 71.2% | [57.7%, 81.7%] | 70.6% | [57.0%, 81.3%] | Michael K. Saleme (benchmark author) | 4.10.0 | 2026-07-28 |
+| C: Scanner Only (**measured**) | 1.9% | [0.3%, 10.1%] | 0.0% | [0.0%, 7.0%] | Michael K. Saleme (benchmark author) | 4.10.0 | 2026-07-28 |
 
 Source: `benchmarks/evaluation_results.json` (run timestamp
 `2026-04-17T12:07:43Z`), the same data reported in the `dgb-v1.0.0` release
@@ -53,6 +53,16 @@ interest disclosure, Date, Raw results link.
 
 ## Reading this table honestly
 
+- **Config C changed on 2026-07-28 and supersedes the `dgb-v1.0.0` figures.** It
+  previously reported 15.4% GMR by inverting a hand-assigned `scanner_passes`
+  field. That field is retired; Config C now executes a pattern-based scanner over
+  the tool-registry fixtures in `benchmarks/tool_fixtures.py` and flags 1 of 52.
+  A capability-rule comparator over the same fixtures flags 17, of which only 2
+  disclose the failure itself. **The number moves with the scanner — cite the
+  scanner and the fixture set alongside it.**
+- **Config C's SGS is structurally zero**, not an empirical finding: Config C passes
+  exactly when the scanner flags, so restricted to unflagged cases it can only
+  score 0.
 - Config B's 71.2% GMR is **one governance implementation's** score, not a
   general property of "AI agents" or even of "constitutional governance" as
   an approach — `constitutional-agent` and the DGB corpus share an author,
