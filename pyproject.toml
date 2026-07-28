@@ -47,7 +47,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-mcp-server = ["mcp>=1.28.1,<2"]
+mcp-server = ["mcp>=2.0.0,<3"]
 
 [project.urls]
 Homepage = "https://github.com/msaleme/red-team-blue-team-agent-fabric"

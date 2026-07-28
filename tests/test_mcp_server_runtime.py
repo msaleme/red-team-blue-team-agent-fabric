@@ -5,16 +5,17 @@ from unittest.mock import Mock
 from mcp_server.server import create_server, run_server
 
 
-def test_create_server_passes_http_bind_settings_to_fastmcp() -> None:
-    server = create_server(host="127.0.0.1", port=18400)
+def test_create_server_uses_mcpserver() -> None:
+    server = create_server()
 
-    assert server.settings.host == "127.0.0.1"
-    assert server.settings.port == 18400
+    assert type(server).__name__ == "MCPServer"
 
 
-def test_http_runner_uses_current_fastmcp_run_signature() -> None:
+def test_http_runner_passes_bind_settings_to_mcpserver_run() -> None:
     server = Mock()
 
-    run_server(server, transport="http")
+    run_server(server, transport="http", host="127.0.0.1", port=18400)
 
-    server.run.assert_called_once_with(transport="streamable-http")
+    server.run.assert_called_once_with(
+        transport="streamable-http", host="127.0.0.1", port=18400
+    )
