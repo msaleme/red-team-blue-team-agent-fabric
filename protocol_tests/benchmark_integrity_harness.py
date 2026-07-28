@@ -4,7 +4,8 @@
 Tests whether an AI agent evaluation setup is vulnerable to the 7 recurring
 vulnerability patterns documented by UC Berkeley RDI researchers who demonstrated
 all 8 major AI agent benchmarks can be manipulated to achieve perfect scores
-(Xu et al., 2025, "Cheating is All You Need: Gaming AI Agent Benchmarks").
+(Wang, Mang, Cheung, Sen and Song, 2026, "We Scored 100% on AI Benchmarks
+Without Solving a Single Problem").
 
 METR additionally documented reward-hacking behaviour in o3 and Claude 3.7 Sonnet
 in >30% of eval runs, confirming these vulnerabilities are exploitable in production
@@ -77,7 +78,7 @@ class BenchmarkIntegrityTests:
     """7 tests covering the UC Berkeley RDI benchmark vulnerability taxonomy.
 
     Each test maps to one of the 7 recurring vulnerability patterns identified
-    in the corpus of 8 major AI agent benchmarks examined by Xu et al. (2025).
+    in the corpus of 8 major AI agent benchmarks examined by Wang et al. (2026).
     Tests are safe to run in simulate mode; live mode requires an evaluation
     endpoint that accepts POST requests with JSON payloads.
     """
@@ -792,7 +793,7 @@ def generate_report(results: list[BenchmarkIntegrityResult], output_path: str):
 
     report = {
         "suite": "Benchmark Integrity Tests v1.0",
-        "reference": "UC Berkeley RDI (Xu et al. 2025) + METR Autonomy Evaluation Framework 2025",
+        "reference": "UC Berkeley RDI 2026 (Wang et al.) + METR Autonomy Evaluation Framework 2025",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "total": total,

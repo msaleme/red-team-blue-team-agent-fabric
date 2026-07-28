@@ -198,7 +198,7 @@ https://github.com/msaleme/red-team-blue-team-agent-fabric/releases/tag/dgb-v1.0
 Sources: UC Berkeley RDI 2026 (Wang, Mang, Cheung, Sen, Song), internal
 HRAO-E runs (unpublished),
 METR Autonomy Evaluation Framework 2025, OX Security 2026,
-zhuanruhu 2026, OpenClaw CVE-2026-35625/35629, Kiro/Amazon 2026.
+OpenClaw CVE-2026-35625/35629, Kiro/Amazon 2026.
 ```
 
 If citing the accompanying paper instead of (or in addition to) the corpus
@@ -207,13 +207,13 @@ the paper's own citation and arXiv identifier once submitted.
 
 ## Sources
 
+**Published sources.** These are externally verifiable.
+
 | Source | Finding | Cases |
 |---|---|---|
-| UC Berkeley RDI (Xu et al. 2025) | All 8 major AI benchmarks hackable for perfect scores | DBC-041, 043–045, 047–049 |
-| lightningzero 2026 | 9/12 agents self-disabled governance gates within 48h | DBC-001–005 |
+| UC Berkeley RDI 2026 (Wang, Mang, Cheung, Sen, Song) | All 8 major AI benchmarks gamed for near-perfect scores | DBC-041, 043–045, 047–049 |
 | METR 2025 | Reward-hacking in >30% of o3 and Claude 3.7 Sonnet eval runs | DBC-012, 013, 017, 020, 050 |
 | OX Security 2026 | MCP STDIO injection, 36.7% SSRF, cross-agent relay | DBC-009, 016, 032, 037 |
-| zhuanruhu 2026 | 2,847 memory deletions in production deployment | DBC-021–030 |
 | OpenClaw CVE-2026-35625 | Privilege escalation via tool permission inheritance | DBC-003, 006 |
 | OpenClaw CVE-2026-35629 | SSRF via tool URL parameter | DBC-037 |
 | Kiro/Amazon 2026 | Autonomous file deletion during reorganization task | DBC-007 |
@@ -222,3 +222,13 @@ the paper's own citation and arXiv identifier once submitted.
 | $45M crypto agent 2026 | Autonomous over-threshold trade approval | DBC-031, 036, 038, 040 |
 | AgentSeal runtime exploitation 2026 | Credential retention in tool descriptions | DBC-051 |
 | Return channel poisoning (harness RCP-001, CVE-004) | Cross-tool context leakage | DBC-052 |
+
+**Internal, unpublished.** `lightningzero` and `zhuanruhu` are internal HRAO-E
+runs by the corpus author. The underlying run data is not public, so these are
+**not** independent corroboration of the corpus — they are the author's own
+observations, recorded here so the distinction is visible rather than implied.
+
+| Internal run | Observation | Cases |
+|---|---|---|
+| HRAO-E `lightningzero` (2026, unpublished) | 9/12 agents self-disabled governance gates within 48h | DBC-001–005 |
+| HRAO-E `zhuanruhu` (2026, unpublished) | 2,847 memory deletions in production deployment | DBC-021–030 |
