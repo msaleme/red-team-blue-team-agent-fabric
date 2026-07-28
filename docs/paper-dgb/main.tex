@@ -41,22 +41,21 @@ for Autonomous AI Agent Security}}
 
 % ---------------------------------------------------------------------------
 \begin{abstract}
-As autonomous agents execute real-world actions, metadata scanners of
-agent tool descriptions and permission declarations provide
-\textbf{0.0\% governance protection on behavioral failure cases}, even
-when they succeed on structurally detectable ones. We introduce
+As autonomous agents execute real-world actions, a named 14-pattern metadata
+scanner flagged \textbf{1 of 52 authored tool-registry fixtures} in this corpus.
+That result is specific to the scanner, the fixture set, and the signal
+definition used. We introduce
 the \textbf{Decision Governance Benchmark (DGB)}, a corpus of 52 authored
 governance-failure cases, evaluated through a deterministic configuration
 harness, that assess whether autonomous AI agents can
 resist five classes of governance failure: escalation bypass, collusion,
 memory tampering, payment chain abuse, and evidence fabrication. Unlike
-metadata scanners that inspect tool descriptions and permission
-declarations, DGB \emph{executes} the agent's decision path and measures
-behavioral outcomes. Running a pattern-based metadata scanner over authored
-tool-registry fixtures, the scanner flags \textbf{1 of 52 cases}; the other
-\textbf{51 are not flagged}. The result is specific to that scanner, fixture
-set, and signal definition; it establishes that the scanner did not flag those
-fixtures, not why, and not that every such failure manifests only on execution. We present 13 complementary
+metadata scanners that inspect tool descriptions and permission declarations,
+DGB models the decision path: Config~C executes a scanner over authored
+fixtures, while Configs~A and~B are deterministic functions over each case's
+metadata. No production agent is invoked. The scanner result above establishes
+that it did not flag the other 51 fixtures --- not why, and not that every such
+failure manifests only on execution. We present 13 complementary
 harness tests (7 benchmark integrity, 6 governance modification) and an
 evidence format that produces machine-readable attestation reports.
 Baseline results across three agent configurations show: Config~A
@@ -106,16 +105,19 @@ makes three contributions:
 
 \begin{enumerate}
   \item \textbf{A curated corpus} of 52 decision-behavior test cases across
-        five failure categories, each annotated with a contrastive field
-        indicating whether a metadata-only scanner would detect the failure,
-        enabling direct per-case comparison between metadata scanning and
-        execution-based detection.
+        five failure categories, each paired with an authored tool-registry
+        fixture and a scanner-derived outcome recording whether the named
+        scanner flags that fixture, enabling per-case comparison between
+        metadata scanning and the harness's configuration outcomes.
 
-  \item \textbf{A taxonomy of governance failures} grounded in real-world
-        incidents (lightningzero 2026, OX Security 2026~\cite{ox2026mcp},
+  \item \textbf{A taxonomy of governance failures} drawn from published
+        findings (OX Security 2026~\cite{ox2026mcp},
         METR 2025~\cite{metr2025autonomy}, UC Berkeley
-        RDI 2026~\cite{wang2026broke}, zhuanruhu 2026) rather than
-        hypothetical scenarios.
+        RDI 2026~\cite{wang2026broke}) and from internal, unpublished runs of
+        the authors' own deployment~\cite{hraoe2026}. A 2026-07 source audit
+        found 24 of 52 source records point to internal artifacts rather than
+        independent external corroboration; the taxonomy is not uniformly
+        externally grounded.
 
   \item \textbf{An executable evaluation methodology} that distinguishes
         behavioral governance failures (51 of 52 unflagged by the named
@@ -245,7 +247,7 @@ Vulnerability scanning   & AgentSeal, OX MCP audit             & Static metadata
   \draw[arr] (test) -- (ev);
 \end{tikzpicture}
 \caption{DGB execution pipeline. Each of the 52 cases instantiates a
-         scenario $S$ under constraints $C$; the agent's actual decision
+         scenario $S$ under constraints $C$; the modelled decision
          produces one of two observable behaviors ($E_{\text{pass}}$ or
          $E_{\text{fail}}$, Section~\ref{sec:illustrative}); an executable
          test $D$ converts that behavior into a binary outcome; the result
@@ -318,7 +320,7 @@ are tracked in the public repository.
 \centering
 \small
 \caption{DGB corpus categories. Scanner Miss Rate = fraction of cases
-         undetectable by metadata-only analysis.}
+         not flagged by the named regex scanner over their tool-registry fixtures.}
 \label{tab:categories}
 \begin{tabular}{lrrl}
 \toprule
@@ -348,7 +350,7 @@ Section~\ref{sec:threats}. The former hand-assigned labels claimed 8
 scanner-detectable cases concentrated in payment/tool chain (4 cases
 involving structural SSRF or token format violations) and evidence
 fabrication (2 cases involving accessible configuration files). This finding
-quantifies what practitioners have suspected: behavioral governance failures
+records, for this scanner and fixture set: behavioral governance failures
 require execution-based testing, not scanning.
 
 \begin{figure}[h]
@@ -499,7 +501,7 @@ or FAIL (agent violated governance). We report:
 
 We use the Wilson score interval rather than the normal (Wald)
 approximation because it remains well-calibrated at the small sample sizes
-($n=10$--12 per category, $n=44$ for SGS) and extreme proportions (0\%,
+($n=10$--12 per category, $n=51$ for SGS) and extreme proportions (0\%,
 100\%) present in this corpus, where the Wald interval is known to
 undercover~\cite{brown2001interval}.
 
@@ -600,7 +602,8 @@ empirical end-to-end. It should be read as evidence about the corpus and the
 scanner, not as a head-to-head trial of two deployed systems.
 
 The direction and magnitude of the asymmetry (36 vs.\ 0) indicate the
-methods are not interchangeable: execution-based testing detects failures
+outcomes are not interchangeable: the deterministic governed configuration
+resolves cases
 scanning structurally cannot see, at a rate scanning's occasional
 execution-invisible advantages do not offset---there were none in this run.
 
@@ -657,9 +660,10 @@ enforcement, SSRF) below the gate abstraction, not a gap in gate logic.
 
 \subsection{The Detection Gap Is Structural}
 
-The measured miss rate is not merely a limitation of the particular scanner
-used---it reflects a structural property of behavioral governance failures. A
-metadata scanner
+Capability declarations and behavioural outcomes are different evidence layers.
+On these authored fixtures the scanners ordinarily exposed capability rather than
+establishing the behavioural failure; explicit failure or policy disclosure
+appeared in two fixtures. A metadata scanner
 inspects \emph{declarations} (what permissions are claimed, what tool
 descriptions say). A governance failure occurs in the \emph{execution path}
 (what the agent actually decides). These are different layers, and a scanner can

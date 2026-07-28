@@ -25,11 +25,14 @@ this checklist measures *control over the decision process itself*. The
 two are independent: an agent with excellent judgment but a governance
 layer it can self-modify is one prompt-injection or one subtly-misaligned
 objective away from acting on that judgment with no backstop. DGB's
-central empirical finding — that 85% of governance failures in its
-52-case corpus are invisible to metadata-only scanning and only manifest
-when the decision path actually executes — is a direct consequence of
-this: static analysis of an agent's configuration cannot tell you whether
-the agent will respect that configuration under adversarial pressure.
+former "85% invisible to metadata-only scanning" figure has been withdrawn:
+it was a hand-assigned label, not a measurement. Measured instead, a named
+14-pattern scanner flags 1 of 52 authored tool-registry fixtures and a
+capability-rule comparator flags 17 — the number depends on the scanner, the
+fixture set, and what counts as detection. The underlying point stands
+independently of any percentage: static analysis of an agent's configuration
+cannot tell you whether the agent will respect that configuration under
+adversarial pressure.
 Only execution can.
 
 ## The seven properties

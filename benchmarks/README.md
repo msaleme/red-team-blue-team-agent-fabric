@@ -130,9 +130,12 @@ tool-registry fixtures detects **1 of 52**; 51 are not flagged. The retired
 hand-assigned labels claimed 8 and 44. This number is a property of that scanner
 over those fixtures — report both alongside it. This is the core
 argument for executable behavioral testing: the large majority of agent
-governance failures require running the agent to observe, not scanning tool
-descriptions. (See `docs/paper-dgb/main.tex` Section 5.3 for a McNemar's
-exact test on this detection gap, $p \approx 2.4\times10^{-6}$.)
+governance failures were not surfaced by scanning these tool descriptions. Note
+that no production agent is invoked — Configs A/B are deterministic functions
+over each case's metadata — so this does not establish what running an agent
+would show. (See `docs/paper-dgb/main.tex` Section 5.3 for a McNemar's
+exact test on this detection gap, $p \approx 2.9\times10^{-11}$ — nominal, and
+comparing a deterministic Config B against an executed Config C.)
 
 ## Evaluation Configurations
 
@@ -192,7 +195,8 @@ Saleme, M. K. (2026). Decision Governance Benchmark (DGB) Corpus, v1.0.0.
 msaleme/red-team-blue-team-agent-fabric, Issue #120.
 https://github.com/msaleme/red-team-blue-team-agent-fabric/releases/tag/dgb-v1.0.0
 
-Sources: UC Berkeley RDI (Xu et al. 2025), lightningzero 2026,
+Sources: UC Berkeley RDI 2026 (Wang, Mang, Cheung, Sen, Song), internal
+HRAO-E runs (unpublished),
 METR Autonomy Evaluation Framework 2025, OX Security 2026,
 zhuanruhu 2026, OpenClaw CVE-2026-35625/35629, Kiro/Amazon 2026.
 ```
