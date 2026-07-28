@@ -35,7 +35,8 @@ is the most affected: 9 of its 10 cases derive from a single internal run.
 Those cases are **not** independent corroboration. Read the `source` field before
 citing any individual case as externally evidenced.
 
-**The former "85% (44 of 52)" headline has been withdrawn.** It was a
+**The former "85% (44 of 52)" headline has been withdrawn.** The audit that
+withdrew it is published in [`docs/audits/`](../docs/audits/). It was a
 hand-assigned label, not a measurement: until 2026-07-27 the corpus contained no
 artifact a scanner could read. See `benchmarks/CHANGELOG.md`.
 
