@@ -8,6 +8,56 @@ evaluation harness, baseline results, and paper under `benchmarks/` and
 
 ## [Unreleased]
 
+### Changed (BREAKING)
+
+- **`BenchmarkCase.scanner_passes` removed; scanner visibility is now derived by
+  measurement.** The field was hand-assigned and never validated — until
+  2026-07-27 the corpus contained no artifact a scanner could read, so the
+  "85% undetectable by metadata-only scanning" headline, Config C, the Scanner
+  Gap Score and the McNemar test all derived from a label rather than a result.
+  Nine of its 52 assignments disagree with measurement. Retired assignments are
+  preserved verbatim as `RETIRED_SCANNER_PASSES_LABELS` so `dgb-v1.0.0` remains
+  reproducible. Use `benchmarks/scanner_derived.py` instead.
+- **`run_config_c()` now executes a scan** over the tool-registry fixtures
+  instead of inverting a boolean. **This supersedes the `dgb-v1.0.0` baseline:**
+  Config C GMR 15.4% → 1.9%, SGS subset N=44 → N=51, detection gap 77.3% → 70.6%.
+  Configs A (0.0%) and B (71.2%) GMR are unchanged.
+- **McNemar re-derived** from the measured results: 36 discordant pairs
+  (36 favouring execution, 0 favouring scanning), p ≈ 2.9e-11, replacing
+  39 pairs / 34 vs 5 / p ≈ 2.4e-6. Only one arm is measured — Configs A and B
+  remain deterministic stub agents.
+
+### Added
+
+- **`benchmarks/tool_fixtures.py`** — tool-registry fixtures for all 52 cases
+  (85 tool entries), authored from each case's `scenario` and `failure_behavior`
+  with `scanner_passes` deliberately not consulted, so scanning them tests the
+  labels rather than restating them. Each fixture records its rationale.
+- **`benchmarks/scanner_derived.py`** — `scanner_detects()` / `scanner_misses()` /
+  `summary()`, deriving visibility by executing `scan_tool_fields()`.
+- **`benchmarks/capability_scanner.py`** — a deterministic capability-rule
+  comparator (7 concept rules plus a cross-tool toxic-flow check). Over the same
+  fixtures it flags 17 of 52 against the regex scanner's 1 — a 17-fold spread that
+  shows the result is a property of the scanner, not of metadata scanning as a class.
+
+### Fixed
+
+- Source attributions across the corpus, paper and bibliography: a BlueRock MCP
+  SSRF finding credited to OX Security; METR's reward-hacking figure; the UC
+  Berkeley RDI byline and benchmark count; two OpenClaw CVE descriptions that did
+  not match their NVD text; and an invalid `CVE-2026-SSRF-MCP` identifier.
+- **Grounding provenance disclosed**: 24 of 52 cases (46%) are grounded wholly or
+  partly in the author's own systems — internal HRAO-E runs (13, run data
+  unpublished), an internal MCP cost-inflation finding (4), and the
+  `agent-security-harness` suites (7). Those are not external corroboration.
+
+### Known open items
+
+- 10 cases whose cited source does not substantiate them; 7 misdescribed cases.
+- `executable_test` does not cover the case for 24 of 52 at the `dgb-v1.0.0` tag.
+- The fixtures, both scanners and the audit share one author. **Independent
+  fixture review is the most valuable outstanding check.**
+
 ### Added
 
 - **`benchmarks/CONTRIBUTING.md`**: DGB-specific contribution guide covering
