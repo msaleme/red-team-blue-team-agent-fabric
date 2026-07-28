@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 # ---------------------------------------------------------------------------
 # Logging (server-side only, never exposed to clients)
@@ -154,22 +154,17 @@ def _validate_url_input(url: str) -> dict | None:
 
 def create_server(
     api_key: str | None = None,
-    *,
-    host: str = "127.0.0.1",
-    port: int = 8400,
-) -> FastMCP:
+) -> MCPServer:
     """Create and configure the MCP server with all tools registered."""
     global _api_key
     _api_key = api_key
 
-    mcp = FastMCP(
+    mcp = MCPServer(
         "Agent Security Harness",
         instructions=(
             "Security testing tools for AI agent systems. "
             "595 tests across MCP, A2A, L402, x402, and identity protocols."
         ),
-        host=host,
-        port=port,
     )
 
     # ------------------------------------------------------------------
@@ -635,12 +630,18 @@ def _infer_severity(prefix: str) -> str:
 # Server runner
 # ---------------------------------------------------------------------------
 
-def run_server(mcp: FastMCP, transport: str = "stdio") -> None:
+def run_server(
+    mcp: MCPServer,
+    transport: str = "stdio",
+    *,
+    host: str = "127.0.0.1",
+    port: int = 8400,
+) -> None:
     """Start the MCP server with the specified transport."""
     if transport == "stdio":
         mcp.run(transport="stdio")
     elif transport == "http":
-        mcp.run(transport="streamable-http")
+        mcp.run(transport="streamable-http", host=host, port=port)
     else:
         print(f"Unknown transport: {transport}", file=sys.stderr)
         sys.exit(1)
