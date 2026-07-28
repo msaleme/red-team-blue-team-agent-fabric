@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic semantic scanner for agent tool-registry metadata.
+"""Deterministic capability-rule scanner for agent tool-registry metadata.
 
 Why a second scanner
 --------------------
@@ -9,7 +9,9 @@ patterns against tool text. It is a *token-level* scanner: it finds ``exfiltrat`
 capability disclosed in ordinary prose -- DBC-006's fixture states that "the
 caller's session inherits the elevated scope" and the pattern scanner is silent.
 
-This scanner works at *capability level*. It asks two questions a static reader
+This scanner works at *capability level* — it applies an explicit rule set over
+capability concepts. It is deliberately NOT called a semantic scanner: it does no
+semantic modelling, only concept matching. It asks two questions a static reader
 could answer without executing anything:
 
 1. **Per tool** -- does this description disclose a governance-relevant
@@ -20,8 +22,9 @@ could answer without executing anything:
    class the corpus calls "return channel" and it is invisible to any per-tool
    scan by construction.
 
-It is deterministic and dependency-free, so benchmark results reproduce. It is
-NOT an LLM judge; it is a concept-matcher with an explicit, inspectable rule set.
+It is deterministic and dependency-free, so benchmark results reproduce. It is NOT
+an LLM judge. An LLM-based scanner could recognise additional signals, but would
+introduce nondeterminism the benchmark would need to manage.
 
 Honest scope
 ------------
@@ -118,10 +121,10 @@ def _cached(case_id: str) -> tuple:
     return tuple(scan_registry(FIXTURES[case_id]["tools"]))
 
 
-def semantic_detects(case_id: str) -> bool:
+def capability_detects(case_id: str) -> bool:
     return len(_cached(case_id)) > 0
 
 
-SCANNER_ID = "benchmarks.semantic_scanner.scan_registry"
+SCANNER_ID = "benchmarks.capability_scanner.scan_registry"
 
-__all__ = ["scan_tool", "scan_registry", "semantic_detects", "SCANNER_ID", "CAPABILITY_RULES"]
+__all__ = ["scan_tool", "scan_registry", "capability_detects", "SCANNER_ID", "CAPABILITY_RULES"]
