@@ -46,6 +46,9 @@ november-meeting-extracted.txt
 # Published fixture sets are deliverables, not run artifacts. Without this the
 # blanket *.json above silently drops them from `git add -A` (see PR #299).
 !fixtures/**/*.json
+# Published fixture sets are deliverables, not run artifacts: they are versioned,
+# byte-stable, and meant to be consumed by external evaluation harnesses.
+!reports/round_26/rcl-oracle-fixtures-*.json
 
 # LaTeX build artifacts (docs/paper-dgb/ -- source of truth is main.tex +
 # references.bib; compiled output is regenerated locally per its README)
