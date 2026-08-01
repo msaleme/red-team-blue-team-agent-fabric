@@ -33,6 +33,7 @@ Usage
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import asdict
 from pathlib import Path
@@ -66,6 +67,15 @@ GROUNDING_SOURCE = {
         "not be located. 'provisional' means the source was located but a "
         "per-case locator was not established; it is not a finding of support."
     ),
+    "currency_warning": (
+        "These verdicts describe the corpus AS AUDITED at the commit above, "
+        "not as it stands today. A remediation pass landed the day after the "
+        "audit and revised many source fields. Each case reports "
+        "source_revised_since_audit; where that is true the evidence_fit and "
+        "record_defect below are STALE and have not been re-adjudicated. Do "
+        "not read a stale 'none' as a current defect, and do not read a "
+        "revision as a repair that someone has verified."
+    ),
 }
 
 
@@ -76,6 +86,80 @@ def _load_grounding() -> dict:
     regenerated from this repository alone, without the private audit file.
     """
     return _GROUNDING
+
+
+
+_AUDITED_SOURCE_SHA256_16 = dict(
+    line.split("\t") for line in """
+DBC-001	f01a41bbecde087f
+DBC-002	96d6c1e7ddf8cb9f
+DBC-003	351d07a2aa84cff8
+DBC-004	39c3f701504333bd
+DBC-005	af7ee8fcb09465ea
+DBC-006	c1b728c4a1ee774e
+DBC-007	c701d9282905d805
+DBC-008	9abe46597e12a24c
+DBC-009	42ea67b517917464
+DBC-010	c0902591f8179319
+DBC-011	4d383dde0fc7c979
+DBC-012	d5dfa93a29c0b443
+DBC-013	4668cbb8cd65645a
+DBC-014	74a4624a3e6c7bcf
+DBC-015	07bcdfb2149440e4
+DBC-016	a6ee482cfe75ab61
+DBC-017	c245363b4393ee0f
+DBC-018	8f58a381278c7454
+DBC-019	07bd3e4881f87966
+DBC-020	0b7b44a93d46adbd
+DBC-021	0cba87b2fa5b3163
+DBC-022	f7cf593ed16bc649
+DBC-023	24d8c3e3c75b00db
+DBC-024	4d5e1ece1f44d6a7
+DBC-025	a958e2a21fe1c7a9
+DBC-026	baf466908f7c3727
+DBC-027	5c68c3e59c52196e
+DBC-028	da304f745da4c27a
+DBC-029	e3628a2cf693261c
+DBC-030	2605493bdc604de8
+DBC-031	92a74f845e1668b6
+DBC-032	e186f579ec36396b
+DBC-033	c25ac21013e06ad5
+DBC-034	83b40666b384b943
+DBC-035	e61c2a00a9e7568e
+DBC-036	c3f77592324795c0
+DBC-037	dfcb4bd6e9beee1e
+DBC-038	bf9a3bd76b79de70
+DBC-039	ed37bfb4f42823da
+DBC-040	b4368aaeeb02a88f
+DBC-041	595a8ba1b533f419
+DBC-042	6c1447ad7ca01be2
+DBC-043	74039a5f21a8480a
+DBC-044	82fc6c94f21de854
+DBC-045	f05e39a5dae35096
+DBC-046	a6f78d8ed6c15192
+DBC-047	1711d013907942d3
+DBC-048	2765beaee6e02796
+DBC-049	80898a79c6ce55f9
+DBC-050	42f6f5aca88b565a
+DBC-051	8ebc2451521d30fe
+DBC-052	853282e96635b465
+""".strip().splitlines()
+)
+
+
+def _source_revised(case) -> bool:
+    """True if the case's `source` text changed after the grounding audit.
+
+    The audit read the corpus at 6c5d617 on 2026-07-26. A remediation pass
+    landed on 2026-07-27 and rewrote many source fields. Comparing the current
+    text against the audited-era digest is how a reader can tell, per case,
+    whether the recorded verdict still describes what they are looking at.
+    """
+    audited = _AUDITED_SOURCE_SHA256_16.get(case.id)
+    if audited is None:
+        return False
+    current = hashlib.sha256(case.source.encode("utf-8")).hexdigest()[:16]
+    return current != audited
 
 
 def build_bundle() -> dict:
@@ -99,6 +183,13 @@ def build_bundle() -> dict:
                     "externally_corroborated": (
                         row["provenance"] in ("external", "untrace+ext")
                         and row["evidence_fit"] == "full"
+                    ),
+                    "audited_at_commit": GROUNDING_SOURCE["corpus_commit_audited"],
+                    "source_revised_since_audit": _source_revised(case),
+                    "verdict_currency": (
+                        "stale — source text changed after the audit; not re-adjudicated"
+                        if _source_revised(case)
+                        else "as-audited — source text unchanged since the audit"
                     ),
                 },
                 "tools": fixture.get("tools", []),
@@ -126,6 +217,14 @@ def build_bundle() -> dict:
         by_category[c["category"]] = by_category.get(c["category"], 0) + 1
         by_severity[c["severity"]] = by_severity.get(c["severity"], 0) + 1
 
+    revised_n = sum(1 for c in cases if c["grounding"]["source_revised_since_audit"])
+    still_flagged = sum(
+        1
+        for c in cases
+        if not c["grounding"]["source_revised_since_audit"]
+        and (c["grounding"]["evidence_fit"] == "none" or c["grounding"]["record_defect"] != "—")
+    )
+
     regex_hits = sum(1 for c in cases if c["expected_scanner"]["regex_metadata_scanner"])
     cap_hits = sum(1 for c in cases if c["expected_scanner"]["capability_rule_scanner"])
 
@@ -145,6 +244,24 @@ def build_bundle() -> dict:
             "tool_entries": sum(len(c["tools"]) for c in cases),
             "by_category": by_category,
             "by_severity": by_severity,
+        },
+        "grounding_currency": {
+            "audited_at_commit": GROUNDING_SOURCE["corpus_commit_audited"],
+            "audit_date": GROUNDING_SOURCE["audit_date"],
+            "cases_with_source_revised_since_audit": revised_n,
+            "cases_still_as_audited": len(cases) - revised_n,
+            "flagged_and_still_as_audited": still_flagged,
+            "note": (
+                "A remediation pass landed the day after the audit and revised "
+                f"{revised_n} of {len(cases)} source fields. For those cases the "
+                "evidence_fit and record_defect recorded here are stale and have "
+                "not been re-adjudicated against the revised text. Of the cases "
+                "carrying a defect verdict, only "
+                f"{still_flagged} still have the exact source text the audit read. "
+                "Re-adjudicating the revised cases is outstanding work, and until "
+                "it is done neither a stale defect nor an assumed repair should be "
+                "reported as the current state."
+            ),
         },
         "evidence_fit_distribution": fit_counts,
         "record_defect_distribution": defect_counts,
@@ -168,11 +285,14 @@ def build_bundle() -> dict:
                 "outstanding check this bundle exists to make possible."
             ),
             "evidence_fit": (
-                "Only 1 of 52 cases has full external evidence fit (DBC-009). "
-                "10 cases have a located source that does not substantiate "
-                "them, 12 have a source that could not be located, and 13 are "
-                "provisional because the source was located but no per-case "
-                "locator was established. Each case states its own status."
+                "AS AUDITED on 2026-07-27: 1 of 52 cases had full external "
+                "evidence fit (DBC-009); 10 had a located source that did not "
+                "substantiate them; 12 had a source that could not be located; "
+                "13 were provisional. A remediation pass landed the day after "
+                "and revised many source fields, so these figures describe the "
+                "audited snapshot, not the current corpus. Read "
+                "grounding_currency and each case's source_revised_since_audit "
+                "before treating any single verdict as current."
             ),
             "executable_test_coverage": (
                 "executable_test does not cover the case for 24 of 52 at the "
@@ -180,10 +300,13 @@ def build_bundle() -> dict:
                 "not assert that the test exercises this specific scenario."
             ),
             "record_defects": (
-                "7 cases are misdescribed relative to their source and 1 "
-                "carries an invalid identifier (DBC-032, CVE-2026-SSRF-MCP). "
-                "A record defect is not the same as zero evidentiary support "
-                "and is classified separately from evidence fit."
+                "AS AUDITED: 7 cases were misdescribed relative to their "
+                "source and 1 carried an invalid identifier (DBC-032, "
+                "CVE-2026-SSRF-MCP). All 7 misdescribed cases have had their "
+                "source text revised since, so those verdicts are stale here "
+                "and have not been re-adjudicated. A record defect is not the "
+                "same as zero evidentiary support and is classified separately "
+                "from evidence fit."
             ),
             "configs_a_and_b": (
                 "Config A and Config B results elsewhere in this repository "

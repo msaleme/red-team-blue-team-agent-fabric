@@ -119,3 +119,53 @@ def test_export_is_deterministic():
     from benchmarks.dgb_bundle_export import build_bundle, serialise
 
     assert serialise(build_bundle()) == BUNDLE.read_text(encoding="utf-8")
+
+
+# --- grounding currency -----------------------------------------------------
+# The audit read the corpus at 6c5d617 on 2026-07-26. A remediation pass landed
+# 2026-07-27 and revised many source fields. The bundle must not present the
+# audited snapshot as the current state.
+
+
+def test_every_case_declares_grounding_currency(bundle):
+    for case in bundle["cases"]:
+        g = case["grounding"]
+        assert "source_revised_since_audit" in g, case["id"]
+        assert isinstance(g["source_revised_since_audit"], bool), case["id"]
+        assert g["verdict_currency"], case["id"]
+        assert g["audited_at_commit"].startswith("6c5d617"), case["id"]
+
+
+def test_currency_block_matches_per_case_flags(bundle):
+    revised = sum(1 for c in bundle["cases"] if c["grounding"]["source_revised_since_audit"])
+    gc = bundle["grounding_currency"]
+    assert gc["cases_with_source_revised_since_audit"] == revised
+    assert gc["cases_still_as_audited"] == len(bundle["cases"]) - revised
+
+
+def test_flagged_and_still_as_audited_is_derived(bundle):
+    """The count a reader should act on: defect verdicts still describing HEAD."""
+    n = sum(
+        1
+        for c in bundle["cases"]
+        if not c["grounding"]["source_revised_since_audit"]
+        and (c["grounding"]["evidence_fit"] == "none" or c["grounding"]["record_defect"] != "—")
+    )
+    assert bundle["grounding_currency"]["flagged_and_still_as_audited"] == n
+
+
+def test_verdict_currency_agrees_with_the_flag(bundle):
+    for case in bundle["cases"]:
+        g = case["grounding"]
+        if g["source_revised_since_audit"]:
+            assert g["verdict_currency"].startswith("stale"), case["id"]
+        else:
+            assert g["verdict_currency"].startswith("as-audited"), case["id"]
+
+
+def test_limitations_do_not_present_audited_figures_as_current(bundle):
+    """Regression: the first release stated the audited counts as present tense."""
+    lim = bundle["known_limitations"]
+    assert "AS AUDITED" in lim["evidence_fit"]
+    assert "AS AUDITED" in lim["record_defects"]
+    assert "currency_warning" in bundle["grounding_audit"]
