@@ -12,7 +12,8 @@
     "audit": "DGB corpus \u2014 external corroboration audit (v6)",
     "audit_date": "2026-07-27",
     "corpus_commit_audited": "6c5d61726819165c9dcf75d99669217c3c3cab41",
-    "note": "Transcribed from the audit's Appendix A 52-case crosswalk. The audit asserts no source is fabricated, only that some are uncited and could not be located. 'provisional' means the source was located but a per-case locator was not established; it is not a finding of support."
+    "note": "Transcribed from the audit's Appendix A 52-case crosswalk. The audit asserts no source is fabricated, only that some are uncited and could not be located. 'provisional' means the source was located but a per-case locator was not established; it is not a finding of support.",
+    "currency_warning": "These verdicts describe the corpus AS AUDITED at the commit above, not as it stands today. A remediation pass landed the day after the audit and revised many source fields. Each case reports source_revised_since_audit; where that is true the evidence_fit and record_defect below are STALE and have not been re-adjudicated. Do not read a stale 'none' as a current defect, and do not read a revision as a repair that someone has verified."
   },
   "counts": {
     "total": 52,
@@ -29,6 +30,14 @@
       "P1-High": 20,
       "P2-Medium": 2
     }
+  },
+  "grounding_currency": {
+    "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+    "audit_date": "2026-07-27",
+    "cases_with_source_revised_since_audit": 25,
+    "cases_still_as_audited": 27,
+    "flagged_and_still_as_audited": 7,
+    "note": "A remediation pass landed the day after the audit and revised 25 of 52 source fields. For those cases the evidence_fit and record_defect recorded here are stale and have not been re-adjudicated against the revised text. Of the cases carrying a defect verdict, only 7 still have the exact source text the audit read. Re-adjudicating the revised cases is outstanding work, and until it is done neither a stale defect nor an assumed repair should be reported as the current state."
   },
   "evidence_fit_distribution": {
     "unresolved": 12,
@@ -59,9 +68,9 @@
   },
   "known_limitations": {
     "single_author": "The corpus, both scanners, the tool fixtures and the grounding audit share one author. Nothing in this bundle is independent corroboration of the corpus. Independent review is the outstanding check this bundle exists to make possible.",
-    "evidence_fit": "Only 1 of 52 cases has full external evidence fit (DBC-009). 10 cases have a located source that does not substantiate them, 12 have a source that could not be located, and 13 are provisional because the source was located but no per-case locator was established. Each case states its own status.",
+    "evidence_fit": "AS AUDITED on 2026-07-27: 1 of 52 cases had full external evidence fit (DBC-009); 10 had a located source that did not substantiate them; 12 had a source that could not be located; 13 were provisional. A remediation pass landed the day after and revised many source fields, so these figures describe the audited snapshot, not the current corpus. Read grounding_currency and each case's source_revised_since_audit before treating any single verdict as current.",
     "executable_test_coverage": "executable_test does not cover the case for 24 of 52 at the dgb-v1.0.0 tag. The field names a harness test; it does not assert that the test exercises this specific scenario.",
-    "record_defects": "7 cases are misdescribed relative to their source and 1 carries an invalid identifier (DBC-032, CVE-2026-SSRF-MCP). A record defect is not the same as zero evidentiary support and is classified separately from evidence fit.",
+    "record_defects": "AS AUDITED: 7 cases were misdescribed relative to their source and 1 carried an invalid identifier (DBC-032, CVE-2026-SSRF-MCP). All 7 misdescribed cases have had their source text revised since, so those verdicts are stale here and have not been re-adjudicated. A record defect is not the same as zero evidentiary support and is classified separately from evidence fit.",
     "configs_a_and_b": "Config A and Config B results elsewhere in this repository come from deterministic stub agents, not live models. Only the scanner arm is measured.",
     "not_exercised": "This bundle contains no live agent run, no Config D result, and no scoring. It is corpus plus fixtures plus executed scanner verdicts."
   },
@@ -85,7 +94,10 @@
         "evidence_fit": "unresolved",
         "record_defect": "untraceable source",
         "note": "grounding source could not be located",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -129,7 +141,10 @@
         "evidence_fit": "unresolved",
         "record_defect": "untraceable source",
         "note": "grounding source could not be located",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -173,7 +188,10 @@
         "evidence_fit": "partial",
         "record_defect": "misdescription",
         "note": "CVE real and supports privilege escalation, but via silent shared-auth reconnects auto-approving operator.read->operator.admin, not 'permission inheritance'. https://nvd.nist.gov/vuln/detail/CVE-2026-35625",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -208,7 +226,10 @@
         "evidence_fit": "unresolved",
         "record_defect": "untraceable source",
         "note": "grounding source could not be located",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -239,7 +260,10 @@
         "evidence_fit": "unresolved",
         "record_defect": "untraceable source",
         "note": "grounding source could not be located",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -274,7 +298,10 @@
         "evidence_fit": "partial",
         "record_defect": "misdescription",
         "note": "Same CVE; 'tool permission inheritance escalation' does not match the NVD text. https://nvd.nist.gov/vuln/detail/CVE-2026-35625",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -309,7 +336,10 @@
         "evidence_fit": "provisional",
         "record_defect": "\u2014",
         "note": "source located and plausibly relevant; per-case evidence locator not established in this audit",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -348,7 +378,10 @@
         "evidence_fit": "full (internal)",
         "record_defect": "\u2014",
         "note": "grounded in Mike's own prior work \u2014 traceable, not external corroboration",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -383,7 +416,10 @@
         "evidence_fit": "full",
         "record_defect": "\u2014",
         "note": "OX documents prompt injection modifying local MCP config (CVE-2026-30615, Windsurf). https://www.ox.security/blog/mcp-supply-chain-advisory-rce-vulnerabilities-across-the-ai-ecosystem/",
-        "externally_corroborated": true
+        "externally_corroborated": true,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -414,7 +450,10 @@
         "evidence_fit": "provisional",
         "record_defect": "\u2014",
         "note": "source located and plausibly relevant; per-case evidence locator not established in this audit",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -449,7 +488,10 @@
         "evidence_fit": "provisional",
         "record_defect": "\u2014",
         "note": "source located and plausibly relevant; per-case evidence locator not established in this audit",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -480,7 +522,10 @@
         "evidence_fit": "provisional",
         "record_defect": "\u2014",
         "note": "source located and plausibly relevant; per-case evidence locator not established in this audit",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -515,7 +560,10 @@
         "evidence_fit": "provisional",
         "record_defect": "\u2014",
         "note": "source located and plausibly relevant; per-case evidence locator not established in this audit",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -550,7 +598,10 @@
         "evidence_fit": "none",
         "record_defect": "\u2014",
         "note": "OX article does not cover credential relay or agent impersonation. https://www.ox.security/blog/mcp-supply-chain-advisory-rce-vulnerabilities-across-the-ai-ecosystem/",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -581,7 +632,10 @@
         "evidence_fit": "full (internal)",
         "record_defect": "\u2014",
         "note": "grounded in Mike's own prior work \u2014 traceable, not external corroboration",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -616,7 +670,10 @@
         "evidence_fit": "none",
         "record_defect": "\u2014",
         "note": "OX article does not cover A2A cross-agent injection relay. https://www.ox.security/blog/mcp-supply-chain-advisory-rce-vulnerabilities-across-the-ai-ecosystem/",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -651,7 +708,10 @@
         "evidence_fit": "provisional",
         "record_defect": "\u2014",
         "note": "source located and plausibly relevant; per-case evidence locator not established in this audit",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -686,7 +746,10 @@
         "evidence_fit": "full (internal)",
         "record_defect": "\u2014",
         "note": "grounded in Mike's own prior work \u2014 traceable, not external corroboration",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -721,7 +784,10 @@
         "evidence_fit": "provisional",
         "record_defect": "\u2014",
         "note": "source located and plausibly relevant; per-case evidence locator not established in this audit",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -760,7 +826,10 @@
         "evidence_fit": "provisional",
         "record_defect": "\u2014",
         "note": "source located and plausibly relevant; per-case evidence locator not established in this audit",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -795,7 +864,10 @@
         "evidence_fit": "unresolved",
         "record_defect": "untraceable source",
         "note": "grounding source could not be located",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -830,7 +902,10 @@
         "evidence_fit": "unresolved",
         "record_defect": "untraceable source",
         "note": "grounding source could not be located",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -865,7 +940,10 @@
         "evidence_fit": "unresolved",
         "record_defect": "untraceable source",
         "note": "grounding source could not be located",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -900,7 +978,10 @@
         "evidence_fit": "unresolved",
         "record_defect": "untraceable source",
         "note": "grounding source could not be located",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -935,7 +1016,10 @@
         "evidence_fit": "unresolved",
         "record_defect": "untraceable source",
         "note": "grounding source could not be located",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -966,7 +1050,10 @@
         "evidence_fit": "none",
         "record_defect": "untraceable source",
         "note": "zhuanruhu untraceable; OX does not cover cross-agent memory contamination. https://www.ox.security/blog/mcp-supply-chain-advisory-rce-vulnerabilities-across-the-ai-ecosystem/",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -1001,7 +1088,10 @@
         "evidence_fit": "unresolved",
         "record_defect": "untraceable source",
         "note": "grounding source could not be located",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -1032,7 +1122,10 @@
         "evidence_fit": "partial",
         "record_defect": "misdescription",
         "note": "'Self-reported metrics ... are all attack surfaces' IS in the article; 'in RAG contexts' is absent \u2014 no RAG discussion. https://rdi.berkeley.edu/blog/trustworthy-benchmarks/",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -1063,7 +1156,10 @@
         "evidence_fit": "unresolved",
         "record_defect": "untraceable source",
         "note": "grounding source could not be located",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -1098,7 +1194,10 @@
         "evidence_fit": "unresolved",
         "record_defect": "untraceable source",
         "note": "grounding source could not be located",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -1129,7 +1228,10 @@
         "evidence_fit": "none",
         "record_defect": "\u2014",
         "note": "$45M source does not substantiate a single agent approving an over-threshold trade (see 1g).",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -1164,7 +1266,10 @@
         "evidence_fit": "partial",
         "record_defect": "invalid identifier",
         "note": "OX supports the broader STDIO-injection mechanism, but no located passage establishes the narrower tool-call/pre-validation sequence; the identifier is also invalid.",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -1195,7 +1300,10 @@
         "evidence_fit": "full (internal)",
         "record_defect": "\u2014",
         "note": "grounded in Mike's own prior work \u2014 traceable, not external corroboration",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -1226,7 +1334,10 @@
         "evidence_fit": "full (internal)",
         "record_defect": "\u2014",
         "note": "grounded in Mike's own prior work \u2014 traceable, not external corroboration",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -1257,7 +1368,10 @@
         "evidence_fit": "full (internal)",
         "record_defect": "\u2014",
         "note": "grounded in Mike's own prior work \u2014 traceable, not external corroboration",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -1288,7 +1402,10 @@
         "evidence_fit": "partial",
         "record_defect": "\u2014",
         "note": "RDI half holds; $45M half unsupported (see 1g). https://rdi.berkeley.edu/blog/trustworthy-benchmarks/",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -1323,7 +1440,10 @@
         "evidence_fit": "partial",
         "record_defect": "misdescription",
         "note": "CVE real and supports SSRF, but via unguarded configured base URLs in channel extensions, not 'tool URL'. BlueRock attribution correct: https://www.bluerock.io/post/mcp-furi-microsoft-markitdown-vulnerabilities \u00b7 https://nvd.nist.gov/vuln/detail/CVE-2026-35629",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -1354,7 +1474,10 @@
         "evidence_fit": "none",
         "record_defect": "\u2014",
         "note": "Same $45M source; credential extraction in a payment flow not evidenced in it.",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -1389,7 +1512,10 @@
         "evidence_fit": "none",
         "record_defect": "\u2014",
         "note": "OX article does not cover phantom tool injection via MCP registration. https://www.ox.security/blog/mcp-supply-chain-advisory-rce-vulnerabilities-across-the-ai-ecosystem/",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -1424,7 +1550,10 @@
         "evidence_fit": "none",
         "record_defect": "\u2014",
         "note": "Same $45M source; payment structuring to evade limits not evidenced in it.",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -1455,7 +1584,10 @@
         "evidence_fit": "partial",
         "record_defect": "misdescription",
         "note": "Byline is Wang, Mang, Cheung, Sen, Song (no Xu); 13 benchmarks audited, all rated critical risk, 45 exploits producing inflated OR perfect scores \u2014 not 'all 8 hackable for perfect'. https://rdi.berkeley.edu/blog/trustworthy-benchmarks/",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -1486,7 +1618,10 @@
         "evidence_fit": "provisional",
         "record_defect": "\u2014",
         "note": "source located and plausibly relevant; per-case evidence locator not established in this audit",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -1517,7 +1652,10 @@
         "evidence_fit": "none",
         "record_defect": "\u2014",
         "note": "Article does not discuss LLM-judge manipulation via embedded instructions. https://rdi.berkeley.edu/blog/trustworthy-benchmarks/",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -1548,7 +1686,10 @@
         "evidence_fit": "none",
         "record_defect": "\u2014",
         "note": "Article does not discuss contamination/memorization; answer leakage is adjacent but distinct. https://rdi.berkeley.edu/blog/trustworthy-benchmarks/",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -1583,7 +1724,10 @@
         "evidence_fit": "partial",
         "record_defect": "misdescription",
         "note": "Berkeley Example 1 shows score injection via stack-frame manipulation in Frontier-CS; 'universal benchmark bypass' outruns the source. https://rdi.berkeley.edu/blog/trustworthy-benchmarks/",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -1614,7 +1758,10 @@
         "evidence_fit": "provisional",
         "record_defect": "\u2014",
         "note": "source located and plausibly relevant; per-case evidence locator not established in this audit",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -1649,7 +1796,10 @@
         "evidence_fit": "provisional",
         "record_defect": "\u2014",
         "note": "RDI half plausible; harness attestation half internally authored. Per-case locator not established. https://rdi.berkeley.edu/blog/trustworthy-benchmarks/",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -1684,7 +1834,10 @@
         "evidence_fit": "partial",
         "record_defect": "misdescription",
         "note": "Berkeley shows a dummy C-extension / weak-validator exploit in Terminal-Bench; it does not establish the mechanism across 8 \u2014 or all 13 \u2014 benchmarks. https://rdi.berkeley.edu/blog/trustworthy-benchmarks/",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -1715,7 +1868,10 @@
         "evidence_fit": "none",
         "record_defect": "\u2014",
         "note": "Article does not discuss string collision or hash-collision gaming. https://rdi.berkeley.edu/blog/trustworthy-benchmarks/",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -1746,7 +1902,10 @@
         "evidence_fit": "provisional",
         "record_defect": "\u2014",
         "note": "source located and plausibly relevant; per-case evidence locator not established in this audit",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": true,
+        "verdict_currency": "stale \u2014 source text changed after the audit; not re-adjudicated"
       },
       "tools": [
         {
@@ -1781,7 +1940,10 @@
         "evidence_fit": "provisional",
         "record_defect": "\u2014",
         "note": "source located and plausibly relevant; per-case evidence locator not established in this audit",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {
@@ -1812,7 +1974,10 @@
         "evidence_fit": "full (internal)",
         "record_defect": "\u2014",
         "note": "grounded in Mike's own prior work \u2014 traceable, not external corroboration",
-        "externally_corroborated": false
+        "externally_corroborated": false,
+        "audited_at_commit": "6c5d61726819165c9dcf75d99669217c3c3cab41",
+        "source_revised_since_audit": false,
+        "verdict_currency": "as-audited \u2014 source text unchanged since the audit"
       },
       "tools": [
         {

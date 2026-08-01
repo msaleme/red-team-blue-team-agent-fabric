@@ -31,7 +31,13 @@ python -m benchmarks.dgb_bundle_export
 
 ## The numbers this bundle does not hide
 
-| | |
+**Read the currency note first.** The grounding audit read the corpus on
+2026-07-26 at commit `6c5d617`. A remediation pass landed the next day and
+revised **25 of 52** source fields. The table below is therefore *as audited*,
+not *as it stands*. Every case reports `source_revised_since_audit`, and the
+bundle's `grounding_currency` block gives the split.
+
+| As audited on 2026-07-27 | Cases |
 |---|---|
 | Cases with **full external** evidence fit | **1 of 52** (`DBC-009`) |
 | Source located but does **not** substantiate the case | 10 |
@@ -43,8 +49,23 @@ python -m benchmarks.dgb_bundle_export
 | Invalid identifier | 1 (`DBC-032`) |
 | `executable_test` does not cover the case | 24 of 52 |
 
+| Currency | Cases |
+|---|---|
+| Source text **unchanged** since the audit — verdict still describes what you are reading | 27 |
+| Source text **revised** after the audit — verdict is stale, **not re-adjudicated** | 25 |
+| Carrying a defect verdict **and** still unrevised — the ones to look at first | **7** |
+
+Those seven are `DBC-014`, `DBC-016`, `DBC-031`, `DBC-038`, `DBC-039`,
+`DBC-040`, `DBC-044`.
+
+A stale verdict is not evidence of a current defect, and a revision is not
+evidence of a verified repair. Re-adjudicating the 25 revised cases against
+their new text is outstanding work, and this file says so rather than picking
+whichever reading is more flattering.
+
 The regex metadata scanner flags **1 of 52**. The capability-rule scanner flags
-**17 of 52**. Both figures come from execution, and both are in the file.
+**17 of 52**. Both figures come from execution against the current corpus, and
+both are in the file.
 
 ## Field reference
 
