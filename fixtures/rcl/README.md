@@ -56,7 +56,7 @@ Top level:
 | `schema_version` | `"1.0"` |
 | `evaluation_time` | Unix seconds the fixtures were built at. Freshness cases are relative to this, so pass it to your verifier as "now" |
 | `freshness_window_seconds` | how long a checker transcript stays fresh |
-| `signature_algorithm` | Ed25519 (RFC 8032) over JCS-canonicalised JSON |
+| `signature_algorithm` | Ed25519 (RFC 8032) over **sorted compact JSON**, not JCS. The signing payload is `json.dumps(obj, sort_keys=True, separators=(",", ":"))` encoded UTF-8. It coincides with JCS (RFC 8785) for the ASCII-only, integer-valued payloads in this corpus, but diverges on number canonicalisation and non-ASCII escaping. Verify with the encoding named in the field, not with JCS |
 | `public_keys` | hex Ed25519 public keys per authority: `emitter`, `checker`, `authz`, `exec`. Enough to verify every signature in the file. No private material is exported |
 | `key_material` | states plainly that these are test authorities, not trust anchors |
 | `claim_families` | the four families above |

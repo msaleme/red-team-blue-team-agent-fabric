@@ -127,7 +127,17 @@ def build_fixture_set(now: int = EVALUATION_TIME) -> dict:
         "source_module": "protocol_tests/receipt_claim_harness.py",
         "evaluation_time": now,
         "freshness_window_seconds": H.FRESHNESS_WINDOW,
-        "signature_algorithm": "Ed25519 (RFC 8032) over JCS-canonicalised JSON",
+        "signature_algorithm": (
+            "Ed25519 (RFC 8032) over sorted compact JSON: "
+            "json.dumps(obj, sort_keys=True, separators=(',', ':')) encoded "
+            "UTF-8. This is NOT JCS (RFC 8785). It coincides with JCS for the "
+            "ASCII-only, integer-valued payloads in this corpus, which is why "
+            "a JCS verifier reproduces these signatures, but it diverges on "
+            "number canonicalisation (1.0 stays '1.0' rather than '1') and on "
+            "non-ASCII escaping (Python escapes to \\uXXXX; JCS emits raw "
+            "UTF-8). Verify with the encoding named here, not with JCS, if a "
+            "future corpus carries non-ASCII strings or non-integer numbers."
+        ),
         "public_keys": {k: v.hex() for k, v in H.PUBKEYS.items()},
         "key_material": (
             "Test authorities only, never a real trust anchor. Public keys are "
@@ -149,6 +159,13 @@ def build_fixture_set(now: int = EVALUATION_TIME) -> dict:
                 "The decomposition defines four claim families. Families listed "
                 "here are enforced by the verifier but have no negative vector "
                 "in this set, so these fixtures do not exercise them."
+            ),
+            "temporal_vectors_not_exercised": (
+                "Freshness is exercised only in the stale direction (RCL-003, "
+                "a transcript older than the freshness window). This set "
+                "contains no future-dated checker timestamp, so it does not "
+                "establish how a verifier treats a check attested ahead of "
+                "evaluation_time."
             ),
         },
         "scope": (
