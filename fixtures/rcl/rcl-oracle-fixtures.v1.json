@@ -4,7 +4,7 @@
   "source_module": "protocol_tests/receipt_claim_harness.py",
   "evaluation_time": 1750000000,
   "freshness_window_seconds": 300,
-  "signature_algorithm": "Ed25519 (RFC 8032) over JCS-canonicalised JSON",
+  "signature_algorithm": "Ed25519 (RFC 8032) over sorted compact JSON: json.dumps(obj, sort_keys=True, separators=(',', ':')) encoded UTF-8. This is NOT JCS (RFC 8785). It coincides with JCS for the ASCII-only, integer-valued payloads in this corpus, which is why a JCS verifier reproduces these signatures, but it diverges on number canonicalisation (1.0 stays '1.0' rather than '1') and on non-ASCII escaping (Python escapes to \\uXXXX; JCS emits raw UTF-8). Verify with the encoding named here, not with JCS, if a future corpus carries non-ASCII strings or non-integer numbers.",
   "public_keys": {
     "emitter": "0c00eff6ec5a14a61947baa64aa5af0ef32c8bb0af2c1c12ddc5d68d35200000",
     "checker": "73164cba8603b8f71cbcf087c5067c3dad1f995c992a6b795466d758ea6d4ff2",
@@ -27,7 +27,8 @@
     "families_with_no_negative_vector": [
       "integrity_provenance"
     ],
-    "note": "The decomposition defines four claim families. Families listed here are enforced by the verifier but have no negative vector in this set, so these fixtures do not exercise them."
+    "note": "The decomposition defines four claim families. Families listed here are enforced by the verifier but have no negative vector in this set, so these fixtures do not exercise them.",
+    "temporal_vectors_not_exercised": "Freshness is exercised only in the stale direction (RCL-003, a transcript older than the freshness window). This set contains no future-dated checker timestamp, so it does not establish how a verifier treats a check attested ahead of evaluation_time."
   },
   "scope": "These vectors establish whether a receipt supports its asserted claims. They do not establish that any particular implementation produces defective receipts.",
   "usage": "For each fixture, run your verifier over `receipt` and compare against `expected.verdict`. Retain the accept cases: a verifier that rejects every fixture has not demonstrated correct claim validation.",
