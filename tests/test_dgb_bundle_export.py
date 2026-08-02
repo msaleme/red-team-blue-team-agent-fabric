@@ -734,6 +734,71 @@ def test_author_grounded_count_is_derived():
     assert set(REPAIRED) <= author_grounded
 
 
+PAPER = Path(__file__).resolve().parents[1] / "docs/paper-dgb/main.tex"
+
+
+def test_paper_grounding_figure_matches_the_corpus():
+    """The paper published 24/52 for a week after the corpus moved.
+
+    It is the same drift the README had, on the surface that is hardest to
+    correct once submitted. Every occurrence of the figure must agree with the
+    corpus and with each other.
+    """
+    import re
+
+    from benchmarks.decision_behavior_corpus import CORPUS
+
+    def claim(case) -> str:
+        return (case.source or "").split("NOTE:")[0]
+
+    external = set()
+    for pattern in _EXTERNAL_SOURCE_PATTERNS:
+        external |= {c.id for c in CORPUS if re.search(pattern, claim(c), re.I)}
+    author_grounded = {c.id for c in CORPUS} - external
+
+    # LaTeX wraps at column ~78, so any occurrence may be split across lines at
+    # an arbitrary point -- including between the number and "of 52". Matching
+    # the raw text anchored on three hand-written variants missed the Limitations
+    # item, where the count sits on the line above. Flatten first, match once.
+    text = PAPER.read_text(encoding="utf-8")
+    flat = re.sub(r"\s+", " ", text)
+    stated = re.findall(r"(\d+) of 52 cases lack independent external corroboration", flat)
+    assert stated, "the paper no longer states the grounding figure in a parseable form"
+    assert len(stated) >= 4, (
+        f"expected the figure in the contributions list, corpus construction, "
+        f"limitations and threats sections; found {len(stated)}"
+    )
+    for value in stated:
+        assert int(value) == len(author_grounded), (
+            f"paper says {value} of 52 lack external corroboration; the corpus has "
+            f"{len(author_grounded)}"
+        )
+    assert len(set(stated)) == 1, f"the paper states inconsistent figures: {set(stated)}"
+
+
+def test_paper_does_not_present_the_audit_figure_as_the_current_one():
+    """24 was measured under different criteria and must not read as a trend."""
+    text = PAPER.read_text(encoding="utf-8")
+    assert "24 of 52 source records point to internal artifacts" not in text, (
+        "the audit's source-provenance figure is stated as if current"
+    )
+    # The audit's executable_test figure is unchanged by our work and may stay,
+    # but it must be attributed to the audit rather than floated as present tense.
+    if "24 of 52" in text:
+        assert "2026-07 audit found 24 of 52" in text or "audit found 24 of 52" in text, (
+            "a bare '24 of 52' with no attribution reads as a current measurement"
+        )
+    assert "not comparable to the 2026-07 audit" in text, (
+        "the paper must say why its figure cannot be compared with the audit's"
+    )
+
+
+def test_paper_declares_the_readjudication_was_not_independent():
+    text = PAPER.read_text(encoding="utf-8")
+    assert "performed by the corpus author" in text
+    assert "not\n        independent review" in text or "not independent review" in text
+
+
 def test_readme_does_not_call_the_unlocatable_source_verifiable():
     """`$45M crypto agent 2026` has no publication anywhere in this repo."""
     text = README.read_text(encoding="utf-8")
@@ -743,3 +808,20 @@ def test_readme_does_not_call_the_unlocatable_source_verifiable():
         "but no locatable publication for it exists in this repository"
     )
     assert "No locatable publication" in text
+
+
+def test_paper_cross_references_all_resolve():
+    """A dangling \\ref renders as '??' in the PDF.
+
+    `sec:formalism` was dangling on main: the corpus-construction section
+    pointed at the definition of $M$ in Task Formalism, which carried no label.
+    Cheap to catch, embarrassing to submit.
+    """
+    import re
+
+    text = PAPER.read_text(encoding="utf-8")
+    labels = set(re.findall(r"\\label\{([^}]+)\}", text))
+    refs = set(re.findall(r"\\ref\{([^}]+)\}", text))
+    assert refs <= labels, f"undefined \\ref targets: {sorted(refs - labels)}"
+    duplicates = [x for x in labels if text.count("\\label{%s}" % x) > 1]
+    assert not duplicates, f"duplicate labels: {duplicates}"

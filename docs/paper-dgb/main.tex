@@ -114,10 +114,12 @@ makes three contributions:
         findings (OX Security 2026~\cite{ox2026mcp},
         METR 2025~\cite{metr2025autonomy}, UC Berkeley
         RDI 2026~\cite{wang2026broke}) and from internal, unpublished runs of
-        the authors' own deployment~\cite{hraoe2026}. A 2026-07 source audit
-        found 24 of 52 source records point to internal artifacts rather than
-        independent external corroboration; the taxonomy is not uniformly
-        externally grounded.
+        the authors' own deployment~\cite{hraoe2026}. As of 2026-08-02,
+        \textbf{29 of 52 cases lack independent external corroboration}: 22 cite
+        an internal artifact, and 7 cite nothing at all, having had an
+        unsupportable citation withdrawn. The taxonomy is not uniformly
+        externally grounded, and Section~\ref{sec:limitations} records how that
+        figure was derived and why it is not comparable to the 2026-07 audit's.
 
   \item \textbf{An executable evaluation methodology} that distinguishes
         behavioral governance failures (51 of 52 unflagged by the named
@@ -261,6 +263,7 @@ Vulnerability scanning   & AgentSeal, OX MCP audit             & Static metadata
 \end{figure}
 
 \subsection{Task Formalism}
+\label{sec:formalism}
 
 We formalize a decision-governance test case as a 6-tuple
 $(S, C, E_{\text{pass}}, E_{\text{fail}}, D, M)$---a formal
@@ -287,18 +290,27 @@ against three criteria:
 \begin{enumerate}
   \item \textbf{Incident grounding (intended; partially met).} Cases are
         intended to trace to a documented incident, CVE, or research finding.
-        A 2026-07 source audit found this holds unevenly: 24 of 52 source
-        records point to internal artifacts---including unpublished runs of the
-        authors' own deployment---rather than independent external
-        corroboration. Those cases are not externally corroborated and the
-        \texttt{source} field on each records which is which.
+        This holds unevenly: as of 2026-08-02, \textbf{29 of 52 cases lack
+        independent external corroboration}---22 cite an internal artifact,
+        including unpublished runs of the authors' own deployment, and 7 cite
+        nothing, having had an unsupportable citation withdrawn. The
+        \texttt{source} field on each records which is which, and every case
+        that still claims an external source names a locator a reader can
+        follow.
 
   \item \textbf{Executable reproducibility (intended; partially met).} Cases
         carry a reference to a harness test (BI-001--BI-007, GM-001--GM-006)
-        producing a binary pass/fail result. The same audit found 24 of 52
+        producing a binary pass/fail result. The 2026-07 audit found 24 of 52
         references were behavioural mismatches, and two named values that are
-        not harness tests. Remediation is tracked in
-        \texttt{benchmarks/CHANGELOG.md}.
+        not harness tests at all. That assessment was made by reading; it is now
+        also measured. Resolving each \texttt{executable\_test} against the live
+        harness source at export time, 3 of 52 do not resolve to a single test
+        identifier and 17 of the remaining 49 name a test whose OWASP ASI
+        category disagrees with the case's own. The two figures answer different
+        questions and neither supersedes the other: a category disagreement is
+        grounds to check a mapping, not a finding that the test fails to
+        exercise the case. Both are published per case in the corpus bundle.
+        Remediation is tracked in \texttt{benchmarks/CHANGELOG.md}.
 
   \item \textbf{Contrastive annotation:} Each case is annotated with
         a \emph{derived} flag indicating whether a metadata-only scanner flags the
@@ -701,6 +713,30 @@ identify, protect, and respond.
 \label{sec:limitations}
 
 \begin{enumerate}
+  \item \textbf{Grounding, and how the figure is derived.} We report that 29
+        of 52 cases lack independent external corroboration. A case counts as
+        externally grounded if its \texttt{source} field names a third-party
+        publication, ignoring withdrawn material recorded after a
+        \texttt{NOTE:} marker; everything else is author-grounded. The figure
+        is computed from the corpus rather than maintained by hand, and a test
+        fails if the prose and the corpus disagree.
+
+        \textbf{It is not comparable to the 2026-07 audit's ``24 of 52''.}
+        That audit assessed provenance case by case under its own criteria;
+        applying the definition above to the corpus as the audit read it
+        yields 19, not 24. The two numbers answer different questions, and
+        reporting a 24-to-29 movement would imply a trend that the measurement
+        does not support. What did change is documented: eight citations that
+        the audit found unsupportable were withdrawn on 2026-08-02, moving
+        those cases to the author-grounded side, and all 25 cases whose source
+        text had been revised after the audit were re-read against their
+        current wording.
+
+        That re-reading was performed by the corpus author. It is not
+        independent review and does not reduce the internal-validity threat in
+        Section~\ref{sec:threats}; it establishes only that each verdict now
+        cites a locator a reader can fetch and check for themselves.
+
   \item \textbf{Corpus size:} 52 cases provide breadth across five
         categories but do not exhaustively cover all governance failure
         modes. The corpus is designed for extension; contributions are
@@ -782,10 +818,11 @@ gates can and cannot detect, which would inflate Config~B's GMR relative to
 a governance system evaluated independently of the benchmark's design. Three
 things partially mitigate this without eliminating it: (1)~cases are intended to
 trace to a documented incident or finding rather than being authored to target a
-specific gate---though a 2026-07 source audit found this holds unevenly:
-24 of 52 source records point to internal artifacts rather than independent
-external corroboration, and 24 of 52 \texttt{executable\_test} references were
-behavioural mismatches with two naming values that are not harness tests at all
+specific gate---though this holds unevenly: as of 2026-08-02, 29 of 52 cases
+lack independent external corroboration (22 citing an internal artifact, 7
+citing nothing after an unsupportable citation was withdrawn), and the 2026-07
+audit found 24 of 52 \texttt{executable\_test} references were behavioural
+mismatches with two naming values that are not harness tests at all
 (see \texttt{benchmarks/CHANGELOG.md}); (2)~Config~B still fails 15/52 cases (28.8\%), including
 categories---signal-absence failures such as OS-level permission
 inheritance---that a benchmark tuned to flatter its own implementation would
