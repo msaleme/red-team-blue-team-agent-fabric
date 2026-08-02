@@ -96,6 +96,28 @@ def test_snapshot_metadata_is_present(mapping):
     assert "NOT independent" in a["adjudicated_by"]
 
 
+def test_assessed_commit_is_reachable_from_head():
+    """Every evidence link is pinned to the assessed commit. If that commit is
+    not an ancestor of HEAD, all of them 404.
+
+    This is not hypothetical: the first release candidate pinned a commit from a
+    branch that was then squash-merged, so the SHA never existed on main. The
+    report validated cleanly and every permalink in it was dead.
+    """
+    sha = yaml.safe_load(MAPPING.read_text(encoding="utf-8"))["assessment"]["git_commit"]
+    exists = subprocess.run(
+        ["git", "cat-file", "-e", f"{sha}^{{commit}}"], cwd=ROOT, capture_output=True
+    )
+    assert exists.returncode == 0, f"assessed commit {sha} is not in this repository"
+    ancestor = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", sha, "HEAD"], cwd=ROOT, capture_output=True
+    )
+    assert ancestor.returncode == 0, (
+        f"assessed commit {sha[:12]} is not an ancestor of HEAD - every evidence "
+        "permalink in the report would 404. Re-pin and regenerate before releasing."
+    )
+
+
 def test_canonical_test_count_agrees(mapping):
     out = subprocess.run(
         [sys.executable, str(ROOT / "scripts/count_tests.py")],
