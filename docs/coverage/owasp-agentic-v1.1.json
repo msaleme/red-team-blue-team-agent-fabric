@@ -119,17 +119,39 @@
         {
           "control_id": "P1-PRO-001",
           "phase": "proactive",
-          "summary": "Behaviour profiling and attack-surface reduction around planning and reflection."
+          "summary": "Behaviour profiling and attack-surface reduction around planning and reflection.",
+          "validation": {
+            "status": "validated",
+            "evidence": [
+              "INT-001"
+            ],
+            "limitation": null
+          }
         },
         {
           "control_id": "P1-REA-001",
           "phase": "reactive",
-          "summary": "Controls that detect and interrupt goal manipulation mid-execution."
+          "summary": "Controls that detect and interrupt goal manipulation mid-execution.",
+          "validation": {
+            "status": "validated",
+            "evidence": [
+              "INT-004"
+            ],
+            "limitation": null
+          }
         },
         {
           "control_id": "P1-DET-001",
           "phase": "detective",
-          "summary": "Traceability and logging of reasoning and goal changes."
+          "summary": "Traceability and logging of reasoning and goal changes.",
+          "validation": {
+            "status": "validated",
+            "evidence": [
+              "AUDIT-001",
+              "IR-006"
+            ],
+            "limitation": null
+          }
         }
       ]
     },
@@ -145,17 +167,36 @@
         {
           "control_id": "P2-PRO-001",
           "phase": "proactive",
-          "summary": "Memory access control and content validation before write."
+          "summary": "Memory access control and content validation before write.",
+          "validation": {
+            "status": "partial",
+            "evidence": [
+              "MEM-008"
+            ],
+            "limitation": "Cross-principal memory access control is asserted; content validation before write is not separately exercised."
+          }
         },
         {
           "control_id": "P2-REA-001",
           "phase": "reactive",
-          "summary": "Detection, revalidation, snapshots and rollback of poisoned memory."
+          "summary": "Detection, revalidation, snapshots and rollback of poisoned memory.",
+          "validation": {
+            "status": "guidance_only",
+            "evidence": [],
+            "limitation": null
+          }
         },
         {
           "control_id": "P2-DET-001",
           "phase": "detective",
-          "summary": "Lineage, truth checking, versioning and propagation control."
+          "summary": "Lineage, truth checking, versioning and propagation control.",
+          "validation": {
+            "status": "partial",
+            "evidence": [
+              "IR-003"
+            ],
+            "limitation": "Detective alerting on fabricated content is asserted; memory lineage, versioning and propagation control are not."
+          }
         }
       ]
     },
@@ -175,22 +216,55 @@
         {
           "control_id": "P3-PRO-001",
           "phase": "proactive",
-          "summary": "Tool access control, sandboxing, execution limits and just-in-time privilege."
+          "summary": "Tool access control, sandboxing, execution limits and just-in-time privilege.",
+          "validation": {
+            "status": "validated",
+            "evidence": [
+              "CP-002",
+              "CP-004",
+              "CP-006",
+              "PTC-005"
+            ],
+            "limitation": null
+          }
         },
         {
           "control_id": "P3-PRO-002",
           "phase": "proactive",
-          "summary": "Artifact signing and SBOM/AIBOM verification for upstream components."
+          "summary": "Artifact signing and SBOM/AIBOM verification for upstream components.",
+          "validation": {
+            "status": "validated",
+            "evidence": [
+              "PRV-012",
+              "CVE-005",
+              "SS-005"
+            ],
+            "limitation": null
+          }
         },
         {
           "control_id": "P3-REA-001",
           "phase": "reactive",
-          "summary": "Tool-misuse monitoring and approval interception."
+          "summary": "Tool-misuse monitoring and approval interception.",
+          "validation": {
+            "status": "partial",
+            "evidence": [
+              "IR-002"
+            ],
+            "limitation": "Reactive escalation of harmful output is asserted; approval interception on tool misuse is not exercised."
+          }
         },
         {
           "control_id": "P3-DET-001",
           "phase": "detective",
-          "summary": "Resource-exhaustion and supply-chain monitoring, plus red teaming."
+          "summary": "Resource-exhaustion and supply-chain monitoring, plus red teaming.",
+          "validation": {
+            "status": "partial",
+            "evidence": [
+              "CVE-003"
+            ],
+            "limitation": "Supply-chain contamination is measured by a static pre-flight scan; no dynamic exhaustion monitoring is asserted."
+          }
         }
       ]
     },
@@ -207,22 +281,55 @@
         {
           "control_id": "P4-PRO-001",
           "phase": "proactive",
-          "summary": "Identity verification, RBAC/ABAC and mutual authentication between agents."
+          "summary": "Identity verification, RBAC/ABAC and mutual authentication between agents.",
+          "validation": {
+            "status": "validated",
+            "evidence": [
+              "AUTHZ-001",
+              "AUTH-001",
+              "ID-002",
+              "STD-002"
+            ],
+            "limitation": null
+          }
         },
         {
           "control_id": "P4-PRO-002",
           "phase": "proactive",
-          "summary": "Temporary, scoped credentials rather than persistent broad ones."
+          "summary": "Temporary, scoped credentials rather than persistent broad ones.",
+          "validation": {
+            "status": "validated",
+            "evidence": [
+              "AUTH-002",
+              "ID-003"
+            ],
+            "limitation": null
+          }
         },
         {
           "control_id": "P4-REA-001",
           "phase": "reactive",
-          "summary": "Restriction of privilege and of privilege inheritance on anomaly."
+          "summary": "Restriction of privilege and of privilege inheritance on anomaly.",
+          "validation": {
+            "status": "validated",
+            "evidence": [
+              "AUTHZ-004"
+            ],
+            "limitation": null
+          }
         },
         {
           "control_id": "P4-DET-001",
           "phase": "detective",
-          "summary": "Impersonation and protocol-abuse monitoring."
+          "summary": "Impersonation and protocol-abuse monitoring.",
+          "validation": {
+            "status": "validated",
+            "evidence": [
+              "A2A-011",
+              "ID-002"
+            ],
+            "limitation": null
+          }
         }
       ]
     },
@@ -238,22 +345,42 @@
         {
           "control_id": "P5-PRO-001",
           "phase": "proactive",
-          "summary": "Review-queue prioritisation, notification limits and workload distribution."
+          "summary": "Review-queue prioritisation, notification limits and workload distribution.",
+          "validation": {
+            "status": "guidance_only",
+            "evidence": [],
+            "limitation": null
+          }
         },
         {
           "control_id": "P5-PRO-002",
           "phase": "proactive",
-          "summary": "Explanation quality so a reviewer can judge without reconstructing context."
+          "summary": "Explanation quality so a reviewer can judge without reconstructing context.",
+          "validation": {
+            "status": "guidance_only",
+            "evidence": [],
+            "limitation": null
+          }
         },
         {
           "control_id": "P5-REA-001",
           "phase": "reactive",
-          "summary": "Detection of manipulation aimed at the human reviewer."
+          "summary": "Detection of manipulation aimed at the human reviewer.",
+          "validation": {
+            "status": "guidance_only",
+            "evidence": [],
+            "limitation": null
+          }
         },
         {
           "control_id": "P5-DET-001",
           "phase": "detective",
-          "summary": "Logging, override analysis and decision-reversal detection."
+          "summary": "Logging, override analysis and decision-reversal detection.",
+          "validation": {
+            "status": "guidance_only",
+            "evidence": [],
+            "limitation": null
+          }
         }
       ]
     },
@@ -270,22 +397,52 @@
         {
           "control_id": "P6-PRO-001",
           "phase": "proactive",
-          "summary": "Authenticated inter-agent channels, trust scoring and segmentation."
+          "summary": "Authenticated inter-agent channels, trust scoring and segmentation.",
+          "validation": {
+            "status": "validated",
+            "evidence": [
+              "AUTHZ-002"
+            ],
+            "limitation": null
+          }
         },
         {
           "control_id": "P6-PRO-002",
           "phase": "proactive",
-          "summary": "Consensus requirements and per-agent quotas."
+          "summary": "Consensus requirements and per-agent quotas.",
+          "validation": {
+            "status": "partial",
+            "evidence": [
+              "MAG-003"
+            ],
+            "limitation": "Consensus integrity is asserted; per-agent quotas and segmentation are not exercised."
+          }
         },
         {
           "control_id": "P6-REA-001",
           "phase": "reactive",
-          "summary": "Rogue-agent detection, isolation and credential revocation."
+          "summary": "Rogue-agent detection, isolation and credential revocation.",
+          "validation": {
+            "status": "validated",
+            "evidence": [
+              "MAG-006",
+              "IR-004",
+              "IR-011"
+            ],
+            "limitation": null
+          }
         },
         {
           "control_id": "P6-DET-001",
           "phase": "detective",
-          "summary": "Interaction, delegation, reliability, override and execution-rate monitoring."
+          "summary": "Interaction, delegation, reliability, override and execution-rate monitoring.",
+          "validation": {
+            "status": "partial",
+            "evidence": [
+              "IR-001"
+            ],
+            "limitation": "Breach alerting is asserted; delegation, override and execution-rate monitoring are not."
+          }
         }
       ]
     }
@@ -627,9 +784,11 @@
       "mitigation_validation": [
         {
           "control_id": "P2-PRO-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "MEM-008"
+          ],
+          "limitation": "Cross-principal memory access control is asserted; content validation before write is not separately exercised."
         },
         {
           "control_id": "P2-REA-001",
@@ -639,9 +798,11 @@
         },
         {
           "control_id": "P2-DET-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "IR-003"
+          ],
+          "limitation": "Detective alerting on fabricated content is asserted; memory lineage, versioning and propagation control are not."
         }
       ],
       "limitations": [
@@ -826,27 +987,40 @@
       "mitigation_validation": [
         {
           "control_id": "P3-PRO-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "CP-002",
+            "CP-004",
+            "CP-006",
+            "PTC-005"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P3-PRO-002",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "PRV-012",
+            "CVE-005",
+            "SS-005"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P3-REA-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "IR-002"
+          ],
+          "limitation": "Reactive escalation of harmful output is asserted; approval interception on tool misuse is not exercised."
         },
         {
           "control_id": "P3-DET-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "CVE-003"
+          ],
+          "limitation": "Supply-chain contamination is measured by a static pre-flight scan; no dynamic exhaustion monitoring is asserted."
         }
       ],
       "limitations": [
@@ -1033,51 +1207,77 @@
       "mitigation_validation": [
         {
           "control_id": "P3-PRO-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "CP-002",
+            "CP-004",
+            "CP-006",
+            "PTC-005"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P3-PRO-002",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "PRV-012",
+            "CVE-005",
+            "SS-005"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P3-REA-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "IR-002"
+          ],
+          "limitation": "Reactive escalation of harmful output is asserted; approval interception on tool misuse is not exercised."
         },
         {
           "control_id": "P3-DET-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "CVE-003"
+          ],
+          "limitation": "Supply-chain contamination is measured by a static pre-flight scan; no dynamic exhaustion monitoring is asserted."
         },
         {
           "control_id": "P4-PRO-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "AUTHZ-001",
+            "AUTH-001",
+            "ID-002",
+            "STD-002"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P4-PRO-002",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "AUTH-002",
+            "ID-003"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P4-REA-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "AUTHZ-004"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P4-DET-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "A2A-011",
+            "ID-002"
+          ],
+          "limitation": null
         }
       ],
       "limitations": [
@@ -1255,27 +1455,40 @@
       "mitigation_validation": [
         {
           "control_id": "P3-PRO-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "CP-002",
+            "CP-004",
+            "CP-006",
+            "PTC-005"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P3-PRO-002",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "PRV-012",
+            "CVE-005",
+            "SS-005"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P3-REA-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "IR-002"
+          ],
+          "limitation": "Reactive escalation of harmful output is asserted; approval interception on tool misuse is not exercised."
         },
         {
           "control_id": "P3-DET-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "CVE-003"
+          ],
+          "limitation": "Supply-chain contamination is measured by a static pre-flight scan; no dynamic exhaustion monitoring is asserted."
         }
       ],
       "limitations": [
@@ -1437,9 +1650,11 @@
       "mitigation_validation": [
         {
           "control_id": "P2-PRO-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "MEM-008"
+          ],
+          "limitation": "Cross-principal memory access control is asserted; content validation before write is not separately exercised."
         },
         {
           "control_id": "P2-REA-001",
@@ -1449,9 +1664,11 @@
         },
         {
           "control_id": "P2-DET-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "IR-003"
+          ],
+          "limitation": "Detective alerting on fabricated content is asserted; memory lineage, versioning and propagation control are not."
         }
       ],
       "limitations": [
@@ -1637,21 +1854,28 @@
       "mitigation_validation": [
         {
           "control_id": "P1-PRO-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "INT-001"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P1-REA-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "INT-004"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P1-DET-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "AUDIT-001",
+            "IR-006"
+          ],
+          "limitation": null
         }
       ],
       "limitations": [
@@ -1815,21 +2039,28 @@
       "mitigation_validation": [
         {
           "control_id": "P1-PRO-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "INT-001"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P1-REA-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "INT-004"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P1-DET-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "AUDIT-001",
+            "IR-006"
+          ],
+          "limitation": null
         }
       ],
       "limitations": [
@@ -1975,21 +2206,28 @@
       "mitigation_validation": [
         {
           "control_id": "P1-PRO-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "INT-001"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P1-REA-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "INT-004"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P1-DET-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "AUDIT-001",
+            "IR-006"
+          ],
+          "limitation": null
         }
       ],
       "limitations": [
@@ -2193,27 +2431,40 @@
       "mitigation_validation": [
         {
           "control_id": "P4-PRO-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "AUTHZ-001",
+            "AUTH-001",
+            "ID-002",
+            "STD-002"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P4-PRO-002",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "AUTH-002",
+            "ID-003"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P4-REA-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "AUTHZ-004"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P4-DET-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "A2A-011",
+            "ID-002"
+          ],
+          "limitation": null
         }
       ],
       "limitations": [
@@ -2443,27 +2694,40 @@
       "mitigation_validation": [
         {
           "control_id": "P3-PRO-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "CP-002",
+            "CP-004",
+            "CP-006",
+            "PTC-005"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P3-PRO-002",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "PRV-012",
+            "CVE-005",
+            "SS-005"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P3-REA-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "IR-002"
+          ],
+          "limitation": "Reactive escalation of harmful output is asserted; approval interception on tool misuse is not exercised."
         },
         {
           "control_id": "P3-DET-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "CVE-003"
+          ],
+          "limitation": "Supply-chain contamination is measured by a static pre-flight scan; no dynamic exhaustion monitoring is asserted."
         }
       ],
       "limitations": [
@@ -2668,27 +2932,37 @@
       "mitigation_validation": [
         {
           "control_id": "P6-PRO-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "AUTHZ-002"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P6-PRO-002",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "MAG-003"
+          ],
+          "limitation": "Consensus integrity is asserted; per-agent quotas and segmentation are not exercised."
         },
         {
           "control_id": "P6-REA-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "MAG-006",
+            "IR-004",
+            "IR-011"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P6-DET-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "IR-001"
+          ],
+          "limitation": "Breach alerting is asserted; delegation, override and execution-rate monitoring are not."
         }
       ],
       "limitations": [
@@ -2838,27 +3112,37 @@
       "mitigation_validation": [
         {
           "control_id": "P6-PRO-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "AUTHZ-002"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P6-PRO-002",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "MAG-003"
+          ],
+          "limitation": "Consensus integrity is asserted; per-agent quotas and segmentation are not exercised."
         },
         {
           "control_id": "P6-REA-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "MAG-006",
+            "IR-004",
+            "IR-011"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P6-DET-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "IR-001"
+          ],
+          "limitation": "Breach alerting is asserted; delegation, override and execution-rate monitoring are not."
         }
       ],
       "limitations": [
@@ -2998,27 +3282,37 @@
       "mitigation_validation": [
         {
           "control_id": "P6-PRO-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "AUTHZ-002"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P6-PRO-002",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "MAG-003"
+          ],
+          "limitation": "Consensus integrity is asserted; per-agent quotas and segmentation are not exercised."
         },
         {
           "control_id": "P6-REA-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "MAG-006",
+            "IR-004",
+            "IR-011"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P6-DET-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "IR-001"
+          ],
+          "limitation": "Breach alerting is asserted; delegation, override and execution-rate monitoring are not."
         }
       ],
       "limitations": [
@@ -3284,57 +3578,75 @@
       "mitigation_validation": [
         {
           "control_id": "P3-PRO-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "CP-002",
+            "CP-004",
+            "CP-006",
+            "PTC-005"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P3-PRO-002",
           "status": "validated",
           "evidence": [
-            "PRV-007"
+            "PRV-012",
+            "CVE-005",
+            "SS-005"
           ],
           "limitation": null
         },
         {
           "control_id": "P3-REA-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "IR-002"
+          ],
+          "limitation": "Reactive escalation of harmful output is asserted; approval interception on tool misuse is not exercised."
         },
         {
           "control_id": "P3-DET-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "CVE-003"
+          ],
+          "limitation": "Supply-chain contamination is measured by a static pre-flight scan; no dynamic exhaustion monitoring is asserted."
         },
         {
           "control_id": "P4-PRO-001",
           "status": "validated",
           "evidence": [
-            "MCP-004",
-            "MCP-003",
-            "A2A-002"
+            "AUTHZ-001",
+            "AUTH-001",
+            "ID-002",
+            "STD-002"
           ],
           "limitation": null
         },
         {
           "control_id": "P4-PRO-002",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "AUTH-002",
+            "ID-003"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P4-REA-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "AUTHZ-004"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P4-DET-001",
           "status": "validated",
           "evidence": [
-            "A2A-011"
+            "A2A-011",
+            "ID-002"
           ],
           "limitation": null
         }
@@ -3552,36 +3864,40 @@
       "mitigation_validation": [
         {
           "control_id": "P3-PRO-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "validated",
+          "evidence": [
+            "CP-002",
+            "CP-004",
+            "CP-006",
+            "PTC-005"
+          ],
+          "limitation": null
         },
         {
           "control_id": "P3-PRO-002",
           "status": "validated",
           "evidence": [
-            "PRV-011",
             "PRV-012",
-            "PRV-004",
             "CVE-005",
-            "SS-008",
             "SS-005"
           ],
           "limitation": null
         },
         {
           "control_id": "P3-REA-001",
-          "status": "guidance_only",
-          "evidence": [],
-          "limitation": "The harness does not exercise this control at the assessed commit; it is cited, not tested."
+          "status": "partial",
+          "evidence": [
+            "IR-002"
+          ],
+          "limitation": "Reactive escalation of harmful output is asserted; approval interception on tool misuse is not exercised."
         },
         {
           "control_id": "P3-DET-001",
-          "status": "validated",
+          "status": "partial",
           "evidence": [
             "CVE-003"
           ],
-          "limitation": null
+          "limitation": "Supply-chain contamination is measured by a static pre-flight scan; no dynamic exhaustion monitoring is asserted."
         }
       ],
       "limitations": [

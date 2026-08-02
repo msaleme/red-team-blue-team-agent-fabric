@@ -137,12 +137,28 @@ playbooks:
   - control_id: P1-PRO-001
     phase: proactive
     summary: Behaviour profiling and attack-surface reduction around planning and reflection.
+    validation:
+      status: validated
+      evidence:
+      - INT-001
+      limitation: null
   - control_id: P1-REA-001
     phase: reactive
     summary: Controls that detect and interrupt goal manipulation mid-execution.
+    validation:
+      status: validated
+      evidence:
+      - INT-004
+      limitation: null
   - control_id: P1-DET-001
     phase: detective
     summary: Traceability and logging of reasoning and goal changes.
+    validation:
+      status: validated
+      evidence:
+      - AUDIT-001
+      - IR-006
+      limitation: null
 - id: P2
   title: Preventing Memory Poisoning & AI Knowledge Corruption
   decision_step: 2
@@ -153,12 +169,28 @@ playbooks:
   - control_id: P2-PRO-001
     phase: proactive
     summary: Memory access control and content validation before write.
+    validation:
+      status: partial
+      evidence:
+      - MEM-008
+      limitation: Cross-principal memory access control is asserted; content validation before write is
+        not separately exercised.
   - control_id: P2-REA-001
     phase: reactive
     summary: Detection, revalidation, snapshots and rollback of poisoned memory.
+    validation:
+      status: guidance_only
+      evidence: []
+      limitation: null
   - control_id: P2-DET-001
     phase: detective
     summary: Lineage, truth checking, versioning and propagation control.
+    validation:
+      status: partial
+      evidence:
+      - IR-003
+      limitation: Detective alerting on fabricated content is asserted; memory lineage, versioning and
+        propagation control are not.
 - id: P3
   title: Securing AI Tool Execution & Preventing Unauthorized Actions Across Supply Chains
   decision_step: 3
@@ -173,15 +205,42 @@ playbooks:
   - control_id: P3-PRO-001
     phase: proactive
     summary: Tool access control, sandboxing, execution limits and just-in-time privilege.
+    validation:
+      status: validated
+      evidence:
+      - CP-002
+      - CP-004
+      - CP-006
+      - PTC-005
+      limitation: null
   - control_id: P3-PRO-002
     phase: proactive
     summary: Artifact signing and SBOM/AIBOM verification for upstream components.
+    validation:
+      status: validated
+      evidence:
+      - PRV-012
+      - CVE-005
+      - SS-005
+      limitation: null
   - control_id: P3-REA-001
     phase: reactive
     summary: Tool-misuse monitoring and approval interception.
+    validation:
+      status: partial
+      evidence:
+      - IR-002
+      limitation: Reactive escalation of harmful output is asserted; approval interception on tool misuse
+        is not exercised.
   - control_id: P3-DET-001
     phase: detective
     summary: Resource-exhaustion and supply-chain monitoring, plus red teaming.
+    validation:
+      status: partial
+      evidence:
+      - CVE-003
+      limitation: Supply-chain contamination is measured by a static pre-flight scan; no dynamic exhaustion
+        monitoring is asserted.
 - id: P4
   title: Strengthening Authentication, Identity & Privilege Controls
   decision_step: 4
@@ -193,15 +252,40 @@ playbooks:
   - control_id: P4-PRO-001
     phase: proactive
     summary: Identity verification, RBAC/ABAC and mutual authentication between agents.
+    validation:
+      status: validated
+      evidence:
+      - AUTHZ-001
+      - AUTH-001
+      - ID-002
+      - STD-002
+      limitation: null
   - control_id: P4-PRO-002
     phase: proactive
     summary: Temporary, scoped credentials rather than persistent broad ones.
+    validation:
+      status: validated
+      evidence:
+      - AUTH-002
+      - ID-003
+      limitation: null
   - control_id: P4-REA-001
     phase: reactive
     summary: Restriction of privilege and of privilege inheritance on anomaly.
+    validation:
+      status: validated
+      evidence:
+      - AUTHZ-004
+      limitation: null
   - control_id: P4-DET-001
     phase: detective
     summary: Impersonation and protocol-abuse monitoring.
+    validation:
+      status: validated
+      evidence:
+      - A2A-011
+      - ID-002
+      limitation: null
 - id: P5
   title: Protecting HITL & Preventing Decision Fatigue Exploits
   decision_step: 5
@@ -212,15 +296,31 @@ playbooks:
   - control_id: P5-PRO-001
     phase: proactive
     summary: Review-queue prioritisation, notification limits and workload distribution.
+    validation:
+      status: guidance_only
+      evidence: []
+      limitation: null
   - control_id: P5-PRO-002
     phase: proactive
     summary: Explanation quality so a reviewer can judge without reconstructing context.
+    validation:
+      status: guidance_only
+      evidence: []
+      limitation: null
   - control_id: P5-REA-001
     phase: reactive
     summary: Detection of manipulation aimed at the human reviewer.
+    validation:
+      status: guidance_only
+      evidence: []
+      limitation: null
   - control_id: P5-DET-001
     phase: detective
     summary: Logging, override analysis and decision-reversal detection.
+    validation:
+      status: guidance_only
+      evidence: []
+      limitation: null
 - id: P6
   title: Securing Multi-Agent Communication & Trust Mechanisms
   decision_step: 6
@@ -232,15 +332,38 @@ playbooks:
   - control_id: P6-PRO-001
     phase: proactive
     summary: Authenticated inter-agent channels, trust scoring and segmentation.
+    validation:
+      status: validated
+      evidence:
+      - AUTHZ-002
+      limitation: null
   - control_id: P6-PRO-002
     phase: proactive
     summary: Consensus requirements and per-agent quotas.
+    validation:
+      status: partial
+      evidence:
+      - MAG-003
+      limitation: Consensus integrity is asserted; per-agent quotas and segmentation are not exercised.
   - control_id: P6-REA-001
     phase: reactive
     summary: Rogue-agent detection, isolation and credential revocation.
+    validation:
+      status: validated
+      evidence:
+      - MAG-006
+      - IR-004
+      - IR-011
+      limitation: null
   - control_id: P6-DET-001
     phase: detective
     summary: Interaction, delegation, reliability, override and execution-rate monitoring.
+    validation:
+      status: partial
+      evidence:
+      - IR-001
+      limitation: Breach alerting is asserted; delegation, override and execution-rate monitoring are
+        not.
 example_models:
 - id: enterprise-copilot
   title: Enterprise Co-Pilots
@@ -485,17 +608,21 @@ threats:
     validates_controls: []
   mitigation_validation:
   - control_id: P2-PRO-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - MEM-008
+    limitation: Cross-principal memory access control is asserted; content validation before write is
+      not separately exercised.
   - control_id: P2-REA-001
     status: guidance_only
     evidence: []
     limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
   - control_id: P2-DET-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - IR-003
+    limitation: Detective alerting on fabricated content is asserted; memory lineage, versioning and propagation
+      control are not.
   limitations:
   - No test asserts that poisoned memory altered a specific downstream decision; persistence and isolation
     are asserted, decision impact is not.
@@ -624,21 +751,32 @@ threats:
     validates_controls: []
   mitigation_validation:
   - control_id: P3-PRO-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - CP-002
+    - CP-004
+    - CP-006
+    - PTC-005
+    limitation: null
   - control_id: P3-PRO-002
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - PRV-012
+    - CVE-005
+    - SS-005
+    limitation: null
   - control_id: P3-REA-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - IR-002
+    limitation: Reactive escalation of harmful output is asserted; approval interception on tool misuse
+      is not exercised.
   - control_id: P3-DET-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - CVE-003
+    limitation: Supply-chain contamination is measured by a static pre-flight scan; no dynamic exhaustion
+      monitoring is asserted.
   limitations:
   - Coverage is strongest at the MCP tool layer; non-MCP tool interfaces are covered only via the enterprise
     adapters, which are target-specific.
@@ -766,37 +904,57 @@ threats:
     validates_controls: []
   mitigation_validation:
   - control_id: P3-PRO-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - CP-002
+    - CP-004
+    - CP-006
+    - PTC-005
+    limitation: null
   - control_id: P3-PRO-002
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - PRV-012
+    - CVE-005
+    - SS-005
+    limitation: null
   - control_id: P3-REA-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - IR-002
+    limitation: Reactive escalation of harmful output is asserted; approval interception on tool misuse
+      is not exercised.
   - control_id: P3-DET-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - CVE-003
+    limitation: Supply-chain contamination is measured by a static pre-flight scan; no dynamic exhaustion
+      monitoring is asserted.
   - control_id: P4-PRO-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - AUTHZ-001
+    - AUTH-001
+    - ID-002
+    - STD-002
+    limitation: null
   - control_id: P4-PRO-002
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - AUTH-002
+    - ID-003
+    limitation: null
   - control_id: P4-REA-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - AUTHZ-004
+    limitation: null
   - control_id: P4-DET-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - A2A-011
+    - ID-002
+    limitation: null
   limitations:
   - MEM-006 (Memory-Based Privilege Escalation) is a further candidate but is counted under T1 to avoid
     double-weighting the same run.
@@ -915,21 +1073,32 @@ threats:
     validates_controls: []
   mitigation_validation:
   - control_id: P3-PRO-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - CP-002
+    - CP-004
+    - CP-006
+    - PTC-005
+    limitation: null
   - control_id: P3-PRO-002
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - PRV-012
+    - CVE-005
+    - SS-005
+    limitation: null
   - control_id: P3-REA-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - IR-002
+    limitation: Reactive escalation of harmful output is asserted; approval interception on tool misuse
+      is not exercised.
   - control_id: P3-DET-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - CVE-003
+    limitation: Supply-chain contamination is measured by a static pre-flight scan; no dynamic exhaustion
+      monitoring is asserted.
   limitations:
   - The red-team oracle enforces a fixed 3-second time-to-detect target; a target that degrades slowly
     but does not breach that window will pass.
@@ -1040,17 +1209,21 @@ threats:
     validates_controls: []
   mitigation_validation:
   - control_id: P2-PRO-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - MEM-008
+    limitation: Cross-principal memory access control is asserted; content validation before write is
+      not separately exercised.
   - control_id: P2-REA-001
     status: guidance_only
     evidence: []
     limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
   - control_id: P2-DET-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - IR-003
+    limitation: Detective alerting on fabricated content is asserted; memory lineage, versioning and propagation
+      control are not.
   limitations:
   - No single test chains fabrication to propagation to a terminal decision - the defining behaviour of
     the threat.
@@ -1176,17 +1349,21 @@ threats:
     validates_controls: []
   mitigation_validation:
   - control_id: P1-PRO-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - INT-001
+    limitation: null
   - control_id: P1-REA-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - INT-004
+    limitation: null
   - control_id: P1-DET-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - AUDIT-001
+    - IR-006
+    limitation: null
   limitations:
   - The intent-contract harness assumes the target declares an intent contract; targets without one cannot
     be assessed by these tests.
@@ -1301,17 +1478,21 @@ threats:
     validates_controls: []
   mitigation_validation:
   - control_id: P1-PRO-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - INT-001
+    limitation: null
   - control_id: P1-REA-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - INT-004
+    limitation: null
   - control_id: P1-DET-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - AUDIT-001
+    - IR-006
+    limitation: null
   limitations:
   - 'No test observes unprompted misalignment: every case here is adversarially elicited.'
   - No test asserts that an agent accurately reported what it actually did, which is the repudiation-adjacent
@@ -1414,17 +1595,21 @@ threats:
     validates_controls: []
   mitigation_validation:
   - control_id: P1-PRO-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - INT-001
+    limitation: null
   - control_id: P1-REA-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - INT-004
+    limitation: null
   - control_id: P1-DET-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - AUDIT-001
+    - IR-006
+    limitation: null
   limitations:
   - Tests assert that a record exists and resists tampering; they do not assert that the record is sufficient
     for a forensic reconstruction.
@@ -1564,21 +1749,30 @@ threats:
     validates_controls: []
   mitigation_validation:
   - control_id: P4-PRO-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - AUTHZ-001
+    - AUTH-001
+    - ID-002
+    - STD-002
+    limitation: null
   - control_id: P4-PRO-002
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - AUTH-002
+    - ID-003
+    limitation: null
   - control_id: P4-REA-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - AUTHZ-004
+    limitation: null
   - control_id: P4-DET-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - A2A-011
+    - ID-002
+    limitation: null
   limitations:
   - Cryptographic identity binding is asserted only where the target implements it; targets using bearer
     identity are assessed against a weaker bar.
@@ -1743,21 +1937,32 @@ threats:
     validates_controls: []
   mitigation_validation:
   - control_id: P3-PRO-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - CP-002
+    - CP-004
+    - CP-006
+    - PTC-005
+    limitation: null
   - control_id: P3-PRO-002
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - PRV-012
+    - CVE-005
+    - SS-005
+    limitation: null
   - control_id: P3-REA-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - IR-002
+    limitation: Reactive escalation of harmful output is asserted; approval interception on tool misuse
+      is not exercised.
   - control_id: P3-DET-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - CVE-003
+    limitation: Supply-chain contamination is measured by a static pre-flight scan; no dynamic exhaustion
+      monitoring is asserted.
   limitations:
   - CREW-002 and CREW-010 are static pre-flight checks against a dependency's configuration, not live
     exploitation; they are labelled static_preflight for that reason.
@@ -1893,21 +2098,27 @@ threats:
     validates_controls: []
   mitigation_validation:
   - control_id: P6-PRO-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - AUTHZ-002
+    limitation: null
   - control_id: P6-PRO-002
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - MAG-003
+    limitation: Consensus integrity is asserted; per-agent quotas and segmentation are not exercised.
   - control_id: P6-REA-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - MAG-006
+    - IR-004
+    - IR-011
+    limitation: null
   - control_id: P6-DET-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - IR-001
+    limitation: Breach alerting is asserted; delegation, override and execution-rate monitoring are not.
   limitations:
   - RT-020 (MCP Replay Attack) is a further candidate but its expected_status was not resolvable from
     the mapping and it is not cited.
@@ -2012,21 +2223,27 @@ threats:
     validates_controls: []
   mitigation_validation:
   - control_id: P6-PRO-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - AUTHZ-002
+    limitation: null
   - control_id: P6-PRO-002
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - MAG-003
+    limitation: Consensus integrity is asserted; per-agent quotas and segmentation are not exercised.
   - control_id: P6-REA-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - MAG-006
+    - IR-004
+    - IR-011
+    limitation: null
   - control_id: P6-DET-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - IR-001
+    limitation: Breach alerting is asserted; delegation, override and execution-rate monitoring are not.
   limitations:
   - Guide v1.1 names 'infectious backdoors' - one compromised agent spreading malicious logic to others
     - as part of this threat. No test exercises agent-to-agent propagation of compromise; MAG-010 is the
@@ -2130,21 +2347,27 @@ threats:
     validates_controls: []
   mitigation_validation:
   - control_id: P6-PRO-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - AUTHZ-002
+    limitation: null
   - control_id: P6-PRO-002
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - MAG-003
+    limitation: Consensus integrity is asserted; per-agent quotas and segmentation are not exercised.
   - control_id: P6-REA-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - MAG-006
+    - IR-004
+    - IR-011
+    limitation: null
   - control_id: P6-DET-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - IR-001
+    limitation: Breach alerting is asserted; delegation, override and execution-rate monitoring are not.
   limitations:
   - All fixtures drive the attack from an external sender; an adversary already holding standing inside
     the system is not modelled. The guide does not require it, but the harder case is untested.
@@ -2332,41 +2555,56 @@ threats:
     - P3-PRO-002
   mitigation_validation:
   - control_id: P3-PRO-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - CP-002
+    - CP-004
+    - CP-006
+    - PTC-005
+    limitation: null
   - control_id: P3-PRO-002
     status: validated
     evidence:
-    - PRV-007
+    - PRV-012
+    - CVE-005
+    - SS-005
     limitation: null
   - control_id: P3-REA-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - IR-002
+    limitation: Reactive escalation of harmful output is asserted; approval interception on tool misuse
+      is not exercised.
   - control_id: P3-DET-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - CVE-003
+    limitation: Supply-chain contamination is measured by a static pre-flight scan; no dynamic exhaustion
+      monitoring is asserted.
   - control_id: P4-PRO-001
     status: validated
     evidence:
-    - MCP-004
-    - MCP-003
-    - A2A-002
+    - AUTHZ-001
+    - AUTH-001
+    - ID-002
+    - STD-002
     limitation: null
   - control_id: P4-PRO-002
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - AUTH-002
+    - ID-003
+    limitation: null
   - control_id: P4-REA-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - AUTHZ-004
+    limitation: null
   - control_id: P4-DET-001
     status: validated
     evidence:
     - A2A-011
+    - ID-002
     limitation: null
   limitations:
   - 'Consent-flow manipulation (T16-S1) is only partially covered: no test drives a user-facing consent
@@ -2514,28 +2752,32 @@ threats:
     validates_controls: []
   mitigation_validation:
   - control_id: P3-PRO-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: validated
+    evidence:
+    - CP-002
+    - CP-004
+    - CP-006
+    - PTC-005
+    limitation: null
   - control_id: P3-PRO-002
     status: validated
     evidence:
-    - PRV-011
     - PRV-012
-    - PRV-004
     - CVE-005
-    - SS-008
     - SS-005
     limitation: null
   - control_id: P3-REA-001
-    status: guidance_only
-    evidence: []
-    limitation: The harness does not exercise this control at the assessed commit; it is cited, not tested.
+    status: partial
+    evidence:
+    - IR-002
+    limitation: Reactive escalation of harmful output is asserted; approval interception on tool misuse
+      is not exercised.
   - control_id: P3-DET-001
-    status: validated
+    status: partial
     evidence:
     - CVE-003
-    limitation: null
+    limitation: Supply-chain contamination is measured by a static pre-flight scan; no dynamic exhaustion
+      monitoring is asserted.
   limitations:
   - Build-environment and model-weight compromise (T17-S2) are not exercised; coverage is tool-, skill-
     and registry-level.

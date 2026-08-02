@@ -102,6 +102,22 @@ def validate(check_reports: bool = True) -> list[str]:
         for c in p["controls"]:
             if c["phase"] not in PHASES:
                 fail("r3_phase", f"{c['control_id']}: phase {c['phase']!r}")
+            v = c.get("validation")
+            if not v:
+                fail("r14_control_validation", f"{c['control_id']} has no validation record")
+                continue
+            if v["status"] not in MITIGATION_STATUS:
+                fail("r14_status", f"{c['control_id']}: {v['status']!r}")
+            if v["status"] in {"validated", "partial"} and not v.get("evidence"):
+                fail("r14_validated",
+                     f"{c['control_id']} is {v['status']} with no executable evidence")
+            if v["status"] == "partial" and not v.get("limitation"):
+                fail("r11_limitation", f"{c['control_id']} is partial with no limitation")
+            if v["status"] == "guidance_only" and v.get("evidence"):
+                fail("r14_guidance", f"{c['control_id']} is guidance_only but cites evidence")
+            for tid in v.get("evidence") or []:
+                if tid not in _index():
+                    fail("r14_evidence_resolves", f"{c['control_id']} cites unknown test {tid}")
     if len(d.get("example_models", [])) != 3:
         fail("r3_examples", f"expected 3 example families, got {len(d.get('example_models', []))}")
     if not d.get("guide_manifest"):
