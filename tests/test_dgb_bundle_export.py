@@ -756,11 +756,18 @@ def test_paper_grounding_figure_matches_the_corpus():
         external |= {c.id for c in CORPUS if re.search(pattern, claim(c), re.I)}
     author_grounded = {c.id for c in CORPUS} - external
 
+    # LaTeX wraps at column ~78, so any occurrence may be split across lines at
+    # an arbitrary point -- including between the number and "of 52". Matching
+    # the raw text anchored on three hand-written variants missed the Limitations
+    # item, where the count sits on the line above. Flatten first, match once.
     text = PAPER.read_text(encoding="utf-8")
-    stated = re.findall(r"(\d+) of 52 cases lack\s+independent external corroboration", text)
-    stated += re.findall(r"(\d+) of 52\s+cases\s+lack independent external corroboration", text)
-    stated += re.findall(r"\\textbf\{(\d+) of 52 cases lack", text)
+    flat = re.sub(r"\s+", " ", text)
+    stated = re.findall(r"(\d+) of 52 cases lack independent external corroboration", flat)
     assert stated, "the paper no longer states the grounding figure in a parseable form"
+    assert len(stated) >= 4, (
+        f"expected the figure in the contributions list, corpus construction, "
+        f"limitations and threats sections; found {len(stated)}"
+    )
     for value in stated:
         assert int(value) == len(author_grounded), (
             f"paper says {value} of 52 lack external corroboration; the corpus has "
