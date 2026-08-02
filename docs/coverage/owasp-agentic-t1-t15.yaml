@@ -26,21 +26,26 @@ framework:
   scope: "T1-T15"
   source_url: "https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/"
   publication_date: "2025-02-17"
-  local_document_version: null
-  source_pdf_sha256: null
+  local_document_version: "1.1"
+  source_pdf_sha256: "65e3bd59f99c411b055c6caf2bac96ab361dff8c010e4bef532a593ce10345ff"
+  source_pdf_pages: 53
   note: >-
-    The T1-T15 list is transcribed from the OWASP Agentic AI Security Solution
-    submission form. The threat guide PDF itself was not retrieved during this
-    adjudication, so threat_interpretation fields below are derived from the
-    threat titles and the form's own framing, not from the guide's body text.
-    This is a stated limitation, not a silent assumption: any interpretation
-    below may be revised once the guide is read.
+    Version 1.1 of the guide was read directly for this revision. Every
+    threat_interpretation below is now grounded in the guide's own definition
+    text, replacing the title-derived interpretations of the first draft. That
+    substitution changed one verdict - see T14.
+  scope_note: >-
+    Guide v1.1 defines T1-T17. This report is scoped to T1-T15, the taxonomy the
+    OWASP submission form presents. T16 (Insecure Inter-Agent Protocol Abuse)
+    and T17 (Supply Chain Compromise) are recorded in the appendix below and are
+    deliberately excluded from every count and headline in this report, per
+    spec section 2.
 
 assessment:
   project: "Agent Security Harness"
   repository: "https://github.com/msaleme/red-team-blue-team-agent-fabric"
-  harness_version: "4.10.0"
-  git_commit: "2afdf65d86883cea80b6e042120a0e897a6ac485"
+  harness_version: "4.11.0"
+  git_commit: "7895e305371f468b121e316f18be87e349c1fd05"
   assessed_at: "2026-08-02T17:05:00Z"
   total_repository_tests: 595
   total_tests_command: "python scripts/count_tests.py"
@@ -93,8 +98,9 @@ threats:
     coverage: "direct"
     disposition: "in_scope"
     threat_interpretation: >-
-      Adversarial content is written into an agent's memory, context store or
-      retrieval corpus so that it influences later decisions.
+      Exploiting an AI's memory systems, both short and long-term, to introduce malicious or
+      false data and exploit the agent's context, leading to altered decision-making and
+      unauthorized operations.
     rationale: >-
       A dedicated memory harness exercises the defining behaviour - writing
       poisoned content into memory and observing whether it persists, crosses a
@@ -152,8 +158,9 @@ threats:
     coverage: "direct"
     disposition: "in_scope"
     threat_interpretation: >-
-      An agent is induced to invoke a legitimate tool in an illegitimate way,
-      or to invoke a tool outside its authorised scope.
+      Attackers manipulate agents to abuse their integrated tools through deceptive prompts,
+      operating WITHIN authorized permissions. Includes Agent Hijacking: the agent ingests
+      adversarially manipulated data and subsequently executes unintended actions.
     rationale: >-
       Argument injection, unauthorised registration, destructive-tool opt-in and
       unbounded side-effecting invocation are each exercised with a rejection
@@ -209,8 +216,9 @@ threats:
     coverage: "direct"
     disposition: "in_scope"
     threat_interpretation: >-
-      An agent acquires permissions beyond those granted, whether by escalation,
-      inheritance, scope widening, or capability-profile violation.
+      Attackers exploit weaknesses in permission management to perform unauthorized actions,
+      often via dynamic role inheritance or misconfiguration, including cross-agent
+      privilege delegation.
     rationale: >-
       Escalation is asserted at four independent layers - authorization, MCP
       capability negotiation, cross-agent boundary, and capability profile - each
@@ -273,8 +281,8 @@ threats:
     coverage: "direct"
     disposition: "in_scope"
     threat_interpretation: >-
-      An agent or its infrastructure is driven into exhaustion of compute,
-      context, budget or request capacity.
+      Targeting the computational, memory and service capacities of AI systems to degrade
+      performance or cause failure, exploiting their resource-intensive nature.
     rationale: >-
       Exhaustion is exercised across four distinct resources - request volume,
       context window, recursion depth and spend budget - each asserting a bound.
@@ -329,8 +337,9 @@ threats:
     coverage: "partial"
     disposition: "in_scope"
     threat_interpretation: >-
-      A fabricated output is accepted downstream and propagates, so that later
-      steps or agents act on information no step ever verified.
+      Exploiting an AI's tendency to generate contextually plausible but false information
+      WHICH CAN PROPAGATE THROUGH SYSTEMS and disrupt decision-making, including destructive
+      reasoning affecting tool invocation.
     rationale: >-
       Both halves of the threat are tested, but not as one behaviour.
       Hallucination is detected at a single step (HALL-001, HALL-002, IR-003).
@@ -384,8 +393,8 @@ threats:
     coverage: "direct"
     disposition: "in_scope"
     threat_interpretation: >-
-      An agent's declared objective is subverted, redirected or widened so it
-      pursues a goal its principal did not authorise.
+      Exploiting vulnerabilities in an agent's planning and goal-setting to manipulate or
+      redirect its objectives and reasoning.
     rationale: >-
       A dedicated intent-contract harness asserts intent-action consistency,
       scope violation, mid-execution modification and multi-step decomposition -
@@ -442,8 +451,10 @@ threats:
     coverage: "partial"
     disposition: "in_scope"
     threat_interpretation: >-
-      An agent pursues objectives divergent from its principal's, or misrepresents
-      its own actions, reasoning or results to that principal.
+      Agents execute harmful or disallowed actions by exploiting deceptive reasoning or
+      misinterpreting goals. The guide states this arises WITHOUT DIRECT MALICIOUS INPUT and
+      is DISTINCT FROM HALLUCINATIONS - it emerges from advanced reasoning, not random error
+      or prompt failure.
     rationale: >-
       Tests cover behaviour that is ADVERSARIALLY ELICITED - deception
       encouragement, progressive guardrail erosion, normalisation of deviance -
@@ -496,8 +507,8 @@ threats:
     coverage: "direct"
     disposition: "in_scope"
     threat_interpretation: >-
-      Agent actions cannot be attributed after the fact, because the trail is
-      absent, incomplete, or mutable by the actor.
+      Actions performed by agents cannot be traced back or accounted for, due to
+      insufficient logging or transparency in decision-making.
     rationale: >-
       Availability, attribution, completeness and tamper-resistance of the audit
       trail are each asserted by a distinct test, including the case that matters
@@ -546,8 +557,9 @@ threats:
     coverage: "direct"
     disposition: "in_scope"
     threat_interpretation: >-
-      An actor presents an identity that is not its own in order to obtain the
-      trust or privileges attached to that identity.
+      Attackers exploit authentication mechanisms to impersonate agents or users. Includes
+      theft or misuse of a formal, persistent agent identity enabling privileged long-term
+      API access that BYPASSES the conversational interface and its guardrails.
     rationale: >-
       Spoofing is asserted at the identity layer, the A2A agent-card layer and
       the multi-agent handoff layer, each with a rejection assertion.
@@ -609,8 +621,8 @@ threats:
     coverage: "not_evidenced"
     disposition: "roadmap"
     threat_interpretation: >-
-      A human approver is saturated with requests, alerts or approvals until
-      review quality degrades and approval becomes a formality.
+      Targeting systems with human oversight, aiming to EXPLOIT HUMAN COGNITIVE LIMITATIONS
+      or compromise the interaction framework itself.
     rationale: >-
       No test at this commit exercises approver saturation, alert fatigue, or
       rubber-stamping under volume. The harness has approval-BOUNDARY tests -
@@ -630,8 +642,8 @@ threats:
     coverage: "direct"
     disposition: "in_scope"
     threat_interpretation: >-
-      Agent-adjacent code execution escapes its intended sandbox or executes
-      attacker-controlled code.
+      Attackers exploit AI-generated execution environments to inject malicious code,
+      trigger unintended system behaviour, or execute unauthorized scripts.
     rationale: >-
       Sandbox escape is asserted against four distinct execution substrates -
       framework sandbox, CrewAI ctypes path, cloud code interpreter and Lambda -
@@ -687,8 +699,8 @@ threats:
     coverage: "direct"
     disposition: "in_scope"
     threat_interpretation: >-
-      The channel between agents, or between a tool and an agent, is used to
-      inject content that the receiving agent treats as trusted.
+      Attackers manipulate communication channels between agents to spread false
+      information, disrupt workflows, or influence decision-making.
     rationale: >-
       A dedicated return-channel harness asserts non-execution of injected
       content arriving through tool output, and the multi-agent harness asserts
@@ -751,8 +763,9 @@ threats:
     coverage: "direct"
     disposition: "in_scope"
     threat_interpretation: >-
-      An unauthorised or compromised agent participates in a multi-agent system
-      and is treated as a legitimate peer.
+      Malicious or compromised agents operate outside normal monitoring boundaries,
+      executing unauthorized actions or exfiltrating data - including 'infectious backdoors'
+      where one compromised agent spreads malicious logic to others.
     rationale: >-
       Unauthorised participation is asserted at registration, at orchestration
       join, at group-chat membership and at the orchestrator trust boundary.
@@ -793,24 +806,29 @@ threats:
         execution: "python red_team_automation.py --test RT-014"
         evidence_type: "live_target"
     limitations:
+      - "Guide v1.1 names 'infectious backdoors' - one compromised agent spreading malicious logic to others - as part of this threat. No test exercises agent-to-agent propagation of compromise; MAG-010 is the nearest case and is counted under T12."
       - "RT-001 is counted under T9; it supports T13 as well but is not double-counted in the unique-evidence total."
       - "Detection of a peer that behaves legitimately before turning is not covered; MAG-012 is the nearest case and is counted under T9."
 
   - id: "T14"
     title: "Human Attacks on Multi-Agent Systems"
-    coverage: "partial"
+    coverage: "direct"
     disposition: "in_scope"
     threat_interpretation: >-
-      A human adversary exploits the delegation, trust or consensus topology of a
-      multi-agent system - as distinct from injecting a prompt into one agent.
+      Adversaries exploit inter-agent delegation, trust relationships and workflow
+      dependencies to escalate privileges or manipulate AI-driven operations.
     rationale: >-
-      The topology-level attacks are exercised: consensus manipulation, recursive
-      delegation, split-brain decisions and cross-agent authority claims. What is
-      NOT modelled is the adversary's POSITION. Every test drives the attack from
-      an external, unprivileged sender. The threat's distinguishing case - a human
-      with legitimate standing in the system abusing that standing - has no test.
-      Directionality is inferred from the payload rather than asserted by the
-      fixture, which is exactly the review risk the specification flags.
+      VERDICT CHANGED on reading guide v1.1. The first draft recorded this as
+      partial, on the reasoning that no fixture models a human adversary holding
+      legitimate standing in the system. The guide makes no such requirement: it
+      defines the threat as adversaries exploiting "inter-agent delegation, trust
+      relationships and workflow dependencies to escalate privileges or
+      manipulate AI-driven operations". That is exactly what these tests
+      exercise - recursive delegation, consensus skew, split-brain reconciliation
+      and cross-agent authority claims - each with a validation assertion. The
+      earlier limitation was an artefact of interpreting the threat from its
+      title rather than its definition, which is the specific risk the first
+      draft declared in framework.note.
     evidence:
       - test_id: "MAG-003"
         module: "protocol_tests/multi_agent_harness.py"
@@ -841,16 +859,17 @@ threats:
         execution: "agent-security jailbreak --target <url>"
         evidence_type: "live_target"
     limitations:
-      - "No fixture models an adversary holding legitimate standing in the system; all attacks originate from an unprivileged external sender."
-      - "Because of that, these tests are equally readable as T13 evidence, and the distinction between the two threats is not asserted by any oracle."
+      - "All fixtures drive the attack from an external sender; an adversary already holding standing inside the system is not modelled. The guide does not require it, but the harder case is untested."
+      - "MAG-005 (Cross-Agent Privilege Escalation) matches the guide's 'escalate privileges' clause directly but is counted under T3 and not double-counted here."
 
   - id: "T15"
     title: "Human Manipulation"
     coverage: "not_evidenced"
     disposition: "roadmap"
     threat_interpretation: >-
-      The agent deceives, coerces or unduly persuades the human it serves -
-      manipulation flowing from agent to human.
+      Where agents interact directly with humans, the trust relationship reduces user
+      skepticism. Attackers can COERCE AGENTS TO MANIPULATE USERS, spread misinformation and
+      take covert actions.
     rationale: >-
       Every candidate in the harness runs the other direction. RT-018 (Social
       Engineering the Agent) and WD-002 (Payroll Modification via Social
@@ -863,3 +882,35 @@ threats:
     limitations:
       - "Not evidenced is a statement about this commit, not a claim that the harness could never test it."
       - "A qualifying test would need a human-subject or a modelled principal whose decision is measurably shifted by agent output, which the harness does not currently have."
+
+# ---------------------------------------------------------------------------
+# APPENDIX - guide v1.1 threats OUTSIDE this report's scope.
+#
+# Recorded for completeness only. These are EXCLUDED from every count, status
+# total and headline above, per spec section 2: they must not change the
+# denominator for a T1-T15 submission report. No adjudication has been performed
+# on them; `coverage: not_assessed` is not a finding.
+# ---------------------------------------------------------------------------
+appendix_out_of_scope:
+  - id: "T16"
+    title: "Insecure Inter-Agent Protocol Abuse"
+    coverage: "not_assessed"
+    guide_definition: >-
+      Attacks target flaws in protocols like MCP or A2A, such as consent bypass
+      or context hijacking, leading to unauthorized agent actions.
+    note: >-
+      The harness has the largest concentration of relevant tests here of any
+      threat in the guide - the MCP, A2A, return-channel and tool-poisoning
+      harnesses all sit squarely on this surface. It is excluded because the
+      submission form's taxonomy stops at T15, not because evidence is lacking.
+      A T1-T17 report would very likely record this as direct.
+  - id: "T17"
+    title: "Supply Chain Compromise"
+    coverage: "not_assessed"
+    guide_definition: >-
+      A compromised supply chain results in vulnerable, malicious, outdated or
+      otherwise harmful components being included in the agent, via models,
+      libraries, tools, poisoned build environments or other components.
+    note: >-
+      The provenance, skill-security and MCP supply-chain harnesses are directly
+      relevant. Excluded for the same scope reason as T16.

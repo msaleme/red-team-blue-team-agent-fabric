@@ -182,3 +182,35 @@ jobs:
               sys.exit(1)
           print(f'All {len(method_ids)} test IDs are unique across methods')
           "
+
+  owasp-coverage:
+    name: OWASP T1-T15 coverage mapping
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pyyaml pytest
+
+      # Spec 3.4: fail when a mapped test id no longer exists, a module path is
+      # wrong, a threat entry is missing, a direct entry has no executable
+      # evidence, metadata is absent, counts are hand-entered, or the canonical
+      # test count disagrees.
+      - name: Validate the coverage mapping
+        run: python scripts/validate_owasp_t1_t15_mapping.py
+
+      # Spec 3.4: fail when the committed report differs from generated output.
+      # The validator already checks this; regenerating proves it is idempotent
+      # and that the generator itself still runs.
+      - name: Report is reproducible from the mapping
+        run: |
+          python scripts/generate_owasp_t1_t15_report.py
+          git diff --exit-code -- docs/OWASP-AGENTIC-T1-T15-COVERAGE.md
+
+      - name: Coverage mapping tests
+        run: python -m pytest tests/test_owasp_t1_t15_mapping.py -q

@@ -2,10 +2,12 @@
 
 **595 security tests across 43 modules** on `main` (verified 2026-07-25 by `scripts/count_tests.py`)
 
+See also: **[OWASP Agentic AI T1–T15 Test Coverage Report](OWASP-AGENTIC-T1-T15-COVERAGE.md)** — per-threat evidence mapping with direct/partial/not-evidenced status, generated from `coverage/owasp-agentic-t1-t15.yaml`.
+
 > **Canonical figures (verified 2026-07-25).** Main branch: 595 test IDs across
 > 43 test-bearing modules in `protocol_tests/` (files with no `test_id` — CLI,
 > helpers, telemetry, registry — are not counted as modules). `main`'s
-> `pyproject.toml` is at `agent-security-harness` v4.10.0 (595 tests); PyPI
+> `pyproject.toml` is at `agent-security-harness` v4.11.0 (595 tests); PyPI
 > itself will show this version once the release is published (see
 > `CHANGELOG.md`). Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: 19 of
 > 20 testable requirements (95%). Research: 5 public Zenodo preprints (not
