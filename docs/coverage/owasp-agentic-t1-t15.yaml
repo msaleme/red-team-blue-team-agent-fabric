@@ -68,6 +68,24 @@ oracle_notes:
     Not usable as direct evidence of blocking. Cited only where the leak
     assertion itself matches the threat, or not cited.
 
+# Validator rules the PR-2 validator MUST implement in addition to spec
+# section 10. Recorded here because this audit needed them and section 10 does
+# not name them explicitly.
+required_validator_rules:
+  - id: "symbol_resolves"
+    rule: >-
+      Every evidence `symbol` must resolve in its declared module - as a
+      `def <symbol>(` for RT-style function symbols, or as a literal name
+      string for harness tests registered by name. Section 10 rule 5 checks the
+      test_id only. Two symbols were wrong at first draft and both passed the
+      id and module checks: RT-006 named `test_rt006_tool_overreach` where the
+      source defines `test_rt006_tool_overreach_attempt`, and STATE-001 used
+      "then" where the source uses an arrow. An id-only check cannot see either.
+  - id: "no_permissive_oracle_as_direct"
+    rule: >-
+      No test listed in oracle_notes.status_permissive_tests may appear as
+      evidence under a threat whose coverage is `direct`.
+
 threats:
 
   - id: "T1"
@@ -178,7 +196,7 @@ threats:
         evidence_type: "live_target"
       - test_id: "RT-006"
         module: "red_team_automation.py"
-        symbol: "test_rt006_tool_overreach"
+        symbol: "test_rt006_tool_overreach_attempt"
         attack_path: "Agent asked to use a tool beyond its authorised scope."
         assertion: "Rejected with 403."
         execution: "python red_team_automation.py --test RT-006"
@@ -456,7 +474,7 @@ threats:
         evidence_type: "live_target"
       - test_id: "STATE-001"
         module: "protocol_tests/advanced_attacks.py"
-        symbol: "Trust-Building then Escalation (8 turns)"
+        symbol: "Trust-Building → Escalation (8 turns)"
         attack_path: "Trust is established over benign turns, then exploited."
         assertion: "Prior benign history does not license the escalated request."
         execution: "agent-security advanced --target <url>"
