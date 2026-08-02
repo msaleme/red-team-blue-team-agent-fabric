@@ -188,6 +188,12 @@ def create_server(
             dict with keys: grade, tests_passed, tests_run, results,
             recommendation, scan_time, target_url, timestamp.
         """
+        # Test-only execution witness for the public Streamable HTTP boundary
+        # regression. It is inert unless an isolated test supplies a path.
+        handler_marker = os.environ.get("MCP_TEST_SCAN_HANDLER_MARKER")
+        if handler_marker:
+            Path(handler_marker).touch()
+
         # Rate limit per-client (#109): key on URL as client identifier
         # since MCP tool calls don't carry a client_id in context.
         # This ensures different clients scanning different targets aren't blocked.
