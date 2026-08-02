@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`auto` mode silently downgraded every final-spec server to the legacy
+  handshake.** `_is_unsupported_protocol_version_error` matched only `-32004`,
+  the code the 2026-07-28 *release candidate* used for
+  `UnsupportedProtocolVersion`. The final specification adds an error-code
+  allocation policy — `-32000..-32019` implementation-defined and grandfathered,
+  `-32020..-32099` reserved for the spec — and renumbers the codes introduced in
+  the draft: `HeaderMismatch` `-32001` → `-32020`,
+  `MissingRequiredClientCapability` `-32003` → `-32021`,
+  `UnsupportedProtocolVersion` `-32004` → `-32022`
+  ([changelog, minor change 12](https://modelcontextprotocol.io/specification/2026-07-28/changelog)).
+
+  Against a server built to the final spec the guard returned `False`, `auto`
+  mode read the version rejection as evidence of a legacy server, and sent
+  `initialize` — the handshake the spec removed. The suite then reported on a
+  protocol the server had explicitly refused.
+
+  Both codes are now accepted: `-32022` is the standard, `-32004` is what RC-era
+  servers still emit. The check stays exact rather than matching the reserved
+  range, because `-32020` and `-32021` are adjacent and a range would suppress
+  legacy fallbacks that should happen.
+
+  Shipped in 4.10.0. Every existing fixture pinned the RC code, so the suite
+  stayed green throughout — a test that exercises only the deprecated value
+  cannot detect that the standard one is unhandled.
+
 ## [4.10.0] - 2026-07-25
 
 ### Fixed

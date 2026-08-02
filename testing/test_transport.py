@@ -18,6 +18,8 @@ from protocol_tests.mcp_harness import (
     _replace_handle,
     _replace_task_id,
     _is_unsupported_protocol_version_error,
+    UNSUPPORTED_PROTOCOL_VERSION_CODE,
+    UNSUPPORTED_PROTOCOL_VERSION_CODE_RC,
     MCPTransport,
     report_has_failure,
     StreamableHTTPTransport,
@@ -125,6 +127,46 @@ class TestTransport(unittest.TestCase):
         self.assertEqual(response["error"]["code"], -32004)
         self.assertTrue(_is_unsupported_protocol_version_error(response))
 
+    def test_http_error_preserves_final_spec_version_error(self):
+        """The FINAL 2026-07-28 code, which the RC-only tests could not see.
+
+        The spec's error-code allocation policy renumbered
+        UnsupportedProtocolVersion -32004 -> -32022 (changelog, minor change 12).
+        Every fixture here pinned the RC code, so the suite stayed green while
+        the harness mis-read every compliant server. A test that exercises only
+        the deprecated value cannot detect that the standard one is unhandled.
+        """
+        transport = StreamableHTTPTransport("http://localhost:8080", protocol_version=MODERN_PROTOCOL_VERSION)
+        error_body = b'{"jsonrpc":"2.0","id":"discover","error":{"code":-32022,"message":"Unsupported protocol version","data":{"supported":["2026-07-28"],"requested":"1900-01-01"}}}'
+        http_error = urllib.error.HTTPError(
+            "http://localhost:8080", 400, "Bad Request", {}, io.BytesIO(error_body)
+        )
+        with patch("protocol_tests.mcp_harness.urllib.request.urlopen", side_effect=http_error):
+            response = transport.send(jsonrpc_request("server/discover", {}))
+        self.assertEqual(response["_status"], 400)
+        self.assertEqual(response["error"]["code"], -32022)
+        self.assertTrue(_is_unsupported_protocol_version_error(response))
+
+    def test_version_error_codes_are_named_not_inlined(self):
+        """Pin both constants so a future renumber is a deliberate edit."""
+        self.assertEqual(UNSUPPORTED_PROTOCOL_VERSION_CODE, -32022)
+        self.assertEqual(UNSUPPORTED_PROTOCOL_VERSION_CODE_RC, -32004)
+
+    def test_unrelated_server_errors_are_not_version_rejections(self):
+        """-32020..-32099 is spec-reserved; only the version code may match here.
+
+        HeaderMismatch (-32020) and MissingRequiredClientCapability (-32021) sit
+        adjacent to the version code. Widening the check to a range would swallow
+        both and suppress a legacy fallback that should happen.
+        """
+        for code in (-32020, -32021, -32600, -32602, -32000):
+            self.assertFalse(
+                _is_unsupported_protocol_version_error(
+                    {"_status": 400, "error": {"code": code}}
+                ),
+                f"{code} must not be read as a protocol-version rejection",
+            )
+
 
 class _AutoTransport(MCPTransport):
     def __init__(self, modern_response):
@@ -177,6 +219,27 @@ class TestProtocolAutoSelection(unittest.TestCase):
         self.assertFalse(suite.initialize())
         self.assertEqual(transport.protocol_version, MODERN_PROTOCOL_VERSION)
         self.assertEqual([message["method"] for message in transport.sent], ["server/discover"])
+
+    def test_auto_does_not_fallback_on_final_spec_version_rejection(self):
+        """The regression that shipped in v4.10.0.
+
+        Against a server built to the final spec, `_is_unsupported…` returned
+        False, auto mode read the rejection as "this must be a legacy server",
+        and sent `initialize` — silently downgrading a stateless probe to the
+        handshake the spec removed. The suite reported on the wrong protocol.
+        """
+        transport = _AutoTransport({
+            "_status": 400,
+            "error": {"code": -32022, "message": "Unsupported protocol version", "data": {"supported": ["2026-07-28"], "requested": "1900-01-01"}},
+        })
+        suite = MCPSecurityTests(transport, json_output=True)
+        self.assertFalse(suite.initialize())
+        self.assertEqual(transport.protocol_version, MODERN_PROTOCOL_VERSION)
+        self.assertEqual(
+            [message["method"] for message in transport.sent],
+            ["server/discover"],
+            "a final-spec version rejection must not trigger the legacy handshake",
+        )
 
 
 class TestDifferentialReport(unittest.TestCase):
