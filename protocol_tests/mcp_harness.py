@@ -104,18 +104,40 @@ def _sanitize_url(url: str) -> str:
     return url
 
 
+# UnsupportedProtocolVersion moved between the release candidate and the final
+# 2026-07-28 specification. The final revision adds an error-code allocation
+# policy -- -32000..-32019 stays implementation-defined and grandfathered,
+# -32020..-32099 is reserved for the spec -- and renumbers the codes introduced
+# in the draft: HeaderMismatch -32001 -> -32020, MissingRequiredClientCapability
+# -32003 -> -32021, UnsupportedProtocolVersion -32004 -> -32022.
+# See the changelog, "Minor changes" item 12:
+# https://modelcontextprotocol.io/specification/2026-07-28/changelog
+#
+# Both are accepted on purpose. -32022 is the standard; -32004 is what RC-era
+# servers still in the wild emit, and treating one of them as "not a version
+# error" is worse than accepting both -- it silently downgrades a stateless
+# probe to a legacy handshake.
+UNSUPPORTED_PROTOCOL_VERSION_CODE = -32022
+UNSUPPORTED_PROTOCOL_VERSION_CODE_RC = -32004
+
+
 def _is_unsupported_protocol_version_error(response: object) -> bool:
     """Return whether an HTTP discovery response rejects the modern version.
 
-    The 2026-07-28 RC reserves JSON-RPC code -32004 for
-    ``UnsupportedProtocolVersionError``.  In auto mode that is an explicit
-    modern-protocol response, not evidence of a legacy server, so falling back
-    to ``initialize`` would violate the stateless negotiation path.
+    In auto mode this is an explicit modern-protocol response, not evidence of a
+    legacy server, so falling back to ``initialize`` would violate the stateless
+    negotiation path. Reading only the RC code made exactly that happen against
+    any server built to the final spec.
     """
     if not isinstance(response, dict) or response.get("_status") != 400:
         return False
     error = response.get("error")
-    return isinstance(error, dict) and error.get("code") == -32004
+    if not isinstance(error, dict):
+        return False
+    return error.get("code") in (
+        UNSUPPORTED_PROTOCOL_VERSION_CODE,
+        UNSUPPORTED_PROTOCOL_VERSION_CODE_RC,
+    )
 
 
 def _json_path(value: object, path: str) -> object | None:
