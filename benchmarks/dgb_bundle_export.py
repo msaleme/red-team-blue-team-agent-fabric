@@ -261,23 +261,29 @@ def _executable_test_link(case, tests: dict[str, dict]) -> dict:
                 "something else (a harness, or several ids)"
             ),
         }
-    agrees = entry["owasp_asi"] == case.owasp_asi if entry["owasp_asi"] else None
+    test_asi = entry["owasp_asi"]
+    agrees = test_asi == case.owasp_asi if test_asi else None
+    if agrees is True:
+        note = ""
+    elif agrees is False:
+        note = (
+            f"case is {case.owasp_asi}; the named test is "
+            f"{test_asi} ({entry['name']}) — check the mapping"
+        )
+    else:
+        note = (
+            "the named test has no harvested OWASP ASI category; "
+            "its category relationship to this case is unknown"
+        )
     return {
         "names": named,
         "resolves_to_a_test": True,
         "test_name": entry["name"],
-        "test_owasp_asi": entry["owasp_asi"],
+        "test_owasp_asi": test_asi,
         "test_category": entry["category"],
         "defined_in": entry["defined_in"],
         "owasp_asi_agrees": agrees,
-        "note": (
-            ""
-            if agrees
-            else (
-                f"case is {case.owasp_asi}; the named test is "
-                f"{entry['owasp_asi']} ({entry['name']}) — check the mapping"
-            )
-        ),
+        "note": note,
     }
 
 

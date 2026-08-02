@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -169,6 +170,7 @@ def test_flagged_and_still_as_audited_is_derived(bundle):
         1
         for c in bundle["cases"]
         if not c["grounding"]["source_revised_since_audit"]
+        and not c["grounding"]["repaired_in_response_to_audit"]
         and (c["grounding"]["evidence_fit"] == "none" or c["grounding"]["record_defect"] != "—")
     )
     assert bundle["grounding_currency"]["flagged_and_still_as_audited"] == n
@@ -283,6 +285,26 @@ def test_linkage_does_not_overclaim_coverage(bundle):
     note = bundle["executable_test_linkage"]["note"]
     assert "has never asserted that" in note
     assert "not a finding on its own" in note
+
+
+def test_linkage_marks_missing_asi_as_unknown_not_a_disagreement():
+    from benchmarks.dgb_bundle_export import _executable_test_link
+
+    link = _executable_test_link(
+        SimpleNamespace(executable_test="MCP-999", owasp_asi="ASI01"),
+        {
+            "MCP-999": {
+                "name": "Synthetic test without ASI metadata",
+                "owasp_asi": None,
+                "category": "synthetic",
+                "defined_in": "protocol_tests/synthetic.py",
+            }
+        },
+    )
+
+    assert link["owasp_asi_agrees"] is None
+    assert "unknown" in link["note"]
+    assert "check the mapping" not in link["note"]
 
 
 def test_limitations_do_not_present_audited_figures_as_current(bundle):
