@@ -211,11 +211,36 @@ def test_source_inconsistencies_are_disclosed_with_verification_state(mapping):
 
 
 def test_t10_and_t15_not_promoted_without_qualifying_tests(mapping):
-    for tid in ("T10", "T15"):
+    """Spec 17: neither may rise above not_evidenced without a real test.
+
+    Both are now `partial`, on HITL-* evidence. The bar the spec sets is not
+    "some test exists" but a qualifying one, so this checks the shape of the
+    evidence: T10 must have reviewer-overload tests, T15 must run agent-to-human,
+    and neither may claim `direct` while no human is modelled.
+    """
+    for tid, need in (("T10", "T10"), ("T15", "T15")):
         t = next(x for x in mapping["threats"] if x["id"] == tid)
-        assert t["coverage"] == "not_evidenced", (
-            f"{tid} was promoted. T10 needs reviewer-overload or trust-degradation evidence; "
-            "T15 needs agent-to-human manipulation. Re-read spec section 17 first.")
+        if t["coverage"] == "not_evidenced":
+            assert not t["evidence"]
+            continue
+        assert t["coverage"] == "partial", (
+            f"{tid} claims {t['coverage']}. No human subject is modelled, so the "
+            "defining behaviour cannot be fully evidenced; direct is not available.")
+        assert t["evidence"], f"{tid} was promoted with no evidence"
+        assert all(e["module"].endswith("hitl_harness.py") for e in t["evidence"]), (
+            f"{tid} evidence must come from the HITL harness built for it")
+        joined = " ".join(t["limitations"]).lower()
+        assert "no human" in joined, (
+            f"{tid} must state that no human is modelled - that is the whole boundary")
+
+
+def test_t15_evidence_runs_agent_to_human(mapping):
+    """A human->agent test is evidence for a different threat, not this one."""
+    t = next(x for x in mapping["threats"] if x["id"] == "T15")
+    for e in t.get("evidence") or []:
+        assert e["direction"] == "agent -> human", (
+            f"{e['test_id']} runs {e['direction']!r}; T15 requires agent -> human")
+        assert "RT-018" != e["test_id"], "RT-018 is human->agent and cannot evidence T15"
 
 
 def test_t16_and_t17_are_not_in_the_submitted_form_view(mapping):

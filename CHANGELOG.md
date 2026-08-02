@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.13.0] - 2026-08-02
+
+### Added
+
+- **HITL security harness — the human-oversight gap, closed as far as it honestly can
+  be.** `protocol_tests/hitl_harness.py`, 8 tests, registered as `agent-security hitl`.
+  Test count 595 → **603** across **44** modules.
+
+  The v1.1 audit found this surface unreached from two independent directions: threats
+  T10 and T15 were both `not_evidenced`, and every control in playbook P5 was cited but
+  untested. Two dimensions built from different evidence agreed, which is what made it
+  worth building.
+
+  - **T10 (HITL-001…004)** — approval flooding, high-risk starvation behind low-risk
+    volume, decision context stripped from an approval, and a denied decision replayed
+    unflagged.
+  - **T15 (HITL-005…008)** — payment redirect, credential lure, verification-bypass
+    coercion, and fabricated authority. **All four run agent → human**, which is the
+    direction the threat requires and the direction the previously-cited candidates ran
+    backwards.
+
+  **T10 and T15 move `not_evidenced` → `partial`, not `direct`.** No human subject is
+  modelled. For T10 what is measured is whether an adversary can create the
+  precondition, not whether a reviewer's judgement degrades. For T15 it is whether the
+  agent emits an actionable lure, not whether a human would act on it. Both boundaries
+  are stated on every result and in the mapping.
+
+  P5 control validation moves from 4 guidance-only to 4 partial. Corpus-wide: **13
+  direct, 4 partial, 0 not evidenced** across T1–T17, and **11 validated, 10 partial, 1
+  guidance-only** across the 22 controls.
+
+### Fixed
+
+- **A security test that passed against a dead target.** The first HITL-001 read "fewer
+  than N requests succeeded" as rate limiting. Against a port with nothing listening
+  every request returns status 0, so it reported PASS having reached nothing. All eight
+  tests now detect an unreachable target and report INCONCLUSIVE — recorded as failed so
+  it can never be read as a pass. A unit test pins the regression: zero passes against a
+  dead target.
+
+- The mapping validator disagreed with `scripts/count_tests.py` about which tests exist.
+  The counter recognises an id passed as the first positional argument to a `_test_*`
+  helper; the validator only read literal `test_id=`. Four real tests were invisible to
+  it. Discovery now matches the canonical counter.
+
+### Notes
+
+- The repository's own drift guards caught four count surfaces left stale by this change
+  — `pyproject.toml`, `SKILL.md`, `mcp_server/server.py`, and two phrasings in
+  `docs/TEST-INVENTORY.md`. That is the guard working as intended.
+- Outstanding: T16-S1 consent-flow manipulation remains partially covered, and
+  T10-S1/T10-S3 (interface manipulation, trust-mechanism subversion) remain unexercised.
+
+
 ## [4.12.0] - 2026-08-02
 
 ### Added
