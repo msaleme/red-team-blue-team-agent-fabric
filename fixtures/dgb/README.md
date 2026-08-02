@@ -52,28 +52,70 @@ bundle's `grounding_currency` block gives the split.
 | Currency | Cases |
 |---|---|
 | Source text **unchanged** since the audit — verdict still describes what you are reading | 20 |
-| Source text **revised** after the audit for reasons of its own — verdict is stale, **not re-adjudicated** | 25 |
-| **Repaired** on 2026-08-02 because the audit's finding was accepted | **7** |
-| Carrying a defect verdict **and** still unrevised — the ones to look at first | **0** |
+| Source text **revised** after the audit, then **re-adjudicated** on 2026-08-02 | 24 |
+| **Repaired** because the audit's finding was accepted | **8** |
+| Carrying a defect verdict **and** still unrevised | **0** |
+| Revised but never looked at again | **0** |
 
-**Read that last row with the one above it.** It is zero because the seven cases
-that held it were repaired, not because nothing was wrong. Those seven are
-`DBC-014`, `DBC-016`, `DBC-031`, `DBC-038`, `DBC-039`, `DBC-040` and `DBC-044`;
-each cited a published source that does not cover it. The citation was withdrawn
-and each now reads `Author-constructed: no external source located …`, carrying a
-`NOTE:` naming what it used to claim and what the audit found.
+**Read those last rows together.** The zero is not "nothing was wrong". Eight
+cases cited a published source that does not cover them; the citations were
+withdrawn. Seven — `DBC-014`, `DBC-016`, `DBC-031`, `DBC-038`, `DBC-039`,
+`DBC-040`, `DBC-044` — lost every form of support and now read
+`Author-constructed: no external source located …`. The eighth, `DBC-026`, lost
+only the external half of a compound citation and still rests on an internal run.
 
 Repair here means **a false claim was removed, not that support was found.**
-Those seven have no external corroboration and say so. `grounding.provenance`
-still reads `external` for them because it is the audit's transcription of the
-claim as it stood when audited; `grounding.provenance_after_repair` records what
-is true now. The audit row is not rewritten — re-adjudicating it would be the
-same author grading his own correction.
+`grounding.provenance` still reads as the audit transcribed it, because that is a
+record of the claim as it stood; `grounding.provenance_after_repair` records what
+is true now.
 
-A stale verdict is not evidence of a current defect, and a revision is not
-evidence of a verified repair. Re-adjudicating the 25 revised cases against
-their new text is outstanding work, and this file says so rather than picking
-whichever reading is more flattering.
+## Re-adjudication (2026-08-02)
+
+The audit read the corpus at `6c5d617`. A remediation pass landed the next day
+and revised 25 source fields, so for half the corpus the recorded verdict
+described text that no longer existed. Those 25 have now been re-read against
+their **current** wording, and where that wording names an external source, the
+source itself was re-fetched rather than trusting the audit's transcription.
+
+| After re-adjudication | Cases |
+|---|---|
+| `external — verified` — source re-read, current text supported by it | 8 |
+| `internal — unpublished` — rests on an internal run whose data is not published | 12 |
+| `internal — inspectable` — rests on an artifact present in this repo | 3 |
+| `external — partial` — source supports the class, not the case's specifics | 2 |
+| `none — outstanding` — a defect still live after this pass | 0 |
+
+`outstanding` is empty, and `found_defective_by_this_pass` names `DBC-026` — one
+defect found and repaired inside this pass. Those two fields are reported
+together on purpose: an empty outstanding list on its own reads as *we looked and
+found nothing*, which is the opposite of what happened.
+
+Sources re-read: [Berkeley RDI](https://rdi.berkeley.edu/blog/trustworthy-benchmarks/),
+[OX Security](https://www.ox.security/blog/mcp-supply-chain-advisory-rce-vulnerabilities-across-the-ai-ecosystem/),
+[CVE-2026-35625](https://nvd.nist.gov/vuln/detail/CVE-2026-35625),
+[CVE-2026-35629](https://nvd.nist.gov/vuln/detail/CVE-2026-35629),
+[METR](https://metr.org/blog/2025-06-05-recent-reward-hacking/),
+[AI Incident Database 1442](https://incidentdatabase.ai/cite/1442/).
+
+Two cases the audit had left *provisional* purely for want of a locator —
+`DBC-007` (Kiro/Amazon) and `DBC-050` (METR) — are now verified against the
+source and carry one. Every case marked `external — verified` names a URL or CVE
+you can follow; a test enforces that, because "verified" with nothing to check is
+just a stronger word for "asserted".
+
+**`DBC-026` is the finding this pass produced that the currency machinery could
+not.** Its source cited an internal run *and* OX Security. Revising the internal
+half changed the case's source digest, which marked the whole case "revised" and
+moved it out of the flagged bucket — while the OX half sat untouched and
+disproved. A compound citation defeats a per-case digest. Re-reading the advisory
+confirmed it does not cover cross-agent or cross-session memory contamination,
+and the external half is now withdrawn.
+
+**This pass was performed by the corpus author. It is not independent review and
+does not discharge the single-author limitation.** What it changes is that every
+verdict now points at a named, fetchable locator instead of asking you to accept
+an unexamined "stale". A revision is still not evidence of a verified repair —
+but you can now check which is which.
 
 ## Does the named harness test actually cover the case?
 
