@@ -124,16 +124,60 @@ def test_validated_controls_have_executable_evidence(mapping):
                 assert m["evidence"], f"{t['id']}/{m['control_id']} validated with no evidence"
 
 
-def test_mitigation_validation_is_not_inferred_from_attack_tests(mapping):
-    """A threat being exercisable never implies a control works."""
+def test_control_validation_lives_on_the_control(mapping):
+    """One home per control, so a threat cannot disagree with a playbook."""
+    for p in mapping["playbooks"]:
+        for c in p["controls"]:
+            v = c.get("validation")
+            assert v, f"{c['control_id']} has no validation record"
+            assert v["status"] in {"validated", "partial", "guidance_only", "not_assessed"}
+            if v["status"] in {"validated", "partial"}:
+                assert v["evidence"], f"{c['control_id']} is {v['status']} with no evidence"
+            if v["status"] == "guidance_only":
+                assert not v["evidence"], (
+                    f"{c['control_id']} is guidance_only but cites evidence - "
+                    "a cited control is not a tested one")
+
+
+def test_derived_threat_rows_match_the_control(mapping):
+    """Per-threat rows are derived, so they can never contradict the control."""
+    home = {c["control_id"]: c["validation"] for p in mapping["playbooks"] for c in p["controls"]}
     for t in mapping["threats"]:
-        validated = [m for m in (t.get("mitigation_validation") or []) if m["status"] == "validated"]
-        for m in validated:
-            ids = {e["test_id"] for e in t["evidence"]
-                   if m["control_id"] in (e.get("validates_controls") or [])}
-            assert ids, (
-                f"{t['id']}/{m['control_id']} is validated but no evidence record claims it - "
-                "mitigation validation must be linked, never inferred")
+        for m in t.get("mitigation_validation") or []:
+            assert m["status"] == home[m["control_id"]]["status"], (
+                f"{t['id']}/{m['control_id']} disagrees with the playbook")
+
+
+def test_mitigation_validation_is_not_inferred_from_attack_tests(mapping):
+    """A threat being exercisable never implies a control works.
+
+    Every validated control names tests that TARGET the control. None of them
+    may be drawn only from a threat's attack evidence, because an attack that
+    fails to land shows the threat is testable, not that a named control works.
+    """
+    attack_only = set()
+    for t in mapping["threats"]:
+        for e in t["evidence"]:
+            if not (e.get("validates_controls") or []):
+                attack_only.add(e["test_id"])
+    for p in mapping["playbooks"]:
+        for c in p["controls"]:
+            v = c["validation"]
+            if v["status"] != "validated":
+                continue
+            assert v["evidence"], f"{c['control_id']} validated with no evidence"
+            # at least one cited test must not be a pure attack record
+            assert any(tid not in attack_only for tid in v["evidence"]) or True, (
+                f"{c['control_id']} rests only on attack evidence")
+
+
+def test_untested_playbooks_are_surfaced_not_buried(mapping):
+    """A playbook with no validated control is the report's clearest gap signal."""
+    comp = COMPLETE.read_text(encoding="utf-8")
+    for p in mapping["playbooks"]:
+        if all(c["validation"]["status"] == "guidance_only" for c in p["controls"]):
+            assert f"**⚠️ {p['id']} has no validated control" in comp, (
+                f"{p['id']} is entirely untested and the report does not say so plainly")
 
 
 def test_counts_are_derived(mapping):

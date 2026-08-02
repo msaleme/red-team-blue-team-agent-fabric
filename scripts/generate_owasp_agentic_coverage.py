@@ -312,29 +312,43 @@ def render(d: dict, view: str) -> str:
           "the control but does not test it at this commit. A control count is not an "
           "effectiveness score.")
         w("")
-        allmv = {}
-        for t in d["threats"]:
-            for m in t.get("mitigation_validation") or []:
-                cur = allmv.get(m["control_id"])
-                if cur is None or (cur == "guidance_only" and m["status"] != "guidance_only"):
-                    allmv[m["control_id"]] = m["status"]
-        w("| Playbook | Step | Threats | Controls | Validated | Guidance only |")
-        w("|---|---|---|---|---|---|")
+        allmv = {c["control_id"]: c["validation"]["status"]
+                 for p in d["playbooks"] for c in p["controls"]}
+        w("| Playbook | Step | Threats | Controls | Validated | Partial | Guidance only |")
+        w("|---|---|---|---|---|---|---|")
         for p in d["playbooks"]:
             ids = [c["control_id"] for c in p["controls"]]
             v = sum(1 for c in ids if allmv.get(c) == "validated")
+            pa = sum(1 for c in ids if allmv.get(c) == "partial")
             g = sum(1 for c in ids if allmv.get(c, "not_assessed") == "guidance_only")
-            w(f"| **{p['id']}** {p['title']} | {p['decision_step']} | "
-              f"{', '.join(p['threats'])} | {len(ids)} | {v} | {g} |")
+            flag = " ⚠️" if v == 0 and pa == 0 else ""
+            w(f"| **{p['id']}** {p['title']}{flag} | {p['decision_step']} | "
+              f"{', '.join(p['threats'])} | {len(ids)} | {v} | {pa} | {g} |")
         w("")
+        untested = [p for p in d["playbooks"]
+                    if all(c["validation"]["status"] == "guidance_only" for c in p["controls"])]
+        for p in untested:
+            w(f"**⚠️ {p['id']} has no validated control at this commit.** Every control in "
+              f"*{p['title']}* is cited but untested, and the threats it maps to "
+              f"({', '.join(p['threats'])}) are themselves not evidenced. The gap is visible "
+              "from both directions, which is the clearest signal in this report about where "
+              "the harness does not reach.")
+            w("")
         w("<details><summary>Paraphrased controls</summary>")
         w("")
         for p in d["playbooks"]:
             w(f"**{p['id']} — {p['title']}**")
             w("")
             for c in p["controls"]:
-                w(f"- `{c['control_id']}` *({c['phase']})* — {c['summary']} "
-                  f"— **{MLABEL[allmv.get(c['control_id'], 'not_assessed')]}**")
+                v = c["validation"]
+                ev = ", ".join(f"`{x}`" for x in v["evidence"])
+                line = (f"- `{c['control_id']}` *({c['phase']})* — {c['summary']} "
+                        f"— **{MLABEL[v['status']]}**")
+                if ev:
+                    line += f" via {ev}"
+                w(line)
+                if v.get("limitation"):
+                    w(f"  - *Limitation.* {v['limitation']}")
             w("")
         w("</details>")
         w("")
