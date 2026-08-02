@@ -96,6 +96,40 @@ def test_snapshot_metadata_is_present(mapping):
     assert "NOT independent" in a["adjudicated_by"]
 
 
+def test_assessed_commit_is_reachable_from_head():
+    """Every evidence link is pinned to the assessed commit. If that commit is
+    not an ancestor of HEAD, all of them 404.
+
+    This is not hypothetical: the first release candidate pinned a commit from a
+    branch that was then squash-merged, so the SHA never existed on main. The
+    report validated cleanly and every permalink in it was dead.
+    """
+    shallow = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if shallow == "true":
+        # actions/checkout defaults to fetch-depth: 1, so history does not exist
+        # here and absence proves nothing. The owasp-coverage CI job checks out
+        # with fetch-depth: 0 precisely so this assertion runs for real there.
+        pytest.skip("shallow clone - reachability is enforced by the owasp-coverage job")
+
+    sha = yaml.safe_load(MAPPING.read_text(encoding="utf-8"))["assessment"]["git_commit"]
+    exists = subprocess.run(
+        ["git", "cat-file", "-e", f"{sha}^{{commit}}"], cwd=ROOT, capture_output=True
+    )
+    assert exists.returncode == 0, f"assessed commit {sha} is not in this repository"
+    ancestor = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", sha, "HEAD"], cwd=ROOT, capture_output=True
+    )
+    assert ancestor.returncode == 0, (
+        f"assessed commit {sha[:12]} is not an ancestor of HEAD - every evidence "
+        "permalink in the report would 404. Re-pin and regenerate before releasing."
+    )
+
+
 def test_canonical_test_count_agrees(mapping):
     out = subprocess.run(
         [sys.executable, str(ROOT / "scripts/count_tests.py")],
