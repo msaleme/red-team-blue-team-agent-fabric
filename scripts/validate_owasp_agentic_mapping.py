@@ -63,6 +63,11 @@ def _index() -> dict[str, set[str]]:
         rel = str(p.relative_to(ROOT))
         for m in re.finditer(r'test_id\s*=\s*["\']([A-Z0-9]+-\d{3})["\']', txt):
             idx[m.group(1)].add(rel)
+        # Same secondary convention scripts/count_tests.py uses: an id passed as
+        # the first positional argument to a `_test_*` helper. Without this the
+        # validator disagrees with the canonical counter about which tests exist.
+        for m in re.finditer(r'(?:self\._test_\w+|_test_\w+)\(\s*["\']([A-Z0-9]+-\d{3})["\']', txt):
+            idx[m.group(1)].add(rel)
     return idx
 
 
