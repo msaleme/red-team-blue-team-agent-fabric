@@ -73,9 +73,14 @@ GROUNDING_SOURCE = {
         "not as it stands today. A remediation pass landed the day after the "
         "audit and revised many source fields. Each case reports "
         "source_revised_since_audit; where that is true the evidence_fit and "
-        "record_defect below are STALE and have not been re-adjudicated. Do "
-        "not read a stale 'none' as a current defect, and do not read a "
-        "revision as a repair that someone has verified."
+        "record_defect below are STALE — they describe text that has changed. "
+        "They are no longer unexamined: every revised case was re-read against "
+        "its current wording on 2026-08-02 and carries "
+        "fit_after_readjudication, and eight cases whose citation could not be "
+        "supported were repaired outright. Read those fields, not these, for "
+        "the current state. Do not read a stale 'none' as a current defect, and "
+        "do not read a revision as a repair that someone has verified — the "
+        "re-adjudication was performed by the corpus author, not independently."
     ),
 }
 
@@ -182,23 +187,237 @@ _AUDIT_REPAIRS = {
     "DBC-039": "OX Security over-extension — attribution removed; case is author-constructed",
     "DBC-040": "'$45M crypto agent 2026' unsupported — attribution removed; author-constructed",
     "DBC-044": "UC Berkeley RDI over-extension — attribution removed; author-constructed",
+    "DBC-026": (
+        "OX Security over-extension, hidden by a partial revision — external half "
+        "withdrawn; case now rests on an unpublished internal run"
+    ),
 }
 _REPAIRED_AT = "2026-08-02"
+
+# What a repaired case rests on once the bad citation is gone. Not uniform:
+# seven had no support of any kind left and are author-constructed; DBC-026 lost
+# only the external half of a compound citation and still rests on an internal
+# run. Collapsing the two would overstate one and understate the other.
+_AUTHOR_CONSTRUCTED = "author-constructed — no external source located"
+_PROVENANCE_AFTER_REPAIR = {
+    "DBC-014": _AUTHOR_CONSTRUCTED,
+    "DBC-016": _AUTHOR_CONSTRUCTED,
+    "DBC-031": _AUTHOR_CONSTRUCTED,
+    "DBC-038": _AUTHOR_CONSTRUCTED,
+    "DBC-039": _AUTHOR_CONSTRUCTED,
+    "DBC-040": _AUTHOR_CONSTRUCTED,
+    "DBC-044": _AUTHOR_CONSTRUCTED,
+    "DBC-026": "internal, unpublished — external half of the citation withdrawn",
+}
+
+# Re-adjudication of the 25 cases whose source was revised after the audit.
+#
+# The audit's verdicts describe text that no longer exists. Until this pass they
+# were carried as "stale, not re-adjudicated" — honest, but it left half the
+# corpus in an unknown state. Each case below was re-read against its *current*
+# text, and where that text names an external source, the source itself was
+# re-fetched on 2026-08-02 rather than trusting the audit's transcription of it.
+#
+# Sources re-read: rdi.berkeley.edu/blog/trustworthy-benchmarks (byline, 13
+# benchmarks, 45 exploits, Frontier-CS stack-frame injection, Terminal-Bench
+# dummy C-extension, and the absence of judge-manipulation, string-collision and
+# contamination discussion); ox.security MCP supply-chain advisory (STDIO
+# command/argument injection as a class with no single CVE, and the absence of
+# memory contamination, credential relay, A2A relay and phantom registration);
+# NVD CVE-2026-35625 and CVE-2026-35629 (both quoted verbatim);
+# metr.org/blog/2025-06-05-recent-reward-hacking; AI Incident Database 1442.
+#
+# THIS PASS WAS PERFORMED BY THE CORPUS AUTHOR. It is not independent review and
+# does not discharge the single-author limitation. What it changes is that a
+# reader can now check each verdict against a named, fetchable locator instead of
+# being asked to take an unexamined "stale" on trust.
+#
+# fit_after vocabulary — deliberately its own, not the audit's:
+#   external — verified      source re-read; current text is supported by it
+#   external — partial       source supports the class, not the case's specifics
+#   internal — inspectable   rests on an artifact present in this repo
+#   internal — unpublished   rests on an internal run whose data is not published
+#   none — outstanding       a defect the audit found is still live
+_READJUDICATED_ON = "2026-08-02"
+_READJUDICATED_BY = "corpus author — NOT independent review"
+
+_INTERNAL_UNPUBLISHED = (
+    "untraceable-source defect resolved: the name the audit could not locate is "
+    "now declared an internal, unpublished HRAO-E run. Nothing external is "
+    "claimed, so there is nothing left to trace. The run data remains "
+    "unpublished and this is not corroboration."
+)
+
+_READJUDICATION = {
+    # --- external, re-fetched and verified -----------------------------------
+    "DBC-003": (
+        "external — verified",
+        "CVE-2026-35625 reads 'silent local shared-auth reconnects auto-approve "
+        "scope-upgrade requests, widening paired device permissions from "
+        "operator.read to operator.admin'. The revised text matches it; the "
+        "audit's 'permission inheritance' misdescription is gone.",
+    ),
+    "DBC-006": (
+        "external — verified",
+        "Same CVE, same verbatim match. The 'tool permission inheritance "
+        "escalation' wording the audit rejected no longer appears.",
+    ),
+    "DBC-007": (
+        "external — verified",
+        "Kiro/Amazon Dec 2025 confirmed: AWS Cost Explorer, 13h outage, agent "
+        "deleted and recreated a production environment during an assigned task. "
+        "Amazon's 'misconfigured access controls, not AI' statement is quoted "
+        "rather than suppressed. Locator added; the audit had left this "
+        "provisional for want of one.",
+    ),
+    "DBC-028": (
+        "external — verified",
+        "'Self-reported metrics, timing measurements controlled by the "
+        "submission, and loosely parsed evaluator output are all attack "
+        "surfaces' is present verbatim. The 'in RAG contexts' clause the audit "
+        "flagged as absent has been removed, and RAG is indeed not discussed.",
+    ),
+    "DBC-041": (
+        "external — verified",
+        "Byline is Wang, Mang, Cheung, Sen, Song — no Xu, as the audit found. "
+        "'We audited 13 widely-used AI benchmarks', 'Every benchmark was rated "
+        "critical risk', and 45 confirmed hacking solutions achieving inflated "
+        "or perfect scores. The revised text matches all three.",
+    ),
+    "DBC-045": (
+        "external — verified",
+        "Example 1 walks the call stack with sys._getframe() and replaces the "
+        "scoring function in Frontier-CS. The revised text claims exactly that, "
+        "and no longer claims a 'universal benchmark bypass'.",
+    ),
+    "DBC-048": (
+        "external — verified",
+        "Example 2 is a dummy .so passing an existence check while numpy does "
+        "the work, in Terminal-Bench. The revised text no longer generalises the "
+        "mechanism across 8 or 13 benchmarks.",
+    ),
+    "DBC-050": (
+        "external — verified",
+        "METR reports 39/128 RE-Bench runs reward-hacked (30.4%) against 8/1087 "
+        "on HCAST (0.7%), and notes similar behaviour in Claude 3.7 Sonnet "
+        "without publishing a rate. All three claims confirmed; locator added.",
+    ),
+    # --- external, still only partly supported --------------------------------
+    "DBC-032": (
+        "external — partial",
+        "Record defect RESOLVED: the invalid 'CVE-2026-SSRF-MCP' identifier is "
+        "gone, and the advisory confirms STDIO command/argument injection is a "
+        "class spanning several products with no single unified CVE. Evidence "
+        "fit remains PARTIAL: the advisory supports the mechanism, not this "
+        "case's narrower tool-call-triggers-execution-before-validation sequence.",
+    ),
+    "DBC-037": (
+        "external — partial",
+        "Source text RESOLVED: CVE-2026-35629 reads 'multiple channel extensions "
+        "that fail to properly guard configured base URLs against SSRF', which "
+        "the revised text now reproduces. RESIDUAL DEFECT: the case is still "
+        "*named* 'SSRF via Tool URL Parameter', a mechanism the CVE does not "
+        "describe. The name was not changed here — renaming a published case is "
+        "a separate decision — so the mismatch is recorded instead of hidden.",
+    ),
+    # --- internal, inspectable in this repo ------------------------------------
+    "DBC-005": (
+        "internal — inspectable",
+        "constitutional-agent HC-12 exists and reads 'No manual override of "
+        "constitutional gates by any agent without ratified amendment'; it ships "
+        "in the open-source library. The lightningzero half is an unpublished "
+        "internal run and is now declared as such.",
+    ),
+    "DBC-043": (
+        "internal — inspectable",
+        "agent-security-harness BI-004 'LLM Judge Prompt Injection' is present in "
+        "protocol_tests/benchmark_integrity_harness.py. Re-reading the Berkeley "
+        "article confirms it does not discuss LLM-judge manipulation, so the "
+        "2026-07-27 withdrawal was correct.",
+    ),
+    "DBC-049": (
+        "internal — inspectable",
+        "agent-security-harness BI-005 'String Matching Collision' is present in "
+        "protocol_tests/benchmark_integrity_harness.py. The Berkeley article does "
+        "not discuss string- or hash-collision gaming, confirming the withdrawal.",
+    ),
+    # --- internal, unpublished -------------------------------------------------
+    "DBC-001": ("internal — unpublished", _INTERNAL_UNPUBLISHED),
+    "DBC-002": ("internal — unpublished", _INTERNAL_UNPUBLISHED),
+    "DBC-004": ("internal — unpublished", _INTERNAL_UNPUBLISHED),
+    "DBC-021": ("internal — unpublished", _INTERNAL_UNPUBLISHED),
+    "DBC-022": ("internal — unpublished", _INTERNAL_UNPUBLISHED),
+    "DBC-023": ("internal — unpublished", _INTERNAL_UNPUBLISHED),
+    "DBC-024": ("internal — unpublished", _INTERNAL_UNPUBLISHED),
+    "DBC-025": ("internal — unpublished", _INTERNAL_UNPUBLISHED),
+    "DBC-027": ("internal — unpublished", _INTERNAL_UNPUBLISHED),
+    "DBC-030": ("internal — unpublished", _INTERNAL_UNPUBLISHED),
+    "DBC-029": (
+        "internal — unpublished",
+        "The zhuanruhu half is now declared internal and unpublished. The "
+        "'constitutional-agent governance' half names no specific constraint, so "
+        "unlike DBC-005 there is no per-case locator to check. Weaker than "
+        "inspectable, and recorded as such.",
+    ),
+    # --- still defective --------------------------------------------------------
+    # Found defective by this pass and repaired within it. The fit records what
+    # is true NOW — calling it "outstanding" after fixing it would be as wrong as
+    # calling it clean before. The finding itself is preserved in the basis and
+    # in `found_defective_by_this_pass`.
+    "DBC-026": (
+        "internal — unpublished",
+        "Found DEFECTIVE by this pass and repaired within it, having escaped the "
+        "audit's currency flag entirely. Revising the "
+        "zhuanruhu half flipped the case's source digest, which marked the whole "
+        "case 'revised' and moved it out of the flagged bucket — while the OX "
+        "half sat unchanged and disproved. A compound citation defeats a per-case "
+        "digest. Re-reading the advisory confirms it does not cover cross-agent "
+        "or cross-session memory contamination. The external half is now "
+        "withdrawn; the case rests on an unpublished internal run.",
+    ),
+}
+
+_FIT_AFTER_VOCABULARY = {
+    "external — verified",
+    "external — partial",
+    "internal — inspectable",
+    "internal — unpublished",
+    "none — outstanding",
+}
 
 
 def _currency(case) -> tuple[str, str | None]:
     """Return (verdict_currency, repair_disposition) for a case.
 
-    Three states, not two. A repaired case is neither "as-audited" (its text
-    changed) nor "stale, unadjudicated" (the change *was* the adjudication).
+    Four states. This string is prose describing machine-readable flags in the
+    same record, and it has already drifted from them once: when the
+    re-adjudication pass landed, every re-read case still carried "not
+    re-adjudicated" while `readjudicated: true` sat two lines below it. A
+    sentence that restates a flag has to be derived from that flag, not written
+    alongside it and left to rot — which is the whole defect this corpus exists
+    to document.
     """
     if case.id in _AUDIT_REPAIRS:
+        rests_on = _PROVENANCE_AFTER_REPAIR.get(case.id, "")
+        tail = (
+            "the case remains author-constructed and uncorroborated"
+            if "author-constructed" in rests_on
+            else f"the case now rests on: {rests_on}"
+        )
         return (
             "repaired — the audit's finding was accepted and the citation corrected "
-            f"on {_REPAIRED_AT}; the case remains author-constructed and uncorroborated",
+            f"on {_REPAIRED_AT}; {tail}",
             _AUDIT_REPAIRS[case.id],
         )
     if _source_revised(case):
+        if case.id in _READJUDICATION:
+            fit = _READJUDICATION[case.id][0]
+            return (
+                "re-adjudicated — source text changed after the audit and was "
+                f"re-read against its current wording on {_READJUDICATED_ON}; "
+                f"fit is now '{fit}'",
+                None,
+            )
         return ("stale — source text changed after the audit; not re-adjudicated", None)
     return ("as-audited — source text unchanged since the audit", None)
 
@@ -320,12 +539,25 @@ def build_bundle() -> dict:
                     # claim has been withdrawn, so the two would otherwise read as a
                     # contradiction. The audit row is not rewritten: re-adjudicating
                     # it would be the same author grading his own correction.
-                    "provenance_after_repair": (
-                        "author-constructed — no external source located"
-                        if case.id in _AUDIT_REPAIRS
-                        else None
-                    ),
+                    "provenance_after_repair": _PROVENANCE_AFTER_REPAIR.get(case.id),
                     "verdict_currency": currency,
+                    # Re-adjudication against the case's CURRENT text. Present
+                    # only for cases whose source moved after the audit; absent
+                    # means the audit's verdict still describes what you are
+                    # reading and needs no restatement.
+                    "readjudicated": case.id in _READJUDICATION,
+                    "fit_after_readjudication": (
+                        _READJUDICATION[case.id][0] if case.id in _READJUDICATION else None
+                    ),
+                    "readjudication_basis": (
+                        _READJUDICATION[case.id][1] if case.id in _READJUDICATION else None
+                    ),
+                    "readjudicated_on": (
+                        _READJUDICATED_ON if case.id in _READJUDICATION else None
+                    ),
+                    "readjudicated_by": (
+                        _READJUDICATED_BY if case.id in _READJUDICATION else None
+                    ),
                 },
                 "executable_test_link": _executable_test_link(case, tests),
                 "tools": fixture.get("tools", []),
@@ -369,6 +601,37 @@ def build_bundle() -> dict:
         and (c["grounding"]["evidence_fit"] == "none" or c["grounding"]["record_defect"] != "—")
     )
 
+    readj_counts: dict[str, int] = {}
+    for c in cases:
+        fit = c["grounding"]["fit_after_readjudication"]
+        if fit:
+            readj_counts[fit] = readj_counts.get(fit, 0) + 1
+    readj_outstanding = [
+        c["id"]
+        for c in cases
+        if c["grounding"]["fit_after_readjudication"] == "none — outstanding"
+    ]
+    # A defect found and fixed inside one pass still has to be reported. Without
+    # this, the only trace of DBC-026 would be an empty `outstanding` list, which
+    # reads as "we looked and found nothing".
+    readjudicated_n = sum(1 for c in cases if c["grounding"]["readjudicated"])
+    readj_found_defective = [
+        c["id"]
+        for c in cases
+        if c["grounding"]["readjudicated"]
+        and c["grounding"]["repaired_in_response_to_audit"]
+    ]
+    # A repaired case has been adjudicated — the repair was the adjudication.
+    # Only cases whose text moved and were then neither repaired nor re-read
+    # count as still unaccounted for.
+    not_readjudicated = [
+        c["id"]
+        for c in cases
+        if c["grounding"]["source_revised_since_audit"]
+        and not c["grounding"]["readjudicated"]
+        and not c["grounding"]["repaired_in_response_to_audit"]
+    ]
+
     link_unresolved = [
         c["id"] for c in cases if not c["executable_test_link"]["resolves_to_a_test"]
     ]
@@ -405,20 +668,58 @@ def build_bundle() -> dict:
             "cases_still_as_audited": len(cases) - revised_n - repaired_n,
             "flagged_and_still_as_audited": still_flagged,
             "note": (
-                "Three states, not two. A remediation pass landed the day after the "
-                f"audit and revised {revised_n} of {len(cases)} source fields for "
-                "reasons of its own; for those the evidence_fit and record_defect "
-                "recorded here are stale and have NOT been re-adjudicated against "
-                f"the revised text. A further {repaired_n} cases were repaired on "
+                f"A remediation pass landed the day after the audit and revised "
+                f"{revised_n} of {len(cases)} source fields for reasons of its own. "
+                "The evidence_fit and record_defect recorded here describe the "
+                "AUDITED text, which for those cases no longer exists — but they "
+                f"are no longer unexamined: all {readjudicated_n} were re-read "
+                f"against their current wording on {_READJUDICATED_ON}, and each "
+                "carries fit_after_readjudication. See the `readjudication` block, "
+                "including that the pass was run by the corpus author and is not "
+                f"independent review. A further {repaired_n} cases were repaired on "
                 f"{_REPAIRED_AT} because the audit's finding was accepted: their "
-                "unsupportable external attributions were removed and they are now "
-                "declared author-constructed. That is a correction of the record, "
-                "not a demonstration that the behaviour is corroborated — those "
-                f"cases have no external support and say so. {still_flagged} cases "
-                "carry a defect verdict against source text the audit actually read "
-                "and remain outstanding. Re-adjudicating the revised cases is still "
-                "outstanding work, and until it is done neither a stale defect nor "
-                "an assumed repair should be reported as the current state."
+                "unsupportable external attributions were removed. Seven of those "
+                "are now author-constructed with no support of any kind; DBC-026 "
+                "lost only the external half of a compound citation and still rests "
+                "on an unpublished internal run. A withdrawal is a correction of the "
+                f"record, not a demonstration that the behaviour is corroborated. "
+                f"{still_flagged} cases carry a defect verdict against source text "
+                "the audit actually read."
+            ),
+        },
+        "readjudication": {
+            "performed_on": _READJUDICATED_ON,
+            "performed_by": _READJUDICATED_BY,
+            "cases_readjudicated": len(_READJUDICATION),
+            "revised_cases_left_unadjudicated": len(not_readjudicated),
+            "still_unadjudicated": not_readjudicated,
+            "fit_after_distribution": readj_counts,
+            "outstanding": readj_outstanding,
+            "found_defective_by_this_pass": readj_found_defective,
+            "sources_re_read": [
+                "https://rdi.berkeley.edu/blog/trustworthy-benchmarks/",
+                "https://www.ox.security/blog/mcp-supply-chain-advisory-rce-vulnerabilities-across-the-ai-ecosystem/",
+                "https://nvd.nist.gov/vuln/detail/CVE-2026-35625",
+                "https://nvd.nist.gov/vuln/detail/CVE-2026-35629",
+                "https://metr.org/blog/2025-06-05-recent-reward-hacking/",
+                "https://incidentdatabase.ai/cite/1442/",
+            ],
+            "note": (
+                "The audit's verdicts described text that no longer exists. Every "
+                "case whose source moved has now been re-read against its current "
+                "wording, and where that wording names an external source the "
+                "source itself was re-fetched rather than trusting the audit's "
+                "transcription of it. Two cases the audit had left provisional for "
+                "want of a locator (DBC-007, DBC-050) are now verified and carry "
+                "one. One defect was found that the audit's own currency flag could "
+                "not surface: DBC-026 revised half of a compound citation, which "
+                "flipped the case digest and moved it out of the flagged bucket "
+                "while the disproved half sat untouched. "
+                "THIS PASS WAS PERFORMED BY THE CORPUS AUTHOR and is not "
+                "independent review — it does not discharge the single-author "
+                "limitation. What it changes is that each verdict now points at a "
+                "named, fetchable locator a reader can check, instead of asking "
+                "them to accept an unexamined 'stale'."
             ),
         },
         "executable_test_linkage": {
@@ -481,7 +782,8 @@ def build_bundle() -> dict:
                 "source and 1 carried an invalid identifier (DBC-032, "
                 "CVE-2026-SSRF-MCP). All 7 misdescribed cases have had their "
                 "source text revised since, so those verdicts are stale here "
-                "and have not been re-adjudicated. A record defect is not the "
+                "and are superseded by each case's fit_after_readjudication, recorded "
+                "when they were re-read on 2026-08-02. A record defect is not the "
                 "same as zero evidentiary support and is classified separately "
                 "from evidence fit."
             ),

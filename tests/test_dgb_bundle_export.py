@@ -177,10 +177,14 @@ def test_flagged_and_still_as_audited_is_derived(bundle):
 
 
 def test_verdict_currency_agrees_with_the_flag(bundle):
+    """Four states now. `stale` survives only for a revised case nobody re-read;
+    the corpus currently has none, but the branch must stay honest if one appears."""
     for case in bundle["cases"]:
         g = case["grounding"]
         if g["repaired_in_response_to_audit"]:
             assert g["verdict_currency"].startswith("repaired"), case["id"]
+        elif g["source_revised_since_audit"] and g["readjudicated"]:
+            assert g["verdict_currency"].startswith("re-adjudicated"), case["id"]
         elif g["source_revised_since_audit"]:
             assert g["verdict_currency"].startswith("stale"), case["id"]
         else:
@@ -192,7 +196,20 @@ def test_verdict_currency_agrees_with_the_flag(bundle):
 # reclassify it as "revised" and drop flagged_and_still_as_audited to zero. A
 # zero that means "resolved" and a zero that means "edited" are different facts.
 
-REPAIRED = ["DBC-014", "DBC-016", "DBC-031", "DBC-038", "DBC-039", "DBC-040", "DBC-044"]
+# Seven lost every form of support. DBC-026 lost only the external half of a
+# compound citation and still rests on an internal run — a different outcome that
+# must not be flattened into the same label.
+AUTHOR_CONSTRUCTED_REPAIRS = [
+    "DBC-014",
+    "DBC-016",
+    "DBC-031",
+    "DBC-038",
+    "DBC-039",
+    "DBC-040",
+    "DBC-044",
+]
+PARTIAL_CITATION_REPAIRS = ["DBC-026"]
+REPAIRED = sorted(AUTHOR_CONSTRUCTED_REPAIRS + PARTIAL_CITATION_REPAIRS)
 
 
 def test_repairs_are_declared_not_absorbed_into_revised(bundle):
@@ -218,9 +235,22 @@ def test_repaired_cases_claim_no_external_support(bundle):
             continue
         assert not g["externally_corroborated"], case["id"]
         assert g["provenance_after_repair"], case["id"]
-        assert "author-constructed" in g["provenance_after_repair"], case["id"]
-        assert "no external source located" in case["source"], case["id"]
-        assert case["source"].startswith("Author-constructed"), case["id"]
+        if case["id"] in AUTHOR_CONSTRUCTED_REPAIRS:
+            assert "author-constructed" in g["provenance_after_repair"], case["id"]
+            assert "no external source located" in case["source"], case["id"]
+            assert case["source"].startswith("Author-constructed"), case["id"]
+        else:
+            assert "withdrawn" in g["provenance_after_repair"], case["id"]
+
+
+def test_partial_citation_repair_is_not_labelled_author_constructed(bundle):
+    """DBC-026 still rests on an internal run; calling it author-constructed
+    would erase the one thing it does have."""
+    case = next(c for c in bundle["cases"] if c["id"] == "DBC-026")
+    prov = case["grounding"]["provenance_after_repair"]
+    assert "author-constructed" not in prov
+    assert "internal" in prov and "unpublished" in prov
+    assert "HRAO-E internal run" in case["source"]
 
 
 def test_repaired_cases_record_what_they_previously_claimed(bundle):
@@ -228,7 +258,7 @@ def test_repaired_cases_record_what_they_previously_claimed(bundle):
     for case in bundle["cases"]:
         if not case["grounding"]["repaired_in_response_to_audit"]:
             continue
-        assert "NOTE: previously attributed to" in case["source"], case["id"]
+        assert "NOTE: previously attributed" in case["source"], case["id"]
         assert "external corroboration audit v6" in case["source"], case["id"]
 
 
@@ -240,6 +270,208 @@ def test_repair_disposition_is_present_only_for_repaired_cases(bundle):
         else:
             assert g["repair_disposition"] is None, case["id"]
             assert g["provenance_after_repair"] is None, case["id"]
+
+
+# --- re-adjudication ----------------------------------------------------------
+# The audit's verdicts describe text that no longer exists for 25 cases. Carrying
+# them as "stale" was honest but left half the corpus unknown. These guard the
+# pass that closed that, and the honesty of how it is reported.
+
+_FIT_AFTER_VOCABULARY = {
+    "external — verified",
+    "external — partial",
+    "internal — inspectable",
+    "internal — unpublished",
+    "none — outstanding",
+}
+
+
+def test_every_revised_case_is_accounted_for(bundle):
+    """No case may sit in 'text moved, nobody looked' — the state this closes."""
+    stranded = [
+        c["id"]
+        for c in bundle["cases"]
+        if c["grounding"]["source_revised_since_audit"]
+        and not c["grounding"]["readjudicated"]
+        and not c["grounding"]["repaired_in_response_to_audit"]
+    ]
+    assert stranded == [], f"revised but neither repaired nor re-adjudicated: {stranded}"
+    assert bundle["readjudication"]["revised_cases_left_unadjudicated"] == 0
+    assert bundle["readjudication"]["still_unadjudicated"] == []
+
+
+def test_readjudication_vocabulary_is_closed(bundle):
+    for case in bundle["cases"]:
+        fit = case["grounding"]["fit_after_readjudication"]
+        if fit is not None:
+            assert fit in _FIT_AFTER_VOCABULARY, f"{case['id']}: {fit}"
+
+
+def test_readjudicated_cases_carry_a_basis(bundle):
+    """A verdict with no stated reason is an assertion, not an adjudication."""
+    for case in bundle["cases"]:
+        g = case["grounding"]
+        if not g["readjudicated"]:
+            assert g["fit_after_readjudication"] is None, case["id"]
+            assert g["readjudication_basis"] is None, case["id"]
+            continue
+        assert g["fit_after_readjudication"], case["id"]
+        assert g["readjudication_basis"], case["id"]
+        assert len(g["readjudication_basis"]) > 60, (
+            f"{case['id']}: basis is too thin to check"
+        )
+        assert g["readjudicated_on"], case["id"]
+
+
+def test_readjudication_declares_it_is_not_independent(bundle):
+    """The single-author limitation is not discharged by the author re-reading."""
+    r = bundle["readjudication"]
+    assert "NOT independent" in r["performed_by"]
+    assert "not independent review" in r["note"].lower()
+    assert "does not discharge the single-author limitation" in r["note"]
+    for case in bundle["cases"]:
+        by = case["grounding"]["readjudicated_by"]
+        if by is not None:
+            assert "NOT independent" in by, case["id"]
+
+
+def test_verified_external_cases_carry_a_fetchable_locator(bundle):
+    """'Verified' has to mean a reader can go and check it."""
+    import re
+
+    for case in bundle["cases"]:
+        if case["grounding"]["fit_after_readjudication"] != "external — verified":
+            continue
+        basis = case["grounding"]["readjudication_basis"]
+        has_locator = "http" in case["source"] or re.search(
+            r"CVE-\d{4}-\d+", case["source"]
+        )
+        assert has_locator, (
+            f"{case['id']} is marked externally verified but its source names no "
+            f"URL or CVE a reader could follow. Basis: {basis[:80]}"
+        )
+
+
+def test_readjudication_summary_is_derived(bundle):
+    from collections import Counter
+
+    fits = Counter(
+        c["grounding"]["fit_after_readjudication"]
+        for c in bundle["cases"]
+        if c["grounding"]["fit_after_readjudication"]
+    )
+    r = bundle["readjudication"]
+    assert dict(fits) == r["fit_after_distribution"]
+    assert r["cases_readjudicated"] == sum(fits.values())
+    outstanding = [
+        c["id"]
+        for c in bundle["cases"]
+        if c["grounding"]["fit_after_readjudication"] == "none — outstanding"
+    ]
+    assert r["outstanding"] == outstanding
+
+
+def test_no_prose_field_contradicts_the_flags_it_describes(bundle):
+    """The defect this whole corpus documents, committed by the corpus.
+
+    When the re-adjudication pass landed, three prose fields still asserted the
+    revised cases had "NOT been re-adjudicated" and that doing so was "still
+    outstanding work" — while `readjudication` in the same document reported 25
+    done and 0 remaining. Bugbot caught two; a third was in `grounding_audit`.
+    A sentence restating a flag must be derived from that flag.
+    """
+    r = bundle["readjudication"]
+    prose = [
+        ("grounding_currency.note", bundle["grounding_currency"]["note"]),
+        ("grounding_audit.currency_warning", bundle["grounding_audit"]["currency_warning"]),
+        ("known_limitations.evidence_fit", bundle["known_limitations"]["evidence_fit"]),
+        ("known_limitations.record_defects", bundle["known_limitations"]["record_defects"]),
+    ]
+    if r["revised_cases_left_unadjudicated"] == 0:
+        for name, text in prose:
+            low = text.lower()
+            assert "have not been re-adjudicated" not in low, name
+            assert "not been re-adjudicated" not in low, name
+            assert "still outstanding work" not in low, name
+            assert "is outstanding work" not in low, name
+
+    # Every repaired case is not author-constructed; prose must not say they are.
+    if PARTIAL_CITATION_REPAIRS:
+        for name, text in prose:
+            assert "are now declared author-constructed" not in text, (
+                f"{name} calls all repaired cases author-constructed, but "
+                f"{PARTIAL_CITATION_REPAIRS} rest on an internal run"
+            )
+
+
+def test_verdict_currency_never_contradicts_readjudicated(bundle):
+    """Per-case version of the same failure."""
+    for case in bundle["cases"]:
+        g = case["grounding"]
+        currency = g["verdict_currency"]
+        if g["readjudicated"] and not g["repaired_in_response_to_audit"]:
+            assert "not re-adjudicated" not in currency, case["id"]
+            assert currency.startswith("re-adjudicated"), case["id"]
+        if g["repaired_in_response_to_audit"]:
+            rests = g["provenance_after_repair"]
+            if "author-constructed" not in rests:
+                assert "remains author-constructed" not in currency, (
+                    f"{case['id']} rests on '{rests}' but its currency string "
+                    "calls it author-constructed"
+                )
+
+
+def test_an_empty_outstanding_list_never_stands_alone(bundle):
+    """Same failure shape as a laundered repair, one level up.
+
+    A pass that finds a defect and fixes it inside the same commit leaves
+    `outstanding` empty. Reported by itself that reads as "we looked and found
+    nothing" — the opposite of what happened.
+    """
+    r = bundle["readjudication"]
+    if not r["outstanding"]:
+        assert r["found_defective_by_this_pass"], (
+            "no outstanding defects AND no record of any found: a reader cannot "
+            "tell a clean corpus from an unrecorded repair"
+        )
+    found = sorted(
+        c["id"]
+        for c in bundle["cases"]
+        if c["grounding"]["readjudicated"]
+        and c["grounding"]["repaired_in_response_to_audit"]
+    )
+    assert r["found_defective_by_this_pass"] == found
+
+
+def test_a_repaired_case_is_not_reported_as_outstanding(bundle):
+    """fit_after must describe the case now, not when the defect was spotted."""
+    for case in bundle["cases"]:
+        g = case["grounding"]
+        if g["repaired_in_response_to_audit"] and g["readjudicated"]:
+            assert g["fit_after_readjudication"] != "none — outstanding", (
+                f"{case['id']} was repaired in this pass; calling it outstanding "
+                "misreports the current state"
+            )
+            assert "Found DEFECTIVE by this pass" in g["readjudication_basis"], (
+                f"{case['id']}: the finding must survive the fix"
+            )
+
+
+def test_dbc_026_compound_citation_defect_is_recorded(bundle):
+    """Found by re-reading, not by the currency flag.
+
+    Revising one half of a compound citation flips the case digest and moves it
+    out of the flagged bucket while the other half stays disproved. The bundle
+    must say this happened, or the next compound citation hides the same way.
+    """
+    case = next(c for c in bundle["cases"] if c["id"] == "DBC-026")
+    basis = case["grounding"]["readjudication_basis"]
+    assert "compound citation defeats a per-case digest" in basis
+    assert "OX Security" not in case["source"].split("NOTE:")[0], (
+        "the withdrawn external half must not remain an active claim"
+    )
+    assert "does not cover cross-agent" in case["source"]
+    assert "compound citation" in bundle["readjudication"]["note"]
 
 
 # --- executable_test linkage --------------------------------------------------

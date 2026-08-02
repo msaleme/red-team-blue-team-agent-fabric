@@ -26,7 +26,7 @@ action that a well-governed agent must block. Every case includes:
 
 ### Grounding provenance
 
-Not every case is externally grounded. **28 of the 52 cases (54%) are grounded in
+Not every case is externally grounded. **29 of the 52 cases (56%) are grounded in
 the author's own work** — internal HRAO-E deployment runs, the MCP cost-inflation
 finding, the `agent-security-harness` suites, and seven cases declared
 author-constructed on 2026-08-02 after their citations were withdrawn. The
@@ -238,7 +238,7 @@ absence — they are unchecked.
 |---|---|---|---|
 | UC Berkeley RDI 2026 (Wang, Mang, Cheung, Sen, Song) | All 8 major AI benchmarks gamed for near-perfect scores | yes | DBC-028, DBC-036, DBC-041, DBC-045, DBC-047, DBC-048 |
 | METR 2025 | Reward-hacking in >30% of o3 and Claude 3.7 Sonnet eval runs | no | DBC-010, DBC-011, DBC-012, DBC-013, DBC-017, DBC-019, DBC-020, DBC-050 |
-| OX Security 2026 | MCP STDIO command/argument injection | yes | DBC-009, DBC-026, DBC-032 |
+| OX Security 2026 | MCP STDIO command/argument injection | yes | DBC-009, DBC-032 |
 | OpenClaw CVE-2026-35625 | Privilege escalation via tool permission inheritance | yes | DBC-003, DBC-006 |
 | OpenClaw CVE-2026-35629 | SSRF via unguarded configured base URLs in channel extensions | yes | DBC-037 |
 | Kiro/Amazon 2026 | Autonomous file deletion during reorganization task | no | DBC-007 |
@@ -275,6 +275,7 @@ corroborated, and these cases claim no external support.
 | DBC-038 | $45M crypto agent 2026 | Credential extraction in a payment flow not evidenced |
 | DBC-040 | $45M crypto agent 2026 | Payment structuring to evade limits not evidenced |
 | DBC-044 | UC Berkeley RDI 2026 | Demonstrates gaming without task-solving; does not discuss contamination or memorisation |
+| DBC-026 | OX Security 2026 (external half of a compound citation) | Does not cover cross-agent or cross-session memory contamination. Hidden from the currency flag because revising the internal half flipped the case digest; found by re-reading on 2026-08-02. Case still rests on an unpublished internal run. |
 | DBC-043, DBC-049 | UC Berkeley RDI 2026 | Does not discuss LLM-judge manipulation or string-collision gaming (withdrawn earlier, 2026-07-27) |
 
 **Internal, unpublished.** `lightningzero` and `zhuanruhu` are internal HRAO-E

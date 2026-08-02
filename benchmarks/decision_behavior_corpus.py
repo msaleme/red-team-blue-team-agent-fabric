@@ -309,7 +309,13 @@ _ESCALATION: List[BenchmarkCase] = [
         ),
         executable_test="GM-001",
         severity="P1-High",
-        source="Kiro/Amazon Dec 2025: agent deleted and recreated a production environment while completing an assigned task (AWS Cost Explorer, 13h outage). NOTE: Amazon attributes root cause to misconfigured access controls, not agent autonomy",
+        source=(
+            "Kiro/Amazon Dec 2025: agent deleted and recreated a production "
+            "environment while completing an assigned task (AWS Cost Explorer, 13h "
+            "outage). NOTE: Amazon attributes root cause to misconfigured access "
+            "controls, not agent autonomy. Verified 2026-08-02; originally reported "
+            "by the Financial Times. https://incidentdatabase.ai/cite/1442/"
+        ),
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
@@ -871,7 +877,15 @@ _MEMORY_TAMPERING: List[BenchmarkCase] = [
         ),
         executable_test="GM-006",
         severity="P0-Critical",
-        source="HRAO-E internal run 'zhuanruhu' (2026, unpublished); OX Security 2026: cross-agent memory contamination",
+        source=(
+            "HRAO-E internal run 'zhuanruhu' (2026, unpublished). "
+            "NOTE: previously attributed in part to OX Security 2026, whose MCP "
+            "Supply Chain Advisory covers STDIO command/argument injection and does "
+            "not cover cross-agent or cross-session memory contamination; re-read "
+            "2026-08-02 to confirm. The external half of this citation is withdrawn "
+            "and the case rests on an unpublished internal run "
+            "(external corroboration audit v6, 2026-07-27)."
+        ),
         owasp_asi="ASI01",
     ),
     BenchmarkCase(
@@ -924,7 +938,11 @@ _MEMORY_TAMPERING: List[BenchmarkCase] = [
         ),
         executable_test="BI-007",
         severity="P2-Medium",
-        source="UC Berkeley RDI 2026 (Wang et al.): self-reported metrics and loosely parsed evaluator output as attack surfaces",
+        source=(
+            "UC Berkeley RDI 2026 (Wang et al.): self-reported metrics and loosely "
+            "parsed evaluator output as attack surfaces. Verified 2026-08-02. "
+            "https://rdi.berkeley.edu/blog/trustworthy-benchmarks/"
+        ),
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
@@ -1327,7 +1345,11 @@ _EVIDENCE_FABRICATION: List[BenchmarkCase] = [
         ),
         executable_test="BI-007",
         severity="P0-Critical",
-        source="UC Berkeley RDI 2026 (Wang, Mang, Cheung, Sen, Song): 13 benchmarks audited, all rated critical risk; 45 exploits producing inflated or perfect scores",
+        source=(
+            "UC Berkeley RDI 2026 (Wang, Mang, Cheung, Sen, Song): 13 benchmarks "
+            "audited, all rated critical risk; 45 exploits producing inflated or "
+            "perfect scores. Verified 2026-08-02. https://rdi.berkeley.edu/blog/trustworthy-benchmarks/"
+        ),
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
@@ -1447,7 +1469,11 @@ _EVIDENCE_FABRICATION: List[BenchmarkCase] = [
         ),
         executable_test="BI-003",
         severity="P0-Critical",
-        source="UC Berkeley RDI 2026 (Wang et al.): score injection via stack-frame manipulation, demonstrated in Frontier-CS",
+        source=(
+            "UC Berkeley RDI 2026 (Wang et al.): score injection via stack-frame "
+            "manipulation, demonstrated in Frontier-CS (Example 1). "
+            "Verified 2026-08-02. https://rdi.berkeley.edu/blog/trustworthy-benchmarks/"
+        ),
         owasp_asi="ASI03",
     ),
     BenchmarkCase(
@@ -1532,7 +1558,11 @@ _EVIDENCE_FABRICATION: List[BenchmarkCase] = [
         ),
         executable_test="BI-006",
         severity="P1-High",
-        source="UC Berkeley RDI 2026 (Wang et al.): dummy C-extension / weak-validator exploit demonstrated in Terminal-Bench",
+        source=(
+            "UC Berkeley RDI 2026 (Wang et al.): dummy C-extension / weak-validator "
+            "exploit demonstrated in Terminal-Bench (Example 2). "
+            "Verified 2026-08-02. https://rdi.berkeley.edu/blog/trustworthy-benchmarks/"
+        ),
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
@@ -1591,7 +1621,12 @@ _EVIDENCE_FABRICATION: List[BenchmarkCase] = [
         ),
         executable_test="BI-001",
         severity="P0-Critical",
-        source="METR 2025: o3 reward-hacked 30.4% of RE-Bench runs (39/128) vs 0.7% across HCAST; similar behaviour observed for Claude 3.7 Sonnet, no rate published",
+        source=(
+            "METR 2025: o3 reward-hacked 30.4% of RE-Bench runs (39/128) vs 0.7% "
+            "across HCAST (8/1087); similar behaviour observed for Claude 3.7 Sonnet, "
+            "no rate published. Verified 2026-08-02. "
+            "https://metr.org/blog/2025-06-05-recent-reward-hacking/"
+        ),
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
