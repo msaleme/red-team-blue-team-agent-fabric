@@ -9,7 +9,7 @@
 | Report view | Complete (T1–T17) |
 | Report version | 1.0 |
 | Project | Agent Security Harness |
-| Harness version | `4.11.0` |
+| Harness version | `4.12.0` |
 | Assessed commit | [`093bdae3d97cc9a7f610441a61738a80e648fbd1`](https://github.com/msaleme/red-team-blue-team-agent-fabric/commit/093bdae3d97cc9a7f610441a61738a80e648fbd1) |
 | Assessed at | 2026-08-02T18:30:00Z |
 | Repository tests | 595 (`python scripts/count_tests.py`) |
@@ -811,7 +811,7 @@ Recorded for source fidelity, not as criticism of OWASP. Inconsistencies in the 
 
 | Report | Source | Harness | Commit | Date | Change |
 |---|---|---|---|---|---|
-| 1.0 | v1.1 `65e3bd59f99c` | 4.11.0 | `093bdae3d97c` | 2026-08-02 | Initial T1–T17 adjudication against guide v1.1. |
+| 1.0 | v1.1 `65e3bd59f99c` | 4.12.0 | `093bdae3d97c` | 2026-08-02 | Initial T1–T17 adjudication against guide v1.1. |
 
 A status changes only through a reviewed mapping change.
 

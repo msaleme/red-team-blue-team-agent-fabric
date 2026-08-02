@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.12.0] - 2026-08-02
+
+### Added
+
+- **OWASP Agentic AI v1.1 coverage model — T1–T17 from one canonical source.**
+  Supersedes the T1–T15 model shipped in 4.11.0, which was built from the threat-name
+  table. This one is built from the complete publication, *Agentic AI — Threats and
+  Mitigations* v1.1 (December 2025, SHA-256 `65e3bd59f99c411b…`), read directly.
+
+  - `docs/coverage/owasp-agentic-v1.1.yaml` — canonical source of truth.
+  - `docs/OWASP-AGENTIC-V1.1-COVERAGE.md` — complete report, T1–T17.
+  - `docs/OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md` — filtered to the taxonomy the
+    OWASP Solutions Landscape form presented. A test asserts the two views agree on
+    every shared threat, so the filtered view cannot become a second set of claims.
+  - `docs/coverage/owasp-agentic-v1.1.json` — machine-readable output.
+  - `scripts/generate_owasp_agentic_coverage.py`,
+    `scripts/validate_owasp_agentic_mapping.py`, `tests/test_owasp_agentic_mapping.py`.
+
+  **T1–T17: 13 direct, 2 partial, 2 not evidenced, 88 unique mapped tests.** The T1–T15
+  view is unchanged from 4.11.0 — carried forward, not re-litigated.
+
+  **T16 Insecure Inter-Agent Protocol Abuse → direct.** Version downgrade, capability
+  declaration, task-state transition, undocumented method surface, template context
+  injection and discovery-to-invocation substitution, each with a rejection assertion.
+  Adjudicated on protocol semantics rather than relabelled communication poisoning.
+
+  **T17 Supply Chain Compromise → direct.** Post-scan update substitution, registry hash
+  mismatch, publisher spoofing, signature bypass and skill-update tampering. Adjudicated
+  as distribution and provenance failure, not tool misuse after trusted installation.
+
+- **Scenario-level adjudication.** All 66 named OWASP scenarios: 29 covered, 14 partial,
+  23 not evidenced. Scenario coverage never implies threat completeness — a threat can be
+  `direct` while individual scenarios under it have no test.
+
+- **Mitigation validation as a separate dimension.** 5 validated, 66 guidance-only. A test
+  showing a threat is exercisable says nothing about whether a control works. A validated
+  control must be linked by an evidence record that claims it; validation is never
+  inferred, and a test enforces that.
+
+- Six-step decision path, six mitigation playbooks with 22 paraphrased controls, three
+  example threat models with analogy status, and a 14-row guide-coverage manifest.
+  Evidence classes recorded per record, with `static_preflight` alone unable to establish
+  direct coverage for a behaviourally defined threat.
+
+- CC BY-SA 4.0 attribution, licence link and non-endorsement language in both reports,
+  enforced by the validator.
+
+### Changed
+
+- The 4.11.0 T1–T15 report is retired. `docs/OWASP-AGENTIC-T1-T15-COVERAGE.md` is now a
+  pointer to the two current reports; the published version remains available at the
+  `v4.11.0` tag.
+
+### Fixed
+
+- **The generated coverage JSON was silently dropped by `.gitignore`.** The blanket
+  `*.json` rule matched `docs/coverage/owasp-agentic-v1.1.json`, `git add -A` reported
+  success, and the commit shipped without it. The local suite passed because the file
+  existed on disk; only a fresh checkout could see the difference. Third occurrence of
+  this rule eating a published artifact in this repository — `!docs/coverage/*.json`
+  added alongside the existing `!fixtures/**/*.json` negation.
+
+### Notes
+
+- All three v1.1 source inconsistencies are disclosed, each carrying whether it could be
+  confirmed. Two verified in the source text: the narrative says "five playbooks" while
+  six are enumerated, and Playbook 6 is labelled Step 5 alongside Playbook 5. The third —
+  an introductory claim of four example scenarios against three published families — was
+  **not** located in the extracted text and is recorded as reported-but-unconfirmed rather
+  than asserted. A test pins that verification state.
+- The adjudication was performed by the corpus author and is not independent review.
+- Outstanding: spec PR 3 (control-level test mapping) and PR 4 (T10/T15/T16 gap tests).
+
 ## [4.11.0] - 2026-08-02
 
 ### Added
