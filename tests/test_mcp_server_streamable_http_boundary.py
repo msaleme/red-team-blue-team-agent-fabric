@@ -9,6 +9,7 @@ gateway behavior, external receiver behavior, or final-wire conformance.
 from __future__ import annotations
 
 import asyncio
+import os
 import socket
 import subprocess
 import sys
@@ -45,8 +46,10 @@ def _wait_for_listener(port: int) -> None:
 
 
 @contextmanager
-def _streamable_server() -> Iterator[str]:
+def _streamable_server(handler_marker: Path) -> Iterator[str]:
     port = _free_loopback_port()
+    environment = os.environ.copy()
+    environment["MCP_TEST_SCAN_HANDLER_MARKER"] = str(handler_marker)
     process = subprocess.Popen(
         [
             sys.executable,
@@ -60,6 +63,7 @@ def _streamable_server() -> Iterator[str]:
             str(port),
         ],
         cwd=REPO_ROOT,
+        env=environment,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -75,7 +79,7 @@ def _streamable_server() -> Iterator[str]:
             process.wait(timeout=5)
 
 
-def test_streamable_http_rejects_invalid_tool_arguments_before_handler_execution() -> None:
+def test_streamable_http_rejects_invalid_tool_arguments_before_handler_execution(tmp_path: Path) -> None:
     """The bundled v2 server rejects a missing required ``url`` at its tool boundary."""
 
     async def call_invalid_tool(endpoint: str):
@@ -84,7 +88,8 @@ def test_streamable_http_rejects_invalid_tool_arguments_before_handler_execution
                 await session.initialize()
                 return await session.call_tool("scan_mcp_server", {"wrong": "synthetic"})
 
-    with _streamable_server() as endpoint:
+    handler_marker = tmp_path / "scan-handler-invoked"
+    with _streamable_server(handler_marker) as endpoint:
         result = asyncio.run(call_invalid_tool(endpoint))
 
     assert result.is_error is True
@@ -92,3 +97,4 @@ def test_streamable_http_rejects_invalid_tool_arguments_before_handler_execution
     assert result.content[0].type == "text"
     assert "url" in result.content[0].text
     assert "Field required" in result.content[0].text
+    assert not handler_marker.exists()
