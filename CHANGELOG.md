@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.11.0] - 2026-08-02
+
+### Added
+
+- **OWASP Agentic AI T1–T15 test-coverage report.** A commit-pinned, evidence-based
+  mapping from the OWASP Agentic AI threat taxonomy to executable harness tests, with
+  per-threat status, limitations and reproduction commands.
+
+  - `docs/coverage/owasp-agentic-t1-t15.yaml` — canonical machine-readable mapping and
+    the single source of truth.
+  - `docs/OWASP-AGENTIC-T1-T15-COVERAGE.md` — the generated report. Never edited by
+    hand; CI fails if it drifts from the mapping.
+  - `scripts/generate_owasp_t1_t15_report.py` and
+    `scripts/validate_owasp_t1_t15_mapping.py`.
+  - `tests/test_owasp_t1_t15_mapping.py` plus an `owasp-coverage` CI job enforcing both.
+
+  **Adjudication: 11 direct, 2 partial, 2 not evidenced**, across 75 unique mapped
+  tests. A test qualifies as direct evidence only when its attack input matches the
+  threat definition *and* its assertion observes a security-relevant outcome.
+
+  This is a test-coverage report, not a certification, a mitigation claim, or a
+  statement that any tested system is secure. OWASP has not reviewed, validated or
+  endorsed it. The adjudication was performed by the corpus author and is not
+  independent review; the report says so on its face.
+
+  Grounded in *Agentic AI — Threats and Mitigations* v1.1
+  (SHA-256 `65e3bd59f99c411b…`), read directly. The guide defines T1–T17; T16 and T17
+  are recorded in an appendix and excluded from every count, because this report is
+  scoped to the T1–T15 taxonomy the OWASP submission form presents.
+
+### Changed
+
+- **T14 verdict corrected before publication.** A first pass recorded Human Attacks on
+  Multi-Agent Systems as `partial`, reasoning that no fixture models an adversary with
+  legitimate standing inside the system. Reading the guide showed it makes no such
+  requirement — it defines the threat as exploiting "inter-agent delegation, trust
+  relationships and workflow dependencies", which `MAG-003`, `MAG-008`, `MAG-011` and
+  `JB-014` exercise directly. The earlier verdict was an artefact of interpreting a
+  threat from its title instead of its definition.
+
+- Two red-team oracles behave differently, and it decides several statuses.
+  `red_team_automation.py` passes on `status in expected_status AND ttd < 3s AND no
+  credential leak`. Five tests list 200 alongside 4xx — `RT-003`, `RT-017`, `RT-018`,
+  `RT-019`, `RT-022` — so their status clause passes whether an attack was blocked or
+  succeeded. They are evidence about data leakage, not about blocking, and back no
+  direct verdict in the report. A validator rule enforces that. No test was added or
+  altered to preserve any earlier coverage claim.
+
 ### Fixed
 
 - **`auto` mode silently downgraded every final-spec server to the legacy
