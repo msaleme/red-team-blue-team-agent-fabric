@@ -80,6 +80,13 @@ required_validator_rules:
 - id: no_permissive_oracle_as_direct
   rule: No test listed in oracle_notes.status_permissive_tests may appear as evidence under a threat whose
     coverage is `direct`.
+- id: control_validation_is_reviewed_not_computed
+  rule: A control may be marked `validated` only when a named test ACTIVATES that control and asserts
+    its outcome. The validator can check that the cited test exists, that guidance_only cites nothing,
+    and that partial states a limitation - but it CANNOT check that a real test actually asserts the named
+    control. Marking a control validated with a real-but-unrelated test passes every automated rule; this
+    was demonstrated, not assumed. That judgement is a review responsibility, recorded here so a green
+    validator is never mistaken for an adjudicated control.
 decision_path:
 - step: 1
   name: Agency and reasoning
