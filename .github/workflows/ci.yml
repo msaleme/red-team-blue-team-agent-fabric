@@ -184,7 +184,7 @@ jobs:
           "
 
   owasp-coverage:
-    name: OWASP T1-T15 coverage mapping
+    name: OWASP Agentic v1.1 coverage mapping
     runs-on: ubuntu-latest
     steps:
       # Full history on purpose. The report pins every evidence permalink to the
@@ -209,15 +209,17 @@ jobs:
       # evidence, metadata is absent, counts are hand-entered, or the canonical
       # test count disagrees.
       - name: Validate the coverage mapping
-        run: python scripts/validate_owasp_t1_t15_mapping.py
+        run: python scripts/validate_owasp_agentic_mapping.py
 
       # Spec 3.4: fail when the committed report differs from generated output.
       # The validator already checks this; regenerating proves it is idempotent
       # and that the generator itself still runs.
-      - name: Report is reproducible from the mapping
+      - name: Reports are reproducible from the mapping
         run: |
-          python scripts/generate_owasp_t1_t15_report.py
-          git diff --exit-code -- docs/OWASP-AGENTIC-T1-T15-COVERAGE.md
+          python scripts/generate_owasp_agentic_coverage.py
+          git diff --exit-code -- docs/OWASP-AGENTIC-V1.1-COVERAGE.md \
+                                  docs/OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md \
+                                  docs/coverage/owasp-agentic-v1.1.json
 
       - name: Coverage mapping tests
-        run: python -m pytest tests/test_owasp_t1_t15_mapping.py -q
+        run: python -m pytest tests/test_owasp_agentic_mapping.py -q

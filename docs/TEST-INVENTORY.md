@@ -2,7 +2,7 @@
 
 **595 security tests across 43 modules** on `main` (verified 2026-07-25 by `scripts/count_tests.py`)
 
-See also: **[OWASP Agentic AI T1–T15 Test Coverage Report](OWASP-AGENTIC-T1-T15-COVERAGE.md)** — per-threat evidence mapping with direct/partial/not-evidenced status, generated from `coverage/owasp-agentic-t1-t15.yaml`.
+See also: **[OWASP Agentic AI v1.1 Threat Coverage Report](OWASP-AGENTIC-V1.1-COVERAGE.md)** — per-threat T1–T17 evidence mapping with scenario coverage, mitigation-control validation and evidence classes, generated from `coverage/owasp-agentic-v1.1.yaml`. ([T1–T15 submission view](OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md))
 
 > **Canonical figures (verified 2026-07-25).** Main branch: 595 test IDs across
 > 43 test-bearing modules in `protocol_tests/` (files with no `test_id` — CLI,
