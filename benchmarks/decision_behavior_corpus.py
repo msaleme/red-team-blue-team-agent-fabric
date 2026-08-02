@@ -518,7 +518,13 @@ _COLLUSION: List[BenchmarkCase] = [
         ),
         executable_test="MCP-017",
         severity="P0-Critical",
-        source="OX Security 2026: MCP credential relay and agent impersonation vectors",
+        source=(
+            "Author-constructed: no external source located for agent impersonation "
+            "via session-token reuse. NOTE: previously attributed to OX Security 2026, "
+            "whose MCP Supply Chain Advisory covers STDIO command/argument injection "
+            "and does not cover credential relay or agent impersonation "
+            "(external corroboration audit v6, 2026-07-27)."
+        ),
         owasp_asi="ASI06",
     ),
     BenchmarkCase(
@@ -573,7 +579,12 @@ _COLLUSION: List[BenchmarkCase] = [
         ),
         executable_test="MCP-015",
         severity="P0-Critical",
-        source="OX Security 2026: cross-agent prompt injection relay via A2A pipelines",
+        source=(
+            "Author-constructed: no external source located for a cross-agent prompt "
+            "injection relay through A2A pipelines. NOTE: previously attributed to "
+            "OX Security 2026, which does not cover A2A cross-agent injection relay "
+            "(external corroboration audit v6, 2026-07-27)."
+        ),
         owasp_asi="ASI01",
     ),
     BenchmarkCase(
@@ -1007,7 +1018,13 @@ _PAYMENT_CHAIN: List[BenchmarkCase] = [
         ),
         executable_test="GM-003",
         severity="P0-Critical",
-        source="$45M crypto trading agent 2026: autonomous approval of over-threshold trade",
+        source=(
+            "Author-constructed: no external source located for a single agent "
+            "autonomously approving an over-threshold trade. NOTE: previously "
+            "attributed to '$45M crypto agent 2026', for which this repository "
+            "carries no locatable publication, and which the audit found does not "
+            "substantiate the case (external corroboration audit v6, 2026-07-27)."
+        ),
         owasp_asi="ASI05",
     ),
     BenchmarkCase(
@@ -1201,7 +1218,13 @@ _PAYMENT_CHAIN: List[BenchmarkCase] = [
         ),
         executable_test="GM-003",
         severity="P0-Critical",
-        source="$45M crypto agent 2026: credential extraction and reuse in payment flow",
+        source=(
+            "Author-constructed: no external source located for payment-credential "
+            "extraction and reuse via a tool call. NOTE: previously attributed to "
+            "'$45M crypto agent 2026', for which this repository carries no locatable "
+            "publication, and in which credential extraction in a payment flow is not "
+            "evidenced (external corroboration audit v6, 2026-07-27)."
+        ),
         owasp_asi="ASI06",
     ),
     BenchmarkCase(
@@ -1229,7 +1252,12 @@ _PAYMENT_CHAIN: List[BenchmarkCase] = [
         ),
         executable_test="MCP-015",
         severity="P0-Critical",
-        source="OX Security 2026: phantom tool injection via MCP tool registration",
+        source=(
+            "Author-constructed: no external source located for phantom tool "
+            "registration used to bypass payment approval. NOTE: previously attributed "
+            "to OX Security 2026, which does not cover phantom tool injection via MCP "
+            "tool registration (external corroboration audit v6, 2026-07-27)."
+        ),
         owasp_asi="ASI03",
     ),
     BenchmarkCase(
@@ -1257,7 +1285,13 @@ _PAYMENT_CHAIN: List[BenchmarkCase] = [
         ),
         executable_test="GM-003",
         severity="P0-Critical",
-        source="$45M crypto agent 2026: payment structuring to evade transaction limits",
+        source=(
+            "Author-constructed: no external source located for payment structuring "
+            "that evades a per-transaction limit. NOTE: previously attributed to "
+            "'$45M crypto agent 2026', for which this repository carries no locatable "
+            "publication, and in which payment structuring to evade limits is not "
+            "evidenced (external corroboration audit v6, 2026-07-27)."
+        ),
         owasp_asi="ASI05",
     ),
 ]
@@ -1378,7 +1412,13 @@ _EVIDENCE_FABRICATION: List[BenchmarkCase] = [
         ),
         executable_test="BI-001",
         severity="P1-High",
-        source="UC Berkeley RDI 2026: benchmark contamination and memorization cheating",
+        source=(
+            "Author-constructed: no external source located for benchmark task "
+            "identification followed by memorised-answer recall. NOTE: previously "
+            "attributed to UC Berkeley RDI 2026, which demonstrates that benchmarks "
+            "can be gamed without solving tasks but does not discuss contamination or "
+            "memorisation (external corroboration audit v6, 2026-07-27)."
+        ),
         owasp_asi="ASI05",
     ),
     BenchmarkCase(

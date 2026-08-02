@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import asdict
 from pathlib import Path
 
@@ -162,8 +163,127 @@ def _source_revised(case) -> bool:
     return current != audited
 
 
+# Cases whose `source` was rewritten *because* the audit found the citation
+# unsupportable, with the disposition recorded per case.
+#
+# Why this register has to exist. `_source_revised` is a digest comparison, so
+# repairing a flagged case silently reclassifies it from "as-audited" to
+# "revised", and the headline count of cases carrying a live defect verdict
+# drops to zero. That reads as "nothing outstanding" when what actually
+# happened is that someone edited the text. A repair and an unrelated
+# pre-audit revision are not the same event and must not collapse into one
+# state. Deleting the flag would be the same failure as deleting an audit-trail
+# entry: it replaces a known problem with a silent one.
+_AUDIT_REPAIRS = {
+    "DBC-014": "OX Security over-extension — attribution removed; case is author-constructed",
+    "DBC-016": "OX Security over-extension — attribution removed; case is author-constructed",
+    "DBC-031": "'$45M crypto agent 2026' unsupported — attribution removed; author-constructed",
+    "DBC-038": "'$45M crypto agent 2026' unsupported — attribution removed; author-constructed",
+    "DBC-039": "OX Security over-extension — attribution removed; case is author-constructed",
+    "DBC-040": "'$45M crypto agent 2026' unsupported — attribution removed; author-constructed",
+    "DBC-044": "UC Berkeley RDI over-extension — attribution removed; author-constructed",
+}
+_REPAIRED_AT = "2026-08-02"
+
+
+def _currency(case) -> tuple[str, str | None]:
+    """Return (verdict_currency, repair_disposition) for a case.
+
+    Three states, not two. A repaired case is neither "as-audited" (its text
+    changed) nor "stale, unadjudicated" (the change *was* the adjudication).
+    """
+    if case.id in _AUDIT_REPAIRS:
+        return (
+            "repaired — the audit's finding was accepted and the citation corrected "
+            f"on {_REPAIRED_AT}; the case remains author-constructed and uncorroborated",
+            _AUDIT_REPAIRS[case.id],
+        )
+    if _source_revised(case):
+        return ("stale — source text changed after the audit; not re-adjudicated", None)
+    return ("as-audited — source text unchanged since the audit", None)
+
+
+_PROTOCOL_TESTS_DIR = Path(__file__).resolve().parents[1] / "protocol_tests"
+_TEST_DEF_RE = re.compile(
+    r'test_id\s*=\s*["\']([A-Z0-9]+-\d{3})["\']\s*,\s*\n?\s*name\s*=\s*["\']([^"\']+)["\']'
+)
+
+
+def _harvest_test_definitions() -> dict[str, dict]:
+    """Read test id/name/category/owasp_asi from the live harness source.
+
+    Deliberately parsed from ``protocol_tests/*.py`` and not from
+    ``HARNESS_TEST_CATALOG.md``. The catalog is a dated extract; reading it
+    would reintroduce exactly the staleness this check exists to detect.
+    """
+    found: dict[str, dict] = {}
+    for path in sorted(_PROTOCOL_TESTS_DIR.glob("*.py")):
+        src = path.read_text(encoding="utf-8", errors="replace")
+        for match in _TEST_DEF_RE.finditer(src):
+            test_id, name = match.group(1), match.group(2)
+            if test_id in found:
+                continue  # first definition wins; later ones are re-records
+            tail = src[match.end() : match.end() + 400]
+            category = re.search(r'category\s*=\s*["\']([^"\']+)["\']', tail)
+            asi = re.search(r'owasp_asi\s*=\s*["\']([^"\']+)["\']', tail)
+            found[test_id] = {
+                "name": name,
+                "category": category.group(1) if category else None,
+                "owasp_asi": asi.group(1) if asi else None,
+                "defined_in": f"protocol_tests/{path.name}",
+            }
+    return found
+
+
+def _executable_test_link(case, tests: dict[str, dict]) -> dict:
+    """Resolve a case's ``executable_test`` against the live harness.
+
+    What this establishes and what it does not. It establishes whether the
+    named test exists and whether its OWASP ASI category matches the case's.
+    It does NOT establish that the test exercises the scenario — that is a
+    reading, not a computation. A disagreeing category is a reason to look,
+    not a finding on its own; a case can legitimately map to a test filed
+    under a different ASI heading.
+    """
+    named = case.executable_test
+    entry = tests.get(named) if named else None
+    if entry is None:
+        return {
+            "names": named,
+            "resolves_to_a_test": False,
+            "test_name": None,
+            "test_owasp_asi": None,
+            "test_category": None,
+            "defined_in": None,
+            "owasp_asi_agrees": None,
+            "note": (
+                "not a resolvable test id in protocol_tests/ — this field names "
+                "something else (a harness, or several ids)"
+            ),
+        }
+    agrees = entry["owasp_asi"] == case.owasp_asi if entry["owasp_asi"] else None
+    return {
+        "names": named,
+        "resolves_to_a_test": True,
+        "test_name": entry["name"],
+        "test_owasp_asi": entry["owasp_asi"],
+        "test_category": entry["category"],
+        "defined_in": entry["defined_in"],
+        "owasp_asi_agrees": agrees,
+        "note": (
+            ""
+            if agrees
+            else (
+                f"case is {case.owasp_asi}; the named test is "
+                f"{entry['owasp_asi']} ({entry['name']}) — check the mapping"
+            )
+        ),
+    }
+
+
 def build_bundle() -> dict:
     grounding = _load_grounding()
+    tests = _harvest_test_definitions()
     missing = [c.id for c in CORPUS if c.id not in grounding]
     if missing:
         raise SystemExit(f"grounding rows missing for: {missing}")
@@ -172,6 +292,7 @@ def build_bundle() -> dict:
     for case in CORPUS:
         row = grounding[case.id]
         fixture = FIXTURES.get(case.id, {})
+        currency, repair = _currency(case)
         cases.append(
             {
                 **asdict(case),
@@ -186,12 +307,21 @@ def build_bundle() -> dict:
                     ),
                     "audited_at_commit": GROUNDING_SOURCE["corpus_commit_audited"],
                     "source_revised_since_audit": _source_revised(case),
-                    "verdict_currency": (
-                        "stale — source text changed after the audit; not re-adjudicated"
-                        if _source_revised(case)
-                        else "as-audited — source text unchanged since the audit"
+                    "repaired_in_response_to_audit": case.id in _AUDIT_REPAIRS,
+                    "repair_disposition": repair,
+                    # `provenance` above is the audit's transcription and describes
+                    # the claim as it stood when audited. For a repaired case that
+                    # claim has been withdrawn, so the two would otherwise read as a
+                    # contradiction. The audit row is not rewritten: re-adjudicating
+                    # it would be the same author grading his own correction.
+                    "provenance_after_repair": (
+                        "author-constructed — no external source located"
+                        if case.id in _AUDIT_REPAIRS
+                        else None
                     ),
+                    "verdict_currency": currency,
                 },
+                "executable_test_link": _executable_test_link(case, tests),
                 "tools": fixture.get("tools", []),
                 "fixture_rationale": fixture.get("rationale", ""),
                 # Executed at export time, never hand-assigned.
@@ -217,13 +347,28 @@ def build_bundle() -> dict:
         by_category[c["category"]] = by_category.get(c["category"], 0) + 1
         by_severity[c["severity"]] = by_severity.get(c["severity"], 0) + 1
 
-    revised_n = sum(1 for c in cases if c["grounding"]["source_revised_since_audit"])
+    repaired_n = sum(1 for c in cases if c["grounding"]["repaired_in_response_to_audit"])
+    # "revised" now means changed for reasons other than an accepted audit finding.
+    revised_n = sum(
+        1
+        for c in cases
+        if c["grounding"]["source_revised_since_audit"]
+        and not c["grounding"]["repaired_in_response_to_audit"]
+    )
     still_flagged = sum(
         1
         for c in cases
         if not c["grounding"]["source_revised_since_audit"]
+        and not c["grounding"]["repaired_in_response_to_audit"]
         and (c["grounding"]["evidence_fit"] == "none" or c["grounding"]["record_defect"] != "—")
     )
+
+    link_unresolved = [
+        c["id"] for c in cases if not c["executable_test_link"]["resolves_to_a_test"]
+    ]
+    link_disagrees = [
+        c["id"] for c in cases if c["executable_test_link"]["owasp_asi_agrees"] is False
+    ]
 
     regex_hits = sum(1 for c in cases if c["expected_scanner"]["regex_metadata_scanner"])
     cap_hits = sum(1 for c in cases if c["expected_scanner"]["capability_rule_scanner"])
@@ -249,18 +394,44 @@ def build_bundle() -> dict:
             "audited_at_commit": GROUNDING_SOURCE["corpus_commit_audited"],
             "audit_date": GROUNDING_SOURCE["audit_date"],
             "cases_with_source_revised_since_audit": revised_n,
-            "cases_still_as_audited": len(cases) - revised_n,
+            "cases_repaired_in_response_to_audit": repaired_n,
+            "repaired_on": _REPAIRED_AT,
+            "cases_still_as_audited": len(cases) - revised_n - repaired_n,
             "flagged_and_still_as_audited": still_flagged,
             "note": (
-                "A remediation pass landed the day after the audit and revised "
-                f"{revised_n} of {len(cases)} source fields. For those cases the "
-                "evidence_fit and record_defect recorded here are stale and have "
-                "not been re-adjudicated against the revised text. Of the cases "
-                "carrying a defect verdict, only "
-                f"{still_flagged} still have the exact source text the audit read. "
-                "Re-adjudicating the revised cases is outstanding work, and until "
-                "it is done neither a stale defect nor an assumed repair should be "
-                "reported as the current state."
+                "Three states, not two. A remediation pass landed the day after the "
+                f"audit and revised {revised_n} of {len(cases)} source fields for "
+                "reasons of its own; for those the evidence_fit and record_defect "
+                "recorded here are stale and have NOT been re-adjudicated against "
+                f"the revised text. A further {repaired_n} cases were repaired on "
+                f"{_REPAIRED_AT} because the audit's finding was accepted: their "
+                "unsupportable external attributions were removed and they are now "
+                "declared author-constructed. That is a correction of the record, "
+                "not a demonstration that the behaviour is corroborated — those "
+                f"cases have no external support and say so. {still_flagged} cases "
+                "carry a defect verdict against source text the audit actually read "
+                "and remain outstanding. Re-adjudicating the revised cases is still "
+                "outstanding work, and until it is done neither a stale defect nor "
+                "an assumed repair should be reported as the current state."
+            ),
+        },
+        "executable_test_linkage": {
+            "resolved_against": "protocol_tests/ at export time, not HARNESS_TEST_CATALOG.md",
+            "cases_naming_a_resolvable_test": len(cases) - len(link_unresolved),
+            "cases_naming_something_else": len(link_unresolved),
+            "not_resolvable": link_unresolved,
+            "owasp_asi_disagrees": len(link_disagrees),
+            "owasp_asi_disagrees_cases": link_disagrees,
+            "note": (
+                "executable_test names a harness test; it has never asserted that "
+                "the test exercises the case. This block makes that gap measurable "
+                "instead of leaving it as prose. A disagreeing OWASP ASI category is "
+                "a reason to check the mapping, not a finding on its own — a case can "
+                "legitimately map to a test filed under a different heading. What it "
+                "does establish is that the link was never machine-verified: "
+                f"{len(link_unresolved)} cases name something that is not a test id "
+                f"at all, and {len(link_disagrees)} name a test whose category "
+                "disagrees with the case's own."
             ),
         },
         "evidence_fit_distribution": fit_counts,
