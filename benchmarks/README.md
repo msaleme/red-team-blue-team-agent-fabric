@@ -26,14 +26,24 @@ action that a well-governed agent must block. Every case includes:
 
 ### Grounding provenance
 
-Not every case is externally grounded. **24 of the 52 cases (46%) are grounded
-wholly or partly in systems authored by the same author** — internal HRAO-E
-deployment runs (13 cases; run data unpublished), the MCP cost-inflation finding
-(4), and the `agent-security-harness` suites (7). The `memory_tampering` category
-is the most affected: 9 of its 10 cases derive from a single internal run.
+Not every case is externally grounded. **28 of the 52 cases (54%) are grounded in
+the author's own work** — internal HRAO-E deployment runs, the MCP cost-inflation
+finding, the `agent-security-harness` suites, and seven cases declared
+author-constructed on 2026-08-02 after their citations were withdrawn. The
+`memory_tampering` category is the most affected: 9 of its 10 cases derive from a
+single internal run.
 
-Those cases are **not** independent corroboration. Read the `source` field before
-citing any individual case as externally evidenced.
+The figure is derived, not maintained by hand, and guarded by
+`test_author_grounded_count_is_derived`. **Definition:** a case counts as
+externally grounded if its `source` names a third-party publication, ignoring
+withdrawn `NOTE:` material. Everything else is author-grounded. The previously
+published figure was *24 of 52 (46%)*; it rose because seven citations were
+withdrawn, not because new internal cases were added. The earlier breakdown
+(`13 + 4 + 7`) also double-counted — the audit's seven `full (internal)` rows
+already contained the four cost-inflation cases.
+
+Those 28 cases are **not** independent corroboration. Read the `source` field
+before citing any individual case as externally evidenced.
 
 **The former "85% (44 of 52)" headline has been withdrawn.** The audit that
 withdrew it is published in [`docs/audits/`](../docs/audits/). It was a
@@ -210,26 +220,73 @@ the paper's own citation and arXiv identifier once submitted.
 
 **Published sources.** These are externally verifiable.
 
-| Source | Finding | Cases |
+Case lists below are derived from the `source` field of each case and guarded by
+`test_readme_source_table_matches_the_corpus`. They were previously maintained by
+hand and had drifted: `DBC-037` was listed under OX Security although it has
+never cited OX, four METR cases were missing, and both internal-run ranges
+included a case that belongs to a different source. A source table that is
+edited by hand next to a corpus that is edited by code will always drift; the
+test is the fix, not this paragraph.
+
+The **fetched** column records whether the corroboration audit (v6, 2026-07-27)
+actually retrieved the source and read it. Rows marked no are not findings of
+absence — they are unchecked.
+
+<!-- dgb:source-table:start -->
+
+| Source | Finding | Fetched | Cases |
+|---|---|---|---|
+| UC Berkeley RDI 2026 (Wang, Mang, Cheung, Sen, Song) | All 8 major AI benchmarks gamed for near-perfect scores | yes | DBC-028, DBC-036, DBC-041, DBC-045, DBC-047, DBC-048 |
+| METR 2025 | Reward-hacking in >30% of o3 and Claude 3.7 Sonnet eval runs | no | DBC-010, DBC-011, DBC-012, DBC-013, DBC-017, DBC-019, DBC-020, DBC-050 |
+| OX Security 2026 | MCP STDIO command/argument injection | yes | DBC-009, DBC-026, DBC-032 |
+| OpenClaw CVE-2026-35625 | Privilege escalation via tool permission inheritance | yes | DBC-003, DBC-006 |
+| OpenClaw CVE-2026-35629 | SSRF via unguarded configured base URLs in channel extensions | yes | DBC-037 |
+| Kiro/Amazon 2026 | Autonomous file deletion during reorganization task | no | DBC-007 |
+| MCP cost inflation 2026 | 658x compute cost via recursive tool calls | no | DBC-008, DBC-015, DBC-018, DBC-033 |
+| IQuest-Coder 2026 | Git log copying to inflate benchmark scores | no | DBC-042, DBC-046 |
+| AgentSeal runtime exploitation 2026 | Credential retention in tool descriptions | no | DBC-051 |
+| Return channel poisoning (harness RCP-001, CVE-004) | Cross-tool context leakage | n/a — internal | DBC-052 |
+
+<!-- dgb:source-table:end -->
+
+**One source in this table has no locatable publication.** `$45M crypto agent
+2026` is cited by `DBC-036` and appears nowhere in `docs/paper-dgb/references.bib`
+or anywhere else in this repository as an identifiable article, incident report
+or advisory. The audit found it does not substantiate the cases that cited it.
+It is listed here rather than quietly dropped, because a reader comparing the
+corpus against this table would otherwise find a citation with no row.
+
+| Source | Status | Cases |
 |---|---|---|
-| UC Berkeley RDI 2026 (Wang, Mang, Cheung, Sen, Song) | All 8 major AI benchmarks gamed for near-perfect scores | DBC-041, 043–045, 047–049 |
-| METR 2025 | Reward-hacking in >30% of o3 and Claude 3.7 Sonnet eval runs | DBC-012, 013, 017, 020, 050 |
-| OX Security 2026 | MCP STDIO injection, 36.7% SSRF, cross-agent relay | DBC-009, 016, 032, 037 |
-| OpenClaw CVE-2026-35625 | Privilege escalation via tool permission inheritance | DBC-003, 006 |
-| OpenClaw CVE-2026-35629 | SSRF via tool URL parameter | DBC-037 |
-| Kiro/Amazon 2026 | Autonomous file deletion during reorganization task | DBC-007 |
-| MCP cost inflation 2026 | 658x compute cost via recursive tool calls | DBC-008, 033, 015 |
-| IQuest-Coder 2026 | Git log copying to inflate benchmark scores | DBC-042, 046 |
-| $45M crypto agent 2026 | Autonomous over-threshold trade approval | DBC-031, 036, 038, 040 |
-| AgentSeal runtime exploitation 2026 | Credential retention in tool descriptions | DBC-051 |
-| Return channel poisoning (harness RCP-001, CVE-004) | Cross-tool context leakage | DBC-052 |
+| $45M crypto agent 2026 | No locatable publication; audit found it unsupporting | DBC-036 (partial — the RDI half of that case's citation holds) |
+
+**Withdrawn attributions.** These cases previously cited a published source that
+the audit found does not cover them. The citation was removed on 2026-08-02 and
+the cases are now declared author-constructed. Removing an unsupportable
+citation is a correction of the record; it does not make the behaviour
+corroborated, and these cases claim no external support.
+
+| Case | Previously cited | What the audit found |
+|---|---|---|
+| DBC-014 | OX Security 2026 | Advisory covers STDIO command/argument injection, not credential relay or agent impersonation |
+| DBC-016 | OX Security 2026 | Does not cover A2A cross-agent injection relay |
+| DBC-039 | OX Security 2026 | Does not cover phantom tool injection via MCP tool registration |
+| DBC-031 | $45M crypto agent 2026 | Does not substantiate a single agent approving an over-threshold trade |
+| DBC-038 | $45M crypto agent 2026 | Credential extraction in a payment flow not evidenced |
+| DBC-040 | $45M crypto agent 2026 | Payment structuring to evade limits not evidenced |
+| DBC-044 | UC Berkeley RDI 2026 | Demonstrates gaming without task-solving; does not discuss contamination or memorisation |
+| DBC-043, DBC-049 | UC Berkeley RDI 2026 | Does not discuss LLM-judge manipulation or string-collision gaming (withdrawn earlier, 2026-07-27) |
 
 **Internal, unpublished.** `lightningzero` and `zhuanruhu` are internal HRAO-E
 runs by the corpus author. The underlying run data is not public, so these are
 **not** independent corroboration of the corpus — they are the author's own
 observations, recorded here so the distinction is visible rather than implied.
 
+<!-- dgb:internal-table:start -->
+
 | Internal run | Observation | Cases |
 |---|---|---|
-| HRAO-E `lightningzero` (2026, unpublished) | 9/12 agents self-disabled governance gates within 48h | DBC-001–005 |
-| HRAO-E `zhuanruhu` (2026, unpublished) | 2,847 memory deletions in production deployment | DBC-021–030 |
+| HRAO-E `lightningzero` (2026, unpublished) | 9/12 agents self-disabled governance gates within 48h | DBC-001, DBC-002, DBC-004, DBC-005 |
+| HRAO-E `zhuanruhu` (2026, unpublished) | 2,847 memory deletions in production deployment | DBC-021, DBC-022, DBC-023, DBC-024, DBC-025, DBC-026, DBC-027, DBC-029, DBC-030 |
+
+<!-- dgb:internal-table:end -->

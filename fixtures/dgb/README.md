@@ -51,17 +51,51 @@ bundle's `grounding_currency` block gives the split.
 
 | Currency | Cases |
 |---|---|
-| Source text **unchanged** since the audit — verdict still describes what you are reading | 27 |
-| Source text **revised** after the audit — verdict is stale, **not re-adjudicated** | 25 |
-| Carrying a defect verdict **and** still unrevised — the ones to look at first | **7** |
+| Source text **unchanged** since the audit — verdict still describes what you are reading | 20 |
+| Source text **revised** after the audit for reasons of its own — verdict is stale, **not re-adjudicated** | 25 |
+| **Repaired** on 2026-08-02 because the audit's finding was accepted | **7** |
+| Carrying a defect verdict **and** still unrevised — the ones to look at first | **0** |
 
-Those seven are `DBC-014`, `DBC-016`, `DBC-031`, `DBC-038`, `DBC-039`,
-`DBC-040`, `DBC-044`.
+**Read that last row with the one above it.** It is zero because the seven cases
+that held it were repaired, not because nothing was wrong. Those seven are
+`DBC-014`, `DBC-016`, `DBC-031`, `DBC-038`, `DBC-039`, `DBC-040` and `DBC-044`;
+each cited a published source that does not cover it. The citation was withdrawn
+and each now reads `Author-constructed: no external source located …`, carrying a
+`NOTE:` naming what it used to claim and what the audit found.
+
+Repair here means **a false claim was removed, not that support was found.**
+Those seven have no external corroboration and say so. `grounding.provenance`
+still reads `external` for them because it is the audit's transcription of the
+claim as it stood when audited; `grounding.provenance_after_repair` records what
+is true now. The audit row is not rewritten — re-adjudicating it would be the
+same author grading his own correction.
 
 A stale verdict is not evidence of a current defect, and a revision is not
 evidence of a verified repair. Re-adjudicating the 25 revised cases against
 their new text is outstanding work, and this file says so rather than picking
 whichever reading is more flattering.
+
+## Does the named harness test actually cover the case?
+
+Every case carries `executable_test`, and that field has never claimed the named
+test *exercises* the scenario. `cases[].executable_test_link` now makes the gap
+measurable instead of leaving it as a sentence in the limitations block. It is
+resolved against `protocol_tests/` at export time — deliberately not against
+`HARNESS_TEST_CATALOG.md`, which is a dated extract and would reintroduce the
+staleness the check exists to detect.
+
+| Linkage | Cases |
+|---|---|
+| Names a resolvable test id | 49 of 52 |
+| Names something else entirely (a harness, or several ids) | **3** — `DBC-034`, `DBC-035`, `DBC-052` |
+| Names a test whose OWASP ASI category disagrees with the case's | **17** |
+
+A disagreeing category is a reason to check the mapping, not a finding on its
+own: a case can legitimately map to a test filed under a different heading. What
+the number does establish is that this link was never machine-verified. Some of
+the disagreements are stark — `DBC-016` is a cross-agent prompt injection relay
+pointing at `MCP-015`, *SSRF via URI Parameter*. If you are looking for somewhere
+to push, `executable_test_link` is the field with the least prior scrutiny.
 
 The regex metadata scanner flags **1 of 52**. The capability-rule scanner flags
 **17 of 52**. Both figures come from execution against the current corpus, and
@@ -82,7 +116,9 @@ both are in the file.
 | `scanner_baseline` | executed detection counts for both scanners |
 | `known_limitations` | single-author threat, evidence fit, `executable_test` coverage, record defects, stub-agent configs, and what this bundle is not |
 | `scope` / `usage` | what the cases establish, and how to compare a verifier against them |
-| `cases[]` | every `BenchmarkCase` field, plus `grounding`, `tools`, `fixture_rationale`, `expected_scanner` |
+| `grounding_currency` | the three-way split: as-audited, revised, repaired — and how many defect verdicts are still live |
+| `executable_test_linkage` | whether each case's named harness test resolves, and where its OWASP category disagrees |
+| `cases[]` | every `BenchmarkCase` field, plus `grounding`, `executable_test_link`, `tools`, `fixture_rationale`, `expected_scanner` |
 
 ### `cases[].grounding`
 
