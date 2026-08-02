@@ -177,10 +177,14 @@ def test_flagged_and_still_as_audited_is_derived(bundle):
 
 
 def test_verdict_currency_agrees_with_the_flag(bundle):
+    """Four states now. `stale` survives only for a revised case nobody re-read;
+    the corpus currently has none, but the branch must stay honest if one appears."""
     for case in bundle["cases"]:
         g = case["grounding"]
         if g["repaired_in_response_to_audit"]:
             assert g["verdict_currency"].startswith("repaired"), case["id"]
+        elif g["source_revised_since_audit"] and g["readjudicated"]:
+            assert g["verdict_currency"].startswith("re-adjudicated"), case["id"]
         elif g["source_revised_since_audit"]:
             assert g["verdict_currency"].startswith("stale"), case["id"]
         else:
@@ -365,6 +369,56 @@ def test_readjudication_summary_is_derived(bundle):
         if c["grounding"]["fit_after_readjudication"] == "none — outstanding"
     ]
     assert r["outstanding"] == outstanding
+
+
+def test_no_prose_field_contradicts_the_flags_it_describes(bundle):
+    """The defect this whole corpus documents, committed by the corpus.
+
+    When the re-adjudication pass landed, three prose fields still asserted the
+    revised cases had "NOT been re-adjudicated" and that doing so was "still
+    outstanding work" — while `readjudication` in the same document reported 25
+    done and 0 remaining. Bugbot caught two; a third was in `grounding_audit`.
+    A sentence restating a flag must be derived from that flag.
+    """
+    r = bundle["readjudication"]
+    prose = [
+        ("grounding_currency.note", bundle["grounding_currency"]["note"]),
+        ("grounding_audit.currency_warning", bundle["grounding_audit"]["currency_warning"]),
+        ("known_limitations.evidence_fit", bundle["known_limitations"]["evidence_fit"]),
+        ("known_limitations.record_defects", bundle["known_limitations"]["record_defects"]),
+    ]
+    if r["revised_cases_left_unadjudicated"] == 0:
+        for name, text in prose:
+            low = text.lower()
+            assert "have not been re-adjudicated" not in low, name
+            assert "not been re-adjudicated" not in low, name
+            assert "still outstanding work" not in low, name
+            assert "is outstanding work" not in low, name
+
+    # Every repaired case is not author-constructed; prose must not say they are.
+    if PARTIAL_CITATION_REPAIRS:
+        for name, text in prose:
+            assert "are now declared author-constructed" not in text, (
+                f"{name} calls all repaired cases author-constructed, but "
+                f"{PARTIAL_CITATION_REPAIRS} rest on an internal run"
+            )
+
+
+def test_verdict_currency_never_contradicts_readjudicated(bundle):
+    """Per-case version of the same failure."""
+    for case in bundle["cases"]:
+        g = case["grounding"]
+        currency = g["verdict_currency"]
+        if g["readjudicated"] and not g["repaired_in_response_to_audit"]:
+            assert "not re-adjudicated" not in currency, case["id"]
+            assert currency.startswith("re-adjudicated"), case["id"]
+        if g["repaired_in_response_to_audit"]:
+            rests = g["provenance_after_repair"]
+            if "author-constructed" not in rests:
+                assert "remains author-constructed" not in currency, (
+                    f"{case['id']} rests on '{rests}' but its currency string "
+                    "calls it author-constructed"
+                )
 
 
 def test_an_empty_outstanding_list_never_stands_alone(bundle):

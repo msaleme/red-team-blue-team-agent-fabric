@@ -73,9 +73,14 @@ GROUNDING_SOURCE = {
         "not as it stands today. A remediation pass landed the day after the "
         "audit and revised many source fields. Each case reports "
         "source_revised_since_audit; where that is true the evidence_fit and "
-        "record_defect below are STALE and have not been re-adjudicated. Do "
-        "not read a stale 'none' as a current defect, and do not read a "
-        "revision as a repair that someone has verified."
+        "record_defect below are STALE — they describe text that has changed. "
+        "They are no longer unexamined: every revised case was re-read against "
+        "its current wording on 2026-08-02 and carries "
+        "fit_after_readjudication, and eight cases whose citation could not be "
+        "supported were repaired outright. Read those fields, not these, for "
+        "the current state. Do not read a stale 'none' as a current defect, and "
+        "do not read a revision as a repair that someone has verified — the "
+        "re-adjudication was performed by the corpus author, not independently."
     ),
 }
 
@@ -384,16 +389,35 @@ _FIT_AFTER_VOCABULARY = {
 def _currency(case) -> tuple[str, str | None]:
     """Return (verdict_currency, repair_disposition) for a case.
 
-    Three states, not two. A repaired case is neither "as-audited" (its text
-    changed) nor "stale, unadjudicated" (the change *was* the adjudication).
+    Four states. This string is prose describing machine-readable flags in the
+    same record, and it has already drifted from them once: when the
+    re-adjudication pass landed, every re-read case still carried "not
+    re-adjudicated" while `readjudicated: true` sat two lines below it. A
+    sentence that restates a flag has to be derived from that flag, not written
+    alongside it and left to rot — which is the whole defect this corpus exists
+    to document.
     """
     if case.id in _AUDIT_REPAIRS:
+        rests_on = _PROVENANCE_AFTER_REPAIR.get(case.id, "")
+        tail = (
+            "the case remains author-constructed and uncorroborated"
+            if "author-constructed" in rests_on
+            else f"the case now rests on: {rests_on}"
+        )
         return (
             "repaired — the audit's finding was accepted and the citation corrected "
-            f"on {_REPAIRED_AT}; the case remains author-constructed and uncorroborated",
+            f"on {_REPAIRED_AT}; {tail}",
             _AUDIT_REPAIRS[case.id],
         )
     if _source_revised(case):
+        if case.id in _READJUDICATION:
+            fit = _READJUDICATION[case.id][0]
+            return (
+                "re-adjudicated — source text changed after the audit and was "
+                f"re-read against its current wording on {_READJUDICATED_ON}; "
+                f"fit is now '{fit}'",
+                None,
+            )
         return ("stale — source text changed after the audit; not re-adjudicated", None)
     return ("as-audited — source text unchanged since the audit", None)
 
@@ -590,6 +614,7 @@ def build_bundle() -> dict:
     # A defect found and fixed inside one pass still has to be reported. Without
     # this, the only trace of DBC-026 would be an empty `outstanding` list, which
     # reads as "we looked and found nothing".
+    readjudicated_n = sum(1 for c in cases if c["grounding"]["readjudicated"])
     readj_found_defective = [
         c["id"]
         for c in cases
@@ -643,20 +668,23 @@ def build_bundle() -> dict:
             "cases_still_as_audited": len(cases) - revised_n - repaired_n,
             "flagged_and_still_as_audited": still_flagged,
             "note": (
-                "Three states, not two. A remediation pass landed the day after the "
-                f"audit and revised {revised_n} of {len(cases)} source fields for "
-                "reasons of its own; for those the evidence_fit and record_defect "
-                "recorded here are stale and have NOT been re-adjudicated against "
-                f"the revised text. A further {repaired_n} cases were repaired on "
+                f"A remediation pass landed the day after the audit and revised "
+                f"{revised_n} of {len(cases)} source fields for reasons of its own. "
+                "The evidence_fit and record_defect recorded here describe the "
+                "AUDITED text, which for those cases no longer exists — but they "
+                f"are no longer unexamined: all {readjudicated_n} were re-read "
+                f"against their current wording on {_READJUDICATED_ON}, and each "
+                "carries fit_after_readjudication. See the `readjudication` block, "
+                "including that the pass was run by the corpus author and is not "
+                f"independent review. A further {repaired_n} cases were repaired on "
                 f"{_REPAIRED_AT} because the audit's finding was accepted: their "
-                "unsupportable external attributions were removed and they are now "
-                "declared author-constructed. That is a correction of the record, "
-                "not a demonstration that the behaviour is corroborated — those "
-                f"cases have no external support and say so. {still_flagged} cases "
-                "carry a defect verdict against source text the audit actually read "
-                "and remain outstanding. Re-adjudicating the revised cases is still "
-                "outstanding work, and until it is done neither a stale defect nor "
-                "an assumed repair should be reported as the current state."
+                "unsupportable external attributions were removed. Seven of those "
+                "are now author-constructed with no support of any kind; DBC-026 "
+                "lost only the external half of a compound citation and still rests "
+                "on an unpublished internal run. A withdrawal is a correction of the "
+                f"record, not a demonstration that the behaviour is corroborated. "
+                f"{still_flagged} cases carry a defect verdict against source text "
+                "the audit actually read."
             ),
         },
         "readjudication": {
@@ -754,7 +782,8 @@ def build_bundle() -> dict:
                 "source and 1 carried an invalid identifier (DBC-032, "
                 "CVE-2026-SSRF-MCP). All 7 misdescribed cases have had their "
                 "source text revised since, so those verdicts are stale here "
-                "and have not been re-adjudicated. A record defect is not the "
+                "and are superseded by each case's fit_after_readjudication, recorded "
+                "when they were re-read on 2026-08-02. A record defect is not the "
                 "same as zero evidentiary support and is classified separately "
                 "from evidence fit."
             ),
