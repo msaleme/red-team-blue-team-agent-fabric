@@ -301,18 +301,23 @@ def test_limitations_do_not_present_audited_figures_as_current(bundle):
 
 README = Path(__file__).resolve().parents[1] / "benchmarks/README.md"
 
+# Word-bounded on purpose. An unbounded `METR` matched DBC-028's "self-reported
+# metrics" and filed a UC Berkeley RDI case under METR 2025 — a citation the case
+# does not make. A source-attribution guard that itself over-matches is worse
+# than none, so every pattern here is anchored and covered by
+# test_source_patterns_do_not_match_on_substrings.
 _SOURCE_PATTERNS = {
-    "UC Berkeley RDI": r"UC Berkeley RDI",
-    "METR": r"METR",
-    "OX Security": r"OX Security",
-    "OpenClaw CVE-2026-35625": r"35625",
-    "OpenClaw CVE-2026-35629": r"35629",
-    "Kiro/Amazon": r"Kiro|Amazon",
-    "MCP cost inflation": r"cost inflation|658",
-    "IQuest-Coder": r"IQuest",
-    "AgentSeal": r"AgentSeal",
-    "HRAO-E `lightningzero`": r"lightningzero",
-    "HRAO-E `zhuanruhu`": r"zhuanruhu",
+    "UC Berkeley RDI": r"\bUC Berkeley RDI\b",
+    "METR": r"\bMETR\b",
+    "OX Security": r"\bOX Security\b",
+    "OpenClaw CVE-2026-35625": r"\b35625\b",
+    "OpenClaw CVE-2026-35629": r"\b35629\b",
+    "Kiro/Amazon": r"\bKiro\b|\bAmazon\b",
+    "MCP cost inflation": r"\bcost inflation\b",
+    "IQuest-Coder": r"\bIQuest\b",
+    "AgentSeal": r"\bAgentSeal\b",
+    "HRAO-E `lightningzero`": r"\blightningzero\b",
+    "HRAO-E `zhuanruhu`": r"\bzhuanruhu\b",
 }
 
 
@@ -373,16 +378,75 @@ def test_readme_records_the_withdrawn_attributions():
 
 
 _EXTERNAL_SOURCE_PATTERNS = [
-    r"UC Berkeley RDI",
-    r"METR",
-    r"OX Security",
-    r"35625",
-    r"35629",
-    r"Kiro|Amazon",
-    r"IQuest",
-    r"AgentSeal",
-    r"45M",
+    r"\bUC Berkeley RDI\b",
+    r"\bMETR\b",
+    r"\bOX Security\b",
+    r"\b35625\b",
+    r"\b35629\b",
+    r"\bKiro\b|\bAmazon\b",
+    r"\bIQuest\b",
+    r"\bAgentSeal\b",
+    r"\$45M\b",
 ]
+
+
+def test_source_patterns_do_not_match_on_substrings():
+    """Every attribution match must be the source name, not a word containing it.
+
+    Regression: unbounded `METR` matched "self-reported metrics" in DBC-028 and
+    credited METR 2025 with a case that cites only UC Berkeley RDI. The bug is
+    the same shape as the one this whole PR repairs — a pattern standing in for
+    a claim it does not actually establish.
+    """
+    import re
+
+    from benchmarks.decision_behavior_corpus import CORPUS
+
+    known_names = [
+        "UC Berkeley RDI",
+        "METR",
+        "OX Security",
+        "35625",
+        "35629",
+        "Kiro",
+        "Amazon",
+        "cost inflation",
+        "IQuest",
+        "AgentSeal",
+        "45M",
+        "lightningzero",
+        "zhuanruhu",
+    ]
+    for pattern in list(_SOURCE_PATTERNS.values()) + _EXTERNAL_SOURCE_PATTERNS:
+        for case in CORPUS:
+            claim = (case.source or "").split("NOTE:")[0]
+            for hit in re.finditer(pattern, claim, re.I):
+                matched = hit.group(0)
+                assert any(n.lower() in matched.lower() for n in known_names), (
+                    f"{case.id}: {pattern!r} matched {matched!r}, which is not a "
+                    "source name"
+                )
+                # The match must not be the interior of a longer word.
+                after = claim[hit.end() : hit.end() + 1]
+                assert not after.isalpha(), (
+                    f"{case.id}: {pattern!r} matched inside {matched + after!r} — "
+                    "this is a substring hit, not a citation"
+                )
+
+
+def test_dbc_028_is_not_credited_to_metr():
+    """The exact case the unbounded pattern mis-filed."""
+    import re
+
+    from benchmarks.decision_behavior_corpus import CORPUS
+
+    case = next(c for c in CORPUS if c.id == "DBC-028")
+    assert "metrics" in case.source
+    assert not re.search(_SOURCE_PATTERNS["METR"], case.source, re.I), (
+        "DBC-028 cites UC Berkeley RDI and says 'self-reported metrics'; it must "
+        "not resolve as a METR citation"
+    )
+    assert re.search(_SOURCE_PATTERNS["UC Berkeley RDI"], case.source)
 
 
 def test_author_grounded_count_is_derived():

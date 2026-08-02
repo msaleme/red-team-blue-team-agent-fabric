@@ -237,7 +237,7 @@ absence — they are unchecked.
 | Source | Finding | Fetched | Cases |
 |---|---|---|---|
 | UC Berkeley RDI 2026 (Wang, Mang, Cheung, Sen, Song) | All 8 major AI benchmarks gamed for near-perfect scores | yes | DBC-028, DBC-036, DBC-041, DBC-045, DBC-047, DBC-048 |
-| METR 2025 | Reward-hacking in >30% of o3 and Claude 3.7 Sonnet eval runs | no | DBC-010, DBC-011, DBC-012, DBC-013, DBC-017, DBC-019, DBC-020, DBC-028, DBC-050 |
+| METR 2025 | Reward-hacking in >30% of o3 and Claude 3.7 Sonnet eval runs | no | DBC-010, DBC-011, DBC-012, DBC-013, DBC-017, DBC-019, DBC-020, DBC-050 |
 | OX Security 2026 | MCP STDIO command/argument injection | yes | DBC-009, DBC-026, DBC-032 |
 | OpenClaw CVE-2026-35625 | Privilege escalation via tool permission inheritance | yes | DBC-003, DBC-006 |
 | OpenClaw CVE-2026-35629 | SSRF via unguarded configured base URLs in channel extensions | yes | DBC-037 |
