@@ -46,6 +46,10 @@ november-meeting-extracted.txt
 # Published fixture sets are deliverables, not run artifacts. Without this the
 # blanket *.json above silently drops them from `git add -A` (see PR #299).
 !fixtures/**/*.json
+# Same reason, third time: the generated coverage JSON is a published artifact
+# that CI asserts is committed. The blanket *.json above dropped it silently and
+# `git add -A` reported success (see PR #316).
+!docs/coverage/*.json
 # Published fixture sets are deliverables, not run artifacts: they are versioned,
 # byte-stable, and meant to be consumed by external evaluation harnesses.
 !reports/round_26/rcl-oracle-fixtures-*.json
