@@ -4,15 +4,18 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/security%20tests-603-green.svg)](#three-layers-of-agent-decision-security)
+[![OWASP Agentic T1-T17](https://img.shields.io/badge/OWASP%20Agentic%20v1.1-13%2F17%20direct-blue.svg)](docs/OWASP-AGENTIC-V1.1-COVERAGE.md)
 [![ClawScan](https://img.shields.io/badge/ClawScan-Benign-brightgreen)](https://clawhub.ai/msaleme/agent-security-harness)
 [![Static Analysis](https://img.shields.io/badge/Static%20Analysis-Benign-brightgreen)](https://clawhub.ai/msaleme/agent-security-harness)
 [![VirusTotal](https://img.shields.io/badge/VirusTotal-0%2F92_Clean-brightgreen)](https://www.virustotal.com/gui/url/37318967b56cd3cc1678972ebf0c53dbd37868b67ba3f6891447d53d51767cd2)
 
 **Even if an agent is properly authenticated and authorized, can it still be manipulated into unsafe or policy-violating behavior?**
 
-603 executable security tests across 44 modules (verified 2026-07-25 via `scripts/count_tests.py`). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
+603 executable security tests across 44 modules (verified 2026-08-02 via `scripts/count_tests.py`). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
 
-**[OWASP Agentic AI v1.1 Threat Coverage Report](docs/OWASP-AGENTIC-V1.1-COVERAGE.md)** — commit-pinned mapping from T1–T17 and OWASP scenarios to executable Agent Security Harness tests, with mitigation-control validation, evidence classes, gaps, limitations, and reproduction commands. ([T1–T15 submission view](docs/OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md))
+**[OWASP Agentic AI v1.1 Threat Coverage Report](docs/OWASP-AGENTIC-V1.1-COVERAGE.md)** — commit-pinned mapping from the full **T1–T17** taxonomy to executable tests: **13 direct, 4 partial, 0 not evidenced**, across 96 mapped tests and 66 named OWASP scenarios. Mitigation-control validation is tracked separately from threat coverage (11 validated, 10 partial, 1 guidance-only), and every gap, evidence class and reproduction command is in the report. ([T1–T15 submission view](docs/OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md) · [canonical mapping](docs/coverage/owasp-agentic-v1.1.yaml))
+
+> Adapted from OWASP *Agentic AI — Threats and Mitigations* v1.1 under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). A test-capability report — not a certification, conformance claim, or OWASP endorsement. The adjudication is author-performed and is not independent review.
 
 ```
 $ agent-security test mcp --url http://localhost:8080/mcp
@@ -42,6 +45,14 @@ agent-security test mcp --url http://localhost:8080/mcp
 
 # Test an x402 payment endpoint
 agent-security test x402 --url https://your-x402-endpoint.com
+
+# Human-oversight surface: reviewer exposure (T10) and agent-to-human
+# manipulation (T15). An unreachable target reports INCONCLUSIVE, never PASS.
+agent-security test hitl --url http://localhost:8080
+
+# Which tests back a given OWASP threat, scenario or mitigation control
+python scripts/owasp_agentic_select.py --threat T16
+python scripts/owasp_agentic_select.py --control P5-REA-001
 ```
 
 See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limiting, MCP server mode, and CI/CD integration.
