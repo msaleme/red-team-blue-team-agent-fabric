@@ -104,6 +104,18 @@ def test_assessed_commit_is_reachable_from_head():
     branch that was then squash-merged, so the SHA never existed on main. The
     report validated cleanly and every permalink in it was dead.
     """
+    shallow = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if shallow == "true":
+        # actions/checkout defaults to fetch-depth: 1, so history does not exist
+        # here and absence proves nothing. The owasp-coverage CI job checks out
+        # with fetch-depth: 0 precisely so this assertion runs for real there.
+        pytest.skip("shallow clone - reachability is enforced by the owasp-coverage job")
+
     sha = yaml.safe_load(MAPPING.read_text(encoding="utf-8"))["assessment"]["git_commit"]
     exists = subprocess.run(
         ["git", "cat-file", "-e", f"{sha}^{{commit}}"], cwd=ROOT, capture_output=True

@@ -187,7 +187,14 @@ jobs:
     name: OWASP T1-T15 coverage mapping
     runs-on: ubuntu-latest
     steps:
+      # Full history on purpose. The report pins every evidence permalink to the
+      # assessed commit, and test_assessed_commit_is_reachable_from_head verifies
+      # that commit is an ancestor of HEAD. Under the default fetch-depth: 1 the
+      # history does not exist, the test skips, and a report full of dead links
+      # would ship green. This is the one job where that check must really run.
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
