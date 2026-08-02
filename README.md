@@ -12,7 +12,7 @@
 
 595 executable security tests across 43 modules (verified 2026-07-25 via `scripts/count_tests.py`). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
 
-**[OWASP Agentic AI T1–T15 Test Coverage Report](docs/OWASP-AGENTIC-T1-T15-COVERAGE.md)** — commit-pinned mapping from OWASP threat categories to executable Agent Security Harness tests, including partial coverage, gaps, limitations, and reproduction commands.
+**[OWASP Agentic AI v1.1 Threat Coverage Report](docs/OWASP-AGENTIC-V1.1-COVERAGE.md)** — commit-pinned mapping from T1–T17 and OWASP scenarios to executable Agent Security Harness tests, with mitigation-control validation, evidence classes, gaps, limitations, and reproduction commands. ([T1–T15 submission view](docs/OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md))
 
 ```
 $ agent-security test mcp --url http://localhost:8080/mcp
