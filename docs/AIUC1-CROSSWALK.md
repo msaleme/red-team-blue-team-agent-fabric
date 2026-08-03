@@ -6,6 +6,9 @@ not a certification, conformity assessment, or determination that a target
 system meets a requirement. Applicability, sufficiency, independence, and
 conformity must be determined for the specific target and standard version.
 
+For a shorter explanation of how mapped, executed, and independently reviewed
+evidence differ, see the [AIUC-1 Evidence Field Guide](https://msaleme.github.io/aiuc1-readiness/).
+
 > **Standard currency:** this mapping was built against **v2026-Q1** (reviewed March 2026). AIUC-1 now revises quarterly — **Q2 (April 2026)** added MCP/A2A protocol-security and agent-identity controls; **Q3 (released 2026-07-15)** modified 8 requirements / 41 controls. Requirement-level rows below remain valid (renumbering happened at sub-control level), but see the **Q3-2026 Currency Note** near the end of this document before citing this crosswalk against the current standard. Last currency review: 2026-07-16.
 
 ---
