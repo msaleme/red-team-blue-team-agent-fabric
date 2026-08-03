@@ -35,8 +35,25 @@
     "project": "Agent Security Harness",
     "repository": "https://github.com/msaleme/red-team-blue-team-agent-fabric",
     "harness_version": "4.13.1",
-    "git_commit": "093bdae3d97cc9a7f610441a61738a80e648fbd1",
+    "git_commit": "19dbfb871d1379a42bbfa22fa06bb2edda58a2c0",
     "assessed_at": "2026-08-02T18:30:00Z",
+    "reverified_at": "2026-08-03T01:05:00Z",
+    "report_history": [
+      {
+        "report": "1.0",
+        "commit": "093bdae3d97cc9a7f610441a61738a80e648fbd1",
+        "harness": "4.13.0",
+        "date": "2026-08-02",
+        "change": "Initial T1-T17 adjudication against guide v1.1."
+      },
+      {
+        "report": "1.1",
+        "commit": "19dbfb871d1379a42bbfa22fa06bb2edda58a2c0",
+        "harness": "4.13.1",
+        "date": "2026-08-03",
+        "change": "Re-pinned after the v4.13.1 HITL correctness fix. No threat, scenario or control verdict changed; the T10/T15 limitations now state the corrected guard. The adjudication itself was performed at the 1.0 commit and was not redone."
+      }
+    ],
     "total_repository_tests": 603,
     "total_tests_command": "python scripts/count_tests.py",
     "unique_mapped_tests": 96,

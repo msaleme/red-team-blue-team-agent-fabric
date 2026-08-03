@@ -439,8 +439,15 @@ def render(d: dict, view: str) -> str:
     w("")
     w("| Report | Source | Harness | Commit | Date | Change |")
     w("|---|---|---|---|---|---|")
-    w(f"| 1.0 | v{fw['version']} `{fw['source_sha256'][:12]}` | {a['harness_version']} | "
-      f"`{sha[:12]}` | {a['assessed_at'][:10]} | Initial T1–T17 adjudication against guide v1.1. |")
+    # Was a single hardcoded "1.0" row, so a re-pin could not be recorded and the
+    # header could claim a harness version the pinned commit did not contain.
+    history = a.get("report_history") or [{
+        "report": "1.0", "commit": sha, "harness": a["harness_version"],
+        "date": a["assessed_at"][:10],
+        "change": "Initial T1–T17 adjudication against guide v1.1."}]
+    for h in history:
+        w(f"| {h['report']} | v{fw['version']} `{fw['source_sha256'][:12]}` | {h['harness']} | "
+          f"`{h['commit'][:12]}` | {h['date']} | {h['change']} |")
     w("")
     w("A status changes only through a reviewed mapping change.")
     w("")
