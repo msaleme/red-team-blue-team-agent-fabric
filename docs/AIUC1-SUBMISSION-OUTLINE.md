@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary
 
-The Agent Security Harness is an open-source adversarial testing framework (595 tests, 43 modules) that maps directly to AIUC-1 certification requirements. We propose inclusion as a reference implementation tool in AIUC-1 implementation guidance, providing organizations with an executable path from requirement to evidence.
+The Agent Security Harness is an open-source adversarial testing framework (603 tests, 44 modules) that maps directly to AIUC-1 certification requirements. We propose inclusion as a reference implementation tool in AIUC-1 implementation guidance, providing organizations with an executable path from requirement to evidence.
 
 **Key differentiator:** This is not a static scanner. The harness sends real adversarial payloads across live protocols (MCP, A2A, L402, x402) and measures whether agents make safe, policy-compliant decisions — the behavioral assurance layer that complements identity and access controls.
 
@@ -75,8 +75,8 @@ The framework's methodology is documented in 5 public preprints deposited on Zen
 1. Constitutional Self-Governance for Autonomous AI Agents — [DOI: 10.5281/zenodo.19162104](https://doi.org/10.5281/zenodo.19162104)
 2. Detecting Normalization of Deviance in Multi-Agent Systems — [DOI: 10.5281/zenodo.19195516](https://doi.org/10.5281/zenodo.19195516)
 3. Decision Load Index (DLI) — [DOI: 10.5281/zenodo.18217577](https://doi.org/10.5281/zenodo.18217577)
-4. Normalization of Deviance in Autonomous Agent Systems — [DOI: 10.5281/zenodo.15105866](https://doi.org/10.5281/zenodo.15105866)
-5. Cognitive Style Governance for Multi-Agent Deployments — [DOI: 10.5281/zenodo.15106553](https://doi.org/10.5281/zenodo.15106553)
+4. Beyond Identity Governance: A Protocol-Level Security Testing Framework for Multi-Agent Systems — [DOI: 10.5281/zenodo.19343034](https://doi.org/10.5281/zenodo.19343034)
+5. Community-Driven Security for AI Agents: Evolution of an Adversarial Test Corpus — [DOI: 10.5281/zenodo.19343108](https://doi.org/10.5281/zenodo.19343108)
 
 Additionally, the framework aligns with:
 - **NIST AI 800-2** evaluation methodology (statistical analysis, three-stage evaluation structure)

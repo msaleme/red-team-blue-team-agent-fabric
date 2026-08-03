@@ -58,7 +58,7 @@ This directory contains detailed documentation for the Agent Security Harness fr
 
 ## Framework Architecture
 
-The harness spans 43 test-bearing modules. A representative subset (protocol
+The harness spans 44 test-bearing modules. A representative subset (protocol
 harnesses) is shown below; see [TEST-INVENTORY.md](TEST-INVENTORY.md) for the
 complete per-module breakdown:
 
@@ -77,7 +77,7 @@ agent-security-harness/
 └── docs/                    # Documentation (this directory)
 ```
 
-**Total: 595 security tests across 43 modules** (verified 2026-07-25 via `scripts/count_tests.py`)
+**Total: 603 security tests across 44 modules** (verified 2026-08-02 via `scripts/count_tests.py`)
 
 ---
 

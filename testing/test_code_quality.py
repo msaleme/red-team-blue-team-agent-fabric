@@ -143,6 +143,124 @@ class TestRegTestCount(unittest.TestCase):
         self.assertTrue(found, "docs/TEST-INVENTORY.md must state a module count")
         for f_ in found: self.assertEqual(f_, count)
 
+    # --- repo-wide, because per-file guards missed ten files ----------------
+
+    # Dated snapshots record what was true when written and must NOT be
+    # rewritten to today's count. Everything else is a live claim.
+    _HISTORICAL = (
+        "CHANGELOG.md",
+        "testing/CRITICAL_EVALUATION",
+        "docs/v3.8-roadmap.md",
+        "docs/v3.9-roadmap.md",
+        "docs/AUDIT-R33-INDEPENDENT-REVIEW.md",   # dated external audit
+        "docs/engagement/WEEKLY_HOOKS",           # dated engagement snapshots
+        "docs/blog/",                             # dated posts, counts as-published
+    )
+
+    # Only phrasings that assert a *repository total*. Deliberately narrow:
+    # a first attempt matched "x402 tests" and "Ed25519", which is how a guard
+    # earns itself a permanent skip.
+    # The leading lookbehind is what makes the general form safe: in "x402
+    # tests", "L402 tests" and "Ed25519", the digits are preceded by a word
+    # character, so they never match. Without it this has to be enumerated
+    # phrase by phrase -- which is how the first version missed "(603 tests)"
+    # in QUICKSTART and silently passed a planted stale count.
+    # `/` is in the lookbehind for "AG-005/006/007 tests"; `(?<!of )` spares
+    # "143 of 146 tests passing", which is a dated measurement of a subset and
+    # not a claim about the repository total.
+    _TOTAL_COUNT_PATTERNS = (
+        r'(?<!of )(?<![\w.\-/])(\d{3})\s+(?:executable\s+|active\s+|security\s+)*tests?\b',
+        r'tests-(\d{3})-',
+        r'(?<![\w.\-/])(\d{3})-test\b',
+    )
+
+    def _live_docs(self):
+        # This file states stale counts on purpose -- in the docstrings that
+        # explain the drift, and in the planted string that proves the matcher
+        # still fires. Scanning it would make the guard fail on its own evidence.
+        own = os.path.relpath(__file__, REPO_ROOT)
+        for root, dirs, files in os.walk(REPO_ROOT):
+            dirs[:] = [d for d in dirs
+                       if d not in {".git", ".venv", "node_modules", "__pycache__", "dist", "build"}]
+            for name in files:
+                if not name.endswith((".md", ".py", ".toml")):
+                    continue
+                rel = os.path.relpath(os.path.join(root, name), REPO_ROOT)
+                if rel == own:
+                    continue
+                if any(rel.startswith(h) or h in rel for h in self._HISTORICAL):
+                    continue
+                yield rel
+
+    def test_no_stale_test_count_anywhere(self):
+        """No live document may state a test count other than the canonical one.
+
+        Added 2026-08-02 after `595 tests / 43 modules` was found in ten live
+        files -- the AIUC-1 crosswalk, two AIUC-1 submission documents, the docs
+        index, QUICKSTART, STRATEGY, CLAUDE.md, free_scan.py and the launch
+        posts -- while README, SKILL.md and TEST-INVENTORY were correct at 603.
+        Guarding three files did not guard the repository, and the submission
+        documents are the ones that go to outside readers.
+        """
+        canonical = self._canonical_count()
+        pats = [re.compile(p) for p in self._TOTAL_COUNT_PATTERNS]
+        bad = []
+        for rel in self._live_docs():
+            try:
+                text = open(os.path.join(REPO_ROOT, rel), encoding="utf-8").read()
+            except (UnicodeDecodeError, OSError):
+                continue
+            for line_no, line in enumerate(text.splitlines(), 1):
+                for pat in pats:
+                    for m in pat.finditer(line):
+                        if m.group(1) != canonical:
+                            bad.append(
+                                f"{rel}:{line_no} says {m.group(1)}, canonical is {canonical}")
+        self.assertEqual(bad, [], "stale test counts:\n  " + "\n  ".join(bad))
+
+    def test_the_count_guard_can_actually_fail(self):
+        """The guard above must detect a planted stale count.
+
+        `test_test_count_consistent_in_crosswalk` sat green for months because
+        its assertion was unreachable. A guard that cannot fail is worse than
+        no guard: it reports safety it never checked. This proves the matcher
+        fires, and that the narrowing above did not narrow it into a no-op.
+        """
+        pats = [re.compile(p) for p in self._TOTAL_COUNT_PATTERNS]
+        # Each of these is a real phrasing used somewhere in this repository.
+        # The parenthetical form is the one the first version of this matcher
+        # missed, which a planted-count check caught before it shipped.
+        for planted in ("The harness ships 595 executable security tests today.",
+                        "`full_security_audit` (595 tests)",
+                        "595 tests across 44 modules",
+                        "Show HN: 595-test adversarial harness",
+                        "[![Tests](https://img.shields.io/badge/security%20tests-595-green.svg)]",
+                        "Total: 595 security tests"):
+            hits = [m.group(1) for p in pats for m in p.finditer(planted)]
+            self.assertIn("595", hits, f"matcher missed a stale total in: {planted}")
+
+        for benign in ("x402 tests cover settlement", "L402 tests", "Ed25519 signatures",
+                       "CVE-2025-54136 tests"):
+            self.assertEqual(
+                [m.group(1) for p in pats for m in p.finditer(benign)], [],
+                f"false positive on: {benign}")
+
+    def test_no_stale_module_count_anywhere(self):
+        """Same, for module counts. The 42->43 drift shipped one step behind once."""
+        count = self._harness_count()
+        pat = re.compile(r'(?<![\w.\-])(\d{2})\s+(?:test-bearing\s+|test\s+)?modules\b')
+        bad = []
+        for rel in self._live_docs():
+            try:
+                text = open(os.path.join(REPO_ROOT, rel), encoding="utf-8").read()
+            except (UnicodeDecodeError, OSError):
+                continue
+            for line_no, line in enumerate(text.splitlines(), 1):
+                for m in pat.finditer(line):
+                    if m.group(1) != count:
+                        bad.append(f"{rel}:{line_no} says {m.group(1)} modules, canonical is {count}")
+        self.assertEqual(bad, [], "stale module counts:\n  " + "\n  ".join(bad))
+
 
 class TestRegJailbreakVersionConsistency(unittest.TestCase):
     """jailbreak_harness.py cites its version in 4 places (docstring, run_all
@@ -341,20 +459,29 @@ class TestAIUC1Crosswalk(unittest.TestCase):
                            f"Crosswalk should reference multiple harnesses, found {found}")
 
     def test_test_count_consistent_in_crosswalk(self):
-        """If the crosswalk mentions a test count, it should match CLI."""
+        """Every test count in the crosswalk must match the canonical count.
+
+        This test was a no-op until 2026-08-02. It compared the crosswalk to
+        `(\\d+) security tests` in cli.py -- a string cli.py does not contain --
+        so `cli_counts` was always empty and the assertion block never ran. It
+        passed while the crosswalk said 595 and the canonical count was 603.
+
+        Two faults, both worth naming: it compared two documents to each other
+        instead of to the source of truth, and it guarded the comparison behind
+        a truthiness check, so the guard's own failure looked like a pass.
+        """
+        import subprocess
+        out = subprocess.check_output(
+            ["python3", os.path.join(REPO_ROOT, "scripts", "count_tests.py")], text=True)
+        canonical = re.search(r'Definitive count:\s*(\d+)', out).group(1)
+
         content = self._crosswalk()
-        crosswalk_start = content.find("AIUC-1")
-        crosswalk = content[crosswalk_start:crosswalk_start + 5000]
-
-        counts_in_crosswalk = re.findall(r'(\d+)\s+(?:executable\s+)?tests', crosswalk)
-        with open(os.path.join(REPO_ROOT, "protocol_tests", "cli.py")) as f:
-            cli_counts = re.findall(r'(\d+)\s+security tests', f.read())
-
-        if counts_in_crosswalk and cli_counts:
-            for c in counts_in_crosswalk:
-                if int(c) > 100:
-                    self.assertEqual(c, cli_counts[0],
-                                     f"Crosswalk says {c} tests, CLI says {cli_counts[0]}")
+        counts = re.findall(r'(\d+)\s+(?:executable\s+)?tests', content)
+        counts = [c for c in counts if int(c) > 100]
+        self.assertTrue(counts, "AIUC-1 crosswalk must state a test count")
+        for c in counts:
+            self.assertEqual(c, canonical,
+                             f"Crosswalk says {c} tests, canonical is {canonical}")
 
     def test_standards_section_includes_aiuc1(self):
         """Crosswalk or README should reference AIUC-1."""
