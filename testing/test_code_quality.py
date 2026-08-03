@@ -183,7 +183,12 @@ class TestRegTestCount(unittest.TestCase):
             dirs[:] = [d for d in dirs
                        if d not in {".git", ".venv", "node_modules", "__pycache__", "dist", "build"}]
             for name in files:
-                if not name.endswith((".md", ".py", ".toml")):
+                # .cff is here because the first version of this guard walked
+                # only .md/.py/.toml, so CITATION.cff -- the file GitHub reads
+                # for "Cite this repository" -- kept saying 595 tests / 43
+                # modules while CI passed. Public metadata is exactly what a
+                # count guard exists to protect.
+                if not name.endswith((".md", ".py", ".toml", ".cff", ".rst")):
                     continue
                 rel = os.path.relpath(os.path.join(root, name), REPO_ROOT)
                 if rel == own:
