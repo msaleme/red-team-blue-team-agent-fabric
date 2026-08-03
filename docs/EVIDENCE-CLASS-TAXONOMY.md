@@ -38,3 +38,56 @@ system, distinguish author-performed testing from independent verification.
 
 This document is a methodology definition, not a certification framework or a
 claim that every harness result satisfies E5.
+
+## Independence axis (I0-I2)
+
+E1-E5 states how strong a result is. It does not state **who produced the
+oracle**, and that is a separate failure mode. A result can be E5 and still be
+worthless if the check and the thing it checks were derived from the same
+assumption.
+
+| Level | Who produced the oracle | Catches | Does not catch |
+| --- | --- | --- | --- |
+| **I0 - Self-authored** | The same author, and often the same source, as the implementation under test. | Coding errors the author did not intend. | Any assumption the author did not know they were making. |
+| **I1 - Independent implementation** | A second implementation of the same published contract, written by a different party from the specification rather than from the code. | A shared assumption between a check and its implementation. Divergence is the signal; agreement is weak evidence. | A target that misreports its own state. Both implementations read the same channel and will agree while both are wrong. |
+| **I2 - Independent sensor** | A channel the system under test does not author: kernel event log, network capture, hardware trace, out-of-band ledger. | A system whose self-report does not match its behavior. | Nothing about correctness of the specification itself. |
+
+The axis is orthogonal to E1-E5. Cite both: an author-performed enforcement
+result is **E3/I0**, and a separately reimplemented replay of a pinned corpus is
+**E2/I1**. An author-performed E5 is still I0 and is not independent
+verification.
+
+### Why the axis exists
+
+Two measured cases in this repository, both recorded rather than hypothetical.
+
+**I0 failure, 2026-08-02.** The human-oversight module shipped with a guard that
+treated only a transport failure as "no answer." A regression test existed for
+exactly that defect and mocked a transport failure, which was the same
+assumption the implementation made. The oracle and the code were two copies of
+one belief, so the suite stayed green while the defect was live. Measured
+against a live host answering 404, 401, 500, and a JSON-RPC error inside an
+HTTP 200: **20 false passes across four status classes**, and 0 after the fix.
+
+**I1 in practice, 2026-08-01.** A separate Node verifier, written from the
+published contract by a party unknown to the author, replayed the pinned RCL
+oracle corpus and matched 11/11 verdicts (issue #304). The agreement was not the
+useful part. The divergence was: the reimplementation established that the
+artifact declared RFC 8785 JCS canonicalisation while the code emitted
+Python-style sorted compact JSON, encodings that coincide only for ASCII-only,
+integer-valued payloads. That is a defect no I0 test in this repository could
+have surfaced, because every one of them was written against the
+implementation.
+
+### Claim discipline for the axis
+
+- State the I-level next to the E-level. Omitting it defaults the reader to
+  assuming independence that was not established.
+- **I1 agreement is not validation.** Report the divergences found, or state
+  that none were found and that this is weak evidence.
+- Do not describe an I1 cross-evaluation as independent validation,
+  certification, endorsement, or adoption. Preserve the scope the second party
+  set for their own work.
+- This harness holds **no I2 evidence**. It reads protocol responses, which the
+  target emits, so its observations remain inside the boundary a dishonest
+  target controls. Where that limit matters to a claim, say so.

@@ -16,7 +16,10 @@
 Every claim in this project is bounded by the
 [E1-E5 Evidence Class Taxonomy](docs/EVIDENCE-CLASS-TAXONOMY.md): observation,
 runtime characterization, enforcement, persistence/replay resistance, and
-isolation. A result is not promoted beyond what its retained artifact and
+isolation. A second axis, **I0-I2**, states who produced the oracle:
+self-authored, independently reimplemented, or an independent sensor the target
+does not control. Strength and independence are different properties, so both
+are cited. A result is not promoted beyond what its retained artifact and
 execution record demonstrate. Author-performed mappings and test runs are not
 independent certification.
 
