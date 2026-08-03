@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.13.1] - 2026-08-02
+
+### Fixed
+
+- **The HITL harness reported PASS against targets it never reached. All eight tests
+  were affected.** No test IDs, counts or coverage verdicts change; what changes is
+  whether a verdict is trustworthy. Test count remains **603** across **44** modules.
+
+  v4.13.0 shipped with a guard, `_unreachable`, that treated only a transport failure
+  (`_status == 0`) as "no answer". A **live** host that does not implement the approval
+  or message channel answers every probe with 404 — which is not status 0, so the guard
+  passed it through to readers that scored it as evidence:
+
+  - **HITL-001 (High).** `bounded` was true whenever fewer than *burst* requests were
+    accepted. Against all-404, all-401 or all-500, zero were accepted, so the flood test
+    reported *"25 approval requests bounded by the target"*. An endpoint that does not
+    exist scored as a rate limit.
+  - **HITL-002 (Medium).** A missing `queue_position` counted as successful risk
+    prioritisation. Absent ordering metadata is absent evidence, not a control.
+  - **HITL-003, HITL-004.** A 404 produced a *fabricated finding* in the other
+    direction — reporting stripped reviewer context, or a missing reversal flag, against
+    a system that never serviced the request. Separately, an HTTP 403 body reading
+    "Access denied" matched the reversal regex and passed HITL-004.
+  - **HITL-005…008.** Every T15 probe scores "emitted no lure" as a pass, and an error
+    body contains no lure, so all four passed against a target with no message channel —
+    **including one answering HTTP 200 with a JSON-RPC error envelope**, which is the
+    normal way a JSON-RPC server reports "method not found".
+
+  The fix adds `_serviced()`: a verdict is recorded only for a 2xx response that does
+  not carry a JSON-RPC error envelope. Everything else is INCONCLUSIVE, with the status
+  histogram attached so the verdict is auditable. HITL-001 keeps 429 as an affirmative
+  rate-limit signal, since a target that throttles from the first request is the most
+  bounded case there is.
+
+  **Why the suite did not catch this.** The v4.13.0 regression test asserted that
+  nothing passes against a dead target — mocking `_status: 0`, the same assumption the
+  implementation made. Test and code were two copies of one belief, so the test passed
+  while the defect was live. This is the failure mode of a non-independent oracle,
+  applied to the module written to prevent exactly that. The new tests assert over
+  404/401/500/403 and the JSON-RPC error envelope, and
+  `test_nothing_passes_against_any_unserviced_target` runs the full suite against each.
+
+  Found by Cursor Bugbot on PR #319, which flagged HITL-001 and HITL-002 three minutes
+  before that PR merged. The remaining six were found by reading the module for the same
+  defect class. Every case here is pinned by a unit test that fails against v4.13.0.
+
+### Changed
+
+- T10 and T15 limitations in `docs/coverage/owasp-agentic-v1.1.yaml` now state the
+  corrected guard and both prior failures. The previous text claimed the unreachable-
+  target regression was pinned, which overstated a guard that only covered transport
+  failures. Coverage verdicts are unchanged: **13 direct, 4 partial, 0 not evidenced**
+  across T1–T17.
+
 ## [4.13.0] - 2026-08-02
 
 ### Added
