@@ -428,10 +428,10 @@ class TestAIUC1Crosswalk(unittest.TestCase):
         content = self._crosswalk()
         self.assertIn("19 of 20", content)
 
-    def test_coverage_summary_exists(self):
-        """Should have a summary table with category-level coverage."""
+    def test_mapping_summary_exists(self):
+        """The crosswalk should summarize the mapped requirements by category."""
         content = self._crosswalk()
-        self.assertIn("Coverage Summary", content)
+        self.assertIn("Mapping Summary", content)
 
     def test_requirement_ids_present(self):
         """AIUC-1 requirement IDs should be referenced (e.g., B001, C010, D004)."""
@@ -440,13 +440,14 @@ class TestAIUC1Crosswalk(unittest.TestCase):
         self.assertGreater(len(req_ids), 10,
                            "Expected 10+ AIUC-1 requirement IDs in crosswalk")
 
-    def test_security_section_claims_100pct(self):
-        """The crosswalk claims 100% coverage of Security (B) requirements."""
+    def test_security_section_states_all_listed_requirements_are_mapped(self):
+        """Security mapping is explicit without implying target conformance."""
         content = self._crosswalk()
-        self.assertIn("Security", content)
+        self.assertIn("Security (all listed requirements mapped)", content)
         self.assertTrue(
-            re.search(r'Security.*?100%', content, re.DOTALL | re.IGNORECASE),
-            "Security section should claim 100% coverage"
+            re.search(r'Mapping identifies.*?not evidence of target performance', content,
+                      re.DOTALL | re.IGNORECASE),
+            "Mapping summary should preserve the target-evidence boundary"
         )
 
     def test_crosswalk_references_real_test_ids(self):
