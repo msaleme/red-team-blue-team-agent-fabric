@@ -6,6 +6,14 @@ not a certification, conformity assessment, or determination that a target
 system meets a requirement. Applicability, sufficiency, independence, and
 conformity must be determined for the specific target and standard version.
 
+In the terms of the [AIUC-1 Evidence Field Guide](https://msaleme.github.io/aiuc1-readiness/),
+everything below is **mapped** evidence: a documented requirement relationship, not
+a recorded run against any target and not an independent review. Under the
+[E1-E5 Evidence Class Taxonomy](EVIDENCE-CLASS-TAXONOMY.md) a mapping is E1-level
+material no matter how many requirements it covers. Executed evidence requires a
+stated target and a pinned revision; independent review requires a qualified
+outside party.
+
 > **Standard currency:** this mapping was built against **v2026-Q1** (reviewed March 2026). AIUC-1 now revises quarterly — **Q2 (April 2026)** added MCP/A2A protocol-security and agent-identity controls; **Q3 (released 2026-07-15)** modified 8 requirements / 41 controls. Requirement-level rows below remain valid (renumbering happened at sub-control level), but see the **Q3-2026 Currency Note** near the end of this document before citing this crosswalk against the current standard. Last currency review: 2026-07-16.
 
 ---

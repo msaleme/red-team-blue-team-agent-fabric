@@ -20,6 +20,16 @@ isolation. A result is not promoted beyond what its retained artifact and
 execution record demonstrate. Author-performed mappings and test runs are not
 independent certification.
 
+The [AIUC-1 Evidence Field Guide](https://msaleme.github.io/aiuc1-readiness/) is a
+plain-language companion that applies this same taxonomy. It adds one distinction
+the ladder above does not encode: whether evidence is *mapped* (a documented
+requirement relationship), *executed* (a recorded run against a stated target and
+pinned revision), or *independently reviewed* (assessed by a qualified outside
+party). Those describe the status of evidence and are orthogonal to E1-E5, which
+describes its strength. A mapping alone is E1-level material regardless of how many
+requirements it covers. The taxonomy in this repository is canonical; the field
+guide is hosted outside it and is not version-pinned.
+
 603 executable security tests across 44 modules (verified 2026-08-02 via `scripts/count_tests.py`). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
 
 **[OWASP Agentic AI v1.1 Threat Coverage Report](docs/OWASP-AGENTIC-V1.1-COVERAGE.md)** — commit-pinned mapping from the full **T1–T17** taxonomy to executable tests: **13 direct, 4 partial, 0 not evidenced**, across 96 mapped tests and 66 named OWASP scenarios. Mitigation-control validation is tracked separately from threat coverage (11 validated, 10 partial, 1 guidance-only), and every gap, evidence class and reproduction command is in the report. ([T1–T15 submission view](docs/OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md) · [canonical mapping](docs/coverage/owasp-agentic-v1.1.yaml))
@@ -163,6 +173,8 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 | OWASP Agentic v1.1 Coverage (T1–T17) | [docs/OWASP-AGENTIC-V1.1-COVERAGE.md](docs/OWASP-AGENTIC-V1.1-COVERAGE.md) |
 | Canonical coverage mapping (source of truth) | [docs/coverage/owasp-agentic-v1.1.yaml](docs/coverage/owasp-agentic-v1.1.yaml) |
 | Release history & known gaps | [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) |
+| E1-E5 Evidence Class Taxonomy (canonical) | [docs/EVIDENCE-CLASS-TAXONOMY.md](docs/EVIDENCE-CLASS-TAXONOMY.md) |
+| AIUC-1 Evidence Field Guide (external, not version-pinned) | [msaleme.github.io/aiuc1-readiness](https://msaleme.github.io/aiuc1-readiness/) |
 | AIUC-1 Crosswalk | [docs/AIUC1-CROSSWALK.md](docs/AIUC1-CROSSWALK.md) |
 | Advanced Capabilities | [docs/ADVANCED.md](docs/ADVANCED.md) |
 | MCP Server | [docs/mcp-server.md](docs/mcp-server.md) |
