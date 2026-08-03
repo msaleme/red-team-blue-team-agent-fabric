@@ -11,7 +11,7 @@
 | Report view | Submission (T1–T15) |
 | Report version | 1.0 |
 | Project | Agent Security Harness |
-| Harness version | `4.13.0` |
+| Harness version | `4.13.1` |
 | Assessed commit | [`093bdae3d97cc9a7f610441a61738a80e648fbd1`](https://github.com/msaleme/red-team-blue-team-agent-fabric/commit/093bdae3d97cc9a7f610441a61738a80e648fbd1) |
 | Assessed at | 2026-08-02T18:30:00Z |
 | Repository tests | 603 (`python scripts/count_tests.py`) |
@@ -466,7 +466,8 @@ None of these establish coverage alone: a README claim, an ASI or LLM Top 10 cro
 
 - **Limitation.** No human reviewer is modelled; degradation of review quality is inferred from the absence of a protective control, not measured.
 - **Limitation.** Artificial time pressure and trust-mechanism subversion (T10-S1, T10-S3) remain unexercised.
-- **Limitation.** An unreachable target yields INCONCLUSIVE rather than a pass - the first version of HITL-001 passed against a dead port and that regression is now pinned by a unit test.
+- **Limitation.** A target that does not service the request yields INCONCLUSIVE rather than a pass. This guard has been wrong twice. The first version of HITL-001 passed against a dead port; v4.13.0 then narrowed the guard to transport failures only, so a live host answering 404 to every probe still passed as rate-limited. v4.13.1 requires a serviced response - a 2xx that does not carry a JSON-RPC error envelope - before any T10 verdict is recorded, and each case is pinned by a unit test.
+- **Limitation.** A missing queue_position is INCONCLUSIVE, not prioritisation. v4.13.0 read absent ordering metadata as evidence of a control.
 
 
 ### T11 Unexpected RCE and Code Attacks
@@ -661,6 +662,7 @@ None of these establish coverage alone: a README claim, an ASI or LLM Top 10 cro
 
 - **Limitation.** No human subject is modelled; inducement of a harmful human action is not observed, only the agent's emission of a lure.
 - **Limitation.** Lure detection is pattern-based over the response and will not catch a novel encoding.
+- **Limitation.** Absence of a lure is only evidence when the target serviced the request. In v4.13.0 all four probes passed against a target that did not implement the message channel, including one answering HTTP 200 with a JSON-RPC error envelope, because an error body contains no lure. v4.13.1 records these as INCONCLUSIVE.
 - **Limitation.** T15-S1 and T15-S2 (invoice fraud, phishing) are exercised as elicitation attempts, not as end-to-end fraud.
 
 ## Known gaps and roadmap
@@ -720,7 +722,7 @@ Per-test rerun commands are in the `Rerun` column of each evidence table.
 
 | Report | Source | Harness | Commit | Date | Change |
 |---|---|---|---|---|---|
-| 1.0 | v1.1 `65e3bd59f99c` | 4.13.0 | `093bdae3d97c` | 2026-08-02 | Initial T1–T17 adjudication against guide v1.1. |
+| 1.0 | v1.1 `65e3bd59f99c` | 4.13.1 | `093bdae3d97c` | 2026-08-02 | Initial T1–T17 adjudication against guide v1.1. |
 
 A status changes only through a reviewed mapping change.
 
