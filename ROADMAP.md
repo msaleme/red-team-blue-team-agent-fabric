@@ -24,8 +24,8 @@ The open lane is **independent behavioral assurance**. Identity/authorization to
 
 What makes the position durable is **not** breadth of coverage or test count. It is three research-grade assets that are hard to replicate:
 
-- **A documented research foundation** (peer-cross-citing DOIs, ORCID, public methodology) — prior art that cannot be retro-claimed.
-- **Independent, reproducible adversarial evidence** with explicit evidence classes and confidence intervals — the kind of artifact vendors cannot produce about their own products, and that ad-hoc claims cannot match.
+- **A documented research foundation** (seven DOI-citable open-access records, ORCID, public methodology) — prior art that cannot be retro-claimed. These records carry *internal* citation lineage; a 2026-08-02 OpenAlex audit found **zero qualifying independent citations**, and nothing in this project may be presented as third-party scholarly validation.
+- **Reproducible adversarial evidence** with explicit evidence classes and confidence intervals — the kind of artifact vendors cannot produce about their own products, and that ad-hoc claims cannot match. Note the word *reproducible*, not *independent*: adjudication here is author-performed. One external party has reproduced one pinned artifact (the RCL oracle fixtures). Independent review of the harness as a whole remains the standing gap, and closing it is a goal rather than a claim.
 - **Payment-protocol security testing (x402/L402)** — an under-covered surface where the verification layer above the (now Linux-Foundation-standard) rail is largely vacant.
 
 Coverage breadth and test count are not the moat and are not tracked as goals. The artifact is the **evidence**, not the number of tests.
@@ -36,15 +36,32 @@ The current priority is producing **settlement-time, reproducible payment-securi
 
 ### Release history
 
-| Release | Theme | Status |
-|---------|-------|--------|
-| **v3.9 — Adopt in 15 Minutes** | CI integration, developer experience, `--json`, scope docs, GitHub Action | Shipped |
-| **v3.10 — Evidence for Auditors** | Evidence-pack format, payment-test depth, behavioral profiling, HTML reports, 2 independent audits | Shipped |
-| **v4.1 — Compliance Evidence** | EU AI Act + ISO 42001 crosswalks, AUROC, FRIA, kill-switch, watermark tests | Shipped |
-| **v4.2 — Incident-Tested** | Modules mapped to named 2026 security incidents | Shipped |
-| **v4.3 — Supply Chain + Corpus** | Skill Security Protocol harness, Decision Behavior Benchmark corpus | Shipped |
-| **v4.4 — Accuracy + Infrastructure** | Accuracy sweep, dynamic test counting, supply-chain framework-layer checks (MCP-F) | Shipped |
-| **Next — Standards & Evidence** | Reproducible settlement-time payment evidence; methodology paper; schema as a standards-body informational draft | In progress |
+Dates and themes below are reconciled against `CHANGELOG.md`, which is authoritative.
+
+| Release | Date | Theme | Status |
+|---------|------|-------|--------|
+| **v3.9 — Adopt in 15 Minutes** | 2026-04-06 | CI integration, developer experience, `--json`, scope docs, GitHub Action | Shipped |
+| **v3.10 — Evidence for Auditors** | 2026-04-08 | Evidence-pack format, payment-test depth, behavioral profiling, HTML reports, 2 independent audits | Shipped |
+| **v4.1 — Compliance Evidence** | 2026-04-10 | EU AI Act + ISO 42001 crosswalks, AUROC, FRIA, kill-switch, watermark tests | Shipped |
+| **v4.2 — Incident-Tested** | 2026-04-12 | Modules mapped to named 2026 security incidents | Shipped |
+| **v4.3 — Supply Chain + Corpus** | 2026-04-15 | Skill Security Protocol harness, Decision Behavior Benchmark corpus | Shipped |
+| **v4.4 — Accuracy + Infrastructure** | 2026-04-17 | Accuracy sweep, dynamic test counting, supply-chain framework-layer checks (MCP-F) | Shipped |
+| **v4.4.2 — Docs Hardening** | 2026-05-24 | Documentation hardening and citation discipline | Shipped |
+| **v4.5 — Governance Surfaces** | 2026-06-09 | Skill-security and governance-modification harnesses | Shipped |
+| **v4.6–v4.7 — Payment Authority** | 2026-07-01 | AP2 mandate chain, receipt-claim (RCL) verification | Shipped |
+| **v4.8 — Merchant Journey** | 2026-07-02 | UCP/ACP merchant journey, card-network agentic tokens | Shipped |
+| **v4.9 — Settlement Depth** | 2026-07-05 | Denial-of-settlement finality, Fireblocks x402 hardening | Shipped |
+| **v4.10 — Benchmark Integrity** | 2026-07-25 | Benchmark-integrity harness; corpus defensibility | Shipped |
+| **v4.11–v4.12 — Corpus Currency** | 2026-08-02 | Decision-governance corpus provenance repair, per-case currency tracking, re-adjudication | Shipped |
+| **v4.13.0 — OWASP Agentic v1.1** | 2026-08-02 | T1–T17 commit-pinned coverage mapping, selector tooling, HITL harness (T10/T15) | Shipped |
+| **v4.13.1 — HITL correctness** | 2026-08-02 | All 8 HITL tests could record a verdict against a target that never serviced the request; `_serviced()` guard added | Shipped |
+| **Next — Standards & Evidence** | — | Reproducible settlement-time payment evidence; methodology paper; schema as a standards-body informational draft | In progress |
+
+**Known gaps, stated rather than deferred.** T16-S1 (consent-flow manipulation) and T10-S1/T10-S3
+(artificial time pressure, trust-mechanism subversion) have no mapped tests. One of the 22 OWASP
+mitigation controls is guidance-only. Adjudication across the coverage report and the decision-governance
+benchmark is author-performed. These are tracked in
+[`docs/coverage/owasp-agentic-v1.1.yaml`](docs/coverage/owasp-agentic-v1.1.yaml) rather than in prose.
 
 ## Standards & evidence direction
 
@@ -67,9 +84,19 @@ Submit the attestation/evidence schema to a legitimate standards body (e.g. IETF
 
 ### Research frontier (feeds future publications)
 
-- Intent-contract validation
-- Multi-agent interaction security
-- Memory & continuity security
+Intent-contract validation, multi-agent interaction security, and memory & continuity security have
+**shipped as modules** (`intent-contract` 8 tests, `multi-agent` 18, `memory` 10) and are no longer
+frontier items. Having tests is not the same as having a result worth publishing; the open research
+work on each is:
+
+- **Intent contracts** — whether a declared intent can be shown to bind execution, rather than merely accompany it.
+- **Multi-agent interaction** — composition effects: risk that accumulates across a sequence where no single step violates a rule.
+- **Memory & continuity** — cross-session integrity, where the attack is patient rather than loud.
+
+The genuine frontier is the **human-oversight surface**. The T10/T15 harness measures whether an
+adversary can create the precondition for reviewer failure; it does not measure reviewer degradation,
+because that needs a human subject this project does not have. Closing that gap requires a study
+design, not more tests.
 
 ## What NOT to do
 

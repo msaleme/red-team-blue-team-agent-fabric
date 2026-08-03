@@ -19,13 +19,17 @@
 
 ```
 $ agent-security test mcp --url http://localhost:8080/mcp
-Running MCP Protocol Security Tests v4.2...
+Running MCP Protocol Security Tests v4.13.1...
  MCP-001: Tool List Integrity Check [PASS] (0.234s)
  MCP-002: Tool Registration via Call Injection [PASS] (0.412s)
  MCP-003: Capability Escalation via Initialize [FAIL] (0.156s)
 ...
 Results: 8/10 passed (80% pass rate) - see report.json
 ```
+
+> Illustrative output. A target the harness cannot reach, or that answers without
+> servicing the request, reports **INCONCLUSIVE** — never PASS. See
+> [v4.13.1](CHANGELOG.md) for why that distinction is enforced rather than assumed.
 
 ## Quick Start
 
@@ -66,48 +70,70 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 | **Protocol Integrity** | Prevent spoofing, replay, downgrade, diversion, and malformed protocol behavior | MCP, A2A, L402, x402 wire-level tests |
 | **Operational Governance** | Validate session state, capability boundaries, platform actions, trust chains, and execution context | capability escalation, facilitator trust, provenance, session security |
 | **Decision Governance** | Test whether an agent should act at all under its authority, confidence, scope, and policy constraints | autonomy scoring, scope creep, return-channel poisoning, normalization-of-deviance |
+| **Human Oversight** | Test whether the human review layer can be saturated, starved, blinded, or turned against its own principal | approval flooding, risk starvation, stripped decision context, agent→human manipulation (OWASP T10/T15) |
 
 ---
 
 ## How This Differs From Other Projects
 
-| Capability | [Invariant MCP-Scan](https://github.com/invariantlabs-ai/mcp-scan) (2K stars) | [Cisco MCP Scanner](https://github.com/cisco-ai-defense/mcp-scanner) (865 stars) | [Snyk Agent Scan](https://github.com/snyk/agent-scan) (2K stars) | [NVIDIA Garak](https://github.com/NVIDIA/garak) (7K stars) | **This framework** |
-|---|---|---|---|---|---|
-| **What it does** | Scans installed MCP configs for tool poisoning | YARA + LLM-as-judge for malicious tools | Scans agent configs for MCP/skill security | LLM model vulnerability testing | Active protocol exploitation + decision governance |
-| **Approach** | Static analysis | Static + LLM classification | Config scanning | Model-layer probing | **Wire-protocol adversarial testing** |
-| **MCP coverage** | Tool descriptions, config files | Tool descriptions, YARA rules | Config files | - | **31 tests: real JSON-RPC 2.0 attacks** |
-| **A2A coverage** | - | - | - | - | **13 tests** |
-| **L402/x402 coverage** | - | - | - | - | **85 tests** |
-| **Merchant journey (UCP/ACP)** | - | - | - | - | **12 tests: agent-profile + cross-merchant cart + delegated checkout** |
-| **Funding instrument (Visa TAP / MC Agentic Tokens)** | - | - | - | - | **12 tests: holder/merchant/amount/velocity scope + dynamic cryptogram + revocation** |
-| **Settlement finality (denial-of-settlement)** | - | - | - | - | **8 tests: release-before-finality, reorg revocation, withheld-settlement liveness** |
-| **Payment authz/hardening** | - | - | - | - | **AP2 mandate (17) + Fireblocks x402 (17)** |
-| **Enterprise platforms** | - | - | - | - | **25 cloud + 20 enterprise** |
-| **APT simulation** | - | - | - | - | **GTG-1002 (17 tests)** |
-| **Jailbreak/over-refusal** | - | - | - | Yes | **50 tests (25 + 25 FPR)** |
-| **AIUC-1 certification** | - | - | - | - | **Maps to 19 of 20 testable requirements** (2026-Q1/Q2 set; [Q3 delta](docs/AIUC1-CROSSWALK.md)) |
-| **Research backing** | - | Cisco blog | - | Papers | **7 DOIs + 3 NIST submissions** |
-| **MCP server mode** | - | - | - | - | **Yes - invoke from any AI agent** |
-| **Statistical testing** | - | - | - | - | **Wilson CIs, multi-trial** |
-| **Total tests** | Pattern matching | YARA rules | Config checks | Model probes | **603 active tests** |
+| Capability | [Snyk Agent Scan](https://github.com/snyk/agent-scan) (2.9K stars) | [Cisco MCP Scanner](https://github.com/cisco-ai-defense/mcp-scanner) (1.0K stars) | [NVIDIA Garak](https://github.com/NVIDIA/garak) (8.7K stars) | **This framework** |
+|---|---|---|---|---|
+| **What it does** | Scans agent/MCP configs for tool poisoning and skill security | YARA + LLM-as-judge for malicious tools | LLM model vulnerability testing | Active protocol exploitation + decision governance |
+| **Approach** | Static analysis | Static + LLM classification | Model-layer probing | **Wire-protocol adversarial testing** |
+| **MCP coverage** | Tool descriptions, config files | Tool descriptions, YARA rules | - | **46 tests: protocol (32) + supply-chain (4) + tool-poisoning repro (10), real JSON-RPC 2.0 attacks** |
+| **A2A coverage** | - | - | - | **13 tests** |
+| **L402/x402 coverage** | - | - | - | **85 tests** (L402 33 + x402 52) |
+| **Merchant journey (UCP/ACP)** | - | - | - | **12 tests: agent-profile + cross-merchant cart + delegated checkout** |
+| **Funding instrument (Visa TAP / MC Agentic Tokens)** | - | - | - | **12 tests: holder/merchant/amount/velocity scope + dynamic cryptogram + revocation** |
+| **Settlement finality (denial-of-settlement)** | - | - | - | **8 tests: release-before-finality, reorg revocation, withheld-settlement liveness** |
+| **Payment authz/hardening** | - | - | - | **AP2 mandate (17) + Fireblocks x402 (17)** |
+| **Enterprise platforms** | - | - | - | **25 cloud + 58 enterprise** (core 31 + extended 27) |
+| **Human oversight (T10/T15)** | - | - | - | **8 tests: reviewer exposure + agent→human manipulation** |
+| **APT simulation** | - | - | - | **GTG-1002 (17 tests)** |
+| **Jailbreak/over-refusal** | - | - | Yes | **50 tests (25 + 25 FPR)** |
+| **AIUC-1 certification** | - | - | - | **Maps to 19 of 20 testable requirements** (2026-Q1/Q2 set; [Q3 delta](docs/AIUC1-CROSSWALK.md)) |
+| **OWASP Agentic v1.1** | - | - | - | **T1–T17 commit-pinned: 13 direct, 4 partial, 0 not evidenced** |
+| **Research backing** | - | Cisco blog | Papers | **7 DOIs + 3 NIST submissions** (self-authored; see [Research](#research)) |
+| **MCP server mode** | - | - | - | **Yes - invoke from any AI agent** |
+| **Statistical testing** | - | - | - | **Wilson CIs, multi-trial** |
+| **Total tests** | Config checks | YARA rules | Model probes | **603 active tests across 44 modules** |
 
-**Use both.** Scan with [Invariant MCP-Scan](https://github.com/invariantlabs-ai/mcp-scan) or [Cisco MCP Scanner](https://github.com/cisco-ai-defense/mcp-scanner) for static analysis. Test with this framework for active exploitation. They're complementary layers.
+Star counts verified 2026-08-02 via the GitHub API. Invariant Labs' `mcp-scan` now redirects to
+`snyk/agent-scan` and is listed once rather than as two separate projects. Competitor rows describe
+what each tool does by design; a dash means the capability is outside its stated scope, not a defect.
+
+**Use both.** Scan with [Snyk Agent Scan](https://github.com/snyk/agent-scan) or [Cisco MCP Scanner](https://github.com/cisco-ai-defense/mcp-scanner) for static analysis. Test with this framework for active exploitation. They're complementary layers.
 
 ---
 
 ## Research
 
-Seven public preprints and notes deposited on Zenodo (not represented as peer-reviewed publications) and three NIST submissions underpin the methodology:
+Seven public preprints and notes deposited on Zenodo (not represented as peer-reviewed publications) and three NIST submissions underpin the methodology. Every DOI below was re-verified on 2026-08-02 by content negotiation against `doi.org` — title and authorship confirmed:
 
 | Publication | DOI |
 |---|---|
 | **Constitutional Self-Governance for Autonomous AI Agents** — 12 governance mechanisms, 77 days production data, 56 agents | [10.5281/zenodo.19162104](https://doi.org/10.5281/zenodo.19162104) |
 | **Detecting Normalization of Deviance in Multi-Agent Systems** — First empirical demonstration that automated harnesses detect behavioral drift | [10.5281/zenodo.19195516](https://doi.org/10.5281/zenodo.19195516) |
 | **Decision Load Index (DLI): A Quantitative Framework for Agent Autonomy Risk** — Measuring cognitive burden of AI agent oversight | [10.5281/zenodo.18217577](https://doi.org/10.5281/zenodo.18217577) |
-| **Normalization of Deviance in Autonomous Agent Systems** — Foundational research on behavioral drift patterns | [10.5281/zenodo.15105866](https://doi.org/10.5281/zenodo.15105866) |
-| **Cognitive Style Governance for Multi-Agent Deployments** — Governance mechanisms for managing cognitive style across multi-agent systems | [10.5281/zenodo.15106553](https://doi.org/10.5281/zenodo.15106553) |
+| **Beyond Identity Governance: A Protocol-Level Security Testing Framework for Multi-Agent Systems** | [10.5281/zenodo.19343034](https://doi.org/10.5281/zenodo.19343034) |
+| **Community-Driven Security for AI Agents: Evolution of an Adversarial Test Corpus** | [10.5281/zenodo.19343108](https://doi.org/10.5281/zenodo.19343108) |
 | **Claim-Level Negative Testing for Agent-Governance Evidence** — Receipt-claim decomposition; the RCL-001..011 receipt-verification module in this harness | [10.5281/zenodo.21418701](https://doi.org/10.5281/zenodo.21418701) |
 | **Signing Is Not Authorization: Claim-Level Negative Vectors for Agent-Payment Receipts** — payment-authority application of the receipt-claim decomposition; RCL-001..011 under adversarial payment receipts | [10.5281/zenodo.21535452](https://doi.org/10.5281/zenodo.21535452) |
+
+**On citation counts.** These records carry internal citation lineage across later work in this
+portfolio. An OpenAlex `cited_by` audit on 2026-08-02 found **30 citation edges and 0 qualifying
+independent citations** — every edge is a self-citation, collapsing to nine duplicate/version records
+across three title families. Nothing here should be read as third-party validation or scholarly
+adoption. The one external check this project has received is an independent reproduction, listed
+under [Used By](#used-by).
+
+> **Correction (2026-08-02).** Two entries previously in this table cited DOIs belonging to other
+> researchers — `10.5281/zenodo.15105866` (a MALDI mass-spectrometry dataset by Ranes et al.) and
+> `10.5281/zenodo.15106553` (an e-learning article by Toshtemirov). They were attributed here to
+> *"Normalization of Deviance in Autonomous Agent Systems"* and *"Cognitive Style Governance for
+> Multi-Agent Deployments"*. No Zenodo record under those titles by this author was located, so both
+> rows were removed rather than re-pointed. The surviving *Detecting Normalization of Deviance in
+> Multi-Agent Systems* record (`19195516`) is unaffected and was already listed separately.
 
 ---
 
@@ -125,6 +151,9 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 |---|---|
 | Expanded Quick Start | [docs/QUICKSTART.md](docs/QUICKSTART.md) |
 | Full Test Inventory (603 tests) | [docs/TEST-INVENTORY.md](docs/TEST-INVENTORY.md) |
+| OWASP Agentic v1.1 Coverage (T1–T17) | [docs/OWASP-AGENTIC-V1.1-COVERAGE.md](docs/OWASP-AGENTIC-V1.1-COVERAGE.md) |
+| Canonical coverage mapping (source of truth) | [docs/coverage/owasp-agentic-v1.1.yaml](docs/coverage/owasp-agentic-v1.1.yaml) |
+| Release history & known gaps | [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) |
 | AIUC-1 Crosswalk | [docs/AIUC1-CROSSWALK.md](docs/AIUC1-CROSSWALK.md) |
 | Advanced Capabilities | [docs/ADVANCED.md](docs/ADVANCED.md) |
 | MCP Server | [docs/mcp-server.md](docs/mcp-server.md) |
@@ -140,7 +169,16 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 
 ## Roadmap
 
-**v3.10 -- Prove It to Auditors** ✅ Shipped. **v4.1 -- Compliance Evidence** ✅ Shipped. **v4.2 -- Incident-Tested** ✅ Shipped. **v4.3 -- Supply Chain + Corpus** ✅ Shipped. **v4.4 -- Accuracy + Infrastructure** ✅ Shipped. **v4.4.2 -- Docs Hardening + Citations** ✅ Shipped. SSP harness (8 tests), Decision Behavior Benchmark corpus (52 cases), HIDDEN_INSTRUCTION_PATTERN DRY extraction, dynamic test count, P0 bug fixes. **v5.0 -- Lock the Category** (H2 2026): benchmark corpus, schema standardization, longitudinal registry. Full details in [ROADMAP.md](ROADMAP.md).
+**Current: v4.13.1** (2026-08-02). Recent shipped work — v4.5 skill supply chain and governance
+modification · v4.6–v4.9 payment-stack depth (AP2 mandate chain, UCP/ACP merchant journey, card-network
+agentic tokens, settlement finality, Fireblocks x402) · v4.10 benchmark integrity · v4.11–v4.12
+decision-governance corpus currency and provenance repair · **v4.13 OWASP Agentic v1.1 T1–T17 coverage
+mapping and the human-in-the-loop harness** · **v4.13.1 a correctness fix to that harness** (see
+[CHANGELOG.md](CHANGELOG.md)).
+
+**Next — Standards & Evidence.** Reproducible settlement-time payment evidence, a methodology paper,
+and the attestation/evidence schema submitted to a standards venue. Coverage breadth and test count are
+explicitly *not* goals. Full detail and the anti-goals in [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -149,6 +187,21 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 | Who | Use Case |
 |-----|----------|
 | [FransDevelopment / Open Agent Trust Registry](https://github.com/FransDevelopment/open-agent-trust-registry) | OATR SDK v1.2.0 test fixtures (X4-021 through X4-030) -- Ed25519 attestation verification |
+
+### Independent reproduction
+
+The only external check this project has received. [@VrtxOmega](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/304)
+wrote a **separate Node verifier** for the portable receipt-claim oracle fixtures and ran it against a
+pinned commit and fixture hash, matching all 11 RCL results including both acceptance controls — so it
+did not pass by rejecting everything.
+
+The exchange also produced two corrections to this repository: `signature_algorithm` now names the
+actual encoding and states plainly that it is **not** RFC 8785 JCS, and `coverage_gaps` now declares
+that freshness is exercised only in the stale direction. Both are in `fixtures/rcl/`.
+
+It is a reproduction of a pinned artifact by one external party, submitted as a report and explicitly
+**not** as a contribution, endorsement, certification, or adoption. It is not a substitute for
+independent review of the harness as a whole, which this project still does not have.
 
 *Using the harness? Open a PR to add yourself, or tag us in your project.*
 
@@ -164,7 +217,8 @@ If you cite this work in research:
 
 > Saleme, M. K. (2026). *Agent Security Harness* — multi-protocol agent security testing framework. ORCID: [0009-0003-6736-1900](https://orcid.org/0009-0003-6736-1900). https://github.com/msaleme/red-team-blue-team-agent-fabric
 
-Related Zenodo preprints: DLI ([10.5281/zenodo.18217577](https://doi.org/10.5281/zenodo.18217577)), CSG ([10.5281/zenodo.19162104](https://doi.org/10.5281/zenodo.19162104)), NoD ([10.5281/zenodo.19195516](https://doi.org/10.5281/zenodo.19195516)), Beyond Identity Governance ([10.5281/zenodo.19343034](https://doi.org/10.5281/zenodo.19343034)), Community-Driven Security ([10.5281/zenodo.19343108](https://doi.org/10.5281/zenodo.19343108)).
+Related Zenodo preprints are listed in full under [Research](#research); that table is the single
+source of truth for DOIs in this repository. Do not cite a DOI for this work that does not appear there.
 
 ---
 

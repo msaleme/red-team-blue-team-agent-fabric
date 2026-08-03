@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — documentation accuracy sweep
+
+- **Two DOIs in the README research table belonged to other researchers.**
+  `10.5281/zenodo.15105866` is a MALDI mass-spectrometry dataset by Ranes et al.;
+  `10.5281/zenodo.15106553` is an e-learning article by Toshtemirov. They were published
+  here as *"Normalization of Deviance in Autonomous Agent Systems"* and *"Cognitive Style
+  Governance for Multi-Agent Deployments"*. Both appeared in **four files each** — the
+  README, the AIUC-1 submission outline, a blog methodology post, and the attestation
+  schema proposal intended for a standards venue.
+
+  All nine DOIs referenced in this repository were re-verified by content negotiation
+  against `doi.org`. Seven resolve to records authored by Michael K. Saleme and are
+  retained; the two above were replaced with verified records rather than re-pointed at a
+  guessed identifier, since no Zenodo record under either title by this author was located.
+  The README carries a standing correction note.
+
+- **A test-count guard that could not fail.** `test_test_count_consistent_in_crosswalk`
+  compared the AIUC-1 crosswalk against the regex `(\d+) security tests` in `cli.py` — a
+  string `cli.py` does not contain — so the match list was always empty and the assertion
+  was unreachable. It passed while the crosswalk said 595 and the canonical count was 603.
+  It now compares against `count_tests.py`, the source of truth.
+
+- **`595 tests / 43 modules` in twelve live files**, including both AIUC-1 submission
+  documents, the docs index, QUICKSTART, STRATEGY, the launch posts and `free_scan.py`,
+  while README, SKILL.md and TEST-INVENTORY were correct at 603. Guarding three files did
+  not guard the repository. Also corrected: `EVALUATION_PROTOCOL.md` claimed a "130-test
+  suite" and a `Framework version: 3.1 (189 tests)` footer.
+
+### Added
+
+- `test_no_stale_test_count_anywhere` and `test_no_stale_module_count_anywhere` — repo-wide
+  guards over every live document, with dated snapshots (CHANGELOG, evaluation reports,
+  archived roadmaps, blog posts) excluded so history is not rewritten to today's number.
+- `test_the_count_guard_can_actually_fail` — asserts the matcher fires on six real phrasings
+  and stays silent on `x402 tests`, `L402 tests` and `Ed25519`. The first version of the
+  matcher missed the parenthetical `(603 tests)` form in QUICKSTART and passed a planted
+  stale count; this test exists so that narrowing it again is caught rather than assumed.
+
+### Changed
+
+- README: comparison table corrected — Invariant Labs' `mcp-scan` now redirects to
+  `snyk/agent-scan` and was being counted as two separate competitors. Star counts
+  re-verified. MCP coverage restated as 46 (protocol 32 + supply-chain 4 + tool-poisoning
+  repro 10); enterprise platforms corrected from "20" to 58 (core 31 + extended 27). Added
+  rows for human oversight and OWASP v1.1. Added a Human Oversight layer to the three-layer
+  table, and an Independent Reproduction entry under Used By.
+- README + ROADMAP now state plainly that a 2026-08-02 OpenAlex audit found **30 citation
+  edges and 0 qualifying independent citations**. ROADMAP previously described the research
+  foundation as "peer-cross-citing DOIs", which asserted external citation the audit
+  disproves, and claimed "independent, reproducible adversarial evidence" where adjudication
+  is author-performed.
+- ROADMAP release history extended from v4.4 through v4.13.1 with dates reconciled against
+  this file, plus a stated known-gaps section. The research-frontier list named
+  intent-contract, multi-agent and memory work that has since shipped as modules.
+
 ## [4.13.1] - 2026-08-02
 
 ### Fixed

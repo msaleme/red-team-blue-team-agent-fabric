@@ -162,8 +162,8 @@ We welcome contributions, especially from teams building MCP-aware proxies or in
 ## References
 
 1. Saleme, M. (2026). "Decision Load Index: A Quantitative Framework for Agent Autonomy Risk." Zenodo. [https://doi.org/10.5281/zenodo.18217577](https://doi.org/10.5281/zenodo.18217577)
-2. Saleme, M. (2026). "Normalization of Deviance in Autonomous Agent Systems." Zenodo. [https://doi.org/10.5281/zenodo.15105866](https://doi.org/10.5281/zenodo.15105866)
-3. Saleme, M. (2026). "Cognitive Style Governance for Multi-Agent Deployments." Zenodo. [https://doi.org/10.5281/zenodo.15106553](https://doi.org/10.5281/zenodo.15106553)
+2. Saleme, M. (2026). "Beyond Identity Governance: A Protocol-Level Security Testing Framework for Multi-Agent Systems." Zenodo. [https://doi.org/10.5281/zenodo.19343034](https://doi.org/10.5281/zenodo.19343034)
+3. Saleme, M. (2026). "Community-Driven Security for AI Agents: Evolution of an Adversarial Test Corpus." Zenodo. [https://doi.org/10.5281/zenodo.19343108](https://doi.org/10.5281/zenodo.19343108)
 4. Invariant Labs. "Tool Poisoning Attacks." (2025). Related MCP supply-chain CVEs: CVE-2025-54136 (Cursor — malicious MCP config swap → RCE) [https://nvd.nist.gov/vuln/detail/CVE-2025-54136](https://nvd.nist.gov/vuln/detail/CVE-2025-54136); CVE-2025-49596 (MCP Inspector — missing authentication → RCE) [https://nvd.nist.gov/vuln/detail/CVE-2025-49596](https://nvd.nist.gov/vuln/detail/CVE-2025-49596)
 5. AIUC-1. "AI Use Case 1: Pre-Certification Requirements for Autonomous Agent Systems." [https://aiuc.dev](https://aiuc.dev)
 6. Anthropic. "Model Context Protocol Specification." [https://spec.modelcontextprotocol.io](https://spec.modelcontextprotocol.io)
