@@ -72,6 +72,26 @@ harness, and evidence format are open source (MIT) at
 \end{abstract}
 
 % ---------------------------------------------------------------------------
+\section{Evidence classification}
+\label{sec:evidence-classification}
+
+This paper classifies claims by the evidence retained for them. E1 is an
+artifact or documentation observation; E2 is a reproducible runtime
+characterization; E3 records enforcement at the relevant decision or
+transaction point; E4 additionally demonstrates persistence or replay
+resistance; and E5 additionally demonstrates isolation at a tested security
+boundary. Each level subsumes the preceding levels. Evidence at a lower level
+does not establish a higher-level property. The versioned definition and claim
+language are maintained with the harness at
+\url{https://github.com/msaleme/red-team-blue-team-agent-fabric/blob/main/docs/EVIDENCE-CLASS-TAXONOMY.md}.
+
+Unless a result names its retained artifact, method, inputs that materially
+affect the result, execution environment, and tested configuration, it is an
+incomplete basis for the corresponding claim. Author-performed results are not
+independent certification. This classification describes evidence strength; it
+does not promote every result in this paper to E5.
+
+% ---------------------------------------------------------------------------
 \section{Introduction}
 \label{sec:intro}
 
