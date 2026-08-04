@@ -25,6 +25,24 @@ that materially affect the result, execution environment, timestamp, and the
 retained output used to support the claim. When a claim concerns a third-party
 system, distinguish author-performed testing from independent verification.
 
+## Evidence status
+
+E1-E5 describes the strength of a result and I0-I2 describes the independence
+of its oracle. Neither axis states where an item sits in an assurance workflow.
+Use these status terms separately:
+
+| Status | Establishes | Does not establish |
+| --- | --- | --- |
+| **Mapped** | A documented relationship between an artifact and a requirement. | That the artifact was executed, a target passed, or the relationship is sufficient for a decision. |
+| **Executed** | A recorded run against an identified target from a pinned revision, with relevant inputs and outputs retained. | That the evidence is applicable or sufficient, or that the run was independently reviewed. |
+| **Independently reviewed** | A qualified party assessed whether the evidence was applicable and sufficient for the stated purpose. | Certification, unless the reviewing party is authorized to issue it. |
+| **Certified** | An authorized certification process concluded that applicable requirements were satisfied for a defined scope. | A universal claim outside that scope or standard version. |
+
+These statuses are not interchangeable. A mapping is E1-level material
+regardless of how many requirements it covers. An executed result still needs
+an E-class and I-class, and independent review does not itself issue a
+certificate.
+
 ## Claim discipline
 
 - Describe the tested configuration and threat model, not an entire product or
