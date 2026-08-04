@@ -171,12 +171,20 @@ Under GDPR, you have the right to:
 
 Since telemetry is anonymous (no IP addresses retained, no user identifiers), we may not be able to identify your specific data. However, we will make best efforts to honor any request.
 
-To exercise these rights, contact us at **trusted@synapseops.com**. We respond within 30 days.
+To exercise these rights, open an issue at
+[github.com/msaleme/red-team-blue-team-agent-fabric/issues](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues),
+or for anything you would rather not file publicly, email **research@cognitivethoughtengine.com**
+(the address in `SECURITY_POLICY.md`). We respond within 30 days.
+
+In practice there is very little to exercise these rights against: this project now
+operates no telemetry endpoint and no registry, so it receives and stores nothing.
+If you configured your own endpoint, the data is on your infrastructure and this
+project never saw it.
 
 ### Data Controller
 
-**Signal Ops / Michael K. Saleme**
-Contact for data protection inquiries: **trusted@synapseops.com**
+**Michael K. Saleme**
+Contact for data protection inquiries: **research@cognitivethoughtengine.com**
 
 ---
 
@@ -194,6 +202,6 @@ Contact for data protection inquiries: **trusted@synapseops.com**
 
 Questions, concerns, or audit requests:
 
-**trusted@synapseops.com**
+**research@cognitivethoughtengine.com**, or a public issue on the repository.
 
 We respond to privacy inquiries within 48 hours.

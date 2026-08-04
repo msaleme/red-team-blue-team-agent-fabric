@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security — fabricated infrastructure removed
+
+- **The default attestation-registry and telemetry endpoints pointed at domains this
+  project does not own and never did.** `6b6a64c` (2026-03-28, *"feat: add telemetry,
+  privacy policy, and attestation registry"*) introduced three references to
+  infrastructure that was invented rather than provisioned: a registry host, a
+  telemetry host, and a data-protection contact address named in `docs/PRIVACY.md`.
+  None was ever under this project's control. The registry and telemetry hosts resolve
+  to third-party parking addresses and return HTTP 404; the contact domain is a live
+  site operated by someone else.
+
+  **Exposure.** `agent-security publish` posted to the registry default whenever
+  `AGENT_SECURITY_REGISTRY_URL` was unset. The submission carried the user-supplied
+  `server_name`, the stripped report, an Ed25519 public-key fingerprint, and — when
+  provided — the user's **contact email address**. `strip_sensitive_fields()` worked
+  correctly throughout, so target URLs, headers, auth tokens, and request/response
+  bodies never left the machine. The endpoints returned 404, but a 404 means the
+  request arrived: the receiving hosts saw source IP, TLS SNI, and the POST body.
+  Telemetry was opt-in and off by default, so it fired only for users who explicitly
+  enabled it, and sent only module names, test counts, and the harness version.
+  `docs/PRIVACY.md` directed GDPR data-subject requests to the third-party address.
+
+  **Fix — the absence of a default, not a corrected default.**
+  - `AGENT_SECURITY_REGISTRY_URL` is now required. `publish_attestation()` and
+    `verify_attestation()` raise `RegistryNotConfigured` when it is unset. Resolution
+    moved from import time to call time, so importing the module and using
+    `strip_sensitive_fields()` offline still works.
+  - `AGENT_SECURITY_TELEMETRY_URL` is now required. With no endpoint configured
+    telemetry is disabled regardless of opt-in state, and the endpoint check is not
+    overridable by opting in: an opt-in is consent to a destination the operator
+    chose, not to whatever host is compiled in.
+  - Badge URLs derive from the configured registry instead of a hardcoded host.
+  - `docs/PRIVACY.md` now routes data-protection inquiries to the repository issue
+    tracker or the address already published in `SECURITY_POLICY.md`.
+  - `testing/test_no_default_endpoints.py` (12 tests) guards the absence of both
+    defaults and fails if either host or the contact address reappears in shipped
+    source or user-facing documentation.
+
+  **Also corrected: an independence claim.** `docs/attestation-registry.md` described a
+  published attestation as showing a system had been *"independently security-tested"*,
+  and generated a *"Verified by Agent Security Harness"* badge. The publisher ran this
+  harness against their own target, which is **I0** under
+  `docs/EVIDENCE-CLASS-TAXONOMY.md` — the same party produced the oracle and the system
+  under test. The badge label is now *"Tested with Agent Security Harness"*, and the
+  document states what an attestation does not establish.
+
+  This is the second fabricated-external-reference defect found in this repository, after
+  the DOI misattribution recorded below. Both were introduced as plausible-looking detail
+  that no one verified, and both were found by checking whether the referenced thing
+  actually existed.
+
 ### Fixed — documentation accuracy sweep
 
 - **Two DOIs in the README research table belonged to other researchers.**
