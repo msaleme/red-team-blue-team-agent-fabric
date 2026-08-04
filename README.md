@@ -11,6 +11,9 @@
 
 **Even if an agent is properly authenticated and authorized, can it still be manipulated into unsafe or policy-violating behavior?**
 
+If this evidence discipline is useful in your agent-security work, **star this
+repository to follow releases**.
+
 ## Evidence before coverage
 
 Every claim in this project is bounded by the
