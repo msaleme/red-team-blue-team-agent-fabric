@@ -14,25 +14,44 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-# Configurable endpoint -- override for self-hosted deployments
-TELEMETRY_ENDPOINT = os.environ.get(
-    "AGENT_SECURITY_TELEMETRY_URL", "https://telemetry.agentsecurity.dev/v1/event")
+# There is no default telemetry endpoint, deliberately.
+#
+# Until 2026-08-04 this defaulted to https://telemetry.agentsecurity.dev, a domain
+# this project does not own and never did. It was fabricated alongside the registry
+# host and the privacy contact in 6b6a64c (2026-03-28). Telemetry was opt-in and
+# off by default, so this only fired for users who explicitly enabled it -- but for
+# those users it sent module names and test counts to a third party.
+#
+# A security tool must not have a silent default destination. Telemetry is now
+# disabled unless BOTH an opt-in and an endpoint you control are configured.
+TELEMETRY_ENDPOINT = os.environ.get("AGENT_SECURITY_TELEMETRY_URL", "").strip()
 
 _CFG_DIR = Path.home() / ".agent-security"
 _CFG_FILE = _CFG_DIR / "telemetry.json"
 _NOTICE_MARKER = _CFG_DIR / "telemetry-notice-shown"
 _FIRST_RUN_NOTICE = """agent-security-harness: Anonymous usage statistics are OFF by default.
-To help improve the framework: export AGENT_SECURITY_TELEMETRY=on
+This project operates no telemetry endpoint, so opting in alone sends nothing.
+To collect your own: export AGENT_SECURITY_TELEMETRY_URL=<a host you control>
+                    export AGENT_SECURITY_TELEMETRY=on
 Details: docs/PRIVACY.md
 """
 
 def _is_disabled() -> bool:
-    """Check env var and config file. Telemetry is OFF by default (opt-in).
+    """Check endpoint, env var, and config file. Telemetry is OFF by default.
 
-    Telemetry is only enabled when explicitly opted in via:
-    - Environment variable: AGENT_SECURITY_TELEMETRY=on/true/1
-    - Config file: {"enabled": true}
+    Two independent conditions must both hold before anything is sent:
+    - An endpoint is configured via AGENT_SECURITY_TELEMETRY_URL. There is no
+      default, so with nothing set there is nowhere to send and telemetry is off.
+    - The user opted in, via AGENT_SECURITY_TELEMETRY=on/true/1 or a config file
+      containing {"enabled": true}.
+
+    The endpoint check comes first and is not overridable by opting in. An opt-in
+    is consent to share with a destination the operator chose, not consent to
+    share with whatever host happens to be compiled in.
     """
+    if not TELEMETRY_ENDPOINT:
+        return True  # No destination configured: nothing to send anywhere.
+
     # Check config file first - explicit config takes precedence
     try:
         if json.loads(_CFG_FILE.read_text()).get("enabled") is True:

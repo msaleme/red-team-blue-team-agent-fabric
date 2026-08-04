@@ -24,30 +24,55 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-# Configurable registry endpoint - override for self-hosted deployments
-_DEFAULT_REGISTRY = "https://registry.agentsecurity.dev/v1/attestation"
-_raw_endpoint = os.environ.get("AGENT_SECURITY_REGISTRY_URL", _DEFAULT_REGISTRY)
+# There is no default registry endpoint, deliberately.
+#
+# Until 2026-08-04 this module defaulted to https://registry.agentsecurity.dev,
+# a domain this project does not own and never did. It was fabricated, along with
+# the telemetry host and the privacy contact, in 6b6a64c (2026-03-28). Every
+# `agent-security publish` run with no override posted a signed attestation --
+# including the optional user-supplied contact email -- to a third party.
+#
+# A security tool must not have a silent default destination. That property is
+# what turned one wrong constant into an exfiltration path, so the fix is the
+# absence of a default rather than a different default.
+#
+# The endpoint resolves at call time, not import time, so that importing this
+# module and using strip_sensitive_fields() offline still works.
 
-# Validate URL format (#124): must be https:// (or http:// for localhost only)
-if _raw_endpoint != _DEFAULT_REGISTRY:
+_REGISTRY_ENV = "AGENT_SECURITY_REGISTRY_URL"
+
+
+class RegistryNotConfigured(RuntimeError):
+    """Raised when a network operation is attempted with no registry configured."""
+
+
+def resolve_registry_endpoint() -> str:
+    """Return the configured registry endpoint, or raise.
+
+    Requires AGENT_SECURITY_REGISTRY_URL. There is no default: see the note above.
+    """
+    raw = os.environ.get(_REGISTRY_ENV, "").strip()
+    if not raw:
+        raise RegistryNotConfigured(
+            f"No attestation registry is configured. Set {_REGISTRY_ENV} to a "
+            f"registry you control.\n"
+            f"This project operates no public registry. See "
+            f"docs/attestation-registry.md and issue #333 for the server contract."
+        )
+
+    # Validate URL format (#124): must be https:// (or http:// for localhost only)
     from urllib.parse import urlparse as _urlparse
 
-    _parsed = _urlparse(_raw_endpoint)
-    if _parsed.scheme == "https":
-        pass  # always allowed
-    elif _parsed.scheme == "http" and _parsed.hostname in ("localhost", "127.0.0.1", "::1"):
-        pass  # http allowed for local development
-    else:
-        raise ValueError(
-            f"AGENT_SECURITY_REGISTRY_URL must use https:// "
-            f"(or http:// for localhost). Got: {_raw_endpoint!r}"
-        )
-    if not _parsed.hostname:
-        raise ValueError(
-            f"AGENT_SECURITY_REGISTRY_URL is not a valid URL: {_raw_endpoint!r}"
-        )
-
-REGISTRY_ENDPOINT = _raw_endpoint
+    parsed = _urlparse(raw)
+    if not parsed.hostname:
+        raise ValueError(f"{_REGISTRY_ENV} is not a valid URL: {raw!r}")
+    if parsed.scheme == "https":
+        return raw
+    if parsed.scheme == "http" and parsed.hostname in ("localhost", "127.0.0.1", "::1"):
+        return raw  # http allowed for local development
+    raise ValueError(
+        f"{_REGISTRY_ENV} must use https:// (or http:// for localhost). Got: {raw!r}"
+    )
 
 _KEY_DIR = Path.home() / ".agent-security"
 _KEY_FILE = _KEY_DIR / "signing_key.pem"
@@ -258,8 +283,10 @@ def publish_attestation(
         ).hexdigest()[:16],
     }
 
+    endpoint = resolve_registry_endpoint()
+
     req = Request(
-        REGISTRY_ENDPOINT,
+        endpoint,
         data=json.dumps(submission).encode(),
         headers={"Content-Type": "application/json"},
         method="POST",
@@ -272,21 +299,29 @@ def publish_attestation(
         raise RuntimeError(f"Failed to publish attestation: {exc}") from exc
 
     registry_id = result.get("id", verification_hash[:12])
-    registry_url = f"{REGISTRY_ENDPOINT}/{registry_id}"
+    registry_url = f"{endpoint}/{registry_id}"
+
+    # Badge URLs derive from the configured registry, never from a hardcoded host.
+    from urllib.parse import urlparse as _urlparse
+
+    _p = _urlparse(endpoint)
+    badge_url = f"{_p.scheme}://{_p.netloc}/badge/{registry_id}"
+
+    # "Tested with", not "Verified by". The publisher ran this harness against
+    # their own target, so the result is I0 under docs/EVIDENCE-CLASS-TAXONOMY.md.
+    # A badge claiming verification would present self-authored evidence as
+    # third-party review.
+    _label = "Tested with Agent Security Harness"
 
     return {
         "registry_id": registry_id,
         "registry_url": registry_url,
         "verification_hash": verification_hash,
-        "badge_markdown": (
-            f"[![Verified by Agent Security Harness]"
-            f"(https://registry.agentsecurity.dev/badge/{registry_id})]"
-            f"({registry_url})"
-        ),
+        "badge_markdown": f"[![{_label}]({badge_url})]({registry_url})",
         "badge_html": (
             f'<a href="{html.escape(registry_url)}">'
-            f'<img src="https://registry.agentsecurity.dev/badge/{html.escape(registry_id)}" '
-            f'alt="Verified by Agent Security Harness" /></a>'
+            f'<img src="{html.escape(badge_url)}" '
+            f'alt="{_label}" /></a>'
         ),
     }
 
@@ -310,7 +345,7 @@ def verify_attestation(registry_id: str) -> dict:
     # Validate registry_id before URL construction (#114)
     _validate_registry_id(registry_id)
 
-    url = f"{REGISTRY_ENDPOINT}/{registry_id}"
+    url = f"{resolve_registry_endpoint()}/{registry_id}"
     req = Request(url, method="GET")
 
     try:
