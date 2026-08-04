@@ -11,6 +11,22 @@
 
 **Even if an agent is properly authenticated and authorized, can it still be manipulated into unsafe or policy-violating behavior?**
 
+603 executable security tests across 44 modules (verified 2026-08-02 via `scripts/count_tests.py`). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
+
+```
+$ agent-security test mcp --url http://localhost:8080/mcp
+Running MCP Protocol Security Tests v4.13.1...
+ MCP-001: Tool List Integrity Check [PASS] (0.234s)
+ MCP-002: Tool Registration via Call Injection [PASS] (0.412s)
+ MCP-003: Capability Escalation via Initialize [FAIL] (0.156s)
+...
+Results: 8/10 passed (80% pass rate) - see report.json
+```
+
+> Illustrative output. A target the harness cannot reach, or that answers without
+> servicing the request, reports **INCONCLUSIVE** — never PASS. See
+> [v4.13.1](CHANGELOG.md) for why that distinction is enforced rather than assumed.
+
 If this evidence discipline is useful in your agent-security work, **star this
 repository to follow releases**.
 
@@ -36,25 +52,9 @@ describes its strength. A mapping alone is E1-level material regardless of how m
 requirements it covers. The taxonomy in this repository is canonical; the field
 guide is hosted outside it and is not version-pinned.
 
-603 executable security tests across 44 modules (verified 2026-08-02 via `scripts/count_tests.py`). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
-
 **[OWASP Agentic AI v1.1 Threat Coverage Report](docs/OWASP-AGENTIC-V1.1-COVERAGE.md)** — commit-pinned mapping from the full **T1–T17** taxonomy to executable tests: **13 direct, 4 partial, 0 not evidenced**, across 96 mapped tests and 66 named OWASP scenarios. Mitigation-control validation is tracked separately from threat coverage (11 validated, 10 partial, 1 guidance-only), and every gap, evidence class and reproduction command is in the report. ([T1–T15 submission view](docs/OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md) · [canonical mapping](docs/coverage/owasp-agentic-v1.1.yaml))
 
 > Adapted from OWASP *Agentic AI — Threats and Mitigations* v1.1 under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). A test-capability report — not a certification, conformance claim, or OWASP endorsement. The adjudication is author-performed and is not independent review.
-
-```
-$ agent-security test mcp --url http://localhost:8080/mcp
-Running MCP Protocol Security Tests v4.13.1...
- MCP-001: Tool List Integrity Check [PASS] (0.234s)
- MCP-002: Tool Registration via Call Injection [PASS] (0.412s)
- MCP-003: Capability Escalation via Initialize [FAIL] (0.156s)
-...
-Results: 8/10 passed (80% pass rate) - see report.json
-```
-
-> Illustrative output. A target the harness cannot reach, or that answers without
-> servicing the request, reports **INCONCLUSIVE** — never PASS. See
-> [v4.13.1](CHANGELOG.md) for why that distinction is enforced rather than assumed.
 
 ## Quick Start
 
