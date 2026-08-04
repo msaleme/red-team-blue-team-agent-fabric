@@ -90,12 +90,19 @@ HTTP 200: **20 false passes across four status classes**, and 0 after the fix.
 **I1 in practice, 2026-08-01.** A separate Node verifier, written from the
 published contract by a party unknown to the author, replayed the pinned RCL
 oracle corpus and matched 11/11 verdicts (issue #304). The agreement was not the
-useful part. The divergence was: the reimplementation established that the
-artifact declared RFC 8785 JCS canonicalisation while the code emitted
-Python-style sorted compact JSON, encodings that coincide only for ASCII-only,
-integer-valued payloads. That is a defect no I0 test in this repository could
-have surfaced, because every one of them was written against the
-implementation.
+useful part. The exercise produced two corrections to this repository's own
+artifacts: the fixture declared RFC 8785 JCS canonicalisation while the code
+emitted Python-style sorted compact JSON, encodings that coincide only for
+ASCII-only, integer-valued payloads; and the corpus did not declare that
+freshness was exercised only in the stale direction. Both were fixed in #307.
+
+Who found what is part of the case. The reimplementation did not report the
+canonicalisation mismatch. The author identified it while reviewing the outside
+report, and the reporting party confirmed it. What the exercise supplied was a
+second implementation written from the published contract, which is what made
+the gap between declaration and behaviour legible. Neither correction is one an
+I0 test in this repository could have surfaced, because every one of them was
+written against the implementation.
 
 ### Claim discipline for the axis
 
