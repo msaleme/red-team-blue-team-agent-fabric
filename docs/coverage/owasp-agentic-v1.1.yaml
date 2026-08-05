@@ -52,7 +52,7 @@ framework:
 assessment:
   project: Agent Security Harness
   repository: https://github.com/msaleme/red-team-blue-team-agent-fabric
-  harness_version: 4.13.1
+  harness_version: 4.14.0
   git_commit: 19dbfb871d1379a42bbfa22fa06bb2edda58a2c0
   assessed_at: '2026-08-02T18:30:00Z'
   reverified_at: '2026-08-03T01:05:00Z'
@@ -70,6 +70,15 @@ assessment:
       or control verdict changed; the T10/T15 limitations now state the corrected
       guard. The adjudication itself was performed at the 1.0 commit and was not
       redone.
+  - report: '1.2'
+    commit: 19dbfb871d1379a42bbfa22fa06bb2edda58a2c0
+    harness: 4.14.0
+    date: '2026-08-05'
+    change: Re-pinned to the v4.14.0 release. No threat, scenario or control verdict
+      changed, and no test was added or removed. v4.14.0 removes fabricated default
+      network endpoints and corrects an attestation independence claim; the harness
+      exercises neither. commit and assessed_at are deliberately unchanged from 1.1,
+      because the adjudication was not redone.
 
   total_repository_tests: 603
   total_tests_command: python scripts/count_tests.py
