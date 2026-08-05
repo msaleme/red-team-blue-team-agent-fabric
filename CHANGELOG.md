@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.14.0] - 2026-08-05
+
+### Breaking
+
+- **`AGENT_SECURITY_REGISTRY_URL` and `AGENT_SECURITY_TELEMETRY_URL` are now required.**
+  Both previously defaulted to hosts this project does not own (see below).
+  `publish_attestation()` and `verify_attestation()` raise `RegistryNotConfigured`
+  when no registry is configured, instead of posting to a default. Telemetry is
+  disabled when no endpoint is set, regardless of opt-in state. Importing
+  `protocol_tests.attestation_registry` and calling `strip_sensitive_fields()`
+  offline is unaffected.
+
 ### Security — fabricated infrastructure removed
 
 - **The default attestation-registry and telemetry endpoints pointed at domains this
