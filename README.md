@@ -59,11 +59,53 @@ guide is hosted outside it and is not version-pinned.
 ## Quick Start
 
 ```bash
-pip install agent-security-harness
-
-# If 'agent-security' is not found, add ~/.local/bin to your PATH:
-export PATH="$HOME/.local/bin:$PATH"
+pipx install agent-security-harness
 ```
+
+`pipx` is the recommended install because this is a command-line tool. It builds
+an isolated environment and puts `agent-security` on your PATH, with no `sudo`
+and no PATH edits. Get it with `brew install pipx`, `apt install pipx`, or
+`python3 -m pip install --user pipx`.
+
+<details>
+<summary>Installing with pip instead</summary>
+
+Use a virtual environment:
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install agent-security-harness
+```
+
+**`pip install agent-security-harness` outside a virtual environment fails on
+most current systems**, including Homebrew Python on macOS and Linux, Debian,
+Ubuntu, and Fedora:
+
+```
+error: externally-managed-environment
+```
+
+Those interpreters ship a [PEP 668](https://peps.python.org/pep-0668/) marker
+that blocks installs into the system environment. `--user` does not bypass it.
+`--break-system-packages` does, and is a bad idea on a Homebrew Python. Use
+`pipx` or a venv.
+
+</details>
+
+<details>
+<summary>Keeping it updated</summary>
+
+```bash
+pipx upgrade agent-security-harness
+```
+
+[topgrade](https://github.com/topgrade-rs/topgrade) picks this up automatically
+through its `pipx` step, or its `pip3` step for a `--user` install. No
+configuration needed.
+
+There is no Homebrew formula for this package.
+
+</details>
 
 ```bash
 # See it work immediately — no server needed:

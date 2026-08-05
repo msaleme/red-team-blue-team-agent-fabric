@@ -134,7 +134,7 @@ docker run -d --env-file .env agent-scan-bot
 The Discord bot runs a quick 5-test subset. For comprehensive testing (100+ tests across MCP, A2A, L402, identity, and more):
 
 ```bash
-pip install agent-security-harness
+pipx install agent-security-harness
 agent-security test mcp --url https://your-server.com/mcp
 ```
 

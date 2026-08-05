@@ -3,8 +3,27 @@
 ## Installation
 
 ```bash
+pipx install agent-security-harness
+```
+
+`pipx` is recommended for a command-line tool: it builds an isolated environment
+and puts `agent-security` on your PATH. Install it with `brew install pipx`,
+`apt install pipx`, or `python3 -m pip install --user pipx`.
+
+To use pip instead, install into a virtual environment:
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
 pip install agent-security-harness
 ```
+
+`pip install` outside a virtual environment fails with
+`error: externally-managed-environment` on Homebrew Python, Debian, Ubuntu, and
+Fedora. Those interpreters ship a [PEP 668](https://peps.python.org/pep-0668/)
+marker, and `--user` does not bypass it.
+
+Keep it current with `pipx upgrade agent-security-harness`. `topgrade` handles it
+automatically through its `pipx` step. There is no Homebrew formula.
 
 ## Basic Usage
 
@@ -94,7 +113,7 @@ Use the harness as an MCP tool that any AI agent can call:
 
 ```bash
 # Install with MCP support
-pip install agent-security-harness[mcp-server]
+pipx install "agent-security-harness[mcp-server]"   # or, inside a venv: pip install 'agent-security-harness[mcp-server]'
 
 # stdio mode (for Cursor, Claude Desktop, IDE integration)
 python -m mcp_server
@@ -171,7 +190,7 @@ jobs:
 Or use the CLI directly in any CI system:
 
 ```bash
-pip install agent-security-harness
+pip install agent-security-harness   # fine on an ephemeral CI runner; use pipx or a venv locally
 agent-security test mcp --url http://localhost:8080/mcp --json > report.json
 ```
 
