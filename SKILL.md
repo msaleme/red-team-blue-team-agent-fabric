@@ -50,7 +50,7 @@ Answer the question every operator needs answered before going to production:
 ## Quick Start
 
 ```bash
-pip install agent-security-harness
+pipx install agent-security-harness   # pip outside a venv fails on PEP 668 systems
 
 # Simulate immediately — no server needed:
 agent-security test mcp --simulate
