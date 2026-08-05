@@ -8,6 +8,7 @@ import os
 import re
 import sys
 import unittest
+from pathlib import Path
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
@@ -727,3 +728,41 @@ class TestVersionFlagForms(unittest.TestCase):
         from protocol_tests.version import get_harness_version
         r = self._run("--version")
         self.assertIn(f"v{get_harness_version()}", r.stdout.splitlines()[0])
+
+
+class TestCatalogIsCurrent(unittest.TestCase):
+    """Issue #339: the citation catalog was hand-maintained and drifted.
+
+    It was extracted 2026-04-19 and listed 368 test IDs against a 603-test
+    repository. That made it unable to confirm a test exists (zero HITL entries
+    after v4.13.0 shipped that harness) and unable to support a claim that one
+    does not. Both failures are load-bearing, because the catalog is what public
+    claims about this project are cited against.
+    """
+
+    def test_catalog_matches_source(self) -> None:
+        import subprocess
+        r = subprocess.run(
+            [sys.executable, "scripts/generate_test_catalog.py", "--check"],
+            cwd=REPO_ROOT, capture_output=True, text=True,
+        )
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_catalog_count_matches_count_tests(self) -> None:
+        """The catalog and the canonical counter must not disagree."""
+        import re as _re
+        import subprocess
+        catalog = (Path(REPO_ROOT) / "HARNESS_TEST_CATALOG.md").read_text()
+        stated = int(_re.search(r"\*\*Test count:\*\* (\d+) unique", catalog).group(1))
+        r = subprocess.run(
+            [sys.executable, "scripts/count_tests.py"],
+            cwd=REPO_ROOT, capture_output=True, text=True, check=True,
+        )
+        canonical = int(_re.search(r"Definitive count: (\d+)", r.stdout).group(1))
+        self.assertEqual(stated, canonical)
+
+    def test_corpus_scenarios_are_not_counted_as_tests(self) -> None:
+        """DBC-* are scenario definitions and must not inflate the test count."""
+        catalog = (Path(REPO_ROOT) / "HARNESS_TEST_CATALOG.md").read_text()
+        self.assertIn("scenario definitions, not executable protocol tests", catalog)
+        self.assertIn("excluded from the test count above", catalog)
