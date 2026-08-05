@@ -16,6 +16,7 @@ Usage:
     agent-security list l402                # List L402 test cases
 
     agent-security version                  # Show version info
+    agent-security --version                # Same, conventional flag form
 """
 
 from __future__ import annotations
@@ -366,7 +367,7 @@ def print_usage():
     print("Usage:")
     print("  agent-security test <harness> [options]    Run a test harness")
     print("  agent-security list [harness]              List available tests")
-    print("  agent-security version                     Show version")
+    print("  agent-security version | --version | -V    Show version")
     print()
     print("Harnesses:")
     for name, info in HARNESSES.items():
@@ -399,7 +400,11 @@ def main():
         print_usage()
         sys.exit(0)
 
-    if args[0] == "version":
+    # Accept the conventional flags as well as the subcommand. `--version` is
+    # the first thing anyone types to confirm which build they are on, and it
+    # previously exited with "unknown command". That matters most right after
+    # an upgrade, which is exactly when it was failing.
+    if args[0] in ("version", "--version", "-V"):
         print(f"agent-security-harness v{VERSION}")
         print(f"Tests: {_total_tests()} across {len(HARNESSES)} harness modules")
         print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402, x402")

@@ -697,3 +697,33 @@ class TestRegAP2(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestVersionFlagForms(unittest.TestCase):
+    """`agent-security --version` used to exit with "unknown command".
+
+    It is the first thing anyone types to confirm which build they are on, and
+    it mattered most right after an upgrade, which is exactly when it failed.
+    """
+
+    def _run(self, *argv):
+        import subprocess
+        return subprocess.run(
+            [sys.executable, "-m", "protocol_tests.cli", *argv],
+            cwd=REPO_ROOT, capture_output=True, text=True,
+        )
+
+    def test_all_three_forms_report_the_same_version(self) -> None:
+        outs = []
+        for form in ("version", "--version", "-V"):
+            r = self._run(form)
+            self.assertEqual(r.returncode, 0, f"{form!r} exited {r.returncode}: {r.stderr[:200]}")
+            first = r.stdout.splitlines()[0]
+            self.assertIn("agent-security-harness v", first)
+            outs.append(first)
+        self.assertEqual(len(set(outs)), 1, f"forms disagree: {outs}")
+
+    def test_reported_version_matches_pyproject(self) -> None:
+        from protocol_tests.version import get_harness_version
+        r = self._run("--version")
+        self.assertIn(f"v{get_harness_version()}", r.stdout.splitlines()[0])
