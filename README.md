@@ -172,6 +172,19 @@ Star counts verified 2026-08-02 via the GitHub API. Invariant Labs' `mcp-scan` n
 `snyk/agent-scan` and is listed once rather than as two separate projects. Competitor rows describe
 what each tool does by design; a dash means the capability is outside its stated scope, not a defect.
 
+**What the table does not measure.** Every row above is coverage: what gets tested, and how much.
+Coverage says nothing about what a result licenses you to claim. That is what the
+[E1-E5 Evidence Class Taxonomy](docs/EVIDENCE-CLASS-TAXONOMY.md) is for, and it is applied to this
+project's own output first: the AIUC-1 crosswalk is E1 material regardless of covering 19 of 20
+requirements, and this harness holds **no I2 evidence** at all, because it reads protocol responses
+the target itself emits. No claim here is deliberately made about how other projects handle this.
+
+**One external check.** The `Research backing` row says self-authored because it is. The one
+exception is [#304](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/304), where an
+outside party reimplemented the receipt-claim oracle from the published contract and replayed a
+pinned corpus. One reproduction, of one corpus, by one party, is not independent review of the
+harness as a whole, and this project still does not have that.
+
 **Use both.** Scan with [Snyk Agent Scan](https://github.com/snyk/agent-scan) or [Cisco MCP Scanner](https://github.com/cisco-ai-defense/mcp-scanner) for static analysis. Test with this framework for active exploitation. They're complementary layers.
 
 ---
