@@ -108,6 +108,9 @@ There is no Homebrew formula for this package.
 </details>
 
 ```bash
+# Confirm which build you're on:
+agent-security --version
+
 # See it work immediately — no server needed:
 agent-security test mcp --simulate
 
