@@ -99,16 +99,59 @@ oracle**, and that is a separate failure mode. A result can be E5 and still be
 worthless if the check and the thing it checks were derived from the same
 assumption.
 
+**An I-level is not a property of a record. It is a property of the relationship
+between a record and a named system under test.** The same artifact takes a
+different level depending on who is making the claim: a payment issuer's ledger
+is I2 evidence for the cardholder and I0 evidence for the issuer. State the
+system under test whenever you state an I-level, or the level means nothing.
+
 | Level | Who produced the oracle | Catches | Does not catch |
 | --- | --- | --- | --- |
 | **I0 - Self-authored** | The same author, and often the same source, as the implementation under test. | Coding errors the author did not intend. | Any assumption the author did not know they were making. |
 | **I1 - Independent implementation** | A second implementation of the same published contract, written by a different party from the specification rather than from the code. | A shared assumption between a check and its implementation. Divergence is the signal; agreement is weak evidence. | A target that misreports its own state. Both implementations read the same channel and will agree while both are wrong. |
-| **I2 - Independent sensor** | A channel the system under test does not author: kernel event log, network capture, hardware trace, out-of-band ledger. | A system whose self-report does not match its behavior. | Nothing about correctness of the specification itself. |
+| **I2 - Independent sensor** | A channel the system under test does not author: kernel event log, network capture, hardware trace, or a ledger held out-of-band **relative to that system**. The same ledger is I0 for whoever operates it. | A system whose self-report does not match its behavior. | Nothing about correctness of the specification itself. |
 
 The axis is orthogonal to E1-E5. Cite both: an author-performed enforcement
 result is **E3/I0**, and a separately reimplemented replay of a pinned corpus is
 **E2/I1**. An author-performed E5 is still I0 and is not independent
 verification.
+
+Because the I-level is relative, a citation is only complete with the system
+under test named: "E3/I0 for this harness" rather than a bare "E3/I0".
+
+### Relative independence in practice (resolves #346)
+
+Recorded rather than hypothetical, and found from outside.
+
+**2026-08-06.** An operator running an agent under a written spending cap
+described their setup in [microsoft/autogen#7823](https://github.com/microsoft/autogen/discussions/7823):
+purchases flow through a prepaid card the agent cannot access, and the agent
+keeps its own compliance log. Asked to classify their own evidence with this
+axis, they reached a conclusion this document had not stated:
+
+> it's I2 for the entity operating the instrument, I0 for me until I go get
+> independent confirmation
+
+Their balance figure is owner-reported rather than pulled from an issuer API, so
+it sits in the same class as the compliance claim it was meant to anchor. The
+issuer's ledger would be I2 for them, but they have no access to it, so the
+strongest available evidence for the boundary is still self-authored.
+
+Two things follow, and both are now stated above rather than left implicit.
+
+The level is relative. Before this, the I2 row named "out-of-band ledger" as an
+example without saying out-of-band from whom, which invites reading I2 as
+something an artifact carries with it.
+
+And the same operator reported a **live 30-cent discrepancy** between the
+owner-reported balance and their own computed one, flagged and deliberately left
+open because neither record could settle it. That is the detection-without-
+adjudication state. A system holding one record would have reported a clean
+balance and produced no discrepancy at all, which is worse and looks better.
+
+Both findings came from someone applying the axis to their own system, not from
+review inside this repository. That is the same pattern the I0 row describes: an
+assumption the author did not know they were making.
 
 ### Why the axis exists
 
@@ -151,3 +194,9 @@ written against the implementation.
 - This harness holds **no I2 evidence**. It reads protocol responses, which the
   target emits, so its observations remain inside the boundary a dishonest
   target controls. Where that limit matters to a claim, say so.
+- **Independence does two different jobs and they come apart.** *Detection*: two
+  records that disagree establish that something is wrong. *Adjudication*: an
+  independent record establishes which one is wrong. Two I0 records in
+  disagreement give the first without the second. That is a real state, not a
+  broken one, and it should be reported as an unresolved discrepancy rather than
+  closed by choosing the more convenient record.
