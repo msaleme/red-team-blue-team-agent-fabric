@@ -47,7 +47,7 @@ from typing import Any
 import urllib.request
 
 from protocol_tests.http_helpers import (
-    http_post, http_get, _err, _is_conn_error, _leak,
+    http_post, http_get, _err, _is_conn_error, _leak, _serviced,
 )
 
 
@@ -85,6 +85,17 @@ class IdentitySecurityTests:
         self.results: list[IdentityTestResult] = []
 
     def _record(self, r: IdentityTestResult):
+        # #348: a result whose target never serviced the request is INCONCLUSIVE,
+        # never a pass. Enforced here rather than in each test so a new test
+        # cannot forget it. The v4.13.1 fix was scoped to one harness and the
+        # same defect stayed live in four others for that reason.
+        _resp = getattr(r, "response_received", None)
+        if isinstance(_resp, dict) and not _serviced(_resp):
+            r.passed = False
+            if "INCONCLUSIVE" not in (r.details or ""):
+                r.details = (
+                    "INCONCLUSIVE - target did not service the request; "
+                    f"status={_resp.get('_status', 0)}. Original finding: {r.details}")
         self.results.append(r)
         s = "PASS ✅" if r.passed else "FAIL ❌"
         print(f"  {s} {r.test_id}: {r.name} ({r.elapsed_s:.2f}s)")
