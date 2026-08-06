@@ -10,9 +10,9 @@ support language reserved for a higher one.
 | --- | --- | --- | --- |
 | **E1 - Observation** | A versioned artifact, configuration, source record, or documentation snapshot with its identifier and retrieval context. | "The artifact describes…", "The record contains…" | Runtime behavior, control operation, or security effect. |
 | **E2 - Runtime characterization** | A reproducible invocation with environment, inputs, timestamps, and captured result sufficient to characterize the observed execution path. | "Under these conditions, the system returned…", "The run observed…" | That a control enforced a policy, persisted through restart, or isolated a boundary. |
-| **E3 - Enforcement** | E2 evidence plus a recorded decision or transaction at the control point showing an action was allowed, refused, or constrained. | "The control enforced…", "The action was refused at…" | Persistence, replay resistance, or isolation beyond the tested path. |
+| **E3 - Enforcement** | E2 evidence plus a recorded decision or transaction at the control point showing an action was allowed, refused, or constrained. | "The control enforced…", "The action was refused at…" | Persistence, replay resistance, or isolation beyond the tested path. **Also does not establish that the control cannot be disabled, bypassed, or reconfigured by the system under test.** That is an E5 isolation question. |
 | **E4 - Persistence and replay resistance** | E3 evidence plus a replay, restart, recovery, or retained-state check demonstrating that the relevant decision/state survives the claimed lifecycle. | "The decision persisted across…", "The replay was refused…" | Isolation from other principals, tenants, processes, or trust boundaries. |
-| **E5 - Isolation and security boundary** | E4 evidence plus an adversarial boundary test that demonstrates the claimed separation or containment under the stated conditions. | "The boundary isolated…", "The attempted cross-boundary action was contained…" | A universal guarantee outside the tested configuration and threat model. |
+| **E5 - Isolation and security boundary** | E4 evidence plus an adversarial boundary test that demonstrates the claimed separation or containment under the stated conditions. The boundary may be between principals, tenants or processes, **or between a system and its own control plane**. | "The boundary isolated…", "The attempted cross-boundary action was contained…" | A universal guarantee outside the tested configuration and threat model. |
 
 Each level subsumes the levels before it. A result may be useful at E1 or E2;
 it must not be described as enforcement, persistence, replay resistance, or
@@ -52,10 +52,45 @@ certificate.
 - Do not promote an E1/E2 observation into an E3 enforcement claim.
 - Do not promote an E3 result into E4 persistence/replay resistance or E5
   isolation without the corresponding lifecycle and boundary evidence.
+- **An architectural claim that a control cannot be bypassed is an assertion,
+  not evidence.** Where the control point sits changes what the architecture
+  predicts about future runs. It does not change what an E3 record demonstrates
+  about the run observed. Test it and cite E5, or state it as an untested design
+  property.
 - Record negative and null results alongside favorable results.
 
 This document is a methodology definition, not a certification framework or a
 claim that every harness result satisfies E5.
+
+### Where the control point sits (resolves #343)
+
+A recurring question: two systems can enforce the same limit, one with a rule
+the governed system could switch off and one with a boundary it cannot reach,
+and both produce an E3 record. Does the scale need a way to tell them apart?
+
+No, and the reason is worth stating because the mistake is easy to make.
+
+**This scale classifies evidence, not architecture.** Two systems with the same
+evidence get the same label, and that is correct rather than a defect. An
+external boundary is a stronger *design*, but until someone tests that the
+governed system cannot reach it, the claim "it cannot be bypassed" has no
+evidence behind it. It is an assertion about the architecture, and the promotion
+rule above already refuses to credit it.
+
+What the external boundary buys is a prediction about runs nobody observed.
+E3 licenses a claim about the run that was observed. Those are different claims
+and the scale keeps them apart on purpose.
+
+So the distinction is real and it lands on the existing axis:
+
+| What you have | Class |
+| --- | --- |
+| A recorded refusal at the control point | E3 |
+| The same, plus an adversarial test that the system under test cannot disable or bypass that control | E5 |
+
+If the boundary is untested, say so. An untested external boundary and an
+untested internal one are both E3, and the honest description of the difference
+is architectural rather than evidentiary.
 
 ## Independence axis (I0-I2)
 
