@@ -181,10 +181,17 @@ def _serviced(resp: dict) -> bool:
     Callers must treat ``not _serviced(resp)`` as INCONCLUSIVE, never as a
     pass. A target that was never reached has demonstrated nothing.
     """
-    status = resp.get("_status", 0)
+    # Two status conventions exist in this package. Most write "_status", seven
+    # write "status", and nine write both. Reading only "_status" makes a healthy
+    # {"status": 200} look unserviced, which is how a bulk application of this
+    # guard broke autogen_harness during the #351 sweep. "_status" still wins
+    # where both are present, so no module that already worked changes.
+    status = resp.get("_status")
+    if status is None:
+        status = resp.get("status", 0)
     if resp.get("_error"):
         return False
-    if not 200 <= status < 300:
+    if not isinstance(status, int) or not 200 <= status < 300:
         return False
     body = resp.get("response")
     if isinstance(body, dict):

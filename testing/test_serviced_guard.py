@@ -57,6 +57,9 @@ GUARDED = [
     ("protocol_tests.extended_enterprise_adapters", None, "ExtTestResult"),
     # #351 sweep: flagged by verdict-shape triage, then confirmed by reading it.
     ("protocol_tests.cloud_agent_harness", None, "CloudAgentTestResult"),
+    # The shared base itself. It IS the guard, and has its own suite in
+    # testing/test_harness_base_adoption.py.
+    ("protocol_tests.harness_base", None, "HarnessResult"),
 ]
 
 # Every module that records a target response, and is therefore capable of this defect.
