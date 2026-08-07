@@ -73,8 +73,8 @@ def _candidate_modules() -> set[str]:
 
 
 # Guarding a module requires THREE things to be true, not one. The #351 sweep
-# established this by trying to bulk-apply the guard to 14 modules and being
-# stopped by the existing suite:
+# established this by trying to bulk-apply the guard to fourteen more of them and
+# being stopped by the existing suite:
 #
 #   1. simulation must be marked. cloud_agent_harness synthesises
 #      {"_status": 403, "_simulated": True} to mean the platform denied the action.
