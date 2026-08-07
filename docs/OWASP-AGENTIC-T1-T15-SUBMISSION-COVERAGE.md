@@ -11,7 +11,7 @@
 | Report view | Submission (T1–T15) |
 | Report version | 1.0 |
 | Project | Agent Security Harness |
-| Harness version | `4.14.0` |
+| Harness version | `4.15.0` |
 | Assessed commit | [`19dbfb871d1379a42bbfa22fa06bb2edda58a2c0`](https://github.com/msaleme/red-team-blue-team-agent-fabric/commit/19dbfb871d1379a42bbfa22fa06bb2edda58a2c0) |
 | Assessed at | 2026-08-02T18:30:00Z |
 | Repository tests | 603 (`python scripts/count_tests.py`) |
@@ -725,6 +725,7 @@ Per-test rerun commands are in the `Rerun` column of each evidence table.
 | 1.0 | v1.1 `65e3bd59f99c` | 4.13.0 | `093bdae3d97c` | 2026-08-02 | Initial T1-T17 adjudication against guide v1.1. |
 | 1.1 | v1.1 `65e3bd59f99c` | 4.13.1 | `19dbfb871d13` | 2026-08-03 | Re-pinned after the v4.13.1 HITL correctness fix. No threat, scenario or control verdict changed; the T10/T15 limitations now state the corrected guard. The adjudication itself was performed at the 1.0 commit and was not redone. |
 | 1.2 | v1.1 `65e3bd59f99c` | 4.14.0 | `19dbfb871d13` | 2026-08-05 | Re-pinned to the v4.14.0 release. No threat, scenario or control verdict changed, and no test was added or removed. v4.14.0 removes fabricated default network endpoints and corrects an attestation independence claim; the harness exercises neither. commit and assessed_at are deliberately unchanged from 1.1, because the adjudication was not redone. |
+| 1.3 | v1.1 `65e3bd59f99c` | 4.15.0 | `19dbfb871d13` | 2026-08-07 | Re-pinned to the v4.15.0 release. No threat, scenario or control verdict changed, and no test was added or removed. Unlike 1.2, this release does change runtime behaviour. Issues 348 and 350 stop seven modules recording a pass when the target never serviced the request, so those results now read INCONCLUSIVE. This mapping adjudicates coverage rather than run output, so its verdicts are unaffected and were not redone. Stated plainly for readers who rely on run output instead. Any earlier run of multi_agent_harness, identity_harness, advanced_attacks, memory_harness, intent_contract_harness, enterprise_adapters or extended_enterprise_adapters against an unresponsive target reported more passes than it measured. commit and assessed_at are deliberately unchanged from 1.1. |
 
 A status changes only through a reviewed mapping change.
 
