@@ -38,6 +38,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import urllib.request
 
+from protocol_tests.http_helpers import _serviced
+
 
 # ---------------------------------------------------------------------------
 # Shared (same pattern as enterprise_adapters.py)
@@ -91,6 +93,18 @@ class ExtAdapter(ABC):
         self.results: list[ExtTestResult] = []
     def _record(self, r: ExtTestResult):
         self.results.append(r)
+        # #350: five sites here read `passed=self._err(resp) or not self._leak(resp)`, which
+        # records a pass *because* the target errored, and four more read
+        # `passed=not self._leak(resp)`, which never checks whether it answered at all.
+        # Same class as #348, which stopped at five harnesses. Guarded in the base class so
+        # every adapter subclass inherits it.
+        _resp = getattr(r, "response_received", None)
+        if isinstance(_resp, dict) and not _serviced(_resp):
+            r.passed = False
+            if "INCONCLUSIVE" not in (r.details or ""):
+                r.details = (
+                    "INCONCLUSIVE - target did not service the request; "
+                    f"status={_resp.get('_status', 0)}. Original finding: {r.details}")
         s = "PASS ✅" if r.passed else "FAIL ❌"
         print(f"  {s} {r.test_id}: {r.name} ({r.elapsed_s:.2f}s)")
     def _leak(self, resp):
