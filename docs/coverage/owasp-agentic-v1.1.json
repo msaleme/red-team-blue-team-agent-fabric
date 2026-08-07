@@ -68,7 +68,7 @@
         "change": "Re-pinned to the v4.15.0 release. No threat, scenario or control verdict changed, and no test was added or removed. Unlike 1.2, this release does change runtime behaviour. Issues 348 and 350 stop seven modules recording a pass when the target never serviced the request, so those results now read INCONCLUSIVE. This mapping adjudicates coverage rather than run output, so its verdicts are unaffected and were not redone. Stated plainly for readers who rely on run output instead. Any earlier run of multi_agent_harness, identity_harness, advanced_attacks, memory_harness, intent_contract_harness, enterprise_adapters or extended_enterprise_adapters against an unresponsive target reported more passes than it measured. commit and assessed_at are deliberately unchanged from 1.1."
       }
     ],
-    "total_repository_tests": 603,
+    "total_repository_tests": 604,
     "total_tests_command": "python scripts/count_tests.py",
     "unique_mapped_tests": 96,
     "adjudicated_by": "corpus author - NOT independent review"
