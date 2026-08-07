@@ -288,4 +288,4 @@ Per NIST AI 800-2, we distinguish:
 
 _Document version: 1.0_
 _NIST AI 800-2 alignment date: March 21, 2026_
-_Framework version: 4.14.0 (603 tests)_
+_Framework version: 4.15.0 (603 tests)_

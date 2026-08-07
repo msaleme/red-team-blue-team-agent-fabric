@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.15.0] - 2026-08-07
+
+### Changed — expect previously-passing results to become INCONCLUSIVE
+
+**Runs against a target that did not answer will now report fewer passes.** That is the
+point of this release, and it is the only change that affects existing users. If your
+results move, they were reporting a control holding against a request the target never
+serviced. No test was added or removed; the count is unchanged at 603.
+
+### Fixed — a verdict class that reported safety it never measured
+
+- **Seven modules recorded a PASS when the target never serviced the request** (#348,
+  #350). Every affected detector short-circuited on an error response and returned "no
+  attack indicator found," and every caller read that as "the control held." A host that
+  was not running produced a clean pass.
+
+  Verified by running the verdict expressions rather than by reading them:
+
+  | case | error predicate | recorded `passed` |
+  |---|---|---|
+  | transport failure (host down) | True | **True** |
+  | HTTP 404 | True | **True** |
+  | HTTP 500 | True | **True** |
+  | HTTP 200 carrying a JSON-RPC error envelope | False | **True** |
+
+  Affected: `multi_agent_harness` (18 tests), `identity_harness` (18),
+  `advanced_attacks` (10), `memory_harness` (10), `intent_contract_harness` (8),
+  `enterprise_adapters` (28), `extended_enterprise_adapters` (27).
+
+  In the two adapter modules the defect was explicit rather than accidental: 17 sites
+  computed `passed=self._check_error(resp)` or `passed=self._err(resp) or not _leak(resp)`,
+  setting a pass **because** the target errored.
+
+- **`_serviced()` promoted to `protocol_tests/http_helpers.py`.** v4.13.1 wrote this
+  function to fix 20 false passes in `hitl_harness.py` and left it in that file. Nothing
+  carried it to the six other modules with the same verdict pattern. It is now applied in
+  each module's recording path, so a test cannot forget a guard it never has to call.
+
+- Unserviced results are reported as `INCONCLUSIVE` with `passed=False`, preserving the
+  original finding text for audit. **A test that could not run is not a test that passed.**
+
+### Added
+
+- `testing/test_serviced_guard.py` derives the set of modules that record a target
+  response and asserts each one is classified. A newly added harness that records a
+  response fails the suite until it is guarded or explicitly reviewed. The previous
+  hand-written coverage list is exactly how #348 missed two modules.
+
+### Known gaps
+
+- 35 modules record a target response. Seven are now guarded. **The remaining 28 are
+  unknown, not clean** — two of them were found defective the moment they were read.
+  They are listed in `UNREVIEWED` with a tripwire against growth, and tracked in #351.
+
 ## [4.14.0] - 2026-08-05
 
 ### Breaking
