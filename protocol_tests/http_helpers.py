@@ -123,6 +123,37 @@ def _err(resp: dict) -> bool:
     return resp.get("_error") or resp.get("_status", 200) >= 400
 
 
+def inconclusive_detail(resp, details: str | None) -> str | None:
+    """Replacement ``details`` when a result must be INCONCLUSIVE, else ``None``.
+
+    Every guarded harness had its own copy of this decision inline in ``_record``.
+    Copies drift, and one of them was about to: ``cloud_agent_harness`` synthesises
+    ``{"_status": 403, "_simulated": True}`` to represent a platform *denying* an
+    action, which is the control working. Applying ``_serviced`` there converted all
+    25 simulate-mode passes into failures - a false negative introduced by the fix
+    for false positives.
+
+    So the simulated case is decided once, here, rather than in eight ``_record``
+    bodies that each have to remember it:
+
+    - a ``_simulated`` response is a fixture standing in for an answer, so it is
+      serviced by construction and the guard does not apply;
+    - a live non-2xx is genuinely ambiguous. A bare 403 cannot be distinguished
+      from "your credentials were rejected and you never reached the agent", and
+      that ambiguity is exactly what INCONCLUSIVE exists to report.
+    """
+    if not isinstance(resp, dict):
+        return None
+    if resp.get("_simulated"):
+        return None
+    if _serviced(resp):
+        return None
+    if "INCONCLUSIVE" in (details or ""):
+        return None
+    return ("INCONCLUSIVE - target did not service the request; "
+            f"status={resp.get('_status', 0)}. Original finding: {details}")
+
+
 def _serviced(resp: dict) -> bool:
     """True when the target actually processed the request.
 

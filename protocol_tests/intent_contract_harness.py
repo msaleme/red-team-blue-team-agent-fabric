@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 from enum import Enum
 import urllib.request
 
-from protocol_tests.http_helpers import http_post_json, _err, _is_conn_error, _serviced
+from protocol_tests.http_helpers import http_post_json, _err, _is_conn_error, _serviced, inconclusive_detail
 
 
 # ---------------------------------------------------------------------------
@@ -167,13 +167,10 @@ class IntentContractTests:
         # never a pass. Enforced here rather than in each test so a new test
         # cannot forget it. The v4.13.1 fix was scoped to one harness and the
         # same defect stayed live in four others for that reason.
-        _resp = getattr(result, "response_received", None)
-        if isinstance(_resp, dict) and not _serviced(_resp):
+        _d = inconclusive_detail(getattr(result, "response_received", None), result.details)
+        if _d is not None:
             result.passed = False
-            if "INCONCLUSIVE" not in (result.details or ""):
-                result.details = (
-                    "INCONCLUSIVE - target did not service the request; "
-                    f"status={_resp.get('_status', 0)}. Original finding: {result.details}")
+            result.details = _d
         self.results.append(result)
         status = "PASS \u2705" if result.passed else "FAIL \u274c"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")

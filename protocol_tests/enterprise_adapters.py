@@ -41,7 +41,7 @@ from datetime import datetime, timezone
 from typing import Any
 import urllib.request
 
-from protocol_tests.http_helpers import _serviced
+from protocol_tests.http_helpers import _serviced, inconclusive_detail
 
 
 # ---------------------------------------------------------------------------
@@ -124,13 +124,10 @@ class EnterprisePlatformAdapter(ABC):
         # target that errored was recorded as a pass *by construction*. #348 fixed the same
         # class in five other harnesses and did not reach here. Guarding in the base class
         # rather than at the 12 sites, so every adapter subclass inherits it.
-        _resp = getattr(result, "response_received", None)
-        if isinstance(_resp, dict) and not _serviced(_resp):
+        _d = inconclusive_detail(getattr(result, "response_received", None), result.details)
+        if _d is not None:
             result.passed = False
-            if "INCONCLUSIVE" not in (result.details or ""):
-                result.details = (
-                    "INCONCLUSIVE - target did not service the request; "
-                    f"status={_resp.get('_status', 0)}. Original finding: {result.details}")
+            result.details = _d
         status = "PASS ✅" if result.passed else "FAIL ❌"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 

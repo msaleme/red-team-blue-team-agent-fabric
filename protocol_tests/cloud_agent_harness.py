@@ -43,6 +43,8 @@ import json
 import sys
 import time
 import uuid
+
+from protocol_tests.http_helpers import inconclusive_detail
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -120,6 +122,16 @@ class CloudAgentAdapter(ABC):
 
     def _record(self, result: CloudAgentTestResult):
         self.results.append(result)
+        # #351: eight sites here read `passed=self._check_error(resp)` outright, so an
+        # unreachable cloud endpoint scored a pass on all 25 tests. Same class as #348
+        # and #350. Uses the shared helper rather than an inline copy, because this
+        # module synthesises {"_status": 403, "_simulated": True} to mean the platform
+        # *denied* the action - a bare _serviced() check turns every simulate-mode pass
+        # into a failure.
+        _d = inconclusive_detail(getattr(result, "response_received", None), result.details)
+        if _d is not None:
+            result.passed = False
+            result.details = _d
         status = "PASS \u2705" if result.passed else "FAIL \u274c"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
