@@ -123,6 +123,49 @@ def _err(resp: dict) -> bool:
     return resp.get("_error") or resp.get("_status", 200) >= 400
 
 
+def _serviced(resp: dict) -> bool:
+    """True when the target actually processed the request.
+
+    Promoted here from hitl_harness.py in v4.13.1, where it was written to fix
+    20 false passes and then left local to that one harness. Five other
+    harnesses shared the same verdict pattern and none of them got it, so the
+    same defect stayed live in 64 tests until 2026-08-06 (#348). A repair
+    scoped to the site of discovery rather than to the class.
+
+    ``_err`` is not sufficient on its own. A target can answer without
+    servicing in two distinct ways, and both mean the harness learned nothing
+    about the control it came to test:
+
+    1. an HTTP error status (404 no such endpoint, 401/403 not authorised,
+       5xx broken), which ``_err`` does catch;
+    2. a 2xx carrying a JSON-RPC error envelope, which is the *normal* way a
+       JSON-RPC server reports "method not found" - the HTTP layer says 200
+       while the application layer says it did nothing. ``_err`` does not
+       catch this.
+
+    The second is the one that matters, because every "did the attack succeed"
+    detector reads absence of an attack indicator as a pass, and an error
+    envelope contains no attack indicator.
+
+    Callers must treat ``not _serviced(resp)`` as INCONCLUSIVE, never as a
+    pass. A target that was never reached has demonstrated nothing.
+    """
+    status = resp.get("_status", 0)
+    if resp.get("_error"):
+        return False
+    if not 200 <= status < 300:
+        return False
+    body = resp.get("response")
+    if isinstance(body, dict):
+        err = body.get("error")
+        if isinstance(err, dict) and "code" in err:
+            return False
+    err = resp.get("error")
+    if isinstance(err, dict) and "code" in err:
+        return False
+    return True
+
+
 def _leak(resp: dict) -> bool:
     """Check if response leaks actual credentials or sensitive data.
 
