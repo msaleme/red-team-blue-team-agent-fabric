@@ -101,6 +101,19 @@ These recur across rounds — always check:
 4. **--trials no-op** — Module accepts `--trials` but doesn't actually loop. Must use `trial_runner.run_with_trials()`.
 5. **Hardcoded versions** — Scripts/docs reference specific version instead of using `version.py`.
 6. **YAML/plugin safety** — community_runner.py loads untrusted YAML. Check: safe_load, no eval/exec, file size limits, delay caps, regex safety.
+7. **A new harness must not define its own `_record`** — inherit
+   `protocol_tests.harness_base.RecordingHarness`, or call `super()._record(result)`
+   from an override. The package accumulated 45 result dataclasses and 44 parallel
+   `_record` implementations, which is why one verdict defect had to be fixed four
+   times (v4.13.1, #348, #350, #351): it had 44 homes and each repair reached only
+   the files someone opened. `testing/test_harness_base_adoption.py` holds a
+   grandfather list that may shrink and must never grow.
+8. **Absence of a detected attack is not evidence a control held** — if the target
+   never serviced the request, the verdict is INCONCLUSIVE, never a pass. Never write
+   `passed = self._check_error(resp)` or `passed = not leaked` without establishing
+   the target answered. Two status conventions exist (`_status` and `status`);
+   `inconclusive_detail()` in `http_helpers.py` understands both so individual
+   modules do not have to.
 
 ## Docker
 
