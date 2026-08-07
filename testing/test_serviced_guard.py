@@ -44,7 +44,7 @@ SERVICED = {
     "response": {"jsonrpc": "2.0", "id": 1, "result": {"parts": [{"text": "refused"}]}},
 }
 
-# (module, harness class, result class) for every harness guarded by #348.
+# (module, harness class, result class) for every harness carrying the guard.
 GUARDED = [
     ("protocol_tests.multi_agent_harness", "MultiAgentTests", "MultiAgentTestResult"),
     ("protocol_tests.identity_harness", "IdentitySecurityTests", "IdentityTestResult"),
@@ -52,6 +52,69 @@ GUARDED = [
     ("protocol_tests.memory_harness", "MemoryTests", "MemoryTestResult"),
     ("protocol_tests.intent_contract_harness", "IntentContractTests",
      "IntentContractTestResult"),
+    # #350: found by deriving the candidate set below rather than by reading five files.
+    ("protocol_tests.enterprise_adapters", None, "EnterpriseTestResult"),
+    ("protocol_tests.extended_enterprise_adapters", None, "ExtTestResult"),
+]
+
+# Every module that records a target response, and is therefore capable of this defect.
+# Derived, never hand-written: #348 was scoped to five harnesses by reading five files, and
+# a sixth and seventh with the same defect survived it. A hand-maintained coverage list is
+# the same failure the guard exists to prevent, one level up.
+def _candidate_modules() -> set[str]:
+    out = set()
+    for path in sorted((REPO_ROOT / "protocol_tests").glob("*.py")):
+        src = path.read_text()
+        if "def _record" in src and "response_received" in src:
+            out.add(path.stem)
+    return out
+
+
+# Modules that record a response and have NOT been checked for this defect. Listing them
+# is the honest state: #350 confirmed the defect in two of the 28 by reading them, so the
+# rest are unknown, not clean. Tracked in #351. Shrink this list by reviewing, never by
+# deleting entries.
+#
+# The point of enumerating them is the assertion below: candidates must equal
+# guarded + unreviewed exactly. A newly added harness lands in neither and fails the suite
+# until someone classifies it. That is the difference between a guard that composes and a
+# list that has to be remembered.
+UNREVIEWED = {
+    "a2a_harness",
+    "aiuc1_compliance_harness",
+    "autogen_harness",
+    "benchmark_integrity_harness",
+    "capability_profile_harness",
+    "cbrn_harness",
+    "cloud_agent_harness",
+    "crewai_cve_harness",
+    "extended_thinking_harness",
+    "framework_adapters",
+    "governance_modification_harness",
+    "gtg1002_simulation",
+    "harmful_output_harness",
+    "incident_response_harness",
+    "jailbreak_harness",
+    "kill_switch_harness",
+    "l402_harness",
+    "mcp_harness",
+    "mcp_tool_poisoning_harness",
+    "over_refusal_harness",
+    "prompt_caching_harness",
+    "provenance_harness",
+    "ptc_harness",
+    "return_channel_harness",
+    "skill_security_harness",
+    "tool_search_harness",
+    "watermark_harness",
+    "x402_harness",
+}
+
+# Concrete subclasses for the two adapter modules, whose guard lives on an ABC base rather
+# than on a single Tests class.
+ADAPTER_CASES = [
+    ("protocol_tests.enterprise_adapters", "OpenClawAdapter", "EnterpriseTestResult"),
+    ("protocol_tests.extended_enterprise_adapters", "SnowflakeAdapter", "ExtTestResult"),
 ]
 
 
@@ -112,6 +175,8 @@ class TestNoHarnessPassesAnUnservicedTarget(unittest.TestCase):
     def test_every_guarded_harness_downgrades_to_inconclusive(self) -> None:
         import importlib
         for mod_name, cls_name, res_name in GUARDED:
+            if cls_name is None:
+                continue  # adapter modules are covered by ADAPTER_CASES
             mod = importlib.import_module(mod_name)
             harness = getattr(mod, cls_name)("http://127.0.0.1:9")
             result_cls = getattr(mod, res_name)
@@ -130,6 +195,8 @@ class TestNoHarnessPassesAnUnservicedTarget(unittest.TestCase):
         """The guard must not turn real passes into failures."""
         import importlib
         for mod_name, cls_name, res_name in GUARDED:
+            if cls_name is None:
+                continue  # adapter modules are covered by ADAPTER_CASES
             mod = importlib.import_module(mod_name)
             harness = getattr(mod, cls_name)("http://127.0.0.1:9")
             r = _build(getattr(mod, res_name), passed=True, response_received=SERVICED)
@@ -138,6 +205,55 @@ class TestNoHarnessPassesAnUnservicedTarget(unittest.TestCase):
             with self.subTest(cls_name):
                 self.assertTrue(r.passed, f"{cls_name} downgraded a serviced pass")
                 self.assertNotIn("INCONCLUSIVE", r.details)
+
+    def test_adapter_base_classes_guard_every_subclass(self) -> None:
+        """#350: the guard sits on the ABC, so each adapter subclass inherits it."""
+        import importlib
+        for mod_name, cls_name, res_name in ADAPTER_CASES:
+            mod = importlib.import_module(mod_name)
+            result_cls = getattr(mod, res_name)
+            for label, resp in UNSERVICED.items():
+                with self.subTest(f"{cls_name} / {label}"):
+                    a = getattr(mod, cls_name)("http://127.0.0.1:9")
+                    a.results = []
+                    r = _build(result_cls, passed=True, response_received=resp)
+                    a._record(r)
+                    self.assertFalse(
+                        r.passed,
+                        f"{cls_name} recorded a PASS for '{label}' - this module set "
+                        "passed=True *because* the target errored")
+                    self.assertIn("INCONCLUSIVE", r.details)
+            with self.subTest(f"{cls_name} / serviced pass survives"):
+                a = getattr(mod, cls_name)("http://127.0.0.1:9")
+                a.results = []
+                r = _build(result_cls, passed=True, response_received=SERVICED)
+                a._record(r)
+                self.assertTrue(r.passed)
+
+
+class TestCoverageListIsDerived(unittest.TestCase):
+    """#350: the ratchet. A new harness cannot be silently missed a fourth time."""
+
+    def test_every_response_recording_module_is_classified(self) -> None:
+        guarded = {m.rsplit(".", 1)[1] for m, _, _ in GUARDED}
+        classified = guarded | UNREVIEWED
+        candidates = _candidate_modules()
+        unclassified = candidates - classified
+        self.assertEqual(
+            unclassified, set(),
+            "these modules record a target response but are in neither GUARDED nor "
+            f"UNREVIEWED: {sorted(unclassified)}. Check whether the verdict can be a pass "
+            "when the target never serviced the request, then add the guard or list it.")
+        stale = classified - candidates
+        self.assertEqual(
+            stale, set(), f"listed but no longer record a response: {sorted(stale)}")
+
+    def test_unreviewed_does_not_grow(self) -> None:
+        """A tripwire on the honest number, so the backlog cannot quietly expand."""
+        self.assertLessEqual(
+            len(UNREVIEWED), 28,
+            "UNREVIEWED grew. A new module recording a response should be guarded or "
+            "reviewed, not appended to the backlog.")
 
 
 if __name__ == "__main__":
