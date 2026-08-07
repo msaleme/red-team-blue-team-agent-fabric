@@ -20,7 +20,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from protocol_tests.http_helpers import _serviced  # noqa: E402
+from protocol_tests.http_helpers import _serviced, inconclusive_detail  # noqa: E402
 
 # The five ways a target can fail to service a request. The first three are
 # what _err already caught; the last two are what it did not, and the JSON-RPC
@@ -55,6 +55,8 @@ GUARDED = [
     # #350: found by deriving the candidate set below rather than by reading five files.
     ("protocol_tests.enterprise_adapters", None, "EnterpriseTestResult"),
     ("protocol_tests.extended_enterprise_adapters", None, "ExtTestResult"),
+    # #351 sweep: flagged by verdict-shape triage, then confirmed by reading it.
+    ("protocol_tests.cloud_agent_harness", None, "CloudAgentTestResult"),
 ]
 
 # Every module that records a target response, and is therefore capable of this defect.
@@ -70,7 +72,22 @@ def _candidate_modules() -> set[str]:
     return out
 
 
-# Modules that record a response and have NOT been checked for this defect. Listing them
+# Guarding a module requires THREE things to be true, not one. The #351 sweep
+# established this by trying to bulk-apply the guard to fourteen more of them and
+# being stopped by the existing suite:
+#
+#   1. simulation must be marked. cloud_agent_harness synthesises
+#      {"_status": 403, "_simulated": True} to mean the platform denied the action.
+#      An unmarked simulator cannot be told apart from a target that failed.
+#   2. the response-key convention must match. autogen_harness returns
+#      {"status": 200}, not {"_status": 200}, so _serviced reads a missing key as 0
+#      and calls a healthy 200 unserviced.
+#   3. a non-2xx must not be the protocol's normal answer. l402_harness and
+#      x402_harness are payment-challenge protocols where a 401/402 IS the server
+#      servicing the request. Guarding them converts correct passes into
+#      INCONCLUSIVE.
+#
+# Modules that record a response and have NOT been checked against all three. Listing them
 # is the honest state: #350 confirmed the defect in two of the 28 by reading them, so the
 # rest are unknown, not clean. Tracked in #351. Shrink this list by reviewing, never by
 # deleting entries.
@@ -86,7 +103,6 @@ UNREVIEWED = {
     "benchmark_integrity_harness",
     "capability_profile_harness",
     "cbrn_harness",
-    "cloud_agent_harness",
     "crewai_cve_harness",
     "extended_thinking_harness",
     "framework_adapters",
@@ -115,6 +131,7 @@ UNREVIEWED = {
 ADAPTER_CASES = [
     ("protocol_tests.enterprise_adapters", "OpenClawAdapter", "EnterpriseTestResult"),
     ("protocol_tests.extended_enterprise_adapters", "SnowflakeAdapter", "ExtTestResult"),
+    ("protocol_tests.cloud_agent_harness", "BedrockAgentAdapter", "CloudAgentTestResult"),
 ]
 
 
@@ -164,6 +181,22 @@ class TestServicedIsShared(unittest.TestCase):
         for label, resp in UNSERVICED.items():
             with self.subTest(label):
                 self.assertFalse(_serviced(resp), f"{label} was treated as serviced")
+
+    def test_a_simulated_response_is_not_treated_as_unserviced(self) -> None:
+        """#351: the false negative the sweep nearly introduced.
+
+        cloud_agent_harness synthesises {"_status": 403, "_simulated": True} to mean
+        the platform denied the action, which is the control working. An earlier
+        version of this guard used _serviced() directly and converted all 25
+        simulate-mode passes into failures.
+        """
+        self.assertIsNone(
+            inconclusive_detail({"_status": 403, "_simulated": True}, "boundary enforced"),
+            "a simulated response is a fixture standing in for an answer, not a "
+            "target that failed to answer")
+        self.assertIsNotNone(
+            inconclusive_detail({"_status": 403, "message": "denied"}, "boundary enforced"),
+            "a live 403 cannot be distinguished from credentials being rejected")
 
     def test_accepts_a_real_response(self) -> None:
         self.assertTrue(_serviced(SERVICED))
@@ -251,7 +284,7 @@ class TestCoverageListIsDerived(unittest.TestCase):
     def test_unreviewed_does_not_grow(self) -> None:
         """A tripwire on the honest number, so the backlog cannot quietly expand."""
         self.assertLessEqual(
-            len(UNREVIEWED), 28,
+            len(UNREVIEWED), 27,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
 

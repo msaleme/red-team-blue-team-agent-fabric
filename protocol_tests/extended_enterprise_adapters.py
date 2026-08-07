@@ -38,7 +38,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import urllib.request
 
-from protocol_tests.http_helpers import _serviced
+from protocol_tests.http_helpers import _serviced, inconclusive_detail
 
 
 # ---------------------------------------------------------------------------
@@ -98,13 +98,10 @@ class ExtAdapter(ABC):
         # `passed=not self._leak(resp)`, which never checks whether it answered at all.
         # Same class as #348, which stopped at five harnesses. Guarded in the base class so
         # every adapter subclass inherits it.
-        _resp = getattr(r, "response_received", None)
-        if isinstance(_resp, dict) and not _serviced(_resp):
+        _d = inconclusive_detail(getattr(r, "response_received", None), r.details)
+        if _d is not None:
             r.passed = False
-            if "INCONCLUSIVE" not in (r.details or ""):
-                r.details = (
-                    "INCONCLUSIVE - target did not service the request; "
-                    f"status={_resp.get('_status', 0)}. Original finding: {r.details}")
+            r.details = _d
         s = "PASS ✅" if r.passed else "FAIL ❌"
         print(f"  {s} {r.test_id}: {r.name} ({r.elapsed_s:.2f}s)")
     def _leak(self, resp):
