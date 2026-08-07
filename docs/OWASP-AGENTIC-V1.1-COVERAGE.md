@@ -12,7 +12,7 @@
 | Harness version | `4.15.0` |
 | Assessed commit | [`19dbfb871d1379a42bbfa22fa06bb2edda58a2c0`](https://github.com/msaleme/red-team-blue-team-agent-fabric/commit/19dbfb871d1379a42bbfa22fa06bb2edda58a2c0) |
 | Assessed at | 2026-08-02T18:30:00Z |
-| Repository tests | 603 (`python scripts/count_tests.py`) |
+| Repository tests | 604 (`python scripts/count_tests.py`) |
 | Unique tests mapped in this view | 96 |
 | OWASP source | *Agentic AI - Threats and Mitigations*, **v1.1**, 2025-12 |
 | Source landing page | [https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/](https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/) |
