@@ -91,9 +91,13 @@ def _candidate_modules() -> set[str]:
 #      INCONCLUSIVE.
 #
 # Modules that record a response and have NOT been checked against all three. Listing them
-# is the honest state: #350 confirmed the defect in two of the 28 by reading them, so the
+# is the honest state: #350 confirmed the defect in two of them by reading them, so the
 # rest are unknown, not clean. Tracked in #351. Shrink this list by reviewing, never by
 # deleting entries.
+#
+# Deliberately no count here. The previous wording said "two of the 28", which went stale
+# the moment #355 guarded cloud_agent_harness and left the comment contradicting the
+# tripwire twelve lines below it. len(UNREVIEWED) is the number; do not restate it in prose.
 #
 # The point of enumerating them is the assertion below: candidates must equal
 # guarded + unreviewed exactly. A newly added harness lands in neither and fails the suite
