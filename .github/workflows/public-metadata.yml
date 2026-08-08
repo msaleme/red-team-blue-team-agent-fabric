@@ -1,0 +1,46 @@
+name: Public metadata drift
+
+# The GitHub description is a claim about the latest published release, not about
+# main, so this checks out the latest release tag before comparing. Running it
+# against main would fail every time main is legitimately ahead of the release.
+#
+# Triggers: on release (the moment the claim can go stale), weekly (to catch a
+# description edited by hand afterwards), and manually.
+
+on:
+  release:
+    types: [published]
+  schedule:
+    - cron: '17 13 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  description-matches-tree:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check out the latest release tag
+        run: |
+          TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+          if [ -z "$TAG" ]; then
+            echo "No release tag found; nothing to compare a release-facing description against."
+            exit 0
+          fi
+          echo "Comparing against $TAG"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          git checkout -q "$TAG"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compare description against the tree at ${{ env.TAG }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/check_public_metadata.py --repo "${{ github.repository }}"
