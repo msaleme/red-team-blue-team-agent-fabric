@@ -79,7 +79,7 @@ class TestExitCodes(unittest.TestCase):
              mock.patch.object(cpm, "canonical_count", lambda: count), \
              mock.patch.object(cpm, "canonical_version", lambda: version), \
              mock.patch.object(cpm, "canonical_modules", lambda: "44"), \
-             mock.patch.object(cpm, "citation_fields", lambda: (version, "2026-08-07")), \
+             mock.patch.object(cpm, "citation_fields", lambda repo=None: (version, "2026-08-07")), \
              mock.patch.object(cpm, "fetch_release_date", lambda r, tag: "2026-08-07"), \
              mock.patch.object(cpm, "REMOTE_READMES", ()):
             return cpm.main()
