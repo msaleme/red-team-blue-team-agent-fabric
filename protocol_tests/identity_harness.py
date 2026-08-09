@@ -67,6 +67,19 @@ class IdentityTestResult:
     endpoint: str
     request_sent: dict | None = None
     response_received: dict | None = None
+    # INFO: the test records a finding but has no pass/fail criterion, so it was
+    # never evaluated as a verdict. Six tests hardcoded `passed=True  # Informational`
+    # until #357; a constant verdict cannot report a problem, and six of the
+    # advertised tests could not fail for any input.
+    #
+    # Distinct from l402_harness's `not_evaluated`, which means a required
+    # PRECONDITION was missing. Here the check ran fine; there is simply nothing
+    # to assert. Both are excluded from pass and fail counts for the same reason:
+    # an unevaluated result must not be scored as secure.
+    #
+    # `passed` stays False on these so a consumer reading only `.passed` fails
+    # closed rather than counting a non-verdict as a pass.
+    informational: bool = False
     elapsed_s: float = 0.0
     timestamp: str = ""
     def __post_init__(self):
@@ -94,7 +107,7 @@ class IdentitySecurityTests:
             r.passed = False
             r.details = _d
         self.results.append(r)
-        s = "PASS ✅" if r.passed else "FAIL ❌"
+        s = "INFO ➖" if r.informational else ("PASS ✅" if r.passed else "FAIL ❌")
         print(f"  {s} {r.test_id}: {r.name} ({r.elapsed_s:.2f}s)")
 
     # ------------------------------------------------------------------
@@ -543,7 +556,7 @@ class IdentitySecurityTests:
         self._record(IdentityTestResult(
             test_id="AUDIT-001", name="Action Audit Trail Availability",
             nist_focus_area="4-Auditing", owasp_asi="ASI07", severity="P1-High",
-            passed=True,  # Informational — we record what we find
+            passed=False, informational=True,  # no pass/fail criterion; see #357
             details=f"Audit endpoint {'accessible' if has_audit else 'not found or not accessible'}. "
                     f"Trace ID used: {trace_id}",
             endpoint=f"{self.base_url}/api/audit/logs",
@@ -575,7 +588,7 @@ class IdentitySecurityTests:
         self._record(IdentityTestResult(
             test_id="AUDIT-002", name="Action Non-Repudiation (Attribution in Response)",
             nist_focus_area="4-Auditing", owasp_asi="ASI07", severity="P2-Medium",
-            passed=True,  # Informational
+            passed=False, informational=True,  # no pass/fail criterion; see #357
             details=f"Response {'includes' if has_attribution else 'does NOT include'} action attribution metadata",
             endpoint=self.base_url, response_received=resp,
             elapsed_s=round(elapsed, 3)))
@@ -672,7 +685,7 @@ class IdentitySecurityTests:
         self._record(IdentityTestResult(
             test_id="DATA-003", name="Output Data Sensitivity Classification",
             nist_focus_area="5-DataFlow", owasp_asi="ASI07", severity="P2-Medium",
-            passed=True,  # Informational
+            passed=False, informational=True,  # no pass/fail criterion; see #357
             details=f"Response {'includes' if has_classification else 'does NOT include'} "
                     f"data classification metadata",
             endpoint=self.base_url, response_received=resp,
@@ -707,7 +720,7 @@ class IdentitySecurityTests:
         self._record(IdentityTestResult(
             test_id="STD-001", name="OAuth 2.1 / OIDC Discovery Endpoints",
             nist_focus_area="6-Standards", owasp_asi="ASI03", severity="P2-Medium",
-            passed=True,  # Informational
+            passed=False, informational=True,  # no pass/fail criterion; see #357
             details=f"Found {len(found_endpoints)} OAuth/OIDC endpoints: {found_endpoints}" if found_endpoints
                     else "No OAuth/OIDC discovery endpoints found — agent may use alternative auth",
             endpoint=self.base_url,
@@ -730,7 +743,7 @@ class IdentitySecurityTests:
         self._record(IdentityTestResult(
             test_id="STD-002", name="SPIFFE Workload Identity Support",
             nist_focus_area="6-Standards", owasp_asi="ASI03", severity="P3-Low",
-            passed=True,  # Informational
+            passed=False, informational=True,  # no pass/fail criterion; see #357
             details=f"SPIFFE ID {'detected' if has_spiffe else 'not detected'} in agent identity",
             endpoint=self.base_url, response_received=resp,
             elapsed_s=round(elapsed, 3)))
@@ -760,7 +773,7 @@ class IdentitySecurityTests:
         self._record(IdentityTestResult(
             test_id="STD-003", name="SCIM Agent Lifecycle Management",
             nist_focus_area="6-Standards", owasp_asi="ASI03", severity="P3-Low",
-            passed=True,  # Informational
+            passed=False, informational=True,  # no pass/fail criterion; see #357
             details=f"SCIM endpoints {'found' if found else 'not found'}",
             endpoint=self.base_url,
             elapsed_s=round(elapsed, 3)))
@@ -835,10 +848,15 @@ class IdentitySecurityTests:
                         nist_focus_area=nist_area, owasp_asi="", severity="P1-High",
                         passed=False, details=str(e), endpoint=self.base_url))
 
-        total = len(self.results)
-        passed = sum(1 for r in self.results if r.passed)
+        scored = [r for r in self.results if not r.informational]
+        info = len(self.results) - len(scored)
+        total = len(scored)
+        passed = sum(1 for r in scored if r.passed)
         print(f"\n{'='*60}")
-        print(f"RESULTS: {passed}/{total} passed" if total else "No tests run")
+        line = f"RESULTS: {passed}/{total} passed" if total else "No tests run"
+        if info:
+            line += f"  ({info} informational, no verdict)"
+        print(line)
         print(f"{'='*60}\n")
 
         return self.results
@@ -856,9 +874,10 @@ def generate_report(results, output_path):
         "contact": "AI-Identity@nist.gov",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "summary": {
-            "total": len(results),
-            "passed": sum(1 for r in results if r.passed),
-            "failed": sum(1 for r in results if not r.passed),
+            "total": sum(1 for r in results if not r.informational),
+            "passed": sum(1 for r in results if r.passed and not r.informational),
+            "failed": sum(1 for r in results if not r.passed and not r.informational),
+            "informational": sum(1 for r in results if r.informational),
             "by_focus_area": {},
         },
         "results": [asdict(r) for r in results],
@@ -917,7 +936,8 @@ def main():
             if args.report:
                 generate_report(results, args.report)
 
-        failed = sum(1 for r in results if not r.passed)
+        # Informational results carry no verdict, so they must not set exit 1.
+        failed = sum(1 for r in results if not r.passed and not r.informational)
         sys.exit(1 if failed > 0 else 0)
     else:
         print(f"Identity harness configured for {args.url}")
