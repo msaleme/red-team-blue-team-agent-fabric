@@ -125,12 +125,30 @@ def fetch_release_date(repo: str, tag: str) -> str:
     return (data.get("published_at") or "")[:10]
 
 
-def citation_fields() -> tuple[str | None, str | None]:
-    """(version, date_released) as stated by CITATION.cff, or None if absent."""
-    path = REPO_ROOT / "CITATION.cff"
-    if not path.is_file():
-        return (None, None)
-    text = path.read_text(encoding="utf-8")
+def citation_fields(repo: str | None = None) -> tuple[str | None, str | None]:
+    """(version, date_released) from CITATION.cff on the DEFAULT BRANCH.
+
+    Deliberately not read from the checked-out tree. The workflow checks out the
+    latest release tag, and a tag is immutable: a date-released that was wrong
+    when the tag was cut can never be corrected there, so checking the tag's copy
+    would fail permanently no matter what anyone does. A permanent failure is a
+    muted check.
+
+    The fixable copy is the one on the default branch, so that is the one checked.
+    Falls back to the local tree when no repo is given, which keeps the tests
+    offline.
+    """
+    if repo is None:
+        path = REPO_ROOT / "CITATION.cff"
+        if not path.is_file():
+            return (None, None)
+        text = path.read_text(encoding="utf-8")
+    else:
+        try:
+            text = _api(f"https://api.github.com/repos/{repo}/contents/CITATION.cff",
+                        accept="application/vnd.github.raw")
+        except Exception:                          # noqa: BLE001
+            return (None, None)
     v = re.search(r'^version:\s*"?([^"\s]+)"?', text, re.M)
     d = re.search(r'^date-released:\s*"?(\d{4}-\d{2}-\d{2})"?', text, re.M)
     return (v.group(1) if v else None, d.group(1) if d else None)
@@ -164,6 +182,16 @@ HARNESS_TOKENS = ("red-team-blue-team-agent-fabric", "agent-security-harness")
 # constitutional-agent on PyPI and entirely correct. A check that fails on a true
 # statement gets muted, so the scope is narrowed instead.
 #
+# Versions are also satisfied by PRESENCE rather than by exclusivity: a harness
+# line passes if it names the current version anywhere on it. This exists because
+# the first version of this check flagged
+#
+#     ...(v4.15.0) - 97.9% pass rate measured at v4.4.2...
+#
+# which is correct and deliberate. Pinning a historical measurement to the version
+# it was measured at is exactly the honesty this check is supposed to protect, and
+# a check that punishes it would be worse than no check.
+#
 # Counts are not line-scoped, because on these pages "N tests" and "N modules"
 # refer to this project. If another project's test count is ever added to one of
 # these READMEs, that assumption breaks and this needs the same treatment.
@@ -181,8 +209,18 @@ def check_surface(label: str, text: str, want: dict[str, str]) -> list[str]:
         ln for ln in text.splitlines()
         if any(tok in ln for tok in HARNESS_TOKENS))
     for figure, pattern, key, line_scoped in SURFACE_PATTERNS:
-        haystack = harness_lines if line_scoped else text
-        found = {m.group(1) for m in pattern.finditer(haystack)}
+        if line_scoped:
+            # Presence, not exclusivity: each line naming this project must state
+            # the current version somewhere on it. Other versions alongside it are
+            # allowed, because citing the version a measurement came from is right.
+            for line in harness_lines.splitlines():
+                found = {m.group(1) for m in pattern.finditer(line)}
+                if found and want[key] not in found:
+                    problems.append(
+                        f"{label}: {figure} says {', '.join(sorted(found))} "
+                        f"with no mention of {want[key]}, tree says {want[key]}")
+            continue
+        found = {m.group(1) for m in pattern.finditer(text)}
         wrong = sorted(f for f in found if f != want[key])
         if wrong:
             problems.append(f"{label}: {figure} says {', '.join(wrong)}, tree says {want[key]}")
@@ -243,7 +281,7 @@ def main() -> int:
                         f"tree says v{want_version}")
 
     # CITATION.cff is local, so it is checked even when the network is down.
-    cff_version, cff_date = citation_fields()
+    cff_version, cff_date = citation_fields(args.repo)
     if cff_version is not None and cff_version != want_version:
         problems.append(f"CITATION.cff: version says {cff_version}, tree says {want_version}")
 

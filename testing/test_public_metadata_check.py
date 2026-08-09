@@ -144,13 +144,35 @@ class TestSurfaceScoping(unittest.TestCase):
         text = "[constitutional-agent](https://pypi.org/project/constitutional-agent/) (**v0.7.0**)"
         self.assertEqual(cpm.check_surface("start-here", text, self.WANT), [])
 
+    def test_historical_version_alongside_the_current_one_is_allowed(self) -> None:
+        """The regression this presence rule exists for.
+
+        After the profile fix merged, the check still flagged v4.4.2 on:
+
+            ...(v4.15.0) - 97.9% pass rate measured at v4.4.2...
+
+        That line is correct and deliberate. Pinning a measurement to the version
+        it was taken at is the honesty this check protects; flagging it would
+        punish the behaviour it exists to encourage.
+        """
+        text = ("**[red-team-blue-team-agent-fabric](https://x)** (v4.15.0) - "
+                "97.9% pass rate measured at v4.4.2, not re-measured since.")
+        self.assertEqual(cpm.check_surface("profile", text, self.WANT), [])
+
+    def test_historical_version_without_the_current_one_is_flagged(self) -> None:
+        """Presence is required. A line citing only old versions is still stale."""
+        text = "[agent-security-harness](https://x) measured at v4.4.2 and v4.9.1."
+        problems = cpm.check_surface("profile", text, self.WANT)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("no mention of 4.15.0", problems[0])
+
     def test_a_stale_version_on_a_harness_line_is_flagged(self) -> None:
         text = "[red-team-blue-team-agent-fabric](https://x) (v4.9.1) is the harness."
         problems = cpm.check_surface("start-here", text, self.WANT)
         self.assertEqual(len(problems), 1)
         self.assertIn("4.9.1", problems[0])
 
-    def test_both_on_the_same_page(self) -> None:
+    def test_both_on_the_same_page_alt(self) -> None:
         """Other-package version ignored, harness version flagged, same document."""
         text = ("[constitutional-agent](https://pypi.org/project/constitutional-agent/) (**v0.7.0**)\n"
                 "[agent-security-harness](https://x) v4.9.1\n")
