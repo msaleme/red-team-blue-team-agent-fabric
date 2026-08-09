@@ -11,6 +11,7 @@ times (v4.13.1, #348, #350, #351, #355), so it is asserted here explicitly.
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 import unittest
 import urllib.error
@@ -196,3 +197,57 @@ class TestCitationFields(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestWorkflowPreservesChecker(unittest.TestCase):
+    """The workflow checks out a release tag, and the checker is not in it.
+
+    scripts/check_public_metadata.py was added in #360, after v4.15.0 was cut.
+    A tag is immutable, so the checker can never be present in an
+    already-released tag. The first version of this workflow checked out the tag
+    and then ran the script from it, which would have failed with a
+    file-not-found on its first scheduled run. It never surfaced because the
+    workflow had not run yet, and every manual verification copied the script
+    into the worktree by hand, so none of them exercised the real path.
+    """
+
+    WORKFLOW = REPO_ROOT / ".github" / "workflows" / "public-metadata.yml"
+
+    def setUp(self) -> None:
+        self.text = self.WORKFLOW.read_text(encoding="utf-8")
+
+    def test_workflow_exists(self) -> None:
+        self.assertTrue(self.WORKFLOW.is_file())
+
+    def test_checker_is_copied_out_before_the_tag_checkout(self) -> None:
+        preserve = self.text.find("RUNNER_TEMP/check_public_metadata.py")
+        checkout = self.text.find("git checkout -q \"$TAG\"")
+        self.assertNotEqual(preserve, -1, "workflow must preserve the checker across checkout")
+        self.assertNotEqual(checkout, -1, "workflow must check out the release tag")
+        self.assertLess(preserve, checkout,
+                        "the checker must be copied out BEFORE the tag is checked out")
+
+    def test_checker_is_restored_after_the_tag_checkout(self) -> None:
+        checkout = self.text.find("git checkout -q \"$TAG\"")
+        restore = self.text.find('cp "$RUNNER_TEMP/check_public_metadata.py" scripts/')
+        self.assertNotEqual(restore, -1, "workflow must restore the checker after checkout")
+        self.assertLess(checkout, restore,
+                        "the checker must be copied back AFTER the tag is checked out")
+
+    def test_workflow_verifies_the_checker_survived(self) -> None:
+        """A missing checker must fail with a named error, not file-not-found."""
+        self.assertIn("test -f scripts/check_public_metadata.py", self.text)
+
+    def test_checker_is_absent_from_the_latest_release_tag(self) -> None:
+        """The premise. If this ever fails, the preserve dance is unnecessary."""
+        import subprocess
+        tags = subprocess.run(["git", "tag", "--sort=-v:refname"],
+                              capture_output=True, text=True, cwd=REPO_ROOT).stdout.split()
+        tag = next((t for t in tags if re.fullmatch(r"v\d+\.\d+\.\d+", t)), None)
+        if not tag:
+            self.skipTest("no release tag")
+        present = subprocess.run(
+            ["git", "cat-file", "-e", f"{tag}:scripts/check_public_metadata.py"],
+            capture_output=True, cwd=REPO_ROOT).returncode == 0
+        self.assertFalse(present,
+                         f"checker now exists at {tag}; the preserve step can be simplified")

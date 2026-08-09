@@ -1,11 +1,14 @@
 name: Public metadata drift
 
-# The GitHub description is a claim about the latest published release, not about
-# main, so this checks out the latest release tag before comparing. Running it
-# against main would fail every time main is legitimately ahead of the release.
+# The GitHub description, the two remote READMEs and CITATION.cff are claims
+# about the latest published RELEASE, not about main, so this checks out the
+# latest release tag before comparing. Running against main would fail every
+# time main is legitimately ahead.
 #
-# Triggers: on release (the moment the claim can go stale), weekly (to catch a
-# description edited by hand afterwards), and manually.
+# The checker itself must survive that checkout. It was added AFTER v4.15.0,
+# so it does not exist at the tag, and the first version of this workflow would
+# have failed on its first scheduled run with a file-not-found. It never
+# surfaced because the workflow had not yet run. See the "Preserve" step below.
 
 on:
   release:
@@ -25,22 +28,34 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Copied out before the checkout and back in after it. The tag is
+      # immutable, so the checker can never be added to an already-cut release.
+      - name: Preserve the metadata checker
+        run: cp scripts/check_public_metadata.py "$RUNNER_TEMP/check_public_metadata.py"
+
       - name: Check out the latest release tag
         run: |
           TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
           if [ -z "$TAG" ]; then
-            echo "No release tag found; nothing to compare a release-facing description against."
+            echo "No release tag found; nothing to compare a release-facing claim against."
             exit 0
           fi
           echo "Comparing against $TAG"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           git checkout -q "$TAG"
+          cp "$RUNNER_TEMP/check_public_metadata.py" scripts/check_public_metadata.py
+
+      # Fail loudly and specifically rather than with a file-not-found further down.
+      - name: Verify the checker survived the checkout
+        run: |
+          test -f scripts/check_public_metadata.py \
+            || { echo "::error::checker missing after checkout of $TAG; the Preserve step did not run"; exit 1; }
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Compare description against the tree at ${{ env.TAG }}
+      - name: Compare public claims against the tree at ${{ env.TAG }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 scripts/check_public_metadata.py --repo "${{ github.repository }}"
