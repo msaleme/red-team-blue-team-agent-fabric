@@ -7,8 +7,8 @@
 every file inside the repository: `pyproject.toml`, `README.md`, `SKILL.md`,
 `cli.py`. All of those are checked because all of those are *in the tree*.
 
-The GitHub repository **description** is not in the tree, so nothing checked it,
-and it drifted twice:
+Public surfaces outside the tree are not checked by that suite, and they drift.
+The repository **description** drifted twice:
 
     2026-08-02  description advertised an older test count and version
     2026-08-08  description still carried the version string of a release two
@@ -23,6 +23,22 @@ The only outside reproduction this project has received arrived through
 so a stale description is a discovery defect, not a cosmetic one. Repairing it by
 hand is what produced the second drift; this is the check instead.
 
+The same class was live on three further surfaces on 2026-08-08, none of which
+any suite covered:
+
+    msaleme/msaleme     understated the count by 134 and the module count by 15
+    msaleme/start-here  six releases behind, including a copyable Action pin
+    CITATION.cff        date-released was 13 days off the actual release
+
+(Figures are described rather than quoted here: a literal count in a live file
+is what test_no_stale_test_count_anywhere exists to catch, and it caught this
+docstring first.)
+
+CITATION.cff is the file GitHub reads for "Cite this repository", and
+test_code_quality.py already records it as a file that went stale on counts
+while CI passed. It was fixed for counts and went stale on the release date
+instead, which is why the date is checked and not only the numbers.
+
 ## What it compares
 
 The description is a claim about a *published release*, not about `main`, because
@@ -31,7 +47,12 @@ and runs this against that tree. Comparing a release-facing string to `main` wou
 fail every time `main` is legitimately ahead.
 
     count    scripts/count_tests.py at the checked-out ref
+    modules  len(protocol_tests.cli.HARNESSES) at the checked-out ref
     version  pyproject.toml at the checked-out ref, via protocol_tests.version
+    date     the release date of the checked-out tag, from the GitHub API
+
+Every remote surface is read over the public API, so this needs no credentials
+beyond the default Actions token.
 
 ## Exit codes
 
@@ -58,6 +79,18 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REPO = "msaleme/red-team-blue-team-agent-fabric"
 
+# Public surfaces that restate figures owned by this repository. Each entry is
+# (label, repo, what to check). They are READMEs read over the public API, so no
+# credentials beyond the default Actions token are needed.
+#
+# The rule for adding one: if a page states a number that lives authoritatively
+# in this tree, it belongs here. If a page can state it without a number, prefer
+# removing the restatement (see #359).
+REMOTE_READMES = (
+    ("profile README", "msaleme/msaleme"),
+    ("start-here", "msaleme/start-here"),
+)
+
 
 def canonical_count() -> str:
     out = subprocess.check_output(
@@ -75,16 +108,85 @@ def canonical_version() -> str:
     return get_harness_version()
 
 
-def fetch_description(repo: str) -> str:
-    url = f"https://api.github.com/repos/{repo}"
-    headers = {"Accept": "application/vnd.github+json",
+def canonical_modules() -> str:
+    sys.path.insert(0, str(REPO_ROOT))
+    from protocol_tests.cli import HARNESSES
+    return str(len(HARNESSES))
+
+
+def fetch_readme(repo: str) -> str:
+    return _api(f"https://api.github.com/repos/{repo}/readme",
+                accept="application/vnd.github.raw")
+
+
+def fetch_release_date(repo: str, tag: str) -> str:
+    """Published date of a tag, YYYY-MM-DD, from the GitHub API."""
+    data = json.loads(_api(f"https://api.github.com/repos/{repo}/releases/tags/{tag}"))
+    return (data.get("published_at") or "")[:10]
+
+
+def citation_fields() -> tuple[str | None, str | None]:
+    """(version, date_released) as stated by CITATION.cff, or None if absent."""
+    path = REPO_ROOT / "CITATION.cff"
+    if not path.is_file():
+        return (None, None)
+    text = path.read_text(encoding="utf-8")
+    v = re.search(r'^version:\s*"?([^"\s]+)"?', text, re.M)
+    d = re.search(r'^date-released:\s*"?(\d{4}-\d{2}-\d{2})"?', text, re.M)
+    return (v.group(1) if v else None, d.group(1) if d else None)
+
+
+def _api(url: str, accept: str = "application/vnd.github+json") -> str:
+    headers = {"Accept": accept,
                "User-Agent": "agent-security-harness-metadata-check"}
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     if token:
         headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=30) as r:
-        return json.load(r).get("description") or ""
+        return r.read().decode("utf-8", errors="replace")
+
+
+def fetch_description(repo: str) -> str:
+    return json.loads(_api(f"https://api.github.com/repos/{repo}")).get("description") or ""
+
+
+# Strings that identify a line as being about THIS project. Used to scope the
+# version check, because every package has a version and these pages legitimately
+# mention other packages' versions.
+HARNESS_TOKENS = ("red-team-blue-team-agent-fabric", "agent-security-harness")
+
+# Figures a public page can restate: (label, regex, canonical key, line_scoped).
+# A page is only checked for a figure it actually states; silence is allowed.
+#
+# line_scoped=True restricts matching to lines naming this project. Versions need
+# it: the first run of this check flagged `v0.7.0` on start-here, which is
+# constitutional-agent on PyPI and entirely correct. A check that fails on a true
+# statement gets muted, so the scope is narrowed instead.
+#
+# Counts are not line-scoped, because on these pages "N tests" and "N modules"
+# refer to this project. If another project's test count is ever added to one of
+# these READMEs, that assumption breaks and this needs the same treatment.
+SURFACE_PATTERNS = (
+    ("test count", re.compile(r"(\d{3,4})\s+(?:executable\s+)?(?:security\s+)?tests?\b"), "count", False),
+    ("module count", re.compile(r"(\d{2,3})\s+modules?\b"), "modules", False),
+    ("version", re.compile(r"\bv(\d+\.\d+\.\d+)\b"), "version", True),
+)
+
+
+def check_surface(label: str, text: str, want: dict[str, str]) -> list[str]:
+    """Every figure the text states about this project must match the tree."""
+    problems = []
+    harness_lines = "\n".join(
+        ln for ln in text.splitlines()
+        if any(tok in ln for tok in HARNESS_TOKENS))
+    for figure, pattern, key, line_scoped in SURFACE_PATTERNS:
+        haystack = harness_lines if line_scoped else text
+        found = {m.group(1) for m in pattern.finditer(haystack)}
+        wrong = sorted(f for f in found if f != want[key])
+        if wrong:
+            problems.append(f"{label}: {figure} says {', '.join(wrong)}, tree says {want[key]}")
+    return problems
 
 
 def extract(description: str) -> tuple[str | None, str | None]:
@@ -107,12 +209,15 @@ def main() -> int:
                     help="print the description fields the tree implies, then exit 0")
     args = ap.parse_args()
 
-    want_count = canonical_count()
-    want_version = canonical_version()
+    want = {"count": canonical_count(),
+            "version": canonical_version(),
+            "modules": canonical_modules()}
 
     if args.print_expected:
-        print(f"count={want_count} version=v{want_version}")
+        print(f"count={want['count']} modules={want['modules']} version=v{want['version']}")
         return 0
+
+    want_count, want_version = want["count"], want["version"]
 
     try:
         description = fetch_description(args.repo)
@@ -137,12 +242,39 @@ def main() -> int:
         problems.append(f"version: description says v{got_version}, "
                         f"tree says v{want_version}")
 
+    # CITATION.cff is local, so it is checked even when the network is down.
+    cff_version, cff_date = citation_fields()
+    if cff_version is not None and cff_version != want_version:
+        problems.append(f"CITATION.cff: version says {cff_version}, tree says {want_version}")
+
+    unreachable = []
+    try:
+        released = fetch_release_date(args.repo, f"v{want_version}")
+        if cff_date is not None and released and cff_date != released:
+            problems.append(f"CITATION.cff: date-released says {cff_date}, "
+                            f"v{want_version} was published {released}")
+    except Exception as e:                        # noqa: BLE001
+        unreachable.append(f"release date for v{want_version} ({type(e).__name__})")
+
+    for label, repo in REMOTE_READMES:
+        try:
+            problems.extend(check_surface(label, fetch_readme(repo), want))
+        except Exception as e:                    # noqa: BLE001
+            unreachable.append(f"{label} at {repo} ({type(e).__name__})")
+
+    if unreachable:
+        print("UNREACHABLE: " + "; ".join(unreachable))
+        print("This is not a pass. Those surfaces were not checked.")
+        if not problems:
+            return 2
+
     if not problems:
-        print(f"OK  {args.repo} description matches the tree "
-              f"({want_count} tests, v{want_version})")
+        print(f"OK  {args.repo} description, CITATION.cff and "
+              f"{len(REMOTE_READMES)} remote READMEs match the tree "
+              f"({want_count} tests, {want['modules']} modules, v{want_version})")
         return 0
 
-    print(f"DRIFT in the GitHub description for {args.repo}\n")
+    print(f"DRIFT in public metadata for {args.repo}\n")
     for p in problems:
         print(f"  - {p}")
     print(f"\ncurrent : {description}")
