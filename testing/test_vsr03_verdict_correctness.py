@@ -14,6 +14,7 @@ import json
 import os
 import sys
 import unittest
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -596,3 +597,71 @@ class TestMCP020MidSessionRebinding(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestIdentityInformationalVerdicts(unittest.TestCase):
+    """#357: six identity tests hardcoded `passed=True  # Informational`.
+
+    A constant verdict cannot report a problem, so six of the advertised tests
+    could not fail for any input. They now carry `informational=True` and are
+    excluded from pass and fail counts, matching the reason l402_harness excludes
+    `not_evaluated` results: an unevaluated result must not be scored as secure.
+    """
+
+    INFORMATIONAL_IDS = {"AUDIT-001", "AUDIT-002", "DATA-003",
+                         "STD-001", "STD-002", "STD-003"}
+
+    def _result(self, **kw):
+        from protocol_tests.identity_harness import IdentityTestResult
+        base = dict(test_id="X-1", name="n", nist_focus_area="1", owasp_asi="ASI01",
+                    severity="LOW", passed=False, details="d", endpoint="http://x")
+        base.update(kw)
+        return IdentityTestResult(**base)
+
+    def test_informational_field_exists_and_defaults_false(self):
+        r = self._result()
+        self.assertFalse(r.informational)
+
+    def test_informational_results_fail_closed_on_passed(self):
+        """A consumer reading only .passed must not see a non-verdict as a pass."""
+        r = self._result(informational=True)
+        self.assertFalse(r.passed,
+                         "informational results must leave passed False, so naive "
+                         "readers fail closed rather than counting a non-verdict")
+
+    def test_no_test_still_hardcodes_a_passing_informational_verdict(self):
+        """The exact pattern #357 was filed about must not return."""
+        src = (Path(__file__).resolve().parents[1]
+               / "protocol_tests" / "identity_harness.py").read_text(encoding="utf-8")
+        self.assertNotIn("passed=True,  # Informational", src)
+
+    def test_the_six_ids_are_marked_informational(self):
+        src = (Path(__file__).resolve().parents[1]
+               / "protocol_tests" / "identity_harness.py").read_text(encoding="utf-8")
+        self.assertEqual(src.count("informational=True"), len(self.INFORMATIONAL_IDS),
+                         "expected exactly one informational marker per listed test")
+
+    def test_informational_excluded_from_both_counts(self):
+        """Excluded from passed AND failed, not shuffled from one into the other."""
+        from protocol_tests.identity_harness import generate_report
+        import json, tempfile, os
+        results = [self._result(test_id="A", passed=True),
+                   self._result(test_id="B", passed=False),
+                   self._result(test_id="C", informational=True)]
+        fd, path = tempfile.mkstemp(suffix=".json"); os.close(fd)
+        try:
+            generate_report(results, path)
+            data = json.loads(Path(path).read_text())
+        finally:
+            os.unlink(path)
+        s = data["summary"]
+        self.assertEqual(s["passed"], 1)
+        self.assertEqual(s["failed"], 1)
+        self.assertEqual(s["informational"], 1)
+        self.assertEqual(s["total"], 2, "total counts scored results only")
+
+    def test_informational_does_not_drive_a_failing_exit_code(self):
+        """sys.exit(1) is keyed off failures; a non-verdict is not a failure."""
+        results = [self._result(test_id="C", informational=True)]
+        failed = sum(1 for r in results if not r.passed and not r.informational)
+        self.assertEqual(failed, 0)
