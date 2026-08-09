@@ -127,12 +127,42 @@ class TestRegTestCount(unittest.TestCase):
         from protocol_tests.cli import _total_tests
         self.assertEqual(str(_total_tests()), self._canonical_count())
     def _harness_count(self):
+        """Test-bearing module count, from count_tests.py.
+
+        NOT len(HARNESSES). cli.py registers 44 commands; scripts/count_tests.py
+        finds test IDs in 43 files. The one difference is community_runner.py,
+        which hosts community-contributed YAML tests and ships none of its own.
+
+        This method returned len(HARNESSES) until 2026-08-09, so README and
+        TEST-INVENTORY were required to state 44 test-bearing modules when the
+        declared source of truth said 43. The test-inventory assertion below
+        already matched on the phrase "test-bearing" while comparing against the
+        registered count, which is the conflation this fixes.
+
+        len(HARNESSES) is still asserted, as the registry size, by
+        test_harness_count. Both measures are now computed; neither is inferred.
+        """
+        import subprocess
+        out = subprocess.check_output(
+            [sys.executable, os.path.join(REPO_ROOT, "scripts", "count_tests.py")],
+            text=True, cwd=REPO_ROOT)
+        rows = [ln for ln in out.splitlines()
+                if re.match(r"^\s+\S.*\s+\d+\s*$", ln)
+                and not re.search(r"TOTAL|SUM OF|Definitive", ln)]
+        return str(len(rows))
+
+    def test_test_bearing_is_registered_minus_community_runner(self):
+        """Pin the exact gap, so a new silent divergence fails here.
+
+        If this breaks, a module gained or lost tests, or a new command was
+        registered. Either is worth a human deciding what the public claim is.
+        """
         from protocol_tests.cli import HARNESSES
-        return str(len(HARNESSES))
+        self.assertEqual(int(self._harness_count()), len(HARNESSES) - 1)
     def test_readme_module_count(self):
         count = self._harness_count()
         with open(os.path.join(REPO_ROOT, "README.md")) as f: readme = f.read()
-        m = re.search(r'security tests across (\d+) modules', readme)
+        m = re.search(r'security tests across (\d+) (?:test-bearing )?modules', readme)
         self.assertIsNotNone(m, "README.md must state a module count")
         self.assertEqual(m.group(1), count)
     def test_test_inventory_module_count(self):
