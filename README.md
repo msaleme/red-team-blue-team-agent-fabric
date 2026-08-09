@@ -11,7 +11,7 @@
 
 **Even if an agent is properly authenticated and authorized, can it still be manipulated into unsafe or policy-violating behavior?**
 
-604 executable security tests across 44 modules (verified 2026-08-02 via `scripts/count_tests.py`). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
+604 executable security tests across 44 modules on `main` (verified 2026-08-08 via `scripts/count_tests.py`; the v4.15.0 release carries 603). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
 
 ```
 $ agent-security test mcp --url http://localhost:8080/mcp
@@ -254,12 +254,17 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 
 ## Roadmap
 
-**Current: v4.13.1** (2026-08-02). Recent shipped work — v4.5 skill supply chain and governance
+**Current: v4.15.0** (2026-08-07). Recent shipped work — v4.5 skill supply chain and governance
 modification · v4.6–v4.9 payment-stack depth (AP2 mandate chain, UCP/ACP merchant journey, card-network
 agentic tokens, settlement finality, Fireblocks x402) · v4.10 benchmark integrity · v4.11–v4.12
 decision-governance corpus currency and provenance repair · **v4.13 OWASP Agentic v1.1 T1–T17 coverage
-mapping and the human-in-the-loop harness** · **v4.13.1 a correctness fix to that harness** (see
+mapping and the human-in-the-loop harness** · v4.13.1 a correctness fix to that harness · v4.14.0
+endpoint provenance · **v4.15.0 unserviced requests are no longer recorded as passes** (see
 [CHANGELOG.md](CHANGELOG.md)).
+
+The release carries **603** tests; `main` is at **604**, which is MAG-019 landing after the tag. Both
+are correct for their own ref, and `scripts/check_public_metadata.py` compares public claims against
+the release rather than against `main` for exactly that reason.
 
 **Next — Standards & Evidence.** Reproducible settlement-time payment evidence, a methodology paper,
 and the attestation/evidence schema submitted to a standards venue. Coverage breadth and test count are

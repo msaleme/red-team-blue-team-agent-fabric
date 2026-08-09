@@ -56,6 +56,7 @@ Dates and themes below are reconciled against `CHANGELOG.md`, which is authorita
 | **v4.13.0 — OWASP Agentic v1.1** | 2026-08-02 | T1–T17 commit-pinned coverage mapping, selector tooling, HITL harness (T10/T15) | Shipped |
 | **v4.13.1 — HITL correctness** | 2026-08-02 | All 8 HITL tests could record a verdict against a target that never serviced the request; `_serviced()` guard added | Shipped |
 | **v4.14.0 — Endpoint provenance** | 2026-08-05 | Removed fabricated default registry/telemetry endpoints pointing at domains this project never owned; both env vars now required; attestation independence claim corrected to "tested with" | Shipped |
+| **v4.15.0 — Unserviced requests are not passes** | 2026-08-07 | Seven modules recorded a `PASS` when the target never serviced the request; guard promoted to `http_helpers` and applied at each recording path. No test added or removed, count unchanged at 603 | Shipped |
 | **Next — Standards & Evidence** | — | Reproducible settlement-time payment evidence; methodology paper; schema as a standards-body informational draft | In progress |
 
 **Known gaps, stated rather than deferred.** T16-S1 (consent-flow manipulation) and T10-S1/T10-S3
