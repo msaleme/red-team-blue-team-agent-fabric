@@ -11,7 +11,7 @@
 
 **Even if an agent is properly authenticated and authorized, can it still be manipulated into unsafe or policy-violating behavior?**
 
-604 executable security tests across 44 modules on `main` (verified 2026-08-08 via `scripts/count_tests.py`; the v4.15.0 release carries 603). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
+604 executable security tests across 43 test-bearing modules on `main` (verified 2026-08-08 via `scripts/count_tests.py`; the v4.15.0 release carries 603). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
 
 ```
 $ agent-security test mcp --url http://localhost:8080/mcp
@@ -166,7 +166,7 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 | **Research backing** | - | Cisco blog | Papers | **7 DOIs + 3 NIST submissions** (self-authored; see [Research](#research)) |
 | **MCP server mode** | - | - | - | **Yes - invoke from any AI agent** |
 | **Statistical testing** | - | - | - | **Wilson CIs, multi-trial** |
-| **Total tests** | Config checks | YARA rules | Model probes | **604 active tests across 44 modules** |
+| **Total tests** | Config checks | YARA rules | Model probes | **604 active tests across 43 test-bearing modules** |
 
 Star counts verified 2026-08-02 via the GitHub API. Invariant Labs' `mcp-scan` now redirects to
 `snyk/agent-scan` and is listed once rather than as two separate projects. Competitor rows describe

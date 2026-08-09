@@ -109,9 +109,21 @@ def canonical_version() -> str:
 
 
 def canonical_modules() -> str:
-    sys.path.insert(0, str(REPO_ROOT))
-    from protocol_tests.cli import HARNESSES
-    return str(len(HARNESSES))
+    """Test-bearing module count, from count_tests.py.
+
+    This returned len(HARNESSES) until 2026-08-09, which is the REGISTERED
+    count (44) rather than the test-bearing one (43). The difference is
+    community_runner.py, which hosts community-contributed tests and ships none
+    of its own. That error propagated to the profile README and start-here
+    before it was caught, so this now reads the declared source of truth.
+    """
+    out = subprocess.check_output(
+        [sys.executable, str(REPO_ROOT / "scripts" / "count_tests.py")],
+        text=True, cwd=REPO_ROOT)
+    rows = [ln for ln in out.splitlines()
+            if re.match(r"^\s+\S.*\s+\d+\s*$", ln)
+            and not re.search(r"TOTAL|SUM OF|Definitive", ln)]
+    return str(len(rows))
 
 
 def fetch_readme(repo: str) -> str:
