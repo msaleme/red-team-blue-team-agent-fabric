@@ -30,7 +30,7 @@ _spec.loader.exec_module(cpm)
 # the canonical one. test_no_stale_test_count_anywhere scans this file too, and
 # adding an exemption for it would weaken a guard to accommodate its own test.
 STALE_COUNT = "603"      # correct for v4.15.0, stale against main
-FRESH_COUNT = "604"      # canonical on main at the time of writing
+FRESH_COUNT = "606"      # canonical on main at the time of writing
 _TESTS = "executable tests"
 
 REAL = (f"AI agent security harness for adversarial testing: {STALE_COUNT} {_TESTS} "
