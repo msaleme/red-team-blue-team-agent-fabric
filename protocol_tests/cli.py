@@ -289,7 +289,7 @@ HARNESSES = {
     },
     "memory": {
         "module": "protocol_tests.memory_harness",
-        "description": "Memory & continuity security tests (10 tests, cross-session leakage + poisoning + extraction)",
+        "description": "Memory & continuity security tests (12 tests, cross-session leakage + poisoning + extraction + namespace scoping boundaries)",
     },
     "multi-agent": {
         "module": "protocol_tests.multi_agent_harness",
