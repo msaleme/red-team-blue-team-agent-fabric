@@ -239,6 +239,7 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 | Release history & known gaps | [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) |
 | E1-E5 Evidence Class Taxonomy (canonical) | [docs/EVIDENCE-CLASS-TAXONOMY.md](docs/EVIDENCE-CLASS-TAXONOMY.md) |
 | Reproducing this harness (and disagreeing with it) | [docs/REPRODUCING.md](docs/REPRODUCING.md) |
+| The acceptance criterion that does not require the mechanism (5 recorded instances) | [docs/VERIFICATION-DESIGN-DEFECT.md](docs/VERIFICATION-DESIGN-DEFECT.md) |
 | Attestation registry (client, opt-in publishing) | [docs/attestation-registry.md](docs/attestation-registry.md) |
 | Attestation registry server contract (self-hosted; no registry is operated by this project) | [docs/ATTESTATION-REGISTRY-SERVER-CONTRACT.md](docs/ATTESTATION-REGISTRY-SERVER-CONTRACT.md) |
 | AIUC-1 Evidence Field Guide (external, not version-pinned) | [msaleme.github.io/aiuc1-readiness](https://msaleme.github.io/aiuc1-readiness/) |
