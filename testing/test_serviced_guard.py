@@ -70,6 +70,9 @@ GUARDED = [
     # http_post, nothing is synthesised despite the module name, and no non-2xx
     # is a normal answer here.
     ("protocol_tests.gtg1002_simulation", "GTG1002Simulation", "GTGTestResult"),
+    # #351: PRV-006 read `is_error or not accepted`, a pass because the target
+    # errored -- the #350 shape, still live after two sweeps.
+    ("protocol_tests.provenance_harness", "ProvenanceTests", "ProvenanceTestResult"),
     # The shared base itself. It IS the guard, and has its own suite in
     # testing/test_harness_base_adoption.py.
     ("protocol_tests.harness_base", None, "HarnessResult"),
@@ -139,7 +142,6 @@ UNREVIEWED = {
     "mcp_tool_poisoning_harness",
     "over_refusal_harness",
     "prompt_caching_harness",
-    "provenance_harness",
     "ptc_harness",
     "return_channel_harness",
     "skill_security_harness",
@@ -327,7 +329,7 @@ class TestCoverageListIsDerived(unittest.TestCase):
     def test_unreviewed_does_not_grow(self) -> None:
         """A tripwire on the honest number, so the backlog cannot quietly expand."""
         self.assertLessEqual(
-            len(UNREVIEWED), 24,
+            len(UNREVIEWED), 23,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
 

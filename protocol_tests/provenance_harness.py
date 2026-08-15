@@ -27,6 +27,7 @@ import math
 import sys
 import time
 import uuid
+from protocol_tests.http_helpers import inconclusive_detail
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
@@ -146,6 +147,16 @@ class ProvenanceTests:
         self.results: list[ProvenanceTestResult] = []
 
     def _record(self, result: ProvenanceTestResult):
+        # #348/#351: verdicts here read `not accepted` / `not exfil_accepted`,
+        # and PRV-006 reads `is_error or not accepted` -- a pass BECAUSE the
+        # target errored, which is the #350 shape. _resp_accepted_claim also
+        # returns False on any error, commented "Server rejected -- good", so an
+        # unreachable host is scored as a server that refused a forged claim.
+        # INCONCLUSIVE, never a pass.
+        _d = inconclusive_detail(getattr(result, "response_received", None), result.details)
+        if _d is not None:
+            result.passed = False
+            result.details = _d
         self.results.append(result)
         status = "PASS \u2705" if result.passed else "FAIL \u274c"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
