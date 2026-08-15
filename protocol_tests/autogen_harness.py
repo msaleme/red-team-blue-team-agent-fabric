@@ -43,6 +43,8 @@ from datetime import datetime, timezone
 from typing import Any
 import urllib.request
 
+from protocol_tests.http_helpers import inconclusive_detail
+
 
 # ---------------------------------------------------------------------------
 # Shared
@@ -125,6 +127,16 @@ class AutoGenHarness:
         self.results: list[AutoGenTestResult] = []
 
     def _record(self, result: AutoGenTestResult) -> None:
+        # #348/#351: a result whose target never serviced the request is
+        # INCONCLUSIVE, never a pass. Enforced here rather than at each verdict
+        # so a new test cannot forget it. Every one of this harness's verdicts
+        # is decided by a response, and they read "not poisoned" / "not
+        # succeeded" -- shapes that report a control holding when nothing
+        # answered at all.
+        _d = inconclusive_detail(getattr(result, "response_received", None), result.details)
+        if _d is not None:
+            result.passed = False
+            result.details = _d
         self.results.append(result)
         status = "PASS" if result.passed else "FAIL"
         print(f"  [{status}] {result.test_id}: {result.name}")

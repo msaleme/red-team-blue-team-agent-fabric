@@ -57,6 +57,10 @@ GUARDED = [
     ("protocol_tests.extended_enterprise_adapters", None, "ExtTestResult"),
     # #351 sweep: flagged by verdict-shape triage, then confirmed by reading it.
     ("protocol_tests.cloud_agent_harness", None, "CloudAgentTestResult"),
+    # #351: 11 of 11 verdicts response-decided, the highest ratio in the package.
+    # Precondition 2 was recorded as the blocker; _serviced now reads both status
+    # conventions, so it no longer is.
+    ("protocol_tests.autogen_harness", "AutoGenHarness", "AutoGenTestResult"),
     # The shared base itself. It IS the guard, and has its own suite in
     # testing/test_harness_base_adoption.py.
     ("protocol_tests.harness_base", None, "HarnessResult"),
@@ -82,9 +86,14 @@ def _candidate_modules() -> set[str]:
 #   1. simulation must be marked. cloud_agent_harness synthesises
 #      {"_status": 403, "_simulated": True} to mean the platform denied the action.
 #      An unmarked simulator cannot be told apart from a target that failed.
-#   2. the response-key convention must match. autogen_harness returns
-#      {"status": 200}, not {"_status": 200}, so _serviced reads a missing key as 0
-#      and calls a healthy 200 unserviced.
+#   2. the response-key convention must match. RESOLVED, and left here because the
+#      resolution is the point: autogen_harness returns {"status": 200}, not
+#      {"_status": 200}, so _serviced used to read a missing key as 0 and call a
+#      healthy 200 unserviced. That was fixed in _serviced itself rather than by
+#      rewriting seven harnesses' response shape, so the precondition is no longer
+#      a blocker for anything. autogen_harness was guarded in #351 on that basis.
+#      A precondition that has been resolved must be marked resolved: it stood
+#      recorded as autogen's blocker after it had stopped being one.
 #   3. a non-2xx must not be the protocol's normal answer. l402_harness and
 #      x402_harness are payment-challenge protocols where a 401/402 IS the server
 #      servicing the request. Guarding them converts correct passes into
@@ -106,7 +115,6 @@ def _candidate_modules() -> set[str]:
 UNREVIEWED = {
     "a2a_harness",
     "aiuc1_compliance_harness",
-    "autogen_harness",
     "benchmark_integrity_harness",
     "capability_profile_harness",
     "cbrn_harness",
@@ -188,6 +196,26 @@ class TestServicedIsShared(unittest.TestCase):
         for label, resp in UNSERVICED.items():
             with self.subTest(label):
                 self.assertFalse(_serviced(resp), f"{label} was treated as serviced")
+
+    def test_inconclusive_detail_reports_the_status_that_was_actually_returned(self) -> None:
+        """#351: a right verdict carrying wrong evidence.
+
+        The message read only ``_status``, so a harness writing ``status`` had
+        every INCONCLUSIVE reported as ``status=0`` -- a target that answered
+        404 described as never answering. ``_serviced`` already read both
+        conventions, so the verdict was correct and only the evidence attached
+        to it was false, which is harder to notice and no less wrong.
+        """
+        for label, resp, expected in [
+            ("status only", {"error": "x", "status": 404}, "status=404"),
+            ("_status only", {"_status": 500}, "status=500"),
+            ("both, _status wins", {"_status": 500, "status": 404}, "status=500"),
+            ("transport failure", {"error": "x", "status": 0}, "status=0"),
+        ]:
+            with self.subTest(label):
+                detail = inconclusive_detail(resp, "control held")
+                self.assertIsNotNone(detail, f"{label} should be inconclusive")
+                self.assertIn(expected, detail)
 
     def test_a_simulated_response_is_not_treated_as_unserviced(self) -> None:
         """#351: the false negative the sweep nearly introduced.
@@ -291,7 +319,7 @@ class TestCoverageListIsDerived(unittest.TestCase):
     def test_unreviewed_does_not_grow(self) -> None:
         """A tripwire on the honest number, so the backlog cannot quietly expand."""
         self.assertLessEqual(
-            len(UNREVIEWED), 27,
+            len(UNREVIEWED), 26,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
 

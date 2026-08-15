@@ -150,8 +150,16 @@ def inconclusive_detail(resp, details: str | None) -> str | None:
         return None
     if "INCONCLUSIVE" in (details or ""):
         return None
+    # Read both status conventions, for the same reason _serviced does. Reading
+    # only "_status" made this line report "status=0" for a harness that writes
+    # "status", so a target that answered 404 was described as never answering.
+    # The verdict was right and the evidence attached to it was wrong, which is
+    # the failure mode this guard exists to prevent, one layer down.
+    status = resp.get("_status")
+    if status is None:
+        status = resp.get("status", 0)
     return ("INCONCLUSIVE - target did not service the request; "
-            f"status={resp.get('_status', 0)}. Original finding: {details}")
+            f"status={status}. Original finding: {details}")
 
 
 def _serviced(resp: dict) -> bool:
