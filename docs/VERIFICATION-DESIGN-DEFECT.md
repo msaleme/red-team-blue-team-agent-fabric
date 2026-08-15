@@ -1,6 +1,7 @@
 # The acceptance criterion that does not require the mechanism
 
-Status: draft. Five reproducible instances across multiple verification designs.
+Status: draft. Four reproduced instances across multiple verification designs, and one
+related external boundary case.
 
 ---
 
@@ -16,11 +17,11 @@ One criterion may be only part of a larger acceptance rule; the defect is a prop
 rule as a whole, not of any single check within it.
 
 This is not a bug class in the ordinary sense. Each instance below was written by someone
-competent, reviewed, and shipped. In four of the five the author's stated purpose was
+competent, reviewed, and shipped. In every case the author's stated purpose was
 precisely to prevent this kind of error, and in one the author was auditing for this exact
 defect at the time they introduced it.
 
-The diagnostic that catches all five is a single question:
+The diagnostic that catches the four defects is a single question:
 
 > **What is the cheapest way to satisfy this criterion without doing the work?**
 
@@ -29,7 +30,7 @@ required mechanism ran. It may still measure an absence; it does not establish a
 
 ---
 
-## Five instances
+## Four instances
 
 | # | System | Mechanism `M` | Criterion `A` | `A` holds when |
 |---|---|---|---|---|
@@ -37,7 +38,6 @@ required mechanism ran. It may still measure an absence; it does not establish a
 | 2 | Verdict-taint auditor | taint analysis | no taint found | the analysis is incomplete |
 | 3 | Decision Governance Benchmark | governance maintained | binary PASS | the case never executed |
 | 4 | Token-Bleed Benchmark | retrieval from a catalog | correct columns returned | the answer key was handed over |
-| 5 | VERITAS Omega Trust Lab | canonical serialisation | decisions reproduce | the demonstrated compact-versus-pretty serialisation error is used |
 
 ### 1. Absence of a detected attack, read as a control holding
 
@@ -102,41 +102,45 @@ false-negative rate, then a cheap lexical baseline whose README states that if t
 captures most of the advantage, *the honest result is about filtering labels, not governed
 metadata*. The correction is [`27d20b8`][tb-fix].
 
-### 5. A pass condition that does not require the contract
+## Related case: decision equivalence does not establish contract equivalence
 
 [VrtxOmega/veritas-agent-trust-lab], *Break VERITAS: External Verification Challenge v1*,
 track `independent-result-recomputation`.
 
-Canonicalisation affects the track's 14 packet digests. Where a decision compares digests,
-both operands are produced by the same canonicaliser, so a consistently wrong implementation
-preserves their equality or inequality. In the other case families the decision does not
-depend on canonicalisation at all: `forged-verdict` compares claimed and recomputed states,
-`nonce-replay` checks prior consumption, `correlated-quorum` counts independent groups, and
-`silent-monitor` compares heartbeat age against a TTL.
+**This is not a fifth instance, and the distinction is exactly what the narrowed definition
+above is for.** The challenge's prose acceptance rule is correct. It says *"At minimum,
+compare"*, and its fourth bullet is *"case-specific packet digests and counts"*. A wrong
+canonicaliser is caught by the complete human-readable rule.
 
-The protocol requires the `packet` field but does not explicitly require the digest values
-inside it to match the reference outputs. A submission can therefore satisfy the stated
-decision criteria without reproducing the canonicalisation contract.
+What the experiment establishes is narrower, and still worth stating:
 
-**A deliberately wrong pretty-printed serialiser changed all 14 digests while leaving all 12
-decisions unchanged.** Demonstrated rather than argued, by re-running a verified-correct
-independent implementation with that one substitution:
+> **Matching decisions does not establish correct canonicalisation.**
+
+A deliberately wrong pretty-printed serialiser changed all 14 digests while leaving all 12
+decisions unchanged:
 
 ```
 decision-field divergences from the correct run : 0    all 12 cases still decide identically
 digest divergences                              : 14   every digest is wrong
 ```
 
-Evidence and implementation: [`conformance/external/veritas-omega/`](../conformance/external/veritas-omega/).
+Canonicalisation affects the 14 packet digests. Where a decision compares digests, both
+operands come from the same canonicaliser, so a consistently wrong implementation *can*
+preserve their equality or inequality, as the demonstrated mutation did. In the other four
+families the decision does not depend on canonicalisation at all: `forged-verdict` compares
+claimed and recomputed states, `nonce-replay` checks prior consumption, `correlated-quorum`
+counts independent groups, and `silent-monitor` compares heartbeat age against a TTL.
 
-**This external instance supports treating the pattern as a reusable defect class rather than
-only one project's postmortem.** It
-is a different author, a different language, a different problem domain, and a project whose
-own published rules already state the closely related principle — *a verifier that rejects
-everything has not reproduced the contract*. They wrote the acceptance-control rule and the
-defect still appeared one level up, in the criterion that decides whether a submission passes.
+The residual observation is a **specification divergence, not a defective acceptance rule**.
+The machine-readable protocol lists `packet` among `required_result_fields`; the prose
+requires comparing the digest *values* inside it. An evaluator built from the JSON alone
+would not require what the prose does. That is worth fixing and it is not the same thing as
+a rule that reports success without the mechanism.
 
----
+Full agreement was established first — 12 cases, 48 decision fields, 14 SHA-256 digests, zero
+divergences — which is what makes the mutation result interpretable rather than an excuse for
+a mismatch. Evidence and implementation:
+[`conformance/external/veritas-omega/`](../conformance/external/veritas-omega/).
 
 ## Why competence does not prevent it
 
@@ -150,16 +154,17 @@ usually a different subsystem.
 incomplete analysis produces a short findings list. Both are indistinguishable, at a glance,
 from the healthy case — and better-looking than it.
 
-**The fix generalises worse than the defect.** Instance 1 has taken four rounds because each
-round was scoped to the sites its author had read. The defect propagates by
+**The fix generalises worse than the defect.** Instance 1 has taken four rounds because the early
+repairs were scoped to manually identified sites; only the later work derived the candidate
+set. The defect propagates by
 copy-and-adapt; the repair propagates by someone remembering.
 
 ---
 
 ## What the evidence supports
 
-These appear to be necessary design requirements. The five instances do not establish that
-they are sufficient.
+These appear to be necessary design requirements. Four instances do not establish that they
+are sufficient.
 
 **Acceptance controls.** A case that *must* pass, so an implementation cannot score by
 rejecting everything. RCL-008 and RCL-009 in this repository; rule 5 of the VERITAS
@@ -173,7 +178,6 @@ mechanism being present**, and every instance above lacked one at the level wher
 - instance 2 had no case requiring that the analysis was complete
 - instance 3 had no outcome distinguishing "maintained" from "never tested"
 - instance 4 had no candidate set on which the favoured route could lose precision
-- instance 5 has no case whose decision depends on a digest *equality*
 
 **A third state.** A binary model must either collapse unknown into PASS or FAIL, or
 represent validity somewhere outside the verdict. A binary system *can* fail closed; in the
@@ -192,10 +196,11 @@ claims. Instance 2 exists because one was written as the other.
 
 ## Limits of this document
 
-Five instances is not a survey. Four are from one author's systems, which is a strong
+Four instances is not a survey, and all four are from one author's systems. That is a strong
 selection effect: they were found because that author was looking, and the count says as much
-about the looking as about the population. Instance 5 is the only external one, and it was
-found while reciprocating a favour rather than by sampling.
+about the looking as about the population. The one external case examined did **not** turn out
+to be an instance — its acceptance rule was adequate — which is a data point against the
+pattern being universal, and is reported here for that reason.
 
 No claim is made about prevalence, about other verification systems, or about whether the
 remedies are sufficient rather than merely necessary. Every instance is reproducible from

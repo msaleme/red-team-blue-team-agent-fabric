@@ -42,7 +42,7 @@ SHA-256 digests compared  : 14   matched: 14
 total divergences         : 0
 ```
 
-## Finding: the track's pass condition cannot detect a canonicalisation divergence
+## Finding: matching decisions do not establish correct canonicalisation
 
 Canonicalisation affects the track's 14 packet digests. Where a decision compares digests,
 both operands come from the same canonicaliser, so a consistently wrong implementation
@@ -63,18 +63,22 @@ decision-field divergences from the correct run : 0    <- all 12 cases still dec
 digest divergences                              : 14   <- every digest is wrong
 ```
 
-The `packet` digests are the only outputs that catch it. `required_result_fields` includes
-`packet`, but the protocol does not state that the digest values inside it must be compared,
-so a submission could satisfy the stated criteria while having reproduced none of the
-serialisation contract.
+**The challenge's prose rule already catches this.** Track 1 says *"At minimum, compare"* and
+its fourth bullet is *"case-specific packet digests and counts"*. A submission that compares
+those digests detects a wrong canonicaliser. This section is therefore not a defect report
+against the acceptance rule, and an earlier version of it overstated exactly that.
 
-This is the same shape as the challenge's own rule 5 — a verifier that rejects everything has
-not reproduced the contract — applied one level up: a verifier that decides everything
-correctly has not necessarily reproduced the contract either.
+The residual observation is a specification divergence: the machine-readable protocol lists
+`packet` among `required_result_fields`, while the prose requires comparing the digest
+*values* inside it. An evaluator built from the JSON alone would not require what the prose
+does.
 
-**Suggested fix:** require the `packet` digest values in the submitted artifact and compare
-them, or add one case whose decision depends on a digest *equality* against a fixed expected
-value rather than on an inequality between two computed ones.
+It is adjacent to the challenge's own rule 5 — a verifier that rejects everything has not
+reproduced the contract — one level up: a verifier that decides everything correctly has not
+necessarily reproduced it either. Your prose rule already accounts for this; the JSON does not.
+
+**Suggested fix:** bring the machine-readable protocol into line with the prose, by naming the
+digest values rather than only the `packet` field.
 
 ## Untested boundaries
 
