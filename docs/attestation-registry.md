@@ -13,8 +13,8 @@
 > See `CHANGELOG.md` for the disclosure.
 >
 > **A registry you control is the only supported deployment.** See
-> [Self-Hosted Registry](#self-hosted-registry). The server contract is being
-> specified in #333.
+> [Self-Hosted Registry](#self-hosted-registry). The server contract is published in
+> [ATTESTATION-REGISTRY-SERVER-CONTRACT.md](ATTESTATION-REGISTRY-SERVER-CONTRACT.md).
 >
 > Everything below describes a client that is implemented and a server you host.
 
@@ -228,7 +228,29 @@ export AGENT_SECURITY_REGISTRY_URL=https://your-internal-registry.example.com/v1
 The client validates that the URL is `https://`, or `http://` for `localhost`,
 `127.0.0.1`, and `::1` during development.
 
-The server contract is not yet published. #333 tracks specifying it, including what
-is submitted, what a submission establishes, and how a third party verifies an entry
-without trusting the registry operator. Until that lands, a self-hosted server has to
-be written against `protocol_tests/attestation_registry.py` directly.
+The server contract is published at
+[ATTESTATION-REGISTRY-SERVER-CONTRACT.md](ATTESTATION-REGISTRY-SERVER-CONTRACT.md).
+It specifies what is submitted, what a submission establishes, and how a third party
+verifies an entry without trusting the registry operator.
+
+A runnable reference implementation ships with the harness:
+
+```bash
+python3 scripts/registry_reference_server.py --port 8787
+export AGENT_SECURITY_REGISTRY_URL="http://localhost:8787"
+```
+
+It is a conformance reference, not a deployment target: in-memory, no auth, no TLS.
+Verify any record you are given, from any registry, without contacting that registry
+again:
+
+```bash
+curl -s "$AGENT_SECURITY_REGISTRY_URL/<id>" \
+  | python3 scripts/verify_attestation_record.py -
+```
+
+**Known gap.** The submission envelope currently carries `public_key_fingerprint` but
+not the public key, so a third party cannot check the Ed25519 signature on a record
+published by today's client. Section 4.2 of the contract specifies `envelope_version`
+2, which adds `public_key`. Until the client emits it, records are stored with
+`signature_verifiable: false` and the verifier exits non-zero on them, by design.
