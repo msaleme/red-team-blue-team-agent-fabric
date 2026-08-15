@@ -107,9 +107,16 @@ metadata*. The correction is [`27d20b8`][tb-fix].
 [VrtxOmega/veritas-agent-trust-lab], *Break VERITAS: External Verification Challenge v1*,
 track `independent-result-recomputation`.
 
-Every decision in the track derives from a digest **inequality** — `mismatch = a !== b` —
-which holds whenever the inputs differ, regardless of how they were serialised. An
-implementation that gets `canonicalize` wrong still produces all twelve correct decisions.
+Canonicalisation affects the track's 14 packet digests. Where a decision compares digests,
+both operands are produced by the same canonicaliser, so a consistently wrong implementation
+preserves their equality or inequality. In the other case families the decision does not
+depend on canonicalisation at all: `forged-verdict` compares claimed and recomputed states,
+`nonce-replay` checks prior consumption, `correlated-quorum` counts independent groups, and
+`silent-monitor` compares heartbeat age against a TTL.
+
+The protocol requires the `packet` field but does not explicitly require the digest values
+inside it to match the reference outputs. A submission can therefore satisfy the stated
+decision criteria without reproducing the canonicalisation contract.
 
 **A deliberately wrong pretty-printed serialiser changed all 14 digests while leaving all 12
 decisions unchanged.** Demonstrated rather than argued, by re-running a verified-correct
@@ -122,7 +129,8 @@ digest divergences                              : 14   every digest is wrong
 
 Evidence and implementation: [`conformance/external/veritas-omega/`](../conformance/external/veritas-omega/).
 
-**This instance is the one that makes the other four a class rather than a postmortem.** It
+**This external instance supports treating the pattern as a reusable defect class rather than
+only one project's postmortem.** It
 is a different author, a different language, a different problem domain, and a project whose
 own published rules already state the closely related principle — *a verifier that rejects
 everything has not reproduced the contract*. They wrote the acceptance-control rule and the
@@ -148,7 +156,10 @@ copy-and-adapt; the repair propagates by someone remembering.
 
 ---
 
-## What actually works
+## What the evidence supports
+
+These appear to be necessary design requirements. The five instances do not establish that
+they are sufficient.
 
 **Acceptance controls.** A case that *must* pass, so an implementation cannot score by
 rejecting everything. RCL-008 and RCL-009 in this repository; rule 5 of the VERITAS
@@ -161,7 +172,7 @@ mechanism being present**, and every instance above lacked one at the level wher
 - instance 1 had no case requiring that the target answered
 - instance 2 had no case requiring that the analysis was complete
 - instance 3 had no outcome distinguishing "maintained" from "never tested"
-- instance 4 had no route that could beat the favoured one
+- instance 4 had no candidate set on which the favoured route could lose precision
 - instance 5 has no case whose decision depends on a digest *equality*
 
 **A third state.** A binary model must either collapse unknown into PASS or FAIL, or
