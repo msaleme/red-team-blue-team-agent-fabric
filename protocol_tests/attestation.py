@@ -150,6 +150,10 @@ def generate_attestation_report(
 
     report: Dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
+        # `producer` is the provider-neutral spelling (#137). `harness_version` is
+        # retained because five scripts read it and the schema still accepts it;
+        # the schema requires one or the other, not this one specifically.
+        "producer": {"name": "agent-security-harness", "version": harness_version},
         "harness_version": harness_version,
         "suite": suite,
         "timestamp": datetime.now(timezone.utc).isoformat(),
