@@ -61,6 +61,11 @@ GUARDED = [
     # Precondition 2 was recorded as the blocker; _serviced now reads both status
     # conventions, so it no longer is.
     ("protocol_tests.autogen_harness", "AutoGenHarness", "AutoGenTestResult"),
+    # #351: guard on the shared ABC, so every adapter subclass inherits it. Blocked
+    # on precondition 1 until its simulate mode marked synthesised responses
+    # "_simulated" instead of "simulate"; the marker was write-only, so renaming it
+    # to the established convention was the whole unblock.
+    ("protocol_tests.framework_adapters", None, "AdapterTestResult"),
     # The shared base itself. It IS the guard, and has its own suite in
     # testing/test_harness_base_adoption.py.
     ("protocol_tests.harness_base", None, "HarnessResult"),
@@ -120,7 +125,6 @@ UNREVIEWED = {
     "cbrn_harness",
     "crewai_cve_harness",
     "extended_thinking_harness",
-    "framework_adapters",
     "governance_modification_harness",
     "gtg1002_simulation",
     "harmful_output_harness",
@@ -147,6 +151,7 @@ ADAPTER_CASES = [
     ("protocol_tests.enterprise_adapters", "OpenClawAdapter", "EnterpriseTestResult"),
     ("protocol_tests.extended_enterprise_adapters", "SnowflakeAdapter", "ExtTestResult"),
     ("protocol_tests.cloud_agent_harness", "BedrockAgentAdapter", "CloudAgentTestResult"),
+    ("protocol_tests.framework_adapters", "LangChainAdapter", "AdapterTestResult"),
 ]
 
 
@@ -319,7 +324,7 @@ class TestCoverageListIsDerived(unittest.TestCase):
     def test_unreviewed_does_not_grow(self) -> None:
         """A tripwire on the honest number, so the backlog cannot quietly expand."""
         self.assertLessEqual(
-            len(UNREVIEWED), 26,
+            len(UNREVIEWED), 25,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
 

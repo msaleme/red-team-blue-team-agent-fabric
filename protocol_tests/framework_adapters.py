@@ -49,6 +49,8 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlparse, urlunparse
 
+from protocol_tests.http_helpers import inconclusive_detail
+
 
 # ---------------------------------------------------------------------------
 # Test result model (shared across adapters)
@@ -136,6 +138,19 @@ class FrameworkAdapter(ABC):
         self.results: list[AdapterTestResult] = []
 
     def _record(self, result: AdapterTestResult):
+        # #348/#351: a result whose target never serviced the request is
+        # INCONCLUSIVE, never a pass. On the ABC so every adapter subclass
+        # inherits it and a new adapter cannot forget. 15 of this module's
+        # verdicts read "not leaked" / "not succeeded", which report a control
+        # holding when nothing answered.
+        #
+        # Simulate mode marks its synthesised responses `_simulated`, so
+        # inconclusive_detail exempts them: they are fixtures standing in for an
+        # answer and never consulted a target at all.
+        _d = inconclusive_detail(getattr(result, "response_received", None), result.details)
+        if _d is not None:
+            result.passed = False
+            result.details = _d
         self.results.append(result)
         status = "PASS ✅" if result.passed else "FAIL ❌"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
@@ -779,7 +794,7 @@ class PraisonAIAdapter(FrameworkAdapter):
                     else "Payload construction failed — review YAML structure"
                 ),
                 endpoint=endpoint, request_sent=payload,
-                response_received={"simulate": True, "compile_ok": compile_ok,
+                response_received={"_simulated": True, "compile_ok": compile_ok,
                                    "has_job_type": has_job_type, "has_exec_code": has_exec_code},
                 elapsed_s=round(elapsed, 3),
             )
@@ -847,7 +862,7 @@ class PraisonAIAdapter(FrameworkAdapter):
                     else "Payload construction issue — auth field or capabilities missing"
                 ),
                 endpoint=endpoint, request_sent=connection_payload,
-                response_received={"simulate": True, "has_no_auth": has_no_auth,
+                response_received={"_simulated": True, "has_no_auth": has_no_auth,
                                    "requests_dangerous_caps": requests_dangerous_caps},
                 elapsed_s=round(elapsed, 3),
             )
@@ -906,7 +921,7 @@ class PraisonAIAdapter(FrameworkAdapter):
                     else "Payload construction issue"
                 ),
                 endpoint=endpoint, request_sent=stream_request,
-                response_received={"simulate": True, "has_no_auth": has_no_auth,
+                response_received={"_simulated": True, "has_no_auth": has_no_auth,
                                    "requests_all_events": requests_all_events},
                 elapsed_s=round(elapsed, 3),
             )
@@ -1012,7 +1027,7 @@ class PraisonAIAdapter(FrameworkAdapter):
                     else f"Only {len(valid_payloads)}/{len(injection_payloads)} payloads validated"
                 ),
                 endpoint=endpoint, request_sent=tool_definition,
-                response_received={"simulate": True, "valid_payloads": valid_payloads},
+                response_received={"_simulated": True, "valid_payloads": valid_payloads},
                 elapsed_s=round(elapsed, 3),
             )
 
