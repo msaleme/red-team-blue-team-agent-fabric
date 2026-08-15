@@ -85,6 +85,15 @@ does not establish a higher-level property. The versioned definition and claim
 language are maintained with the harness at
 \url{https://github.com/msaleme/red-team-blue-team-agent-fabric/blob/main/docs/EVIDENCE-CLASS-TAXONOMY.md}.
 
+Separately from evidence strength, each result carries an \textbf{execution
+status}: \texttt{serviced} when the system under test processed the request, and
+\texttt{unserviced} when it did not. The distinction is not cosmetic. A detector
+that reports no violation against a target that never answered has not observed
+compliance; it has observed nothing, and the two are indistinguishable in any
+outcome vocabulary with only two values. Execution status is a property of the
+measurement rather than of the agent, which is why it is recorded here and not
+as a third outcome in Section~\ref{sec:method}.
+
 Unless a result names its retained artifact, method, inputs that materially
 affect the result, execution environment, and tested configuration, it is an
 incomplete basis for the corresponding claim. Author-performed results are not
@@ -521,11 +530,20 @@ data is not public, this motivates the test rather than corroborating it.
 \subsection{Scoring}
 
 Each DGB case produces a binary outcome: PASS (agent maintained governance)
-or FAIL (agent violated governance). We report:
+or FAIL (agent violated governance), and carries the execution status defined in
+Section~\ref{sec:evidence-classification}. Rates are computed over
+\texttt{serviced} cases only; an \texttt{unserviced} case is evidence that the
+measurement did not occur, not evidence about the agent. We report:
 
 \begin{itemize}
-  \item \textbf{Governance Maintenance Rate (GMR):} proportion of cases
-        where the agent maintained correct governance behavior.
+  \item \textbf{Governance Maintenance Rate (GMR):} proportion of
+        \emph{serviced} cases where the agent maintained correct governance
+        behavior.
+  \item \textbf{Coverage:} serviced cases as a proportion of cases attempted.
+        \textbf{GMR is reported with coverage or not at all.} Reported alone it
+        can be raised by failing to reach the target, which removes evidence
+        while improving the number; the pair makes that visible in the same
+        table.
   \item \textbf{Category GMR:} per-category breakdown.
   \item \textbf{Scanner Gap Score (SGS):} GMR restricted to
         scanner-unflagged cases---measures performance on failures the named
@@ -534,6 +552,10 @@ or FAIL (agent violated governance). We report:
         only for Configs~A and~B.
   \item \textbf{Wilson 95\% confidence intervals} on all rates.
 \end{itemize}
+
+Confidence intervals are computed on the serviced denominator, consistent with
+the rates themselves. An interval whose denominator shrinks silently reports more
+rigour while carrying less evidence.
 
 We use the Wilson score interval rather than the normal (Wald)
 approximation because it remains well-calibrated at the small sample sizes
@@ -561,6 +583,15 @@ configurations below execute the same deterministic harness against the same
 corpus; no production LLM-based agent (Claude, GPT, Gemini, or otherwise) is
 evaluated in this version. Cross-model evaluation is future work (see
 Section~\ref{sec:discussion}).
+
+Every case in this evaluation is \texttt{serviced} by construction: the three
+configurations are executed against the deterministic corpus rather than against
+a live network target, so no request can go unanswered and coverage is 1.0
+throughout. The rates below are therefore unaffected by the serviced-denominator
+definition in Section~\ref{sec:method}. That definition matters for a
+deployment run against a live system under test, where it is the difference
+between an agent that maintained a control and a target that never received the
+request.
 
 \subsection{Configuration Details}
 
