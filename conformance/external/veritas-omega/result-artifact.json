@@ -1,0 +1,577 @@
+{
+  "baseline_commit": "0f3c71fdb0e9078d8a5d8684411d0318fe600bb1",
+  "implementation": "independent Python, stdlib only",
+  "track": "independent-result-recomputation",
+  "results": [
+    {
+      "schema": "https://vrtxomega.tech/schemas/veritas-agent-trust-lab/v0.1",
+      "case_id": "forged-verdict",
+      "case_code": "VTL-FORGE-001",
+      "mode": "CLEAN",
+      "attack": "Change the derived result without changing its source case.",
+      "claimed_result": "CONFLICTED",
+      "verified_result": "ALLOW",
+      "disposition": "ALLOW",
+      "reason_codes": [
+        "CANONICAL_RECOMPUTATION_MATCH"
+      ],
+      "stages": [
+        {
+          "name": "Evidence",
+          "state": "pass",
+          "detail": "Source case complete"
+        },
+        {
+          "name": "Recompute",
+          "state": "pass",
+          "detail": "CONFLICTED"
+        },
+        {
+          "name": "Bind",
+          "state": "pass",
+          "detail": "Source digest fixed"
+        },
+        {
+          "name": "Trust",
+          "state": "pass",
+          "detail": "Derived output comparison"
+        },
+        {
+          "name": "Monitor",
+          "state": "pass",
+          "detail": "Not applicable"
+        }
+      ],
+      "packet": {
+        "source_digest": "2e4fa907431c7b34bffe76675d9b834d342e525b8cb6a4b6d6eaa6395f719e0e",
+        "claimed_state": "CONFLICTED",
+        "recomputed_state": "CONFLICTED",
+        "evidence_count": 2
+      },
+      "execution_authorized": false
+    },
+    {
+      "schema": "https://vrtxomega.tech/schemas/veritas-agent-trust-lab/v0.1",
+      "case_id": "forged-verdict",
+      "case_code": "VTL-FORGE-001",
+      "mode": "TAMPERED",
+      "attack": "Change the derived result without changing its source case.",
+      "claimed_result": "SUPPORTED_ONLY",
+      "verified_result": "BLOCK",
+      "disposition": "BLOCK",
+      "reason_codes": [
+        "DERIVED_RESULT_MISMATCH",
+        "RECOMPUTATION_REQUIRED"
+      ],
+      "stages": [
+        {
+          "name": "Evidence",
+          "state": "pass",
+          "detail": "Source case complete"
+        },
+        {
+          "name": "Recompute",
+          "state": "fail",
+          "detail": "CONFLICTED"
+        },
+        {
+          "name": "Bind",
+          "state": "pass",
+          "detail": "Source digest fixed"
+        },
+        {
+          "name": "Trust",
+          "state": "fail",
+          "detail": "Derived output comparison"
+        },
+        {
+          "name": "Monitor",
+          "state": "pass",
+          "detail": "Not applicable"
+        }
+      ],
+      "packet": {
+        "source_digest": "2e4fa907431c7b34bffe76675d9b834d342e525b8cb6a4b6d6eaa6395f719e0e",
+        "claimed_state": "SUPPORTED_ONLY",
+        "recomputed_state": "CONFLICTED",
+        "evidence_count": 2
+      },
+      "execution_authorized": false
+    },
+    {
+      "schema": "https://vrtxomega.tech/schemas/veritas-agent-trust-lab/v0.1",
+      "case_id": "parameter-swap",
+      "case_code": "VTL-BIND-002",
+      "mode": "CLEAN",
+      "attack": "Broaden the target and command after approval.",
+      "claimed_result": "POLICY_ELIGIBLE",
+      "verified_result": "ALLOW",
+      "disposition": "ALLOW",
+      "reason_codes": [
+        "EXACT_ACTION_BINDING_MATCH"
+      ],
+      "stages": [
+        {
+          "name": "Evidence",
+          "state": "pass",
+          "detail": "Justification present"
+        },
+        {
+          "name": "Recompute",
+          "state": "pass",
+          "detail": "Policy result reproduced"
+        },
+        {
+          "name": "Bind",
+          "state": "pass",
+          "detail": "Exact action digest"
+        },
+        {
+          "name": "Trust",
+          "state": "pass",
+          "detail": "One-use approval"
+        },
+        {
+          "name": "Monitor",
+          "state": "pass",
+          "detail": "Not started"
+        }
+      ],
+      "packet": {
+        "approved_digest": "d7658e2db968c64cefd95345b262a3a672b327aad67f49b280e307850de490cf",
+        "presented_digest": "d7658e2db968c64cefd95345b262a3a672b327aad67f49b280e307850de490cf",
+        "approved_operation": "git.commit",
+        "presented_operation": "git.commit"
+      },
+      "execution_authorized": false
+    },
+    {
+      "schema": "https://vrtxomega.tech/schemas/veritas-agent-trust-lab/v0.1",
+      "case_id": "parameter-swap",
+      "case_code": "VTL-BIND-002",
+      "mode": "TAMPERED",
+      "attack": "Broaden the target and command after approval.",
+      "claimed_result": "POLICY_ELIGIBLE",
+      "verified_result": "BLOCK",
+      "disposition": "BLOCK",
+      "reason_codes": [
+        "ACTION_DIGEST_MISMATCH",
+        "SCOPE_BROADENED_AFTER_APPROVAL"
+      ],
+      "stages": [
+        {
+          "name": "Evidence",
+          "state": "pass",
+          "detail": "Justification present"
+        },
+        {
+          "name": "Recompute",
+          "state": "pass",
+          "detail": "Policy result reproduced"
+        },
+        {
+          "name": "Bind",
+          "state": "fail",
+          "detail": "Exact action digest"
+        },
+        {
+          "name": "Trust",
+          "state": "fail",
+          "detail": "One-use approval"
+        },
+        {
+          "name": "Monitor",
+          "state": "pass",
+          "detail": "Not started"
+        }
+      ],
+      "packet": {
+        "approved_digest": "d7658e2db968c64cefd95345b262a3a672b327aad67f49b280e307850de490cf",
+        "presented_digest": "8e42a857667ea0834c61e85bf2dd0f3be2ace7171021e8ee674fa873259875da",
+        "approved_operation": "git.commit",
+        "presented_operation": "shell.exec"
+      },
+      "execution_authorized": false
+    },
+    {
+      "schema": "https://vrtxomega.tech/schemas/veritas-agent-trust-lab/v0.1",
+      "case_id": "nonce-replay",
+      "case_code": "VTL-REPLAY-003",
+      "mode": "CLEAN",
+      "attack": "Reuse a previously consumed authorization nonce.",
+      "claimed_result": "VALID_PACKET",
+      "verified_result": "ALLOW",
+      "disposition": "ALLOW",
+      "reason_codes": [
+        "NONCE_ATOMICALLY_AVAILABLE"
+      ],
+      "stages": [
+        {
+          "name": "Evidence",
+          "state": "pass",
+          "detail": "Packet complete"
+        },
+        {
+          "name": "Recompute",
+          "state": "pass",
+          "detail": "Payload authentic"
+        },
+        {
+          "name": "Bind",
+          "state": "pass",
+          "detail": "Action digest fixed"
+        },
+        {
+          "name": "Trust",
+          "state": "pass",
+          "detail": "Atomic nonce store"
+        },
+        {
+          "name": "Monitor",
+          "state": "pass",
+          "detail": "Single-use lease"
+        }
+      ],
+      "packet": {
+        "nonce": "vtl-one-use-7f84d",
+        "packet_digest": "04203e679aad8be58df85c7e2525ca8ed6a604934e94f15876d608c31049a32a",
+        "prior_consumptions": 0,
+        "execution_limit": 1
+      },
+      "execution_authorized": false
+    },
+    {
+      "schema": "https://vrtxomega.tech/schemas/veritas-agent-trust-lab/v0.1",
+      "case_id": "nonce-replay",
+      "case_code": "VTL-REPLAY-003",
+      "mode": "TAMPERED",
+      "attack": "Reuse a previously consumed authorization nonce.",
+      "claimed_result": "VALID_PACKET",
+      "verified_result": "BLOCK",
+      "disposition": "BLOCK",
+      "reason_codes": [
+        "NONCE_ALREADY_CONSUMED",
+        "REPLAY_REJECTED"
+      ],
+      "stages": [
+        {
+          "name": "Evidence",
+          "state": "pass",
+          "detail": "Packet complete"
+        },
+        {
+          "name": "Recompute",
+          "state": "pass",
+          "detail": "Payload authentic"
+        },
+        {
+          "name": "Bind",
+          "state": "pass",
+          "detail": "Action digest fixed"
+        },
+        {
+          "name": "Trust",
+          "state": "fail",
+          "detail": "Atomic nonce store"
+        },
+        {
+          "name": "Monitor",
+          "state": "pass",
+          "detail": "Single-use lease"
+        }
+      ],
+      "packet": {
+        "nonce": "vtl-one-use-7f84d",
+        "packet_digest": "04203e679aad8be58df85c7e2525ca8ed6a604934e94f15876d608c31049a32a",
+        "prior_consumptions": 1,
+        "execution_limit": 1
+      },
+      "execution_authorized": false
+    },
+    {
+      "schema": "https://vrtxomega.tech/schemas/veritas-agent-trust-lab/v0.1",
+      "case_id": "correlated-quorum",
+      "case_code": "VTL-QUORUM-004",
+      "mode": "CLEAN",
+      "attack": "Count correlated evaluators as independent approvers.",
+      "claimed_result": "QUORUM_MET",
+      "verified_result": "ALLOW",
+      "disposition": "ALLOW",
+      "reason_codes": [
+        "DIVERSITY_ATTESTATION_SATISFIED"
+      ],
+      "stages": [
+        {
+          "name": "Evidence",
+          "state": "pass",
+          "detail": "Two evaluator statements"
+        },
+        {
+          "name": "Recompute",
+          "state": "pass",
+          "detail": "Both results reproducible"
+        },
+        {
+          "name": "Bind",
+          "state": "pass",
+          "detail": "Same claim and policy"
+        },
+        {
+          "name": "Trust",
+          "state": "pass",
+          "detail": "2/2 independent"
+        },
+        {
+          "name": "Monitor",
+          "state": "pass",
+          "detail": "No runtime lease"
+        }
+      ],
+      "packet": {
+        "evaluator_count": 2,
+        "independent_group_count": 2,
+        "independent_groups_required": 2,
+        "dependence_fingerprint": "f4ee3a2d76859a717a690b2c9f69fefe6f57d61138bcf8ca3690af28c07486a7"
+      },
+      "execution_authorized": false
+    },
+    {
+      "schema": "https://vrtxomega.tech/schemas/veritas-agent-trust-lab/v0.1",
+      "case_id": "correlated-quorum",
+      "case_code": "VTL-QUORUM-004",
+      "mode": "TAMPERED",
+      "attack": "Count correlated evaluators as independent approvers.",
+      "claimed_result": "QUORUM_MET",
+      "verified_result": "BLOCK",
+      "disposition": "BLOCK",
+      "reason_codes": [
+        "INSUFFICIENT_INDEPENDENT_EVALUATORS",
+        "CORRELATED_QUORUM"
+      ],
+      "stages": [
+        {
+          "name": "Evidence",
+          "state": "pass",
+          "detail": "Two evaluator statements"
+        },
+        {
+          "name": "Recompute",
+          "state": "pass",
+          "detail": "Both results reproducible"
+        },
+        {
+          "name": "Bind",
+          "state": "pass",
+          "detail": "Same claim and policy"
+        },
+        {
+          "name": "Trust",
+          "state": "fail",
+          "detail": "1/2 independent"
+        },
+        {
+          "name": "Monitor",
+          "state": "pass",
+          "detail": "No runtime lease"
+        }
+      ],
+      "packet": {
+        "evaluator_count": 2,
+        "independent_group_count": 1,
+        "independent_groups_required": 2,
+        "dependence_fingerprint": "b9511d3eee08bf6e86265ec94d0b4bee38d4fa58655a789f4dd400ab2ff12bea"
+      },
+      "execution_authorized": false
+    },
+    {
+      "schema": "https://vrtxomega.tech/schemas/veritas-agent-trust-lab/v0.1",
+      "case_id": "evidence-deletion",
+      "case_code": "VTL-EVIDENCE-005",
+      "mode": "CLEAN",
+      "attack": "Remove refuting evidence while retaining the original source identity.",
+      "claimed_result": "CONFLICTED",
+      "verified_result": "ALLOW",
+      "disposition": "ALLOW",
+      "reason_codes": [
+        "SEALED_EVIDENCE_SET_MATCH"
+      ],
+      "stages": [
+        {
+          "name": "Evidence",
+          "state": "pass",
+          "detail": "2/2 items"
+        },
+        {
+          "name": "Recompute",
+          "state": "pass",
+          "detail": "CONFLICTED"
+        },
+        {
+          "name": "Bind",
+          "state": "pass",
+          "detail": "Evidence digest"
+        },
+        {
+          "name": "Trust",
+          "state": "pass",
+          "detail": "Trace continuity"
+        },
+        {
+          "name": "Monitor",
+          "state": "pass",
+          "detail": "Not applicable"
+        }
+      ],
+      "packet": {
+        "sealed_evidence_digest": "2335d0f62f77d71768d184e6aa1558902a92f4d30c73b02d68461d35aa961d61",
+        "presented_evidence_digest": "2335d0f62f77d71768d184e6aa1558902a92f4d30c73b02d68461d35aa961d61",
+        "presented_state": "CONFLICTED",
+        "evidence_items": 2
+      },
+      "execution_authorized": false
+    },
+    {
+      "schema": "https://vrtxomega.tech/schemas/veritas-agent-trust-lab/v0.1",
+      "case_id": "evidence-deletion",
+      "case_code": "VTL-EVIDENCE-005",
+      "mode": "TAMPERED",
+      "attack": "Remove refuting evidence while retaining the original source identity.",
+      "claimed_result": "SUPPORTED_ONLY",
+      "verified_result": "BLOCK",
+      "disposition": "BLOCK",
+      "reason_codes": [
+        "EVIDENCE_SET_DIGEST_MISMATCH",
+        "REFUTING_EVIDENCE_REMOVED"
+      ],
+      "stages": [
+        {
+          "name": "Evidence",
+          "state": "fail",
+          "detail": "1/2 items"
+        },
+        {
+          "name": "Recompute",
+          "state": "fail",
+          "detail": "SUPPORTED_ONLY"
+        },
+        {
+          "name": "Bind",
+          "state": "fail",
+          "detail": "Evidence digest"
+        },
+        {
+          "name": "Trust",
+          "state": "fail",
+          "detail": "Trace continuity"
+        },
+        {
+          "name": "Monitor",
+          "state": "pass",
+          "detail": "Not applicable"
+        }
+      ],
+      "packet": {
+        "sealed_evidence_digest": "2335d0f62f77d71768d184e6aa1558902a92f4d30c73b02d68461d35aa961d61",
+        "presented_evidence_digest": "48423593d6a3994fdaac098e47a83cc547e04a5c69a9664e4af467c30f9a1981",
+        "presented_state": "SUPPORTED_ONLY",
+        "evidence_items": 1
+      },
+      "execution_authorized": false
+    },
+    {
+      "schema": "https://vrtxomega.tech/schemas/veritas-agent-trust-lab/v0.1",
+      "case_id": "silent-monitor",
+      "case_code": "VTL-MONITOR-006",
+      "mode": "CLEAN",
+      "attack": "Let telemetry expire while continuing to report the action as active.",
+      "claimed_result": "ACTIVE",
+      "verified_result": "ALLOW",
+      "disposition": "ALLOW",
+      "reason_codes": [
+        "HEARTBEAT_FRESH"
+      ],
+      "stages": [
+        {
+          "name": "Evidence",
+          "state": "pass",
+          "detail": "Initial packet valid"
+        },
+        {
+          "name": "Recompute",
+          "state": "pass",
+          "detail": "Assessment matches"
+        },
+        {
+          "name": "Bind",
+          "state": "pass",
+          "detail": "Lease digest valid"
+        },
+        {
+          "name": "Trust",
+          "state": "pass",
+          "detail": "Monitor identity valid"
+        },
+        {
+          "name": "Monitor",
+          "state": "pass",
+          "detail": "5s age / 10s TTL"
+        }
+      ],
+      "packet": {
+        "monitor_id": "fixture-monitor-01",
+        "heartbeat_age_seconds": 5,
+        "heartbeat_ttl_seconds": 10,
+        "lifecycle_state": "ACTIVE"
+      },
+      "execution_authorized": false
+    },
+    {
+      "schema": "https://vrtxomega.tech/schemas/veritas-agent-trust-lab/v0.1",
+      "case_id": "silent-monitor",
+      "case_code": "VTL-MONITOR-006",
+      "mode": "TAMPERED",
+      "attack": "Let telemetry expire while continuing to report the action as active.",
+      "claimed_result": "ACTIVE",
+      "verified_result": "REVOKED",
+      "disposition": "BLOCK",
+      "reason_codes": [
+        "TELEMETRY_MISSING_FAIL_CLOSED",
+        "AUTHORIZATION_REVOKED"
+      ],
+      "stages": [
+        {
+          "name": "Evidence",
+          "state": "pass",
+          "detail": "Initial packet valid"
+        },
+        {
+          "name": "Recompute",
+          "state": "pass",
+          "detail": "Assessment matches"
+        },
+        {
+          "name": "Bind",
+          "state": "pass",
+          "detail": "Lease digest valid"
+        },
+        {
+          "name": "Trust",
+          "state": "pass",
+          "detail": "Monitor identity valid"
+        },
+        {
+          "name": "Monitor",
+          "state": "fail",
+          "detail": "30s age / 10s TTL"
+        }
+      ],
+      "packet": {
+        "monitor_id": "fixture-monitor-01",
+        "heartbeat_age_seconds": 30,
+        "heartbeat_ttl_seconds": 10,
+        "lifecycle_state": "INVALIDATED"
+      },
+      "execution_authorized": false
+    }
+  ]
+}
