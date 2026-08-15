@@ -25,6 +25,9 @@ This directory contains detailed documentation for the Agent Security Harness fr
 |---|---|
 | [../agent-fabric-red-blue-team-spec.md](../agent-fabric-red-blue-team-spec.md) | **Original specification** - 20 STRIDE scenarios, architecture overview, threat model |
 | [CASE_STUDY_FALSE_PASS.md](CASE_STUDY_FALSE_PASS.md) | **False pass case study** - Analysis of security testing failure modes |
+| [EVIDENCE-CLASS-TAXONOMY.md](EVIDENCE-CLASS-TAXONOMY.md) | **E1-E5 evidence classes and the I0-I2 independence axis** - what a result establishes, and about which system under test |
+| [attestation-registry.md](attestation-registry.md) | **Attestation registry client** - opt-in publishing, sensitive-field stripping, no default endpoint |
+| [ATTESTATION-REGISTRY-SERVER-CONTRACT.md](ATTESTATION-REGISTRY-SERVER-CONTRACT.md) | **Registry server contract** - what a submission establishes (I0), the eight receive obligations, and offline verification that does not require trusting the operator |
 
 ## Executive Materials  
 
