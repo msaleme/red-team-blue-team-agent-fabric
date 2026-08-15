@@ -44,10 +44,15 @@ total divergences         : 0
 
 ## Finding: the track's pass condition cannot detect a canonicalisation divergence
 
-Every decision in track 1 is derived from a digest **inequality** — `mismatch = a !== b` —
-so it is true whenever the inputs differ, independent of how they were serialised. An
-implementation that gets `canonicalize` wrong therefore still produces all twelve correct
-decisions.
+Canonicalisation affects the track's 14 packet digests. Where a decision compares digests,
+both operands come from the same canonicaliser, so a consistently wrong implementation
+preserves their equality or inequality. In the other case families the decision does not
+depend on canonicalisation at all: `forged-verdict` compares claimed and recomputed states,
+`nonce-replay` checks prior consumption, `correlated-quorum` counts independent groups, and
+`silent-monitor` compares heartbeat age against a TTL.
+
+Either way, an implementation that gets `canonicalize` wrong still produces all twelve
+correct decisions.
 
 Demonstrated by re-running the implementation with a deliberately wrong canonicalisation
 (pretty-printed rather than `JSON.stringify`'s compact separators, the single most likely
