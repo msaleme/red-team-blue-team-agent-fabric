@@ -1,0 +1,114 @@
+name: Reproduction Report
+description: Report the result of independently reproducing a pinned corpus — including a result that disagrees with ours
+title: "[Reproduction] "
+labels: ["reproduction", "evidence"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Disagreement is the useful outcome.** A reproduction that matches is weak evidence:
+        both implementations may share the same wrong assumption. A reproduction that
+        *diverges* has found something, and we will publish it either way.
+
+        This is not a contribution. Nothing you post here is submitted for inclusion in the
+        repository, and you keep your own artifacts in your own repository.
+
+        Under [docs/EVIDENCE-CLASS-TAXONOMY.md](../../docs/EVIDENCE-CLASS-TAXONOMY.md), a
+        report from a **second implementation written from the published contract rather
+        than from our code** is **I1** for this harness. A run of *our* code against *your*
+        target is not — that is I0 for you, and we cannot cite it as independent.
+
+  - type: input
+    id: pinned-commit
+    attributes:
+      label: Pinned commit
+      description: The exact revision you ran against. A branch name is not a pin.
+      placeholder: "5e25bc6465ccced079ca6a6b8f54e065a1677a69"
+    validations:
+      required: true
+
+  - type: input
+    id: artifact-digest
+    attributes:
+      label: Artifact and its SHA-256
+      description: The corpus or fixture file you consumed, with its digest as you computed it.
+      placeholder: "fixtures/rcl/rcl-oracle-fixtures.v1.json — 4164151383605d9d68230d81cc9ae1dd31eb5cfb3fb1348289abf71ee64773ea"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: independence
+    attributes:
+      label: How was your implementation produced?
+      description: This determines the I-level, and it is the question that decides whether the report is citable as independent.
+      options:
+        - Written from the published contract, without reading our implementation (I1)
+        - Written after reading our implementation (I0 — still useful, say so)
+        - Ran our code against my own target (I0 for me — not independent evidence for this harness)
+        - An out-of-band sensor our code does not author (I2 — describe it below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: method
+    attributes:
+      label: What your implementation actually checks
+      description: Enough that someone could tell whether a match is meaningful or coincidental.
+      placeholder: |
+        Verifies envelope and authority signatures from the exported public keys only;
+        recomputes action and parameter digests; checks authorization and occurrence
+        linkage to the exact action; preserves the acceptance controls rather than
+        passing by rejecting everything.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      placeholder: "All 11 recorded verdicts match, and both acceptance controls are retained."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual — including every divergence
+      description: |
+        List disagreements explicitly. Do not round them off. #304 is the model: it matched
+        11/11 and *also* surfaced two undeclared fixture-contract defects, and those two are
+        the reason it counted as evidence rather than as agreement.
+      placeholder: |
+        Matched 11/11 verdicts, claim families, and reason strings.
+        Diverged on: <case> — we computed X, the recorded verdict is Y, because ...
+    validations:
+      required: true
+
+  - type: input
+    id: artifacts
+    attributes:
+      label: Your artifacts
+      description: A link to your runner and report, in your repository. We will not vendor them.
+      placeholder: "https://github.com/you/your-lab/blob/main/evidence/CROSS_EVALUATION.md"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "Runtime and version, OS, and the exact command you ran."
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Boundaries
+      options:
+        - label: This is a reproducibility report, not a contribution, and I am not submitting code or text for inclusion.
+          required: true
+        - label: My artifacts live in my own repository and I am not asking for them to be vendored here.
+          required: true
+        - label: I understand a matching result will be recorded as agreement, not as validation, and that a diverging result is more useful.
+          required: true
