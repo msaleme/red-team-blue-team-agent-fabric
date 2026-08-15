@@ -1,25 +1,56 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/msaleme/red-team-blue-team-agent-fabric/schemas/attestation-report.json",
-  "title": "Agent Security Harness Attestation Report",
-  "description": "Machine-readable attestation report for agent security test results. Compatible with A2A OATR and consumable by MoltBridge, TrustAgentAI, and custom pipelines.",
+  "$id": "https://raw.githubusercontent.com/msaleme/red-team-blue-team-agent-fabric/main/schemas/attestation-report.json",
+  "title": "Agent Action Attestation Report",
+  "description": "Provider-neutral attestation that an agent action was authorized, evaluated, and recorded. A conforming document identifies its producer via `producer`; `harness_version` is the legacy spelling retained for compatibility.",
   "type": "object",
-  "required": ["schema_version", "harness_version", "suite", "timestamp", "summary", "entries"],
+  "required": [
+    "schema_version",
+    "suite",
+    "timestamp",
+    "summary",
+    "entries"
+  ],
   "properties": {
     "schema_version": {
       "type": "string",
       "const": "1.0.0",
       "description": "Version of this attestation schema."
     },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Implementation that generated this report, e.g. 'agent-security-harness'."
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Version of that implementation."
+        }
+      },
+      "description": "Producer of this report. Provider-neutral replacement for `harness_version`."
+    },
     "harness_version": {
       "type": "string",
-      "description": "Version of the agent-security-harness that generated this report.",
-      "examples": ["3.8.0"]
+      "description": "DEPRECATED, use `producer`. Version of the producing implementation. Retained so existing documents remain valid; a provider-neutral producer emits `producer` instead.",
+      "examples": [
+        "3.8.0"
+      ]
     },
     "suite": {
       "type": "string",
       "description": "Name of the test suite that was executed.",
-      "examples": ["MCP Protocol Security Tests v3.0"]
+      "examples": [
+        "MCP Protocol Security Tests v3.0"
+      ]
     },
     "timestamp": {
       "type": "string",
@@ -29,11 +60,17 @@
     "target": {
       "type": "string",
       "description": "URL or command of the system under test.",
-      "examples": ["http://localhost:8080/mcp"]
+      "examples": [
+        "http://localhost:8080/mcp"
+      ]
     },
     "summary": {
       "type": "object",
-      "required": ["total", "passed", "failed"],
+      "required": [
+        "total",
+        "passed",
+        "failed"
+      ],
       "properties": {
         "total": {
           "type": "integer",
@@ -65,7 +102,9 @@
     },
     "entries": {
       "type": "array",
-      "items": { "$ref": "#/$defs/attestation_entry" },
+      "items": {
+        "$ref": "#/$defs/attestation_entry"
+      },
       "description": "Individual test results with attestation metadata."
     }
   },
@@ -73,31 +112,59 @@
   "$defs": {
     "attestation_entry": {
       "type": "object",
-      "required": ["test_id", "category", "result", "severity", "scope", "timestamp"],
+      "required": [
+        "test_id",
+        "category",
+        "result",
+        "severity",
+        "scope",
+        "timestamp"
+      ],
       "properties": {
         "test_id": {
           "type": "string",
           "description": "Unique test identifier.",
-          "examples": ["MCP-001", "A2A-005", "X4-021"]
+          "examples": [
+            "MCP-001",
+            "A2A-005",
+            "X4-021"
+          ]
         },
         "name": {
           "type": "string",
           "description": "Human-readable test name.",
-          "examples": ["Tool List Integrity Check"]
+          "examples": [
+            "Tool List Integrity Check"
+          ]
         },
         "category": {
           "type": "string",
           "description": "Test category or grouping.",
-          "examples": ["tool_poisoning", "capability_escalation", "payment_flow"]
+          "examples": [
+            "tool_poisoning",
+            "capability_escalation",
+            "payment_flow"
+          ]
         },
         "result": {
           "type": "string",
-          "enum": ["pass", "fail", "error", "skip"],
+          "enum": [
+            "pass",
+            "fail",
+            "error",
+            "skip"
+          ],
           "description": "Test outcome."
         },
         "severity": {
           "type": "string",
-          "enum": ["P0-Critical", "P1-High", "P2-Medium", "P3-Low", "P4-Info"],
+          "enum": [
+            "P0-Critical",
+            "P1-High",
+            "P2-Medium",
+            "P3-Low",
+            "P4-Info"
+          ],
           "description": "Severity classification of the finding."
         },
         "scope": {
@@ -125,12 +192,18 @@
         "protocol_version": {
           "type": "string",
           "description": "Wire protocol version tested.",
-          "examples": ["2024-11-05", "1.0"]
+          "examples": [
+            "2024-11-05",
+            "1.0"
+          ]
         },
         "owasp_asi": {
           "type": "string",
           "description": "OWASP Agentic Security Initiative mapping.",
-          "examples": ["ASI04", "ASI07"]
+          "examples": [
+            "ASI04",
+            "ASI07"
+          ]
         },
         "statistical": {
           "$ref": "#/$defs/statistical",
@@ -139,8 +212,12 @@
         "details": {
           "description": "Free-form evidence or structured diagnostic data.",
           "oneOf": [
-            { "type": "string" },
-            { "type": "object" }
+            {
+              "type": "string"
+            },
+            {
+              "type": "object"
+            }
           ]
         },
         "request_sent": {
@@ -156,27 +233,52 @@
     },
     "scope": {
       "type": "object",
-      "required": ["protocol", "layer"],
+      "required": [
+        "protocol",
+        "layer"
+      ],
       "properties": {
         "protocol": {
           "type": "string",
-          "enum": ["mcp", "a2a", "l402", "x402", "platform", "framework", "enterprise", "decision", "other"],
+          "enum": [
+            "mcp",
+            "a2a",
+            "l402",
+            "x402",
+            "platform",
+            "framework",
+            "enterprise",
+            "decision",
+            "other"
+          ],
           "description": "Which wire protocol or domain this test targets."
         },
         "layer": {
           "type": "string",
-          "enum": ["protocol", "operational", "decision"],
+          "enum": [
+            "protocol",
+            "operational",
+            "decision"
+          ],
           "description": "Which of the three agent security layers this test covers."
         },
         "attack_type": {
           "type": "string",
           "description": "Human-readable attack classification.",
-          "examples": ["tool injection", "capability escalation", "receipt replay"]
+          "examples": [
+            "tool injection",
+            "capability escalation",
+            "receipt replay"
+          ]
         },
         "target_component": {
           "type": "string",
           "description": "Specific endpoint, method, or feature targeted.",
-          "examples": ["tools/call", "agent-card", "payment/verify"]
+          "examples": [
+            "tools/call",
+            "agent-card",
+            "payment/verify"
+          ]
         }
       },
       "additionalProperties": false
@@ -198,7 +300,11 @@
         },
         "priority": {
           "type": "string",
-          "enum": ["immediate", "next-release", "backlog"],
+          "enum": [
+            "immediate",
+            "next-release",
+            "backlog"
+          ],
           "description": "Triage priority hint."
         }
       },
@@ -241,7 +347,9 @@
         },
         "confidence_interval": {
           "type": "array",
-          "items": { "type": "number" },
+          "items": {
+            "type": "number"
+          },
           "minItems": 2,
           "maxItems": 2,
           "description": "95% confidence interval [lower, upper]."
@@ -249,5 +357,17 @@
       },
       "additionalProperties": false
     }
-  }
+  },
+  "anyOf": [
+    {
+      "required": [
+        "producer"
+      ]
+    },
+    {
+      "required": [
+        "harness_version"
+      ]
+    }
+  ]
 }
