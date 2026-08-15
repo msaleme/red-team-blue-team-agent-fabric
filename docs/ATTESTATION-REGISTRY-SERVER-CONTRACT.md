@@ -132,7 +132,7 @@ This basis sorts keys and does not define duplicate-key rejection, Unicode norma
 number normalization. Do not relabel it RFC 8785 / JCS. If a future revision moves to JCS, the
 envelope MUST carry a version discriminator and both sides MUST be updated together.
 
-### 4.2 Known gap: the envelope cannot be verified as specified
+### 4.2 Envelope v2: carrying the public key (closed 2026-08-15, #371)
 
 **The submission carries `public_key_fingerprint` but never the public key.**
 
