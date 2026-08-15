@@ -390,3 +390,57 @@ def test_unknown_id_is_404(live_server):
     except urllib.error.HTTPError as exc:
         status = exc.code
     assert status == 404
+
+# --- Contract 4.2: the client half ------------------------------------------
+
+def test_client_emits_envelope_v2_carrying_the_public_key(monkeypatch, tmp_path):
+    """#371. v1 sent only sha256(pub)[:16], so no third party could check the
+    signature and the verification property the docs promise was unreachable."""
+    import protocol_tests.attestation_registry as reg
+
+    captured = {}
+
+    class _Resp:
+        @staticmethod
+        def read():
+            return json.dumps({"id": "abc123"}).encode()
+
+    def _fake_urlopen(req, timeout=15):
+        captured["body"] = json.loads(req.data.decode())
+        return _Resp()
+
+    monkeypatch.setenv("AGENT_SECURITY_REGISTRY_URL", "https://registry.invalid")
+    monkeypatch.setattr(reg, "urlopen", _fake_urlopen)
+    reg.publish_attestation(_report(), server_name="probe")
+
+    body = captured["body"]
+    assert body["envelope_version"] == "2"
+    assert body["public_key"].startswith("-----BEGIN PUBLIC KEY-----")
+    assert hashlib.sha256(body["public_key"].encode()).hexdigest()[:16] == (
+        body["public_key_fingerprint"]
+    ), "fingerprint must match the key it now travels with"
+
+
+def test_a_record_from_the_real_client_verifies_offline(monkeypatch):
+    """The whole point of #371: the round trip a third party actually performs."""
+    import protocol_tests.attestation_registry as reg
+
+    captured = {}
+
+    class _Resp:
+        @staticmethod
+        def read():
+            return json.dumps({"id": "abc123"}).encode()
+
+    def _fake_urlopen(req, timeout=15):
+        captured["body"] = json.loads(req.data.decode())
+        return _Resp()
+
+    monkeypatch.setenv("AGENT_SECURITY_REGISTRY_URL", "https://registry.invalid")
+    monkeypatch.setattr(reg, "urlopen", _fake_urlopen)
+    reg.publish_attestation(_report(), server_name="probe")
+
+    record = validate_and_build(captured["body"], REQUIRED)
+    assert record["signature_verifiable"] is True
+    assert record["envelope_version"] == "2"
+    assert _verify(record).returncode == 0

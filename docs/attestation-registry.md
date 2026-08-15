@@ -249,8 +249,12 @@ curl -s "$AGENT_SECURITY_REGISTRY_URL/<id>" \
   | python3 scripts/verify_attestation_record.py -
 ```
 
-**Known gap.** The submission envelope currently carries `public_key_fingerprint` but
-not the public key, so a third party cannot check the Ed25519 signature on a record
-published by today's client. Section 4.2 of the contract specifies `envelope_version`
-2, which adds `public_key`. Until the client emits it, records are stored with
-`signature_verifiable: false` and the verifier exits non-zero on them, by design.
+**Closed 2026-08-15 (#371).** The client emits `envelope_version: "2"`, carrying the
+signer's PEM public key alongside its fingerprint, so a record published today verifies
+offline against any registry. Before this, the envelope carried only
+`sha256(public_key)[:16]`: enough to confirm a key you already held, not enough to
+recover one, so the verification property described above was unreachable by anyone.
+
+A conforming server still accepts a v1 envelope and marks those records
+`signature_verifiable: false`; the verifier exits non-zero on them, by design. A record
+that cannot be checked without the operator says so about itself.
