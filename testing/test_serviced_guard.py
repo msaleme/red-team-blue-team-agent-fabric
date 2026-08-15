@@ -66,6 +66,10 @@ GUARDED = [
     # "_simulated" instead of "simulate"; the marker was write-only, so renaming it
     # to the established convention was the whole unblock.
     ("protocol_tests.framework_adapters", None, "AdapterTestResult"),
+    # #351: all three preconditions clear. Responses come from the shared
+    # http_post, nothing is synthesised despite the module name, and no non-2xx
+    # is a normal answer here.
+    ("protocol_tests.gtg1002_simulation", "GTG1002Simulation", "GTGTestResult"),
     # The shared base itself. It IS the guard, and has its own suite in
     # testing/test_harness_base_adoption.py.
     ("protocol_tests.harness_base", None, "HarnessResult"),
@@ -126,7 +130,6 @@ UNREVIEWED = {
     "crewai_cve_harness",
     "extended_thinking_harness",
     "governance_modification_harness",
-    "gtg1002_simulation",
     "harmful_output_harness",
     "incident_response_harness",
     "jailbreak_harness",
@@ -324,7 +327,7 @@ class TestCoverageListIsDerived(unittest.TestCase):
     def test_unreviewed_does_not_grow(self) -> None:
         """A tripwire on the honest number, so the backlog cannot quietly expand."""
         self.assertLessEqual(
-            len(UNREVIEWED), 25,
+            len(UNREVIEWED), 24,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
 
