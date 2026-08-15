@@ -1,6 +1,6 @@
 # The acceptance criterion that does not require the mechanism
 
-Status: draft. Five recorded instances, four systems, three authors.
+Status: draft. Five reproducible instances across multiple verification designs.
 
 ---
 
@@ -9,7 +9,11 @@ Status: draft. Five recorded instances, four systems, three authors.
 A verification system has a mechanism `M` that is supposed to do the work, and an acceptance
 criterion `A` that is supposed to establish `M` worked.
 
-**The defect is any `A` that can be satisfied while `M` is absent, broken, or never ran.**
+**A verification design is defective when its acceptance rule can report success even
+though a required mechanism is absent, broken, or never executed.**
+
+One criterion may be only part of a larger acceptance rule; the defect is a property of the
+rule as a whole, not of any single check within it.
 
 This is not a bug class in the ordinary sense. Each instance below was written by someone
 competent, reviewed, and shipped. In four of the five the author's stated purpose was
@@ -20,7 +24,8 @@ The diagnostic that catches all five is a single question:
 
 > **What is the cheapest way to satisfy this criterion without doing the work?**
 
-If the answer is "do nothing", the criterion measures nothing.
+If the cheapest way to pass is "do nothing", the criterion provides no evidence that the
+required mechanism ran. It may still measure an absence; it does not establish an operation.
 
 ---
 
@@ -32,7 +37,7 @@ If the answer is "do nothing", the criterion measures nothing.
 | 2 | Verdict-taint auditor | taint analysis | no taint found | the analysis is incomplete |
 | 3 | Decision Governance Benchmark | governance maintained | binary PASS | the case never executed |
 | 4 | Token-Bleed Benchmark | retrieval from a catalog | correct columns returned | the answer key was handed over |
-| 5 | VERITAS Omega Trust Lab | canonical serialisation | decisions reproduce | any serialisation is used |
+| 5 | VERITAS Omega Trust Lab | canonical serialisation | decisions reproduce | the demonstrated compact-versus-pretty serialisation error is used |
 
 ### 1. Absence of a detected attack, read as a control holding
 
@@ -40,13 +45,16 @@ Harness issues [#348], [#350], [#351]. Verdicts of the form `passed = not leaked
 `passed = not succeeded`. On a host that is not running, nothing leaks and nothing succeeds,
 so the control "held".
 
-Worth recording precisely: **this was repaired four times.** v4.13.1 fixed it in one harness
+Worth recording precisely: **the same defect has been addressed in four rounds so far, and
+the work is not finished.** v4.13.1 fixed it in one harness
 and defined the guard locally. #348 carried it to five more, found by reading five files. #350
 found two further modules the reading had missed. #351 derived the candidate set instead of
 reading, and remains open with 22 of the package's test-bearing harnesses still
 unreviewed for it.
 
-Each repair was correct. Each was scoped to where the author had looked.
+Each local repair was correct, and each successive round found additional unexamined sites.
+As of [#374], 22 candidate modules remained unreviewed. (The body of [#351] still states 27,
+which predates that PR.)
 
 ### 2. Absence of detected taint, read as proof of cleanliness
 
@@ -81,7 +89,7 @@ than about the model.
 
 ### 4. A benchmark that could only confirm
 
-`token-bleed-benchmark`, first commit: `route_governed` passed exactly the columns where
+`token-bleed-benchmark`, [first commit][tb-initial]: `route_governed` passed exactly the columns where
 `is_gov_id` was true — the answer key. A perfect-echo reply scored F1 1.000 at every tier. The
 governed route could not lose on precision because nothing in its input was wrong.
 
@@ -92,7 +100,7 @@ disconfirming result.
 Repaired by giving the classifier false positives the model must discriminate, then a
 false-negative rate, then a cheap lexical baseline whose README states that if the regex
 captures most of the advantage, *the honest result is about filtering labels, not governed
-metadata*.
+metadata*. The correction is [`27d20b8`][tb-fix].
 
 ### 5. A pass condition that does not require the contract
 
@@ -103,8 +111,9 @@ Every decision in the track derives from a digest **inequality** — `mismatch =
 which holds whenever the inputs differ, regardless of how they were serialised. An
 implementation that gets `canonicalize` wrong still produces all twelve correct decisions.
 
-Demonstrated rather than argued. Re-running a verified-correct independent implementation
-with a deliberately wrong canonicalisation, pretty-printed instead of compact:
+**A deliberately wrong pretty-printed serialiser changed all 14 digests while leaving all 12
+decisions unchanged.** Demonstrated rather than argued, by re-running a verified-correct
+independent implementation with that one substitution:
 
 ```
 decision-field divergences from the correct run : 0    all 12 cases still decide identically
@@ -133,8 +142,8 @@ usually a different subsystem.
 incomplete analysis produces a short findings list. Both are indistinguishable, at a glance,
 from the healthy case — and better-looking than it.
 
-**The fix generalises worse than the defect.** Instance 1 was repaired four times because
-each repair was scoped to the sites the author had read. The defect propagates by
+**The fix generalises worse than the defect.** Instance 1 has taken four rounds because each
+round was scoped to the sites its author had read. The defect propagates by
 copy-and-adapt; the repair propagates by someone remembering.
 
 ---
@@ -155,9 +164,11 @@ mechanism being present**, and every instance above lacked one at the level wher
 - instance 4 had no route that could beat the favoured one
 - instance 5 has no case whose decision depends on a digest *equality*
 
-**A third state.** Two states force every unknown into one of them, and it is always the
-favourable one. `INCONCLUSIVE` is not a nicety; it is the only way a system can report that
-it learned nothing.
+**A third state.** A binary model must either collapse unknown into PASS or FAIL, or
+represent validity somewhere outside the verdict. A binary system *can* fail closed; in the
+instances above, unknown was repeatedly absorbed into the favourable state instead.
+`INCONCLUSIVE` is the clearest way to report that the system learned nothing. An equivalent
+separate validity or execution-status field serves the same purpose.
 
 **Derive the coverage set; never hand-write it.** Instance 1 recurred because the coverage
 list was what someone had read. Instance 2 recurred because the name list was what someone
@@ -186,3 +197,5 @@ public commits and issues, which is the property this document is offering.
 [#374]: https://github.com/msaleme/red-team-blue-team-agent-fabric/pull/374
 [#375]: https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/375
 [VrtxOmega/veritas-agent-trust-lab]: https://github.com/VrtxOmega/veritas-agent-trust-lab
+[tb-initial]: https://github.com/msaleme/token-bleed-benchmark/commit/dd6e2c465ac428e231b48848cae3682e3bcc02ad
+[tb-fix]: https://github.com/msaleme/token-bleed-benchmark/commit/27d20b8d533fcab06af4da2863cb7acde32b5dad
