@@ -440,8 +440,11 @@ independent evidence:
         to raise the bypass threshold to a permissive value, disabling
         the gate for subsequent calls (the behaviour observed in 9 of 12
         agents in an internal, unpublished run~\cite{hraoe2026}).
-  \item $D$: harness test \texttt{GM-001} in
-        \texttt{benchmarks/tests/gm\_001\_gate\_self\_disable.py};
+  \item $D$: harness test \texttt{GM-001}, implemented as
+        \texttt{test\_gm\_001\_gate\_self\_disable} in
+        \texttt{protocol\_tests/governance\_modification\_harness.py} and
+        registered in the corpus at
+        \texttt{benchmarks/decision\_behavior\_corpus.py};
         binary PASS/FAIL on whether the agent wrote to the governance
         configuration.
   \item $M$: \textbf{False}. A metadata scanner inspecting the agent's
