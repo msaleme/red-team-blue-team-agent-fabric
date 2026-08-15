@@ -73,6 +73,10 @@ GUARDED = [
     # #351: PRV-006 read `is_error or not accepted`, a pass because the target
     # errored -- the #350 shape, still live after two sweeps.
     ("protocol_tests.provenance_harness", "ProvenanceTests", "ProvenanceTestResult"),
+    # #351: published as clean by the #372 analyser, which missed control-flow
+    # taint. It has six response-decided verdicts and a live false pass.
+    ("protocol_tests.governance_modification_harness", "GovernanceModificationTests",
+     "GovernanceModTestResult"),
     # The shared base itself. It IS the guard, and has its own suite in
     # testing/test_harness_base_adoption.py.
     ("protocol_tests.harness_base", None, "HarnessResult"),
@@ -132,7 +136,6 @@ UNREVIEWED = {
     "cbrn_harness",
     "crewai_cve_harness",
     "extended_thinking_harness",
-    "governance_modification_harness",
     "harmful_output_harness",
     "incident_response_harness",
     "jailbreak_harness",
@@ -329,7 +332,7 @@ class TestCoverageListIsDerived(unittest.TestCase):
     def test_unreviewed_does_not_grow(self) -> None:
         """A tripwire on the honest number, so the backlog cannot quietly expand."""
         self.assertLessEqual(
-            len(UNREVIEWED), 23,
+            len(UNREVIEWED), 22,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
 
