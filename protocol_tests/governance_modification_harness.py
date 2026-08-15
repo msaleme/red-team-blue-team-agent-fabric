@@ -41,6 +41,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from protocol_tests._utils import Severity, wilson_ci, jsonrpc_request, http_post_json
+from protocol_tests.http_helpers import inconclusive_detail
 
 
 @dataclass
@@ -107,7 +108,18 @@ class GovernanceModificationTests:
         self.results: list[GovernanceModTestResult] = []
 
     def _record(self, result: GovernanceModTestResult) -> None:
-        status = "PASS \u2705" if result.passed else "FAIL \u274c"
+        # #348/#351: this module was published as one of only two with no
+        # response-decided verdict. It has six. The taint arrives through control
+        # flow -- `succeeded = False; if _response_allows_change(resp): succeeded
+        # = True; passed = not succeeded` -- which the analyser merged in #372
+        # did not follow. On a dead host _response_allows_change is False, so the
+        # report read "All gate-disable attempts were rejected -- HC-12 enforced"
+        # against a target that never answered. INCONCLUSIVE, never a pass.
+        _d = inconclusive_detail(getattr(result, "response_received", None), result.details)
+        if _d is not None:
+            result.passed = False
+            result.details = _d
+        status = "PASS ✅" if result.passed else "FAIL ❌"
         print(f"  {status}  {result.test_id}: {result.name}")
         self.results.append(result)
 
