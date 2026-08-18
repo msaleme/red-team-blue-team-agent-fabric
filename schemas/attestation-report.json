@@ -106,6 +106,31 @@
         "$ref": "#/$defs/attestation_entry"
       },
       "description": "Individual test results with attestation metadata."
+    },
+    "evidence_class": {
+      "type": "string",
+      "enum": [
+        "E1",
+        "E2",
+        "E3",
+        "E4",
+        "E5"
+      ],
+      "description": "Evidence strength per docs/EVIDENCE-CLASS-TAXONOMY.md."
+    },
+    "independence_level": {
+      "type": "string",
+      "enum": [
+        "I0",
+        "I1",
+        "I2"
+      ],
+      "description": "Who produced the oracle, relative to system_under_test. Not a property of the record alone."
+    },
+    "system_under_test": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The system the independence_level is relative to. Required whenever independence_level is present."
     }
   },
   "additionalProperties": false,
@@ -369,5 +394,10 @@
         "harness_version"
       ]
     }
-  ]
+  ],
+  "dependentRequired": {
+    "independence_level": [
+      "system_under_test"
+    ]
+  }
 }

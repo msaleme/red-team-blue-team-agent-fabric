@@ -229,6 +229,55 @@ def _validate_registry_id(registry_id: str) -> None:
         )
 
 
+def build_record(
+    report: dict,
+    server_name: str,
+    contact: str | None = None,
+) -> dict:
+    """Build a signed envelope v2 record. Performs NO network I/O.
+
+    Split out of publish_attestation() for #384. Before this, the only code that
+    produced a signed record also POSTed it, so a record could not exist without a
+    registry -- while section 7 of the server contract says the link between two
+    records lives in the signature, not in an operator's assertion. The file-based
+    exchange the contract relies on was unreachable through the shipped API.
+
+    Returns the submission dict. Write it to a file, commit it, hand it to someone:
+    it verifies offline with scripts/verify_attestation_record.py either way.
+    """
+    _validate_server_name(server_name)
+    if contact:
+        _validate_contact(contact)
+
+    cleaned = strip_sensitive_fields(report)
+
+    payload_dict = {
+        "server_name": server_name,
+        "contact": contact,
+        "report": cleaned,
+        "published_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+    # Canonical bytes: sort_keys with DEFAULT separators, not compact and not
+    # JCS. Pinned in docs/ATTESTATION-REGISTRY-SERVER-CONTRACT.md section 4.1,
+    # because a canonicalisation that lives in one implementation is not a
+    # contract and an independent verifier reproducing it wrongly gets a valid
+    # signature that will not verify.
+    payload_bytes = json.dumps(payload_dict, sort_keys=True).encode()
+    signature = _sign_payload(payload_bytes)
+    verification_hash = hashlib.sha256(payload_bytes).hexdigest()
+
+    pub_pem = (_KEY_DIR / "signing_key_pub.pem").read_bytes()
+    return {
+        "envelope_version": "2",
+        "payload": payload_dict,
+        "signature": signature,
+        "verification_hash": verification_hash,
+        "public_key_fingerprint": hashlib.sha256(pub_pem).hexdigest()[:16],
+        "public_key": pub_pem.decode("utf-8"),
+    }
+
+
 def publish_attestation(
     report: dict,
     server_name: str,
@@ -253,53 +302,8 @@ def publish_attestation(
     Raises:
         ValueError: If server_name or contact fail validation.
     """
-    # Validate inputs (#113)
-    _validate_server_name(server_name)
-    if contact:
-        _validate_contact(contact)
-
-    # Strip ALL sensitive fields before the data leaves this machine
-    cleaned = strip_sensitive_fields(report)
-
-    payload_dict = {
-        "server_name": server_name,
-        "contact": contact,
-        "report": cleaned,
-        "published_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-    }
-
-    # Canonical bytes: sort_keys with DEFAULT separators, not compact and not
-    # JCS. Pinned in docs/ATTESTATION-REGISTRY-SERVER-CONTRACT.md section 4.1,
-    # because a canonicalisation that lives in one implementation is not a
-    # contract and an independent verifier reproducing it wrongly gets a valid
-    # signature that will not verify.
-    payload_bytes = json.dumps(payload_dict, sort_keys=True).encode()
-
-    # Sign so the registry can verify authenticity
-    signature = _sign_payload(payload_bytes)
-    verification_hash = hashlib.sha256(payload_bytes).hexdigest()
-
-    # Envelope v2 (#371): carry the public KEY, not only its fingerprint.
-    #
-    # v1 sent sha256(public_key_pem)[:16] and nothing else. A fingerprint lets
-    # someone confirm a key they already hold; it does not let them recover one.
-    # So a third party fetching a record could check that verification_hash
-    # matched the payload -- internal consistency, and nothing more -- and could
-    # verify NOTHING about who signed it. docs/attestation-registry.md states
-    # that a third party can check an entry without trusting the operator. As
-    # shipped, nobody could. An operator could author a payload, compute a
-    # matching hash, and serve a record indistinguishable from a genuine one.
-    pub_pem = (_KEY_DIR / "signing_key_pub.pem").read_bytes()
-    submission = {
-        "envelope_version": "2",
-        "payload": payload_dict,
-        "signature": signature,
-        "verification_hash": verification_hash,
-        # Retained so a server can reject a public_key that does not match it,
-        # and so existing consumers of the field keep working.
-        "public_key_fingerprint": hashlib.sha256(pub_pem).hexdigest()[:16],
-        "public_key": pub_pem.decode("utf-8"),
-    }
+    submission = build_record(report, server_name, contact)
+    verification_hash = submission["verification_hash"]
 
     endpoint = resolve_registry_endpoint()
 
