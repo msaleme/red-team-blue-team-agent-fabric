@@ -47,10 +47,13 @@ def test_report_states_independence_and_system_under_test():
     assert r["system_under_test"] == "agent-security-harness"
 
 
-def test_independence_defaults_to_i0_but_still_needs_a_named_system():
-    """The default is I0, not 'absent'. A bare level is still rejected."""
-    with pytest.raises(ValueError, match="system_under_test is required"):
-        _report(system_under_test=None)
+def test_default_states_no_claim_rather_than_defaulting_to_i0():
+    """Defaulting to I0 would require inventing a system under test to attach it
+    to, which is the manufactured claim this change removes from the server. An
+    absence must stay an absence."""
+    r = _report()
+    assert "independence_level" not in r
+    assert "system_under_test" not in r
 
 
 def test_i_level_without_system_under_test_is_rejected():
@@ -76,14 +79,14 @@ def test_every_taxonomy_value_is_accepted():
 # --- the validator enforces the taxonomy rule -----------------------------
 
 def test_validator_flags_a_bare_independence_level():
-    r = _report(system_under_test="x")
+    r = _report(independence_level="I0", system_under_test="x")
     r.pop("system_under_test")
     errs = validate_attestation_report(r)
     assert any("system_under_test is missing" in e for e in errs), errs
 
 
 def test_validator_flags_an_invalid_level_that_bypassed_the_generator():
-    r = _report(system_under_test="x")
+    r = _report(independence_level="I0", system_under_test="x")
     r["independence_level"] = "I7"
     assert any("invalid value" in e for e in errs) if (errs := validate_attestation_report(r)) else False
 
@@ -147,7 +150,8 @@ def test_verifier_rejects_a_tampered_record(tmp_path):
     """Negative control. A verifier that only ever passes proves nothing."""
     from protocol_tests.attestation_registry import build_record
 
-    rec = build_record(_report(system_under_test="x"), server_name="unit test target")
+    rec = build_record(_report(independence_level="I0", system_under_test="x"),
+                       server_name="unit test target")
     rec["payload"]["report"]["summary"]["passed"] = 999
     path = tmp_path / "tampered.json"
     path.write_text(json.dumps(rec))

@@ -111,10 +111,13 @@ def verify(record: dict) -> bool:
         sut = record.get("system_under_test")
         source = "envelope top level, NOT covered by the signature"
     if level is None:
-        level, sut, source = "unstated", "unstated", "absent"
+        line(NOTE, "this record makes NO independence claim: neither "
+                   "independence_level nor system_under_test is present. That is "
+                   "an absence, not an I0 result.")
+        level, sut = None, "unstated"
     else:
         line(NOTE, f"independence fields read from: {source}")
-    sut = sut or "unstated"
+        sut = sut or "unstated"
     if level == "I0":
         line(NOTE, f"independence_level I0, system under test '{sut}'. The submitter authored "
                    f"the oracle. A passing signature proves the record was not altered. It "

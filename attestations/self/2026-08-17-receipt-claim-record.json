@@ -11,7 +11,7 @@
       },
       "harness_version": "4.15.0",
       "suite": "receipt-claim",
-      "timestamp": "2026-08-18T02:23:58.449387+00:00",
+      "timestamp": "2026-08-18T02:26:40.602977+00:00",
       "summary": {
         "total": 11,
         "passed": 11,
@@ -28,7 +28,7 @@
             "layer": "operational",
             "attack_type": "receipt claim"
           },
-          "timestamp": "2026-08-18T02:23:58.449204+00:00",
+          "timestamp": "2026-08-18T02:26:40.602847+00:00",
           "name": "Omitted mandatory evidence",
           "owasp_asi": "ASI09",
           "details": "envelope_valid=True; claim verdict=reject (occurrence: missing evidence)",
@@ -48,7 +48,7 @@
             "layer": "operational",
             "attack_type": "receipt claim"
           },
-          "timestamp": "2026-08-18T02:23:58.449226+00:00",
+          "timestamp": "2026-08-18T02:26:40.602864+00:00",
           "name": "Substituted evidence, re-signed envelope",
           "owasp_asi": "ASI09",
           "details": "envelope_valid=True; claim verdict=reject (check: checker attestation does not verify (substituted or forged))",
@@ -68,7 +68,7 @@
             "layer": "operational",
             "attack_type": "receipt claim"
           },
-          "timestamp": "2026-08-18T02:23:58.449234+00:00",
+          "timestamp": "2026-08-18T02:26:40.602870+00:00",
           "name": "Stale checker transcript",
           "owasp_asi": "ASI09",
           "details": "envelope_valid=True; claim verdict=reject (check: stale transcript (outside freshness window))",
@@ -88,7 +88,7 @@
             "layer": "operational",
             "attack_type": "receipt claim"
           },
-          "timestamp": "2026-08-18T02:23:58.449239+00:00",
+          "timestamp": "2026-08-18T02:26:40.602874+00:00",
           "name": "Check bound to the wrong tool-set digest",
           "owasp_asi": "ASI09",
           "details": "envelope_valid=True; claim verdict=reject (check: result bound to the wrong tool-set digest)",
@@ -108,7 +108,7 @@
             "layer": "operational",
             "attack_type": "receipt claim"
           },
-          "timestamp": "2026-08-18T02:23:58.449243+00:00",
+          "timestamp": "2026-08-18T02:26:40.602877+00:00",
           "name": "Authorization bound to different parameters",
           "owasp_asi": "ASI09",
           "details": "envelope_valid=True; claim verdict=reject (authorization: params do not match the action)",
@@ -128,7 +128,7 @@
             "layer": "operational",
             "attack_type": "receipt claim"
           },
-          "timestamp": "2026-08-18T02:23:58.449247+00:00",
+          "timestamp": "2026-08-18T02:26:40.602879+00:00",
           "name": "Execution ack bound to another action",
           "owasp_asi": "ASI09",
           "details": "envelope_valid=True; claim verdict=reject (occurrence: acknowledgment bound to another action)",
@@ -148,7 +148,7 @@
             "layer": "operational",
             "attack_type": "receipt claim"
           },
-          "timestamp": "2026-08-18T02:23:58.449251+00:00",
+          "timestamp": "2026-08-18T02:26:40.602882+00:00",
           "name": "Emitter self-assertion, no independent attestation",
           "owasp_asi": "ASI09",
           "details": "envelope_valid=True; claim verdict=reject (check: attested by the emitter, not the checker authority)",
@@ -168,7 +168,7 @@
             "layer": "operational",
             "attack_type": "receipt claim"
           },
-          "timestamp": "2026-08-18T02:23:58.449258+00:00",
+          "timestamp": "2026-08-18T02:26:40.602884+00:00",
           "name": "Fully-supported receipt accepted (control)",
           "owasp_asi": "ASI09",
           "details": "envelope_valid=True; claim verdict=accept",
@@ -188,7 +188,7 @@
             "layer": "operational",
             "attack_type": "receipt claim"
           },
-          "timestamp": "2026-08-18T02:23:58.449265+00:00",
+          "timestamp": "2026-08-18T02:26:40.602887+00:00",
           "name": "Wired MCP-019 check (clean) accepted",
           "owasp_asi": "ASI09",
           "details": "envelope_valid=True; claim verdict=accept (all four properties independently supported); expected accept",
@@ -208,7 +208,7 @@
             "layer": "operational",
             "attack_type": "receipt claim"
           },
-          "timestamp": "2026-08-18T02:23:58.449269+00:00",
+          "timestamp": "2026-08-18T02:26:40.602891+00:00",
           "name": "Wired MCP-019 check (composite found) rejected",
           "owasp_asi": "ASI09",
           "details": "envelope_valid=True; claim verdict=reject (check: recorded output is not a pass); expected reject",
@@ -228,7 +228,7 @@
             "layer": "operational",
             "attack_type": "receipt claim"
           },
-          "timestamp": "2026-08-18T02:23:58.449273+00:00",
+          "timestamp": "2026-08-18T02:26:40.602894+00:00",
           "name": "Wired MCP-019 check bound to wrong tool set rejected",
           "owasp_asi": "ASI09",
           "details": "envelope_valid=True; claim verdict=reject (check: result bound to the wrong tool-set digest); expected reject",
@@ -244,10 +244,10 @@
       "system_under_test": "agent-security-harness receipt-claim suite",
       "evidence_class": "E2"
     },
-    "published_at": "2026-08-18T02:24:09Z"
+    "published_at": "2026-08-18T02:26:40Z"
   },
-  "signature": "a8e38e9895137f34b3005759ad36a452ef8fdf4f41c6e2e4964299bdf8bacdfd2de1f7b9bd8b958b1a4ea428427c1461ac495c4ba24bb8f68183ae75c886c20e",
-  "verification_hash": "8b7bea79421da5f2bb578b9bb5844367d1cd3551a00ee5f6e50dc919caaaf6de",
+  "signature": "1ddae064a5a046c3a668cf51d71cebd669702c2eab480215c75713c80785be765dd793c3b1342c8e1e438165cf6fbec7f5ad62f70be79fde810f3b43c1417f00",
+  "verification_hash": "48235d1b77d097f37dd88cd5716e0bcf9a6829cf7acb113404cbbfd51bb9a5ff",
   "public_key_fingerprint": "205ee7a00ca4d29e",
   "public_key": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAHTF118NnBOVzidkFPC4UpfmC8SBmKUpJfTmed8zytP4=\n-----END PUBLIC KEY-----\n"
 }

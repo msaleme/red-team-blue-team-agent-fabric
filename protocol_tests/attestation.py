@@ -149,7 +149,7 @@ def generate_attestation_report(
     harness_version: str,
     target: Optional[str] = None,
     evidence_class: Optional[str] = None,
-    independence_level: str = "I0",
+    independence_level: Optional[str] = None,
     system_under_test: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build a complete attestation report dict.
@@ -162,6 +162,12 @@ def generate_attestation_report(
 
     An I-level is relative to a named system under test, so passing one without
     the other is rejected rather than silently recorded.
+
+    The default is to state NO independence claim rather than to default to I0.
+    Defaulting to I0 would require inventing a system under test to attach it to,
+    and an operator-invented system under test is the same manufactured claim this
+    change removes from the server. A record that makes no claim should be visibly
+    silent; verify_attestation_record.py reports the absence explicitly.
     """
     if independence_level is not None and independence_level not in INDEPENDENCE_LEVELS:
         raise ValueError(
