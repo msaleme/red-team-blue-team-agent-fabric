@@ -114,17 +114,23 @@ def verify(record: dict) -> bool:
         line(NOTE, "this record makes NO independence claim: neither "
                    "independence_level nor system_under_test is present. That is "
                    "an absence, not an I0 result.")
-        level, sut = None, "unstated"
     else:
         line(NOTE, f"independence fields read from: {source}")
         sut = sut or "unstated"
-    if level == "I0":
+    if level is None:
+        pass  # already reported above; do not also describe a level that is absent
+    elif level == "I0":
         line(NOTE, f"independence_level I0, system under test '{sut}'. The submitter authored "
                    f"the oracle. A passing signature proves the record was not altered. It "
                    f"proves NOTHING about the target.")
+    elif sut == "unstated":
+        line(NOTE, f"independence_level '{level}' with NO named system under test. The axis is "
+                   f"relative, so this is not a claim.")
     else:
-        line(NOTE, f"independence_level '{level}' relative to system under test '{sut}'. An "
-                   f"I-level with no named system under test is not a claim.")
+        line(NOTE, f"independence_level {level} relative to system under test '{sut}'. The oracle "
+                   f"was NOT produced by the author of that system. A reader must still confirm "
+                   f"the implementation separation the level asserts; this record states it, it "
+                   f"does not prove it.")
 
     if record.get("signature_verifiable") is False:
         line(NOTE, "the registry itself reports signature_verifiable: false")
