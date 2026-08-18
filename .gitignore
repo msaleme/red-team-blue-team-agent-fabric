@@ -64,3 +64,6 @@ november-meeting-extracted.txt
 *.fdb_latexmk
 *.synctex.gz
 *.pdf
+
+# Attestation records are deliverables, not run output. #384
+!attestations/**/*.json

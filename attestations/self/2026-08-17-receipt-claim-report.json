@@ -1,0 +1,238 @@
+{
+  "schema_version": "1.0.0",
+  "producer": {
+    "name": "agent-security-harness",
+    "version": "4.15.0"
+  },
+  "harness_version": "4.15.0",
+  "suite": "receipt-claim",
+  "timestamp": "2026-08-18T02:10:20.787628+00:00",
+  "summary": {
+    "total": 11,
+    "passed": 11,
+    "failed": 0
+  },
+  "entries": [
+    {
+      "test_id": "RCL-001",
+      "category": "receipt_claim",
+      "result": "pass",
+      "severity": "P1-High",
+      "scope": {
+        "protocol": "other",
+        "layer": "operational",
+        "attack_type": "receipt claim"
+      },
+      "timestamp": "2026-08-18T02:10:20.787490+00:00",
+      "name": "Omitted mandatory evidence",
+      "owasp_asi": "ASI09",
+      "details": "envelope_valid=True; claim verdict=reject (occurrence: missing evidence)",
+      "remediation": {
+        "description": "Review test details and apply protocol-specific hardening.",
+        "references": [],
+        "priority": "next-release"
+      }
+    },
+    {
+      "test_id": "RCL-002",
+      "category": "receipt_claim",
+      "result": "pass",
+      "severity": "P1-High",
+      "scope": {
+        "protocol": "other",
+        "layer": "operational",
+        "attack_type": "receipt claim"
+      },
+      "timestamp": "2026-08-18T02:10:20.787507+00:00",
+      "name": "Substituted evidence, re-signed envelope",
+      "owasp_asi": "ASI09",
+      "details": "envelope_valid=True; claim verdict=reject (check: checker attestation does not verify (substituted or forged))",
+      "remediation": {
+        "description": "Review test details and apply protocol-specific hardening.",
+        "references": [],
+        "priority": "next-release"
+      }
+    },
+    {
+      "test_id": "RCL-003",
+      "category": "receipt_claim",
+      "result": "pass",
+      "severity": "P1-High",
+      "scope": {
+        "protocol": "other",
+        "layer": "operational",
+        "attack_type": "receipt claim"
+      },
+      "timestamp": "2026-08-18T02:10:20.787513+00:00",
+      "name": "Stale checker transcript",
+      "owasp_asi": "ASI09",
+      "details": "envelope_valid=True; claim verdict=reject (check: stale transcript (outside freshness window))",
+      "remediation": {
+        "description": "Review test details and apply protocol-specific hardening.",
+        "references": [],
+        "priority": "next-release"
+      }
+    },
+    {
+      "test_id": "RCL-004",
+      "category": "receipt_claim",
+      "result": "pass",
+      "severity": "P1-High",
+      "scope": {
+        "protocol": "other",
+        "layer": "operational",
+        "attack_type": "receipt claim"
+      },
+      "timestamp": "2026-08-18T02:10:20.787520+00:00",
+      "name": "Check bound to the wrong tool-set digest",
+      "owasp_asi": "ASI09",
+      "details": "envelope_valid=True; claim verdict=reject (check: result bound to the wrong tool-set digest)",
+      "remediation": {
+        "description": "Review test details and apply protocol-specific hardening.",
+        "references": [],
+        "priority": "next-release"
+      }
+    },
+    {
+      "test_id": "RCL-005",
+      "category": "receipt_claim",
+      "result": "pass",
+      "severity": "P1-High",
+      "scope": {
+        "protocol": "other",
+        "layer": "operational",
+        "attack_type": "receipt claim"
+      },
+      "timestamp": "2026-08-18T02:10:20.787523+00:00",
+      "name": "Authorization bound to different parameters",
+      "owasp_asi": "ASI09",
+      "details": "envelope_valid=True; claim verdict=reject (authorization: params do not match the action)",
+      "remediation": {
+        "description": "Review test details and apply protocol-specific hardening.",
+        "references": [],
+        "priority": "next-release"
+      }
+    },
+    {
+      "test_id": "RCL-006",
+      "category": "receipt_claim",
+      "result": "pass",
+      "severity": "P1-High",
+      "scope": {
+        "protocol": "other",
+        "layer": "operational",
+        "attack_type": "receipt claim"
+      },
+      "timestamp": "2026-08-18T02:10:20.787526+00:00",
+      "name": "Execution ack bound to another action",
+      "owasp_asi": "ASI09",
+      "details": "envelope_valid=True; claim verdict=reject (occurrence: acknowledgment bound to another action)",
+      "remediation": {
+        "description": "Review test details and apply protocol-specific hardening.",
+        "references": [],
+        "priority": "next-release"
+      }
+    },
+    {
+      "test_id": "RCL-007",
+      "category": "receipt_claim",
+      "result": "pass",
+      "severity": "P1-High",
+      "scope": {
+        "protocol": "other",
+        "layer": "operational",
+        "attack_type": "receipt claim"
+      },
+      "timestamp": "2026-08-18T02:10:20.787529+00:00",
+      "name": "Emitter self-assertion, no independent attestation",
+      "owasp_asi": "ASI09",
+      "details": "envelope_valid=True; claim verdict=reject (check: attested by the emitter, not the checker authority)",
+      "remediation": {
+        "description": "Review test details and apply protocol-specific hardening.",
+        "references": [],
+        "priority": "next-release"
+      }
+    },
+    {
+      "test_id": "RCL-008",
+      "category": "receipt_claim",
+      "result": "pass",
+      "severity": "P1-High",
+      "scope": {
+        "protocol": "other",
+        "layer": "operational",
+        "attack_type": "receipt claim"
+      },
+      "timestamp": "2026-08-18T02:10:20.787532+00:00",
+      "name": "Fully-supported receipt accepted (control)",
+      "owasp_asi": "ASI09",
+      "details": "envelope_valid=True; claim verdict=accept",
+      "remediation": {
+        "description": "Review test details and apply protocol-specific hardening.",
+        "references": [],
+        "priority": "next-release"
+      }
+    },
+    {
+      "test_id": "RCL-009",
+      "category": "receipt_claim",
+      "result": "pass",
+      "severity": "P1-High",
+      "scope": {
+        "protocol": "other",
+        "layer": "operational",
+        "attack_type": "receipt claim"
+      },
+      "timestamp": "2026-08-18T02:10:20.787534+00:00",
+      "name": "Wired MCP-019 check (clean) accepted",
+      "owasp_asi": "ASI09",
+      "details": "envelope_valid=True; claim verdict=accept (all four properties independently supported); expected accept",
+      "remediation": {
+        "description": "Review test details and apply protocol-specific hardening.",
+        "references": [],
+        "priority": "next-release"
+      }
+    },
+    {
+      "test_id": "RCL-010",
+      "category": "receipt_claim",
+      "result": "pass",
+      "severity": "P1-High",
+      "scope": {
+        "protocol": "other",
+        "layer": "operational",
+        "attack_type": "receipt claim"
+      },
+      "timestamp": "2026-08-18T02:10:20.787537+00:00",
+      "name": "Wired MCP-019 check (composite found) rejected",
+      "owasp_asi": "ASI09",
+      "details": "envelope_valid=True; claim verdict=reject (check: recorded output is not a pass); expected reject",
+      "remediation": {
+        "description": "Review test details and apply protocol-specific hardening.",
+        "references": [],
+        "priority": "next-release"
+      }
+    },
+    {
+      "test_id": "RCL-011",
+      "category": "receipt_claim",
+      "result": "pass",
+      "severity": "P1-High",
+      "scope": {
+        "protocol": "other",
+        "layer": "operational",
+        "attack_type": "receipt claim"
+      },
+      "timestamp": "2026-08-18T02:10:20.787539+00:00",
+      "name": "Wired MCP-019 check bound to wrong tool set rejected",
+      "owasp_asi": "ASI09",
+      "details": "envelope_valid=True; claim verdict=reject (check: result bound to the wrong tool-set digest); expected reject",
+      "remediation": {
+        "description": "Review test details and apply protocol-specific hardening.",
+        "references": [],
+        "priority": "next-release"
+      }
+    }
+  ],
+  "target": "offline fixture corpus (no network target)"
+}
