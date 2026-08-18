@@ -162,3 +162,54 @@ def test_verifier_rejects_a_tampered_record(tmp_path):
     )
     assert out.returncode == 1, out.stdout
     assert "VERIFICATION FAILED" in out.stdout
+
+
+# --- the I1 case: a record about someone ELSE's system ---------------------
+
+def _run_verifier(path):
+    return subprocess.run(
+        [sys.executable, str(REPO / "scripts" / "verify_attestation_record.py"), str(path)],
+        capture_output=True, text=True,
+    )
+
+
+def test_committed_i1_record_verifies_and_names_the_other_partys_system():
+    """The first I1 record: our independent recomputation of the VERITAS public
+    contract. I1 is relative to THEIR system, not ours."""
+    rec = REPO / "attestations" / "external" / "2026-08-17-veritas-recomputation-record.json"
+    assert rec.exists(), "the I1 record must stay committed"
+    report = json.loads(rec.read_text())["payload"]["report"]
+    assert report["independence_level"] == "I1"
+    assert "veritas-agent-trust-lab" in report["system_under_test"]
+    # pinned, so the claim is checkable against a specific baseline
+    assert "0f3c71fd" in report["system_under_test"]
+
+    out = _run_verifier(rec)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "independence_level I1" in out.stdout
+    assert "NOT produced by the author of that system" in out.stdout
+
+
+def test_the_three_independence_states_are_distinguishable(tmp_path):
+    """I0, I1 and 'no claim' must each print something different. An absence that
+    reads like an I0 result is the defect this whole change removes."""
+    from protocol_tests.attestation_registry import build_record
+
+    cases = {}
+    for label, kw in (
+        ("none", {}),
+        ("i0", {"independence_level": "I0", "system_under_test": "our own suite"}),
+        ("i1", {"independence_level": "I1", "system_under_test": "someone else's system"}),
+    ):
+        p = tmp_path / f"{label}.json"
+        p.write_text(json.dumps(build_record(_report(**kw), server_name="state test")))
+        out = _run_verifier(p)
+        assert out.returncode == 0, out.stdout
+        cases[label] = out.stdout
+
+    assert "makes NO independence claim" in cases["none"]
+    assert "independence_level I0" in cases["i0"]
+    assert "independence_level I1" in cases["i1"]
+    # and the absent case must never be described as a level
+    assert "independence_level 'None'" not in cases["none"]
+    assert len({cases["none"], cases["i0"], cases["i1"]}) == 3
