@@ -95,9 +95,26 @@ def verify(record: dict) -> bool:
     line(NOTE, "key-to-identity binding is OUT OF SCOPE. The checks above prove a holder of "
                "this key signed this payload. They do not prove whose key it is.")
 
-    # Step 6: what the record actually establishes
-    level = record.get("independence_level", "unstated")
-    sut = record.get("system_under_test", "unstated")
+    # Step 6: what the record actually establishes.
+    #
+    # #384: read the SIGNED location first. These fields live inside
+    # payload.report, which is covered by the signature; a server also echoes them
+    # at the envelope top level, where they are operator metadata a verifier cannot
+    # check. Preferring the top level meant a file-based record -- the whole point
+    # of contract section 7 -- reported its independence as 'unstated'.
+    signed_report = (record.get("payload") or {}).get("report") or {}
+    level = signed_report.get("independence_level")
+    sut = signed_report.get("system_under_test")
+    source = "signed payload"
+    if level is None:
+        level = record.get("independence_level")
+        sut = record.get("system_under_test")
+        source = "envelope top level, NOT covered by the signature"
+    if level is None:
+        level, sut, source = "unstated", "unstated", "absent"
+    else:
+        line(NOTE, f"independence fields read from: {source}")
+    sut = sut or "unstated"
     if level == "I0":
         line(NOTE, f"independence_level I0, system under test '{sut}'. The submitter authored "
                    f"the oracle. A passing signature proves the record was not altered. It "

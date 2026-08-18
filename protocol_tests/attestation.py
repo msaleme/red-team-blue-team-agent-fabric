@@ -19,10 +19,17 @@ __all__ = [
     "generate_attestation_report",
     "AttestationEntry",
     "SCHEMA_VERSION",
+    "EVIDENCE_CLASSES",
+    "INDEPENDENCE_LEVELS",
 ]
 
 SCHEMA_VERSION = "1.0.0"
 SCHEMA_PATH = Path(__file__).parent.parent / "schemas" / "attestation-report.json"
+
+# docs/EVIDENCE-CLASS-TAXONOMY.md. Kept here so a report can state its own class
+# rather than having a server assign one outside the signature (#384).
+EVIDENCE_CLASSES = ("E1", "E2", "E3", "E4", "E5")
+INDEPENDENCE_LEVELS = ("I0", "I1", "I2")
 
 # ---------------------------------------------------------------------------
 # Scope/remediation lookup for known test IDs
@@ -141,8 +148,35 @@ def generate_attestation_report(
     suite: str,
     harness_version: str,
     target: Optional[str] = None,
+    evidence_class: Optional[str] = None,
+    independence_level: str = "I0",
+    system_under_test: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Build a complete attestation report dict."""
+    """Build a complete attestation report dict.
+
+    `independence_level` and `system_under_test` land INSIDE the report, which is
+    the signed payload. Before #384 neither field existed here, so the only source
+    of them was the receiving server -- assigned server-side, outside the
+    signature, which is the operator assertion section 7 of the registry contract
+    exists to avoid.
+
+    An I-level is relative to a named system under test, so passing one without
+    the other is rejected rather than silently recorded.
+    """
+    if independence_level is not None and independence_level not in INDEPENDENCE_LEVELS:
+        raise ValueError(
+            f"independence_level must be one of {INDEPENDENCE_LEVELS}, got {independence_level!r}"
+        )
+    if evidence_class is not None and evidence_class not in EVIDENCE_CLASSES:
+        raise ValueError(
+            f"evidence_class must be one of {EVIDENCE_CLASSES}, got {evidence_class!r}"
+        )
+    if independence_level is not None and not system_under_test:
+        raise ValueError(
+            "system_under_test is required whenever independence_level is set. "
+            "An I-level with no named system under test is not a claim "
+            "(docs/EVIDENCE-CLASS-TAXONOMY.md)."
+        )
     passed = sum(1 for e in entries if e.get("result") == "pass")
     failed = sum(1 for e in entries if e.get("result") == "fail")
     errored = sum(1 for e in entries if e.get("result") == "error")
@@ -171,6 +205,11 @@ def generate_attestation_report(
         report["summary"]["skipped"] = skipped
     if target:
         report["target"] = target
+    if independence_level is not None:
+        report["independence_level"] = independence_level
+        report["system_under_test"] = system_under_test
+    if evidence_class is not None:
+        report["evidence_class"] = evidence_class
 
     return report
 
@@ -237,6 +276,15 @@ def validate_attestation_report(report: Dict[str, Any]) -> List[str]:
             errors.append(f"{path}: {error.message}")
 
     except ImportError:
+        # #384: this fallback is weaker than the schema, and before this change it
+        # returned the same empty list, so "no errors" meant either "validated" or
+        # "the validator was not installed". A criterion that reports success
+        # without the mechanism having run is the defect class this repo tracks,
+        # so the degradation is now stated rather than silent.
+        errors.append(
+            "NOT SCHEMA-VALIDATED: jsonschema is not installed, so only basic "
+            "structural checks ran. Install jsonschema for real validation."
+        )
         # Fallback: basic structural validation
         for field in ("schema_version", "harness_version", "suite", "timestamp", "summary", "entries"):
             if field not in report:
@@ -257,6 +305,22 @@ def validate_attestation_report(report: Dict[str, Any]) -> List[str]:
                         errors.append(f"entries[{i}].scope: missing 'protocol'")
                     if "layer" not in scope:
                         errors.append(f"entries[{i}].scope: missing 'layer'")
+
+    # Taxonomy rule, enforced regardless of which path above ran: an I-level is a
+    # property of the relationship between a record and a NAMED system under test,
+    # so a bare level is not a claim (docs/EVIDENCE-CLASS-TAXONOMY.md).
+    lvl = report.get("independence_level")
+    if lvl is not None:
+        if lvl not in INDEPENDENCE_LEVELS:
+            errors.append(f"independence_level: invalid value {lvl!r}")
+        if not report.get("system_under_test"):
+            errors.append(
+                "independence_level is set but system_under_test is missing. "
+                "An I-level with no named system under test is not a claim."
+            )
+    ec = report.get("evidence_class")
+    if ec is not None and ec not in EVIDENCE_CLASSES:
+        errors.append(f"evidence_class: invalid value {ec!r}")
 
     return errors
 

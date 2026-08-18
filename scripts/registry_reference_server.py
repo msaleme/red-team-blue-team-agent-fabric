@@ -210,9 +210,26 @@ def validate_and_build(submission: dict, required_keys: list[str]) -> dict:
         "public_key_fingerprint": fingerprint,
         "envelope_version": submission.get("envelope_version", "1"),
         "signature_verifiable": signature_verifiable,
+        # #384: prefer what the submitter SIGNED. Before this, both of these were
+        # assigned here, outside the signature -- so the independence claim existed
+        # only as operator metadata a verifier could not check, which is the
+        # assertion contract section 7 exists to avoid. The registry classification
+        # stays I0 per section 1 (a submission establishes I0 regardless of who
+        # sent it), but the system under test now comes from inside the signature
+        # when the report states it, and the record says which.
         "evidence_class": report.get("evidence_class", "E1"),
+        "evidence_class_source": (
+            "signed_payload" if report.get("evidence_class") else "server_default"
+        ),
         "independence_level": "I0",
-        "system_under_test": server_name,
+        "independence_level_basis": (
+            "contract section 1: a submission establishes I0 regardless of submitter"
+        ),
+        "signed_independence_level": report.get("independence_level"),
+        "system_under_test": report.get("system_under_test") or server_name,
+        "system_under_test_source": (
+            "signed_payload" if report.get("system_under_test") else "server_assigned"
+        ),
         "received_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "claim_label": CLAIM_LABEL,
     }
