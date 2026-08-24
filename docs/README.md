@@ -26,6 +26,7 @@ This directory contains detailed documentation for the Agent Security Harness fr
 | [../agent-fabric-red-blue-team-spec.md](../agent-fabric-red-blue-team-spec.md) | **Original specification** - 20 STRIDE scenarios, architecture overview, threat model |
 | [CASE_STUDY_FALSE_PASS.md](CASE_STUDY_FALSE_PASS.md) | **False pass case study** - Analysis of security testing failure modes |
 | [VERIFICATION-DESIGN-DEFECT.md](VERIFICATION-DESIGN-DEFECT.md) | **Acceptance criteria satisfiable without the mechanism** - five recorded instances across four systems and three authors, with the diagnostic question and the remedies that held |
+| [research/DIAGNOSTIC-AGENT-CONTROLS-2026-08.md](research/DIAGNOSTIC-AGENT-CONTROLS-2026-08.md) | Private research note: vendor-neutral evaluation design for production diagnostic-agent authority and receipts |
 | [REPRODUCING.md](REPRODUCING.md) | **Independent reproduction** - what counts as I1, the pinned RCL corpus, and the commitment to publish contradicting results |
 | [EVIDENCE-CLASS-TAXONOMY.md](EVIDENCE-CLASS-TAXONOMY.md) | **E1-E5 evidence classes and the I0-I2 independence axis** - what a result establishes, and about which system under test |
 | [attestation-registry.md](attestation-registry.md) | **Attestation registry client** - opt-in publishing, sensitive-field stripping, no default endpoint |
