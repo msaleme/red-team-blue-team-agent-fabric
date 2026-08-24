@@ -2,8 +2,8 @@
 
 **Status:** private research note and test-design input. Not a security assessment of any named product.
 
-**Collected:** 2026-08-23  
-**Author:** Michael K. Saleme  
+**Collected:** 2026-08-23
+**Author:** Michael K. Saleme
 **Scope:** public vendor and author statements plus Hacker News discussion. No target was tested, no
 vendor claim was independently reproduced, and this note makes no claim that a named system is
 secure or insecure.
