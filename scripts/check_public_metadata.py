@@ -239,14 +239,49 @@ def check_surface(label: str, text: str, want: dict[str, str]) -> list[str]:
     return problems
 
 
+# A description may state one test count or two. When it states two, the
+# release figure is the one this check is about: the workflow compares against
+# the tree at the latest release tag, so the main-branch figure is a claim about
+# something else entirely. The description grew to this shape:
+#
+#     "<main count> executable tests on main, <release count> in the vX.Y.Z release"
+#
+# re.search returns the FIRST match, so a bare "<N> executable tests" pattern
+# read the MAIN count and compared it against the release tree, which of course
+# holds the release count. The description was correct and the check was wrong,
+# and it failed that way on two consecutive scheduled runs (2026-08-17 and
+# 2026-08-24) before anyone looked at it.
+#
+# (Figures are described rather than quoted here, for the same reason the module
+# docstring gives: a literal count in a live file is what
+# test_no_stale_test_count_anywhere exists to catch, and quoting the main count
+# in a comment would go stale the next time main's count moves.)
+#
+# A check that fails on a true statement gets muted. That is the same reasoning
+# that made the version check presence-scoped rather than exclusive above, and
+# the fix is the same shape: narrow what the check reads instead of asking the
+# honest text to get worse. Naming both counts is more informative than naming
+# one, so the parser learns the phrasing rather than the description losing it.
+RELEASE_COUNT_RE = re.compile(
+    r"(\d{3,4})\s+(?:executable\s+tests\s+)?in the v\d+\.\d+\.\d+ release")
+
+# Fallback for a description that names a single count, which is the shape this
+# check was written against and still the shape of the two remote READMEs.
+BARE_COUNT_RE = re.compile(r"(\d{3,4})\s+executable tests")
+
+
 def extract(description: str) -> tuple[str | None, str | None]:
-    """Pull the test count and version out of the description.
+    """Pull the release-facing test count and version out of the description.
 
     Returns (count, version), either of which may be None when the description
     does not state it. A missing field is a failure, not a pass: the description
     is expected to carry both.
+
+    When the description names both a main-branch and a release count, this
+    returns the RELEASE one, because the release tree is what it is compared
+    against. See RELEASE_COUNT_RE above.
     """
-    c = re.search(r"(\d{3,4})\s+executable tests", description)
+    c = RELEASE_COUNT_RE.search(description) or BARE_COUNT_RE.search(description)
     v = re.search(r"\bv(\d+\.\d+\.\d+)\b", description)
     return (c.group(1) if c else None, v.group(1) if v else None)
 
