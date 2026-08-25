@@ -62,6 +62,30 @@ class TestExtract(unittest.TestCase):
         """'603' alone is not a count claim; the unit has to be present."""
         self.assertIsNone(cpm.extract("603 things happened here")[0])
 
+    def test_prefers_the_release_count_over_the_main_count(self) -> None:
+        """A description naming both counts yields the release one.
+
+        This is the 2026-08-17 and 2026-08-24 failure. The description had
+        grown to name main and the release separately, re.search took the
+        FIRST match - main's - and the check compared it against the tree at
+        the release tag. The description was true and the check said DRIFT.
+        """
+        dual = (f"AI agent security harness: {FRESH_COUNT} {_TESTS} on main, "
+                f"{STALE_COUNT} in the v4.15.0 release, across MCP. v4.15.0")
+        self.assertEqual(cpm.extract(dual), (STALE_COUNT, "4.15.0"))
+
+    def test_release_count_selected_by_scope_not_by_position(self) -> None:
+        """Order must not decide it, or this is the same bug facing the door."""
+        dual = (f"{STALE_COUNT} in the v4.15.0 release, {FRESH_COUNT} "
+                f"{_TESTS} on main. v4.15.0")
+        self.assertEqual(cpm.extract(dual)[0], STALE_COUNT)
+
+    def test_release_count_with_the_unit_spelled_out(self) -> None:
+        """Both phrasings of the release figure read the same."""
+        dual = (f"{FRESH_COUNT} {_TESTS} on main, {STALE_COUNT} {_TESTS} "
+                f"in the v4.15.0 release. v4.15.0")
+        self.assertEqual(cpm.extract(dual)[0], STALE_COUNT)
+
 
 class TestExitCodes(unittest.TestCase):
     def _run(self, description=None, exc=None, count=None, version="4.15.0"):
@@ -97,6 +121,25 @@ class TestExitCodes(unittest.TestCase):
     def test_todays_real_drift_would_have_been_caught(self) -> None:
         """The exact 2026-08-08 state: 603/v4.13.1 against a 603/v4.15.0 tree."""
         self.assertEqual(self._run(REAL, count=STALE_COUNT, version="4.15.0"), 1)
+
+    def test_dual_count_description_agrees_with_the_release_tree(self) -> None:
+        """The live description shape against the release tree: exit 0.
+
+        This returned 1 on the 2026-08-17 and 2026-08-24 scheduled runs.
+        """
+        dual = (f"{FRESH_COUNT} {_TESTS} on main, {STALE_COUNT} in the "
+                f"v4.15.0 release. v4.15.0")
+        self.assertEqual(self._run(dual, count=STALE_COUNT), 0)
+
+    def test_a_wrong_release_count_still_exits_one(self) -> None:
+        """Scoping the read must not produce a check that cannot fail.
+
+        Here the release figure is genuinely wrong - it repeats main's count -
+        and that is real drift on the claim a visitor installs against.
+        """
+        dual = (f"{FRESH_COUNT} {_TESTS} on main, {FRESH_COUNT} in the "
+                f"v4.15.0 release. v4.15.0")
+        self.assertEqual(self._run(dual, count=STALE_COUNT), 1)
 
     def test_missing_fields_exit_one(self) -> None:
         self.assertEqual(self._run("A security harness."), 1)
