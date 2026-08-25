@@ -103,9 +103,10 @@ llm_top10_editions:
   refs_edition: '2025'
   why: >-
     Every related_framework_refs entry carries the edition suffix AND the entry title.
-    The suffix alone was not enough. OWASP published the 2026 edition on 2026-08-03 and
-    renumbered eight of the ten entries - only LLM01 and LLM02 keep both their number
-    and their meaning - so a bare "LLM10:2025" reads as Unbounded
+    The suffix alone was not enough. OWASP posted the 2026 edition on 2026-08-03 and it
+    renumbers eight of the ten entries - only LLM01 and LLM02 keep both their number and
+    their meaning - so a bare "LLM10:2025"
+    reads as Unbounded
     Consumption to anyone holding the 2025 list and as Improper Output Handling to
     anyone holding the 2026 one. The ID is only interpretable against a stated edition,
     and a reader who misses the suffix reads the crosswalk backwards. Carrying the title
@@ -119,8 +120,17 @@ llm_top10_editions:
   successor_edition_source:
     title: OWASP Top 10 for LLM Applications 2026
     edition: '2026'
-    version: '1.0'
-    published: '2026-08-03'
+    document_version: 'Version 2026'
+    publication_date_stated_in_document: false
+    publication_status_note: >-
+      The document does NOT state a publication date. Its cover reads "Version 2026
+      [Publication date to be set]" and its revision history carries an unfilled
+      "[2026 release date] Version 2026 Release". Treat it as not-yet-finalised and
+      cite it as the 2026 edition rather than as published or final. An earlier
+      revision of this block recorded version "1.0" and published "2026-08-03";
+      both were wrong. The version was read off the PDF FILENAME and the date off
+      the landing page's post date, neither of which is the document speaking.
+    landing_page_posted: '2026-08-03'
     landing_page: https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/
     source_pdf: OWASP-GenAI-LLM-Top-10-2026-v1.0.pdf
     source_sha256: ef87993a4e50ae9d83b41ff7a3d3e6320a82dfa8d4ec6bf98d0ce264b2e6108e

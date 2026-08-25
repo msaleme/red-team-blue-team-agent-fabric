@@ -264,10 +264,13 @@ def render(d: dict, view: str) -> str:
         w("")
         w(f"Refs are pinned to *{src['title']}* ({src['edition']}), entries read from "
           f"[the OWASP project repository]({src['entries_source']}) on {src['retrieved']}. "
-          f"The successor is *{suc['title']}* v{suc['version']}, published "
-          f"{suc['published']} ([landing page]({suc['landing_page']})), "
+          f"The successor is *{suc['title']}*, {suc['document_version']}, posted to its "
+          f"[landing page]({suc['landing_page']}) on {suc['landing_page_posted']}; "
           f"`{suc['source_pdf']}`, {suc['source_pages']} pp, SHA-256 "
           f"`{suc['source_sha256']}`, read {suc['retrieved']}.")
+        w("")
+        w("**The successor document does not state a publication date.** "
+          + " ".join(suc["publication_status_note"].split()))
         w("")
         w(" ".join(ed["not_remapped"].split()))
         w("")
