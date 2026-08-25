@@ -99,6 +99,249 @@ assessment:
   total_tests_command: python scripts/count_tests.py
   unique_mapped_tests: 96
   adjudicated_by: corpus author - NOT independent review
+llm_top10_editions:
+  refs_edition: '2025'
+  why: >-
+    Every related_framework_refs entry carries the edition suffix AND the entry title.
+    The suffix alone was not enough. OWASP published the 2026 edition on 2026-08-03 and
+    renumbered eight of the ten entries - only LLM01 and LLM02 keep both their number
+    and their meaning - so a bare "LLM10:2025" reads as Unbounded
+    Consumption to anyone holding the 2025 list and as Improper Output Handling to
+    anyone holding the 2026 one. The ID is only interpretable against a stated edition,
+    and a reader who misses the suffix reads the crosswalk backwards. Carrying the title
+    makes the claim self-describing, which is the same reasoning that removed bare
+    restated counts elsewhere in this repository.
+  refs_edition_source:
+    title: OWASP Top 10 for LLM Applications
+    edition: '2025'
+    entries_source: https://github.com/OWASP/www-project-top-10-for-large-language-model-applications/tree/main/2_0_vulns
+    retrieved: '2026-08-25'
+  successor_edition_source:
+    title: OWASP Top 10 for LLM Applications 2026
+    edition: '2026'
+    version: '1.0'
+    published: '2026-08-03'
+    landing_page: https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/
+    source_pdf: OWASP-GenAI-LLM-Top-10-2026-v1.0.pdf
+    source_sha256: ef87993a4e50ae9d83b41ff7a3d3e6320a82dfa8d4ec6bf98d0ce264b2e6108e
+    source_pages: 122
+    retrieved: '2026-08-25'
+  not_remapped: >-
+    These refs are deliberately NOT restated against the 2026 edition. This mapping was
+    adjudicated against the 2025 list and the adjudication has not been redone, so
+    renumbering the IDs would assert a review that did not happen. The successor is
+    recorded here so a reader can translate; translating it silently would be the
+    fabrication this repository guards against.
+  renumbering:
+  - {id_2025: LLM01, title_2025: Prompt Injection, id_2026: LLM01, title_2026: Prompt
+      Injection, moved: false}
+  - {id_2025: LLM02, title_2025: Sensitive Information Disclosure, id_2026: LLM02, title_2026: Sensitive
+      Information Disclosure, moved: false}
+  - {id_2025: LLM03, title_2025: Supply Chain, id_2026: LLM04, title_2026: Supply Chain,
+    moved: true}
+  - {id_2025: LLM04, title_2025: Data and Model Poisoning, id_2026: LLM05, title_2026: Data
+      and Model Poisoning, moved: true}
+  - {id_2025: LLM05, title_2025: Improper Output Handling, id_2026: LLM10, title_2026: Improper
+      Output Handling, moved: true}
+  - {id_2025: LLM06, title_2025: Excessive Agency, id_2026: LLM03, title_2026: Excessive
+      Agency, moved: true}
+  - {id_2025: LLM07, title_2025: System Prompt Leakage, id_2026: LLM08, title_2026: Hidden
+      Context Exposure, moved: true, rescoped: true}
+  - {id_2025: LLM08, title_2025: Vector and Embedding Weaknesses, id_2026: LLM09, title_2026: Vector
+      and Embedding Weaknesses, moved: true}
+  - {id_2025: LLM09, title_2025: Misinformation, id_2026: LLM07, title_2026: Misinformation,
+    moved: true}
+  - {id_2025: LLM10, title_2025: Unbounded Consumption, id_2026: LLM06, title_2026: Unbounded
+      Consumption, moved: true}
+  rescope_note: >-
+    LLM07:2025 System Prompt Leakage became LLM08:2026 Hidden Context Exposure, which the
+    2026 edition describes as "a broader framework for the same failure to trust
+    information that should have stayed out of reach". It covers the system prompt plus
+    developer instructions, retrieved policy text and tool schemas, so it is a re-scope
+    rather than a rename. No threat in this mapping references LLM07:2025.
+asi_top10_crosswalk:
+  what_this_is: A transcription of OWASP's own cross-mapping between the ASI Top 10 and the T1-T17 taxonomy
+    this document adjudicates. It is NOT a coverage claim and NOT an independent adjudication. The methodology
+    section above already states that an ASI or LLM Top 10 crosswalk does not establish coverage on
+    its own, and that rule applies to this block. Read a harness verdict for T-n from the threat detail;
+    read this only to learn which ASI entry OWASP places that threat under.
+  source:
+    title: OWASP Top 10 for Agentic Applications 2026
+    publisher: OWASP Gen AI Security Project - Agentic Security Initiative
+    version: '2026'
+    document_date: December 2025
+    landing_page: https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications/
+    source_pdf: OWASP-Top-10-for-Agentic-Applications-2026-12.6-1.pdf
+    source_sha256: a2db94cd00b08e0b3a5e5b619afe024bdbcd74503111085705e4f3dd886fcb5c
+    source_pages: 57
+    license: CC-BY-SA-4.0
+    retrieved: '2026-08-25'
+    primary_table: Appendix A - OWASP Agentic AI Security Mapping Matrix (p.39-40)
+  relation_semantics: threats_primary holds the T-ids the entry body states it maps to. threats_contributing
+    holds T-ids the body calls contributing factors or related impacts, plus every T-id that appears
+    only in the Appendix A row. Where the entry body states no split, all T-ids are recorded as contributing
+    and the entry says so; inventing a primary would assert a distinction the source does not draw.
+  t9_not_referenced: T9 Identity Spoofing & Impersonation is referenced by no ASI Top 10 entry. Sixteen
+    of the seventeen threats appear in the Appendix A matrix; T9 does not. Recorded as an observation
+    about the source, not as a defect in it and not as a statement about harness coverage, which is
+    adjudicated per-threat above.
+  title_discrepancies:
+    note: 'The ASI Top 10 references T-ids by NUMBER, and for ASI06 three of those numbers carry titles
+      that do not match Agentic AI - Threats and Mitigations v1.1, the version pinned by this mapping.
+      Both the ASI06 entry body and the Appendix A row use the non-matching titles, so this is what
+      the source says rather than an extraction artifact. The numbers are transcribed verbatim and the
+      titles are NOT normalised: whether these are the same threats renamed or different threats cannot
+      be resolved without the earlier taxonomy version, and silently rewriting them would assert a reconciliation
+      that was not performed.'
+    observed:
+    - t_id: T4
+      entry: ASI06
+      asi_doc_title: Memory Overload
+      v1_1_title: Resource Overload
+      seen_in: ASI06 body and Appendix A
+    - t_id: T6
+      entry: ASI06
+      asi_doc_title: Broken Goals
+      v1_1_title: Intent Breaking & Goal Manipulation
+      seen_in: ASI06 body and Appendix A
+    - t_id: T12
+      entry: ASI06
+      asi_doc_title: Shared Memory Poisoning
+      v1_1_title: Agent Communication Poisoning
+      seen_in: ASI06 body and Appendix A
+  entries:
+  - id: ASI01
+    title: Agent Goal Hijack
+    threats_primary:
+    - T6
+    - T7
+    threats_contributing: []
+    llm_top10_2025_refs:
+    - LLM01:2025 Prompt Injection
+    - LLM06:2025 Excessive Agency
+    aivss_core_risk: Agent Goal & Instruction Manipulation
+    source_statement: In the OWASP Agentic AI Threats & Mitigations Guide, ASI01 corresponds to T06
+      Goal Manipulation (altering the agent's objectives) and T07 Misaligned & Deceptive Behaviors (bypassing
+      safeguards or deceiving humans).
+  - id: ASI02
+    title: Tool Misuse and Exploitation
+    threats_primary:
+    - T2
+    threats_contributing:
+    - T4
+    - T16
+    llm_top10_2025_refs:
+    - LLM06:2025 Excessive Agency
+    aivss_core_risk: Agentic AI Tool Misuse
+    source_statement: The entry maps to T2 Tool Misuse in the Agentic AI Threats and Mitigations Guide
+      whilst T4 Resource Overload and T16 Insecure Inter-Agent Protocol Abuse represent contributing
+      factors that can amplify or enable tool exploitation.
+  - id: ASI03
+    title: Identity and Privilege Abuse
+    threats_primary:
+    - T3
+    threats_contributing: []
+    llm_top10_2025_refs:
+    - LLM01:2025 Prompt Injection
+    - LLM06:2025 Excessive Agency
+    - LLM02:2025 Sensitive Info Disclosure
+    aivss_core_risk: Agent Access Control Violation
+    source_statement: 'In the OWASP ASI Threats and Mitigations, it maps one-to-one to T3: Privilege
+      Compromise, and in OWASP AIVSS it corresponds to Core Risk 2: Agent Access Control Violation.'
+  - id: ASI04
+    title: Agentic Supply Chain Vulnerabilities
+    threats_primary:
+    - T17
+    threats_contributing:
+    - T2
+    - T11
+    - T12
+    - T13
+    - T16
+    llm_top10_2025_refs:
+    - LLM03:2025 Supply Chain Vulnerabilities
+    aivss_core_risk: Agent Supply Chain & Dependency Attacks
+    source_statement: The entry maps to T17 Supply Chain Compromise in Agentic Threats and Mitigations
+      and across T2 Tool Misuse, T11 Unexpected RCE and Code Attacks, T12 Agent Communication Poisoning,
+      T13 Rogue Agent and T16 Insecure Inter-Agent Protocol Abuse.
+  - id: ASI05
+    title: Unexpected Code Execution (RCE)
+    threats_primary:
+    - T11
+    threats_contributing: []
+    llm_top10_2025_refs:
+    - LLM01:2025 Prompt Injection
+    - LLM05 Improper Output Handling
+    aivss_core_risk: Insecure Agent Critical Systems Interaction
+    source_statement: This risk aligns with T11 Unexpected RCE and Code Attacks in Agentic AI - Threats
+      and Mitigations v1.
+  - id: ASI06
+    title: Memory & Context Poisoning
+    threats_primary:
+    - T1
+    threats_contributing:
+    - T4
+    - T6
+    - T12
+    llm_top10_2025_refs:
+    - LLM01:2025 Prompt Injection
+    - LLM04:2025 Data & Model Poisoning
+    - LLM08:2025 Vector & Embedding Weaknesses
+    source_statement: It maps to T1 Memory Poisoning in Agentic Threats and Mitigations, with related
+      impacts in T4 Memory Overload, T6 Broken Goals, and T12 Shared Memory Poisoning.
+  - id: ASI07
+    title: Insecure Inter-Agent Communication
+    threats_primary: []
+    threats_contributing:
+    - T12
+    - T16
+    llm_top10_2025_refs:
+    - LLM02:2025 Sensitive Information Disclosure
+    - LLM06:2025 Excessive Agency
+    aivss_core_risk: Agent Memory & Context Manipulation
+    source_statement_note: Appendix A matrix only; the entry body states no primary/contributing split,
+      so every T reference is recorded as contributing.
+  - id: ASI08
+    title: Cascading Failures
+    threats_primary: []
+    threats_contributing:
+    - T5
+    - T8
+    llm_top10_2025_refs:
+    - LLM01:2025 Prompt Injection
+    - LLM04 Data & Model Poisoning
+    - LLM06:2025 Excessive Agency
+    aivss_core_risk: Agent Cascading Failures
+    source_statement_note: Appendix A matrix only; the entry body states no primary/contributing split,
+      so every T reference is recorded as contributing.
+  - id: ASI09
+    title: Human-Agent Trust Exploitation
+    threats_primary: []
+    threats_contributing:
+    - T7
+    - T8
+    - T10
+    llm_top10_2025_refs:
+    - LLM01:2025 Prompt Injection
+    - LLM05:2025 Improper Output Handling
+    - LLM06:2025 Excessive Agency
+    - LLM09 Misinformation
+    aivss_core_risk: Agent Untraceability / Human Manipulation
+    source_statement_note: Appendix A matrix only; the entry body states no primary/contributing split,
+      so every T reference is recorded as contributing.
+  - id: ASI10
+    title: Rogue Agents
+    threats_primary:
+    - T13
+    threats_contributing:
+    - T14
+    - T15
+    llm_top10_2025_refs:
+    - LLM02:2025 Sensitive Information Disclosure
+    - LLM09:2025 Misinformation
+    aivss_core_risk: Behavioral Integrity (BI) · Operational Security (OS) · Compliance Violations (CV)
+    source_statement: In the OWASP Agentic AI Threats and Mitigations guide, ASI10 corresponds to T13
+      - Rogue Agents in Multi-Agent Systems.
 oracle_notes:
   red_team_automation_pass_rule: status_code in expected_status AND ttd < 3.0s AND len(leak_findings)
     == 0
@@ -548,8 +791,8 @@ threats:
   decision_steps:
   - 2
   related_framework_refs:
-  - LLM04:2025
-  - LLM08:2025
+  - LLM04:2025 Data and Model Poisoning
+  - LLM08:2025 Vector and Embedding Weaknesses
   source_scenarios:
   - scenario_id: T1-S1
     title: Travel-booking memory corruption
@@ -687,7 +930,7 @@ threats:
   decision_steps:
   - 3
   related_framework_refs:
-  - LLM06:2025
+  - LLM06:2025 Excessive Agency
   source_scenarios:
   - scenario_id: T2-S1
     title: Parameter pollution
@@ -840,7 +1083,7 @@ threats:
   - 3
   - 4
   related_framework_refs:
-  - LLM06:2025
+  - LLM06:2025 Excessive Agency
   source_scenarios:
   - scenario_id: T3-S1
     title: Dynamic permission escalation
@@ -1017,7 +1260,7 @@ threats:
   decision_steps:
   - 3
   related_framework_refs:
-  - LLM10:2025
+  - LLM10:2025 Unbounded Consumption
   source_scenarios:
   - scenario_id: T4-S1
     title: Inference-time exploitation
@@ -1161,7 +1404,7 @@ threats:
   decision_steps:
   - 2
   related_framework_refs:
-  - LLM09:2025
+  - LLM09:2025 Misinformation
   source_scenarios:
   - scenario_id: T5-S1
     title: Sales misinformation cascade
@@ -1289,7 +1532,7 @@ threats:
   decision_steps:
   - 1
   related_framework_refs:
-  - LLM01:2025
+  - LLM01:2025 Prompt Injection
   source_scenarios:
   - scenario_id: T6-S1
     title: Gradual plan injection
@@ -1428,7 +1671,7 @@ threats:
   decision_steps:
   - 1
   related_framework_refs:
-  - LLM09:2025
+  - LLM09:2025 Misinformation
   source_scenarios:
   - scenario_id: T7-S1
     title: Constraint bypass for restricted orders
@@ -1672,7 +1915,7 @@ threats:
   decision_steps:
   - 4
   related_framework_refs:
-  - LLM06:2025
+  - LLM06:2025 Excessive Agency
   source_scenarios:
   - scenario_id: T9-S1
     title: User impersonation
@@ -1964,7 +2207,7 @@ threats:
   decision_steps:
   - 3
   related_framework_refs:
-  - LLM05:2025
+  - LLM05:2025 Improper Output Handling
   source_scenarios:
   - scenario_id: T11-S1
     title: DevOps agent compromise
@@ -2103,7 +2346,7 @@ threats:
   decision_steps:
   - 6
   related_framework_refs:
-  - LLM01:2025
+  - LLM01:2025 Prompt Injection
   source_scenarios:
   - scenario_id: T12-S1
     title: Collaborative decision manipulation
@@ -2510,7 +2753,7 @@ threats:
   decision_steps:
   - 5
   related_framework_refs:
-  - LLM09:2025
+  - LLM09:2025 Misinformation
   source_scenarios:
   - scenario_id: T15-S1
     title: AI-powered invoice fraud
@@ -2634,8 +2877,8 @@ threats:
   - 3
   - 4
   related_framework_refs:
-  - LLM01:2025
-  - LLM03:2025
+  - LLM01:2025 Prompt Injection
+  - LLM03:2025 Supply Chain
   source_scenarios:
   - scenario_id: T16-S1
     title: Consent-flow manipulation
@@ -2822,8 +3065,8 @@ threats:
   decision_steps:
   - 3
   related_framework_refs:
-  - LLM03:2025
-  - LLM05:2025
+  - LLM03:2025 Supply Chain
+  - LLM05:2025 Improper Output Handling
   source_scenarios:
   - scenario_id: T17-S1
     title: Compromised agent or update distribution via poisoned upstream logic

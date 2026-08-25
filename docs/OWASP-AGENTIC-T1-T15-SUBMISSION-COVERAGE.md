@@ -21,6 +21,7 @@
 | Source PDF | `Agentic-AI-Threats-and-Mitigations-1.1.pdf`, 53 pp, SHA-256 `65e3bd59f99c411b055c6caf2bac96ab361dff8c010e4bef532a593ce10345ff` |
 | Licence | [CC-BY-SA-4.0](https://creativecommons.org/licenses/by-sa/4.0/) |
 | Adjudicated by | corpus author - NOT independent review |
+| Where OWASP files these threats | [ASI Top 10 crosswalk →](OWASP-ASI-TOP10-CROSSWALK.md) (transcription, not coverage) |
 
 ## Scope, attribution and disclaimer
 
@@ -66,13 +67,36 @@ None of these establish coverage alone: a README claim, an ASI or LLM Top 10 cro
 
 **Oracle note.** `red_team_automation.py` passes on `status_code in expected_status AND ttd < 3.0s AND len(leak_findings) == 0`. Tests listing 200 alongside 4xx pass whether an attack was blocked or succeeded, so their only live security assertion is the response-body leak check: `RT-003`, `RT-017`, `RT-018`, `RT-019`, `RT-022`. They are evidence about data leakage, not blocking, and back no direct verdict.
 
+## Reading the OWASP LLM Top 10 refs
+
+**Every `LLM..` ref below is the 2025 edition, and carries its entry title for that reason.** Every related_framework_refs entry carries the edition suffix AND the entry title. The suffix alone was not enough. OWASP published the 2026 edition on 2026-08-03 and renumbered eight of the ten entries - only LLM01 and LLM02 keep both their number and their meaning - so a bare "LLM10:2025" reads as Unbounded Consumption to anyone holding the 2025 list and as Improper Output Handling to anyone holding the 2026 one. The ID is only interpretable against a stated edition, and a reader who misses the suffix reads the crosswalk backwards. Carrying the title makes the claim self-describing, which is the same reasoning that removed bare restated counts elsewhere in this repository.
+
+Refs are pinned to *OWASP Top 10 for LLM Applications* (2025), entries read from [the OWASP project repository](https://github.com/OWASP/www-project-top-10-for-large-language-model-applications/tree/main/2_0_vulns) on 2026-08-25. The successor is *OWASP Top 10 for LLM Applications 2026* v1.0, published 2026-08-03 ([landing page](https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/)), `OWASP-GenAI-LLM-Top-10-2026-v1.0.pdf`, 122 pp, SHA-256 `ef87993a4e50ae9d83b41ff7a3d3e6320a82dfa8d4ec6bf98d0ce264b2e6108e`, read 2026-08-25.
+
+These refs are deliberately NOT restated against the 2026 edition. This mapping was adjudicated against the 2025 list and the adjudication has not been redone, so renumbering the IDs would assert a review that did not happen. The successor is recorded here so a reader can translate; translating it silently would be the fabrication this repository guards against.
+
+| 2025 ref | 2026 ref | Moved |
+|---|---|---|
+| LLM01:2025 Prompt Injection | LLM01:2026 Prompt Injection | — |
+| LLM02:2025 Sensitive Information Disclosure | LLM02:2026 Sensitive Information Disclosure | — |
+| LLM03:2025 Supply Chain | LLM04:2026 Supply Chain | yes |
+| LLM04:2025 Data and Model Poisoning | LLM05:2026 Data and Model Poisoning | yes |
+| LLM05:2025 Improper Output Handling | LLM10:2026 Improper Output Handling | yes |
+| LLM06:2025 Excessive Agency | LLM03:2026 Excessive Agency | yes |
+| LLM07:2025 System Prompt Leakage | LLM08:2026 Hidden Context Exposure | re-scoped |
+| LLM08:2025 Vector and Embedding Weaknesses | LLM09:2026 Vector and Embedding Weaknesses | yes |
+| LLM09:2025 Misinformation | LLM07:2026 Misinformation | yes |
+| LLM10:2025 Unbounded Consumption | LLM06:2026 Unbounded Consumption | yes |
+
+LLM07:2025 System Prompt Leakage became LLM08:2026 Hidden Context Exposure, which the 2026 edition describes as "a broader framework for the same failure to trust information that should have stayed out of reach". It covers the system prompt plus developer instructions, retrieved policy text and tool schemas, so it is a re-scope rather than a rename. No threat in this mapping references LLM07:2025.
+
 ## Threat detail
 
 ### T1 Memory Poisoning
 
 **Status:** Direct test coverage &nbsp;·&nbsp; **Decision step:** 2 &nbsp;·&nbsp; **Scope:** `in_scope` &nbsp;·&nbsp; **Form:** `selected`
 
-**Related OWASP refs:** LLM04:2025, LLM08:2025
+**Related OWASP refs:** LLM04:2025 Data and Model Poisoning, LLM08:2025 Vector and Embedding Weaknesses
 
 **Threat (adapted from the guide).** Exploiting an AI's memory systems, both short and long-term, to introduce malicious or false data and exploit the agent's context, leading to altered decision-making and unauthorized operations.
 
@@ -111,7 +135,7 @@ None of these establish coverage alone: a README claim, an ASI or LLM Top 10 cro
 
 **Status:** Direct test coverage &nbsp;·&nbsp; **Decision step:** 3 &nbsp;·&nbsp; **Scope:** `in_scope` &nbsp;·&nbsp; **Form:** `selected`
 
-**Related OWASP refs:** LLM06:2025
+**Related OWASP refs:** LLM06:2025 Excessive Agency
 
 **Threat (adapted from the guide).** Attackers manipulate agents to abuse their integrated tools through deceptive prompts, operating WITHIN authorized permissions. Includes Agent Hijacking: the agent ingests adversarially manipulated data and subsequently executes unintended actions.
 
@@ -153,7 +177,7 @@ None of these establish coverage alone: a README claim, an ASI or LLM Top 10 cro
 
 **Status:** Direct test coverage &nbsp;·&nbsp; **Decision step:** 3, 4 &nbsp;·&nbsp; **Scope:** `in_scope` &nbsp;·&nbsp; **Form:** `selected`
 
-**Related OWASP refs:** LLM06:2025
+**Related OWASP refs:** LLM06:2025 Excessive Agency
 
 **Threat (adapted from the guide).** Attackers exploit weaknesses in permission management to perform unauthorized actions, often via dynamic role inheritance or misconfiguration, including cross-agent privilege delegation.
 
@@ -197,7 +221,7 @@ None of these establish coverage alone: a README claim, an ASI or LLM Top 10 cro
 
 **Status:** Direct test coverage &nbsp;·&nbsp; **Decision step:** 3 &nbsp;·&nbsp; **Scope:** `in_scope` &nbsp;·&nbsp; **Form:** `selected`
 
-**Related OWASP refs:** LLM10:2025
+**Related OWASP refs:** LLM10:2025 Unbounded Consumption
 
 **Threat (adapted from the guide).** Targeting the computational, memory and service capacities of AI systems to degrade performance or cause failure, exploiting their resource-intensive nature.
 
@@ -237,7 +261,7 @@ None of these establish coverage alone: a README claim, an ASI or LLM Top 10 cro
 
 **Status:** Partial test coverage &nbsp;·&nbsp; **Decision step:** 2 &nbsp;·&nbsp; **Scope:** `in_scope` &nbsp;·&nbsp; **Form:** `selected`
 
-**Related OWASP refs:** LLM09:2025
+**Related OWASP refs:** LLM09:2025 Misinformation
 
 **Threat (adapted from the guide).** Exploiting an AI's tendency to generate contextually plausible but false information WHICH CAN PROPAGATE THROUGH SYSTEMS and disrupt decision-making, including destructive reasoning affecting tool invocation.
 
@@ -276,7 +300,7 @@ None of these establish coverage alone: a README claim, an ASI or LLM Top 10 cro
 
 **Status:** Direct test coverage &nbsp;·&nbsp; **Decision step:** 1 &nbsp;·&nbsp; **Scope:** `in_scope` &nbsp;·&nbsp; **Form:** `selected`
 
-**Related OWASP refs:** LLM01:2025
+**Related OWASP refs:** LLM01:2025 Prompt Injection
 
 **Threat (adapted from the guide).** Exploiting vulnerabilities in an agent's planning and goal-setting to manipulate or redirect its objectives and reasoning.
 
@@ -317,7 +341,7 @@ None of these establish coverage alone: a README claim, an ASI or LLM Top 10 cro
 
 **Status:** Partial test coverage &nbsp;·&nbsp; **Decision step:** 1 &nbsp;·&nbsp; **Scope:** `in_scope` &nbsp;·&nbsp; **Form:** `selected`
 
-**Related OWASP refs:** LLM09:2025
+**Related OWASP refs:** LLM09:2025 Misinformation
 
 **Threat (adapted from the guide).** Agents execute harmful or disallowed actions by exploiting deceptive reasoning or misinterpreting goals. The guide states this arises WITHOUT DIRECT MALICIOUS INPUT and is DISTINCT FROM HALLUCINATIONS - it emerges from advanced reasoning, not random error or prompt failure.
 
@@ -393,7 +417,7 @@ None of these establish coverage alone: a README claim, an ASI or LLM Top 10 cro
 
 **Status:** Direct test coverage &nbsp;·&nbsp; **Decision step:** 4 &nbsp;·&nbsp; **Scope:** `in_scope` &nbsp;·&nbsp; **Form:** `selected`
 
-**Related OWASP refs:** LLM06:2025
+**Related OWASP refs:** LLM06:2025 Excessive Agency
 
 **Threat (adapted from the guide).** Attackers exploit authentication mechanisms to impersonate agents or users. Includes theft or misuse of a formal, persistent agent identity enabling privileged long-term API access that BYPASSES the conversational interface and its guardrails.
 
@@ -474,7 +498,7 @@ None of these establish coverage alone: a README claim, an ASI or LLM Top 10 cro
 
 **Status:** Direct test coverage &nbsp;·&nbsp; **Decision step:** 3 &nbsp;·&nbsp; **Scope:** `in_scope` &nbsp;·&nbsp; **Form:** `selected`
 
-**Related OWASP refs:** LLM05:2025
+**Related OWASP refs:** LLM05:2025 Improper Output Handling
 
 **Threat (adapted from the guide).** Attackers exploit AI-generated execution environments to inject malicious code, trigger unintended system behaviour, or execute unauthorized scripts.
 
@@ -513,7 +537,7 @@ None of these establish coverage alone: a README claim, an ASI or LLM Top 10 cro
 
 **Status:** Direct test coverage &nbsp;·&nbsp; **Decision step:** 6 &nbsp;·&nbsp; **Scope:** `in_scope` &nbsp;·&nbsp; **Form:** `selected`
 
-**Related OWASP refs:** LLM01:2025
+**Related OWASP refs:** LLM01:2025 Prompt Injection
 
 **Threat (adapted from the guide).** Attackers manipulate communication channels between agents to spread false information, disrupt workflows, or influence decision-making.
 
@@ -631,7 +655,7 @@ None of these establish coverage alone: a README claim, an ASI or LLM Top 10 cro
 
 **Status:** Partial test coverage &nbsp;·&nbsp; **Decision step:** 5 &nbsp;·&nbsp; **Scope:** `roadmap` &nbsp;·&nbsp; **Form:** `not_selected`
 
-**Related OWASP refs:** LLM09:2025
+**Related OWASP refs:** LLM09:2025 Misinformation
 
 **Threat (adapted from the guide).** Where agents interact directly with humans, the trust relationship reduces user skepticism. Attackers can COERCE AGENTS TO MANIPULATE USERS, spread misinformation and take covert actions.
 

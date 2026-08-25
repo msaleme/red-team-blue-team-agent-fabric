@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Render the OWASP Agentic AI v1.1 coverage reports from the canonical mapping.
 
-One source, three outputs:
+One source, four outputs:
 
     docs/OWASP-AGENTIC-V1.1-COVERAGE.md               complete, T1-T17
     docs/OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md  filtered to the form's T1-T15
     docs/coverage/owasp-agentic-v1.1.json             machine-readable
+    docs/OWASP-ASI-TOP10-CROSSWALK.md                 OWASP's ASI Top 10 <-> T1-T17
 
 Never edit the Markdown by hand; the validator fails if it drifts.
 
@@ -31,6 +32,7 @@ MAPPING = ROOT / "docs/coverage/owasp-agentic-v1.1.yaml"
 COMPLETE = ROOT / "docs/OWASP-AGENTIC-V1.1-COVERAGE.md"
 SUBMISSION = ROOT / "docs/OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md"
 JSON_OUT = ROOT / "docs/coverage/owasp-agentic-v1.1.json"
+ASI_CROSSWALK = ROOT / "docs/OWASP-ASI-TOP10-CROSSWALK.md"
 
 LABEL = {"direct": "Direct test coverage", "partial": "Partial test coverage",
          "not_evidenced": "Not evidenced"}
@@ -118,6 +120,9 @@ def render(d: dict, view: str) -> str:
     w(f"| Adjudicated by | {a['adjudicated_by']} |")
     if complete:
         w("| Submission view | [T1–T15 →](OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md) |")
+    if d.get("asi_top10_crosswalk"):
+        w("| Where OWASP files these threats | "
+          "[ASI Top 10 crosswalk →](OWASP-ASI-TOP10-CROSSWALK.md) (transcription, not coverage) |")
     w("")
 
     w("## Scope, attribution and disclaimer")
@@ -247,6 +252,33 @@ def render(d: dict, view: str) -> str:
         for s in d["decision_path"]:
             w(f"| **{s['step']}. {s['name']}** | {s['question']} | "
               f"{', '.join(s['threats'])} |")
+        w("")
+
+    ed = d.get("llm_top10_editions") or {}
+    if ed:
+        src, suc = ed["refs_edition_source"], ed["successor_edition_source"]
+        w("## Reading the OWASP LLM Top 10 refs")
+        w("")
+        w(f"**Every `LLM..` ref below is the {ed['refs_edition']} edition, and carries its "
+          "entry title for that reason.** " + " ".join(ed["why"].split()))
+        w("")
+        w(f"Refs are pinned to *{src['title']}* ({src['edition']}), entries read from "
+          f"[the OWASP project repository]({src['entries_source']}) on {src['retrieved']}. "
+          f"The successor is *{suc['title']}* v{suc['version']}, published "
+          f"{suc['published']} ([landing page]({suc['landing_page']})), "
+          f"`{suc['source_pdf']}`, {suc['source_pages']} pp, SHA-256 "
+          f"`{suc['source_sha256']}`, read {suc['retrieved']}.")
+        w("")
+        w(" ".join(ed["not_remapped"].split()))
+        w("")
+        w("| 2025 ref | 2026 ref | Moved |")
+        w("|---|---|---|")
+        for r in ed["renumbering"]:
+            moved = "re-scoped" if r.get("rescoped") else ("yes" if r["moved"] else "—")
+            w(f"| {r['id_2025']}:2025 {r['title_2025']} | "
+              f"{r['id_2026']}:2026 {r['title_2026']} | {moved} |")
+        w("")
+        w(" ".join(ed["rescope_note"].split()))
         w("")
 
     w("## Threat detail")
@@ -455,11 +487,108 @@ def render(d: dict, view: str) -> str:
     return "\n".join(o) + "\n"
 
 
+def render_asi_crosswalk(d: dict) -> str:
+    """OWASP's own ASI Top 10 <-> T1-T17 mapping, transcribed, not adjudicated.
+
+    Kept out of the coverage reports on purpose. Those documents adjudicate
+    harness evidence against a threat; this one records where another OWASP
+    document files that threat. Mixing them would put an unadjudicated
+    statement inside a report whose whole value is that everything in it was
+    adjudicated, and the methodology section already says a crosswalk
+    establishes no coverage.
+    """
+    x = d["asi_top10_crosswalk"]
+    src, tt = x["source"], {t["id"]: t["title"] for t in d["threats"]}
+    out: list[str] = []
+    w = out.append
+
+    w("# OWASP ASI Top 10 (2026) -> Agentic AI Threats & Mitigations (T1-T17)")
+    w("")
+    w("> **This is a transcription, not an adjudication, and not a coverage claim.**")
+    w("> " + " ".join(x["what_this_is"].split()))
+    w("")
+    w(f"**Source.** *{src['title']}*, {src['publisher']}, version {src['version']}, "
+      f"{src['document_date']}. [Landing page]({src['landing_page']}). "
+      f"`{src['source_pdf']}`, {src['source_pages']} pp, {src['license']}, SHA-256 "
+      f"`{src['source_sha256']}`, retrieved {src['retrieved']}. "
+      f"Primary table: {src['primary_table']}.")
+    w("")
+    w("**Relation semantics.** " + " ".join(x["relation_semantics"].split()))
+    w("")
+
+    w("## ASI entry -> threats")
+    w("")
+    # Titles below are v1.1's, because the mapping is by NUMBER. Where the ASI
+    # document gives that number a different title, the cell is marked so the
+    # reader is not shown a title the source never used. See the discrepancy
+    # table further down.
+    diff = {(r["entry"], r["t_id"]) for r in x["title_discrepancies"]["observed"]}
+
+    def _t(entry_id: str, tid: str, bold: bool) -> str:
+        s = f"**{tid}** {tt[tid]}" if bold else f"{tid} {tt[tid]}"
+        return s + " †" if (entry_id, tid) in diff else s
+
+    w("| ASI | Title | Maps to (primary) | Contributing / related | AIVSS core risk |")
+    w("|---|---|---|---|---|")
+    for e in x["entries"]:
+        prim = ", ".join(_t(e["id"], i, True) for i in e["threats_primary"]) or "_none stated_"
+        con = ", ".join(_t(e["id"], i, False) for i in e["threats_contributing"]) or "—"
+        w(f"| {e['id']} | {e['title']} | {prim} | {con} | {e.get('aivss_core_risk', '—')} |")
+    w("")
+    if diff:
+        w("† The ASI document gives this threat number a different title from v1.1. The number is "
+          "what the source states and what is transcribed; the title shown is v1.1's. See "
+          "[Threat titles that disagree with v1.1](#threat-titles-that-disagree-with-v11).")
+        w("")
+
+    w("## Threat -> ASI entries")
+    w("")
+    w("| Threat | Primary for | Contributing to |")
+    w("|---|---|---|")
+    for t in d["threats"]:
+        p = [e["id"] for e in x["entries"] if t["id"] in e["threats_primary"]]
+        c = [e["id"] for e in x["entries"] if t["id"] in e["threats_contributing"]]
+        w(f"| **{t['id']}** {t['title']} | {', '.join(p) or '—'} | {', '.join(c) or '—'} |")
+    w("")
+    w(" ".join(x["t9_not_referenced"].split()))
+    w("")
+
+    td = x["title_discrepancies"]
+    w("## Threat titles that disagree with v1.1")
+    w("")
+    w(" ".join(td["note"].split()))
+    w("")
+    w("| Threat | Title in the ASI Top 10 | Title in v1.1 | Seen in |")
+    w("|---|---|---|---|")
+    for r in td["observed"]:
+        w(f"| {r['t_id']} | {r['asi_doc_title']} | {r['v1_1_title']} | {r['seen_in']} |")
+    w("")
+
+    w("## Statements transcribed")
+    w("")
+    for e in x["entries"]:
+        w(f"- **{e['id']} {e['title']}** — "
+          + (f"\"{e['source_statement']}\"" if e.get("source_statement")
+             else " ".join(e["source_statement_note"].split())))
+    w("")
+    w(f"Generated from `{MAPPING.relative_to(ROOT)}` by "
+      f"`{pathlib.Path(__file__).relative_to(ROOT)}`. Do not edit by hand.")
+    w("")
+    return "\n".join(out)
+
+
 def build_json(d: dict) -> dict:
     counts = {v: collections.Counter(t["coverage"] for t in d["threats"]
               if v == "complete" or int(t["id"][1:]) <= 15) for v in ("complete", "submission")}
     return {
         "framework": d["framework"], "assessment": d["assessment"],
+        # Carried into the machine-readable artifact on purpose: a consumer reading
+        # related_framework_refs needs to know which edition the IDs belong to, and
+        # that eight of the ten were renumbered by the 2026 edition.
+        "llm_top10_editions": d["llm_top10_editions"],
+        # OWASP's own ASI Top 10 <-> T1-T17 mapping. Transcribed, not adjudicated;
+        # a consumer must not read it as a coverage verdict.
+        "asi_top10_crosswalk": d["asi_top10_crosswalk"],
         "decision_path": d["decision_path"], "playbooks": d["playbooks"],
         "example_models": d["example_models"], "guide_manifest": d["guide_manifest"],
         "threats": d["threats"],
@@ -482,12 +611,15 @@ def main() -> int:
     COMPLETE.write_text(render(d, "complete"), encoding="utf-8")
     SUBMISSION.write_text(render(d, "submission"), encoding="utf-8")
     JSON_OUT.write_text(json.dumps(build_json(d), indent=2, sort_keys=False) + "\n", encoding="utf-8")
+    ASI_CROSSWALK.write_text(render_asi_crosswalk(d), encoding="utf-8")
 
     c = collections.Counter(t["coverage"] for t in d["threats"])
     s = collections.Counter(t["coverage"] for t in d["threats"] if int(t["id"][1:]) <= 15)
     print(f"wrote {COMPLETE.relative_to(ROOT)}   T1-T17: {c['direct']}d {c['partial']}p {c['not_evidenced']}n")
     print(f"wrote {SUBMISSION.relative_to(ROOT)}   T1-T15: {s['direct']}d {s['partial']}p {s['not_evidenced']}n")
     print(f"wrote {JSON_OUT.relative_to(ROOT)}")
+    n = len(d["asi_top10_crosswalk"]["entries"])
+    print(f"wrote {ASI_CROSSWALK.relative_to(ROOT)}   ASI01-ASI{n:02d} transcribed")
     return 0
 
 

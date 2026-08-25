@@ -219,6 +219,7 @@ jobs:
           python scripts/generate_owasp_agentic_coverage.py
           git diff --exit-code -- docs/OWASP-AGENTIC-V1.1-COVERAGE.md \
                                   docs/OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md \
+                                  docs/OWASP-ASI-TOP10-CROSSWALK.md \
                                   docs/coverage/owasp-agentic-v1.1.json
 
       - name: Coverage mapping tests
