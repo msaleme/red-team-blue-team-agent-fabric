@@ -78,7 +78,7 @@ does it account for aggregate risk across repeated grants.
 | What authorizes one action? | Purpose/incident binding, canonical payload or digest, policy hash, approver, expiry | That an approval for one request covered a changed request |
 | What data may be observed? | Target location, field-classification and redaction policy, capture and retention limits | That "read-only" prevented sensitive disclosure |
 | What happened? | Signed decision receipt, execution acknowledgment, output/change digest, time record | That a log line or signature proves authorization or outcome |
-| What compounds? | Budget/reservation state and cross-session linkage | That individually allowed actions remain acceptable in aggregate |
+| What compounds? | Budget/reservation state and cross-session linkage[^composed] | That individually allowed actions remain acceptable in aggregate |
 
 ## Proposed engineering pattern: action-bound authority receipt
 
@@ -148,3 +148,16 @@ a paper comparison alone.
 [^willison]: Simon Willison, [Writing about Agentic Engineering Patterns](https://simonwillison.net/2026/Feb/23/agentic-engineering-patterns/), accessed 2026-08-23.
 [^spa]: Michele Bologna, [Why I close SSH port 22 entirely (and what I use instead)](https://www.michelebologna.net/2026/ssh-port-22-fwknop-single-packet-authorization/), accessed 2026-08-23.
 [^catalog]: [Agent Security Harness canonical test catalog](../../HARNESS_TEST_CATALOG.md), generated at commit `75e941d`, inspected 2026-08-23.
+[^composed]: Prior art on the composed / cross-session case, recorded here because this repository
+    discusses the problem and did not previously cite it. Zhengchunmin Dai, Jiaxiong Tang, Liantao Wu, Peng Sun and
+    Honglong Chen, [*Stateful Agent Backdoor*](https://arxiv.org/abs/2605.06158)
+    (arXiv:2605.06158, submitted 7 May 2026),
+    characterise the cross-session variant — attack state written in one session and resumed in a
+    later session whose tool set permits the next phase, so each session's actions remain
+    individually policy-permitted — and report 80–95% attack success across four base models.
+    Microsoft's Agent Governance Toolkit acknowledges the same variant, citing Dai et al., in
+    [`docs/LIMITATIONS.md`](https://github.com/microsoft/agent-governance-toolkit/blob/main/docs/LIMITATIONS.md)
+    (acknowledged 2026-05-19), and lists sequence-level policy covering "cross-session sequences
+    under persistent memory" under *What we're building*. Both predate this project's own 2026-07-16
+    preprint on the topic; neither is superseded by it, and nothing in this repository claims
+    priority over them.
