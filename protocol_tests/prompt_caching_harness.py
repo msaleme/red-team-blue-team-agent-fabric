@@ -723,7 +723,7 @@ def generate_report(results: list[PromptCachingResult], output_path: str) -> Non
 
     with open(output_path, "w") as f:
         json.dump(report, f, indent=2, default=str)
-    print(f"Report written to {output_path}")
+    print(f"Report written to {output_path}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -769,7 +769,7 @@ def main() -> None:
         if args.report:
             with open(args.report, "w") as f:
                 json.dump(merged, f, indent=2, default=str)
-            print(f"Report written to {args.report}")
+            print(f"Report written to {args.report}", file=sys.stderr)
         results = merged.get("results", [])
     else:
         suite = PromptCachingTests(url=args.url, headers=headers, simulate=args.simulate)

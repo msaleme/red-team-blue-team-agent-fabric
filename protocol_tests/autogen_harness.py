@@ -708,7 +708,7 @@ def main() -> None:
     if args.output:
         with open(args.output, "w") as f:
             f.write(report_json)
-        print(f"\nReport written to {args.output}")
+        print(f"\nReport written to {args.output}", file=sys.stderr)
     else:
         print(f"\n{report_json}")
 

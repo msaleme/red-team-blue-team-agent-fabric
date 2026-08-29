@@ -1108,7 +1108,7 @@ Examples:
     if args.report:
         with open(args.report, "w", encoding="utf-8") as f:
             json.dump(summary, f, indent=2)
-        print(f"\nReport written to {args.report}")
+        print(f"\nReport written to {args.report}", file=sys.stderr)
 
     # Exit code: 0 if all passed, 1 if any failed
     if "failed" in summary and summary["failed"] > 0:

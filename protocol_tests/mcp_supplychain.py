@@ -614,7 +614,7 @@ def main() -> None:
         with open(args.report, "w") as f:
             json.dump(report, f, indent=2, default=str)
         if not json_output:
-            print(f"Report written to {args.report}")
+            print(f"Report written to {args.report}", file=sys.stderr)
 
     if json_output:
         print(json.dumps(report, indent=2, default=str))
