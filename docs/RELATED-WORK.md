@@ -2,6 +2,44 @@
 
 This harness performs executable adversarial testing at the implementation and evidence surface of agent protocols: it sends real adversarial payloads and negative vectors and checks whether an implementation makes the correct accept/reject decision. It is complementary to formal-conformance, capability-binding, and delegation-protocol research, not a substitute for it. This page cites the closest work and states, honestly, where this project overlaps and where it differs.
 
+## Where this sits
+
+Four bodies of work below occupy adjacent layers. Reading them as a stack is more
+useful than reading them as competitors, and it is the honest description:
+
+```text
+formal invariants          AgentThread / AgentRFC     prove and model protocol
+                                                      invariants, localise which
+                                                      party owns each control
+
+platform benchmark         AIP-Bench / PCAT           measure named platform
+                                                      implementations by
+                                                      attack-success rate
+
+endpoint execution         THIS HARNESS               assert protocol semantics
+                                                      against an arbitrary target
+                                                      and grade the retained
+                                                      execution evidence
+
+receipt conformance        Receipt Verifier           check that a verifier
+                           Conformance Corpus v0      reproduces expected verdicts
+                                                      over a portable corpus
+
+evidence sufficiency       DEMM-Bench                 determine whether retained
+                                                      records support the claims
+                                                      made from them
+```
+
+This project owns one row. It does not compete on formalisation, it is not first
+to deterministic agentic-commerce benchmarking, it does not hold the largest
+receipt-verifier corpus, and its evidence-class taxonomy is not the only
+evidence-sufficiency framework. What it does is send hostile traffic at a live
+endpoint and refuse to convert an unanswered request, or an unexposed capability,
+into a passing security result.
+
+Added 2026-08-29. If a claim anywhere in this repository reads as owning more than
+one row of that stack, it is wrong and should be corrected here first.
+
 ## This project's methodology note
 
 The receipt claim-level module (RCL-001..011) is described in a short position-and-methodology note, **"Claim-Level Negative Testing for Agent-Governance Evidence"** (Saleme, 2026): a four-property decomposition of an action receipt (integrity/provenance; execution occurrence and outcome; authorization; check execution and integrity), and executable negative vectors that construct correctly signed but semantically unsupported receipts and show a claim-level verifier rejecting them. Concept DOI: [10.5281/zenodo.21418701](https://doi.org/10.5281/zenodo.21418701). It positions this harness as the executable complement to the formal-conformance and capability-binding work below.

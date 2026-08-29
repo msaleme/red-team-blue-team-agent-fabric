@@ -115,6 +115,37 @@ These recur across rounds — always check:
    `inconclusive_detail()` in `http_helpers.py` understands both so individual
    modules do not have to.
 
+9. **A gap found in someone else's work is not permission to implement a test.**
+   Adopted 2026-08-29 from a strategic review, after it caught a defect in tests
+   written an hour earlier. Before adding a test family, require all six:
+
+   ```text
+   an observable target capability
+   an adversarial precondition
+   a deterministic oracle
+   a positive control      (a target shape that must PASS)
+   a negative control      (a target shape that must FAIL)
+   PASS / FAIL / INCONCLUSIVE semantics for each
+   ```
+
+   The positive control is the one that gets skipped, and skipping it is how
+   `X4-057` shipped returning PASS against a target with no delegated-allowance
+   support at all: nothing accepted, nothing settled, so nothing overdrawn, so
+   "the control held". That is item 8 one level up — not *the target never
+   answered*, but *the target answered and has no such capability*. The serviced
+   guard cannot catch it, because the answer was real. Write the truth table
+   before the test; see `testing/test_x402_capability_controls.py`.
+
+10. **The progress metric is the unclassified remainder, not the test count.**
+    Every module that records a target response must end up guarded, reviewed,
+    carrying a documented protocol-specific exception, or declared unsupported.
+    The number to move is `len(UNREVIEWED)` in `testing/test_serviced_guard.py`.
+
+    A rising test count is compatible with every verdict in the suite being
+    unsound, and this repository has shipped a released version where that was
+    partly true. Do not report coverage growth as progress while the remainder
+    is non-empty.
+
 ## Docker
 
 Docker is available. Ask to turn it on if not found.
