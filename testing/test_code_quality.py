@@ -159,6 +159,40 @@ class TestRegTestCount(unittest.TestCase):
         """
         from protocol_tests.cli import HARNESSES
         self.assertEqual(int(self._harness_count()), len(HARNESSES) - 1)
+
+    def test_cli_version_banner_states_the_test_bearing_count(self):
+        """The --version banner was the third surface with this conflation.
+
+        _harness_count above fixed README and TEST-INVENTORY on 2026-08-09 by
+        computing the figure instead of using len(HARNESSES). The banner was not
+        reached by that repair, so a user who installed the wheel read
+
+            Tests: 606 across 44 harness modules
+
+        and the README shipped beside it said 43 test-bearing modules. Both
+        numbers were defensible in isolation and irreconcilable side by side,
+        with the test total attached to the denominator that includes a module
+        contributing none of it.
+
+        Asserted against the real subprocess output, not the helper, because the
+        format string is the surface. Checking _test_bearing_modules() alone
+        would pass while the banner still printed len(HARNESSES).
+        """
+        import subprocess
+        out = subprocess.check_output(
+            [sys.executable, "-m", "protocol_tests.cli", "--version"],
+            text=True, cwd=REPO_ROOT)
+        m = re.search(r"Tests: (\d+) across (\d+) test-bearing modules \((\d+) registered", out)
+        self.assertIsNotNone(
+            m, f"--version banner no longer states both counts in the expected shape:\n{out}")
+        total, bearing, registered = m.groups()
+        from protocol_tests.cli import HARNESSES
+        self.assertEqual(total, self._canonical_count(),
+                         "banner test total disagrees with count_tests.py")
+        self.assertEqual(bearing, self._harness_count(),
+                         "banner module count is not the test-bearing count")
+        self.assertEqual(int(registered), len(HARNESSES),
+                         "banner registered count is not len(HARNESSES)")
     def test_readme_module_count(self):
         count = self._harness_count()
         with open(os.path.join(REPO_ROOT, "README.md")) as f: readme = f.read()

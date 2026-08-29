@@ -360,6 +360,25 @@ def _total_tests() -> int:
     return total
 
 
+def _test_bearing_modules() -> int:
+    """Registered harnesses that actually contribute tests. NOT len(HARNESSES).
+
+    `community` hosts community-contributed YAML patterns and ships none of its
+    own, so 44 commands are registered and 43 bear tests. Derived from the same
+    descriptions `_total_tests` sums, so the numerator and denominator of the
+    banner cannot drift apart.
+
+    testing/test_code_quality.py::_harness_count fixed exactly this conflation
+    for README and TEST-INVENTORY on 2026-08-09, computing the figure from
+    scripts/count_tests.py instead of len(HARNESSES). The `--version` banner was
+    not reached by that repair and kept printing the registered count against the
+    test total, so `agent-security --version` said "606 across 44 harness
+    modules" while the README it shipped beside said 43. Flagged 2026-08-29.
+    """
+    return sum(1 for info in HARNESSES.values()
+               if re.search(r'\((\d+)\s+tests', info["description"]))
+
+
 def print_usage():
     print(f"Agent Security Harness v{VERSION}")
     print(f"{_total_tests()} security tests for AI agent systems")
@@ -406,7 +425,8 @@ def main():
     # an upgrade, which is exactly when it was failing.
     if args[0] in ("version", "--version", "-V"):
         print(f"agent-security-harness v{VERSION}")
-        print(f"Tests: {_total_tests()} across {len(HARNESSES)} harness modules")
+        print(f"Tests: {_total_tests()} across {_test_bearing_modules()} test-bearing "
+              f"modules ({len(HARNESSES)} registered harnesses)")
         print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402, x402")
         print(f"Platforms: 25 cloud + 20 enterprise adapters")
         print(f"Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF, AIUC-1")
