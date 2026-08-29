@@ -3097,10 +3097,18 @@ def build_report(
     error: str | None = None,
     protocol_version: str | None = None,
 ) -> dict:
-    """Build report dict from results."""
+    """Build report dict from results.
+
+    ``status`` exists so a report cannot be read as a completed evaluation when
+    nothing ran. An unreachable target produced ``{"total": 0, "passed": 0,
+    "failed": 0}`` with no other signal in the file, which is indistinguishable
+    from a clean run of zero tests. It is INCONCLUSIVE, not success.
+    """
+    inconclusive = bool(error) or not results
     report = {
         "suite": "MCP Protocol Security Tests v3.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "status": "inconclusive" if inconclusive else "completed",
         "summary": {
             "total": len(results),
             "passed": sum(1 for r in results if r.passed),
@@ -3167,9 +3175,15 @@ def generate_report(
     results: list[MCPTestResult],
     output_path: str,
     protocol_version: str | None = None,
+    error: str | None = None,
 ):
-    """Write JSON report."""
-    report = build_report(results, protocol_version=protocol_version)
+    """Write JSON report.
+
+    ``error`` is not optional in practice. It was omitted here while the --json
+    stdout path passed it, so the written file -- the surface a CI job actually
+    reads -- silently dropped the connection failure.
+    """
+    report = build_report(results, error=error, protocol_version=protocol_version)
     with open(output_path, "w") as f:
         json.dump(report, f, indent=2, default=str)
     print(f"Report written to {output_path}")
@@ -3513,6 +3527,10 @@ def main():
         ))
         sys.exit(1 if failed else 0)
 
+    # Hoisted: the exit logic below runs after both branches, and conn_error was
+    # only ever assigned inside the single-run one.
+    conn_error = None
+
     if args.trials > 1:
         # Multi-trial statistical mode via shared trial runner
         # NOTE: no initial transport is created here (#78) - each trial
@@ -3562,7 +3580,6 @@ def main():
                                  task_read=task_read, task_attacker_headers=task_attacker_headers,
                                  trace_probe=trace_probe, trace_attacker_headers=trace_attacker_headers,
                                  issuer_probe=issuer_probe, issuer_attacker_headers=issuer_attacker_headers)
-        conn_error = None
         try:
             results = suite.run_all(categories=categories)
             conn_error = getattr(suite, "_connection_error", None)
@@ -3571,15 +3588,24 @@ def main():
                 transport.close()
 
         if args.report:
-            generate_report(results, args.report, protocol_version=suite.selected_protocol_version)
+            generate_report(results, args.report,
+                            protocol_version=suite.selected_protocol_version,
+                            error=conn_error)
 
         if json_output:
             report = build_report(results, error=conn_error, protocol_version=suite.selected_protocol_version)
             print(json.dumps(report, indent=2, default=str))
 
-    # Exit code
+    # Exit code. An empty result set is INCONCLUSIVE, never success. If the target
+    # was unreachable then `failed` is 0, and `1 if failed > 0` returned 0, so a CI
+    # job reading only the exit status treated "no test ever ran" as a pass. Zero
+    # failures out of zero tests is not a green run.
+    #
+    # Deliberately NOT synthesising a failed result per test: the accurate statement
+    # is "not executed", not "32 tests failed".
     failed = sum(1 for r in results if not r.passed)
-    sys.exit(1 if failed > 0 else 0)
+    inconclusive = bool(conn_error) or not results
+    sys.exit(1 if (failed > 0 or inconclusive) else 0)
 
 
 if __name__ == "__main__":
