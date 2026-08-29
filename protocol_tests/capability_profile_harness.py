@@ -32,6 +32,8 @@ from datetime import datetime, timezone
 from enum import Enum
 import urllib.request
 
+from protocol_tests.http_helpers import inconclusive_detail
+
 
 # ---------------------------------------------------------------------------
 # Wilson score CI (inlined for zero-dep)
@@ -222,6 +224,19 @@ class CapabilityProfileTests:
         self.results: list[CapabilityProfileTestResult] = []
 
     def _record(self, result: CapabilityProfileTestResult):
+        # #348/#351: a result whose target never serviced the request is
+        # INCONCLUSIVE, never a pass. Enforced here rather than at each verdict
+        # so a new test cannot forget it.
+        #
+        # Before this guard, `cli test capability-profile --url <closed port>` reported
+        # 10/10 passed (100%) and exited 0, with a Wilson 95% interval of
+        # [0.7225, 1.0000] computed over a pass rate derived from zero
+        # serviced requests. A confidence interval on nothing is worse than a
+        # bare 100%: it presents the absence of a target as a measurement.
+        _d = inconclusive_detail(getattr(result, "response_received", None), result.details)
+        if _d is not None:
+            result.passed = False
+            result.details = _d
         self.results.append(result)
         status = "PASS \u2705" if result.passed else "FAIL \u274c"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
