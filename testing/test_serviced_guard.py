@@ -220,8 +220,11 @@ PROTOCOL_EXCEPTION: set[str] = set()
 #: a2a_harness: _serviced treats a 2xx carrying a JSON-RPC error envelope as
 #: unserviced. In A2A-007 that envelope is the server refusing an attacker push
 #: URL, which is the control working, and guarding it broke
-#: test_vsr03_verdict_correctness.py::test_active_rejection_passes. Six known
-#: false passes remain, pinned in testing/test_a2a_unserviced_state.py.
+#: test_vsr03_verdict_correctness.py::test_active_rejection_passes. Repaired in
+#: two passes -- _aggregate_evidence's marker, then the request log for the six
+#: tests that never called it -- and now 0 of 13. All thirteen IDs are pinned in
+#: testing/test_a2a_unserviced_state.py, which also holds the other direction:
+#: a server answering every call with an error envelope must still be graded.
 #:
 #: over_refusal_harness: this module asks whether a legitimate request was
 #: wrongly blocked, so a -32601 or a 404 is normal processing and a PASS. The

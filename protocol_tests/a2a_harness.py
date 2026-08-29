@@ -43,7 +43,9 @@ from datetime import datetime, timezone
 from enum import Enum
 import urllib.request
 
-from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX
+from protocol_tests.http_helpers import (
+    INCONCLUSIVE_PREFIX, instrument_transport, is_inconclusive,
+    silence_evidence)
 
 
 # ---------------------------------------------------------------------------
@@ -278,6 +280,14 @@ class A2ASecurityTests:
         self.simulate = simulate
         self.results: list[A2ATestResult] = []
         self.agent_card: dict = {}
+        #: What the current test's requests came back as. Reset per test in
+        #: run_all, consumed by _record. The transport has no `request` method,
+        #: so the entry points are named explicitly -- the default set would have
+        #: wrapped `get` alone and covered 3 of 16 call sites while looking
+        #: installed.
+        self._seen: list[dict] = []
+        instrument_transport(transport, self._seen,
+                             methods=("get", "rpc", "rpc_raw"))
 
     # Metadata lookup for simulate mode ---------------------------------
     _SIM_META: dict[str, dict[str, str]] = {
@@ -323,15 +333,42 @@ class A2ASecurityTests:
         # only durable place for a measurement is somewhere that fails when it
         # goes stale.
         # Narrow, module-local guard. Not the shared serviced guard: see the
-        # comment above. This fires only on the marker _aggregate_evidence sets
-        # when a multi-attempt test reached nobody, so a JSON-RPC error envelope
-        # -- which in this protocol is often the control working -- is untouched.
+        # comment above. Both branches below key on silence alone, so a JSON-RPC
+        # error envelope -- which in this protocol is often the control working
+        # -- is untouched, and test_vsr03_verdict_correctness's active-rejection
+        # case still passes.
+        #
+        # Branch 1 is the marker _aggregate_evidence sets when a multi-attempt
+        # test reached nobody. Branch 2 is the request log, added 2026-08-29,
+        # and it is the general one: the six tests that survived the first
+        # repair did so because none of them used _aggregate_evidence, so the
+        # marker could never reach them.
+        #
+        #     A2A-002: connection-error text carries no privilege-escalation
+        #              marker, so `not granted_admin` passes
+        #     A2A-007: _a2a_rejected reads `_error` as an active rejection, and
+        #              a refused connection sets `_error`
+        #     A2A-011: silence exposes no undocumented method, so the empty
+        #              `exposed` list passes
+        #
+        # Reading the request log rather than response_received matters for the
+        # same reason it did in ptc and crewai: several of these convert the
+        # failure into a boolean or an empty list before recording it.
         _rr = getattr(result, "response_received", None)
+        seen = list(self._seen)
+        self._seen.clear()
         if isinstance(_rr, dict) and _rr.get(_NONE_ANSWERED):
             result.passed = False
             result.details = (
                 f"{INCONCLUSIVE_PREFIX}{_rr.get('_exception')}. "
                 f"Original finding: {result.details}")
+        elif (seen and not any(_answered(r) for r in seen)
+                and not is_inconclusive(result.details)):
+            result.passed = False
+            result.details = (
+                f"{INCONCLUSIVE_PREFIX}none of {len(seen)} requests were "
+                f"answered. Original finding: {result.details}")
+            result.response_received = silence_evidence(seen, _rr)
         self.results.append(result)
         status = "PASS ✅" if result.passed else "FAIL ❌"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
@@ -718,8 +755,16 @@ class A2ASecurityTests:
                 category="task_lifecycle",
                 owasp_asi="ASI02",
                 severity=Severity.MEDIUM.value,
-                passed=True,
-                details="Could not create a task to test state manipulation (server may not support tasks)",
+                # A server with no task support has not demonstrated that it
+                # rejects invalid state transitions -- there was no state to
+                # transition. Convention 9's first precondition: an observable
+                # target capability. The same edit was made at twelve sites in
+                # ptc_harness and extended_thinking_harness.
+                passed=False,
+                details=(INCONCLUSIVE_PREFIX + "could not create a task, so the "
+                         "state-transition control was never exercised. A server "
+                         "that may not support tasks has not shown it rejects "
+                         "invalid transitions."),
                 a2a_method="message/send",
                 elapsed_s=round(elapsed, 3),
             ))
@@ -1254,6 +1299,9 @@ class A2ASecurityTests:
         for category, tests in test_map.items():
             print(f"\n[{category.upper().replace('_', ' ')}]")
             for test_fn in tests:
+                # Scope the request log to this test, so requests made by a test
+                # that raised cannot supply the next one an answer.
+                self._seen.clear()
                 try:
                     test_fn()
                 except Exception as e:

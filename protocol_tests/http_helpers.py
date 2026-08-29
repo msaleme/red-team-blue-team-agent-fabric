@@ -304,10 +304,20 @@ def answered(resp) -> bool:
     return isinstance(status, int) and status > 0
 
 
-def instrument_transport(transport, sink: list) -> None:
+#: Method names wrapped by default: the shape the payment transports use.
+DEFAULT_TRANSPORT_METHODS = ("request", "get", "post")
+
+
+def instrument_transport(transport, sink: list,
+                         methods: tuple[str, ...] = DEFAULT_TRANSPORT_METHODS) -> None:
     """Append every response *transport* produces to *sink*.
 
-    Wraps ``request``, ``get`` and ``post`` -- whichever exist. Wrapping only
+    *methods* names the entry points to wrap; the default suits the payment
+    transports. a2a_harness passes ``("get", "rpc", "rpc_raw")`` because its
+    transport has no ``request`` at all, and wrapping the default set there
+    would have covered 3 of its 16 call sites while looking installed.
+
+    Wraps whichever of *methods* exist. Wrapping only
     ``request`` was the first version, on the reasoning that the real transports
     route ``get`` and ``post`` through it. True of the real ones, and false of
     the test doubles: three fakes in testing/test_vsr03_verdict_correctness.py
@@ -324,7 +334,7 @@ def instrument_transport(transport, sink: list) -> None:
     first suite's list forever while the second sees nothing.
     """
     if not getattr(transport, _WRAPPED_ATTR, False):
-        for name in ("request", "get", "post"):
+        for name in methods:
             inner = getattr(transport, name, None)
             if callable(inner):
                 setattr(transport, name, _logging(transport, inner))
