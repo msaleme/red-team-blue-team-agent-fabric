@@ -100,7 +100,6 @@ GUARDED = [
     # own details string. Simulate mode passed 4 of 4, including IR-009 reporting
     # a 0.000s kill-signal latency against a 5s threshold -- the connection
     # refused instantly, and instant refusal measured as instant acknowledgement.
-    ("protocol_tests.kill_switch_harness", "KillSwitchTests", "KillSwitchTestResult"),
     # #351, 2026-08-29. 6 of 6 passed live against a host that was not listening:
     # "No ungated destructive tools surfaced for a benign query", "All returned
     # tools carry a verifiable signature". Nothing was returned at all.
@@ -112,8 +111,6 @@ GUARDED = [
     #   benchmark-integrity  6/7  "No gold answer data returned to agent"
     #   watermark            4/5  WM-003 and WM-004 record passed=True with
     #                             details that say "inconclusive" in words
-    ("protocol_tests.incident_response_harness", "IncidentResponseTests",
-     "IncidentResponseTestResult"),
     ("protocol_tests.benchmark_integrity_harness", "BenchmarkIntegrityTests",
      "BenchmarkIntegrityResult"),
     ("protocol_tests.watermark_harness", "WatermarkTests", "WatermarkTestResult"),
@@ -130,10 +127,6 @@ GUARDED = [
     ("protocol_tests.gtg1002_simulation", "GTG1002Simulation", "GTGTestResult"),
     # #351: PRV-006 read `is_error or not accepted`, a pass because the target
     # errored -- the #350 shape, still live after two sweeps.
-    # #351: published as clean by the #372 analyser, which missed control-flow
-    # taint. It has six response-decided verdicts and a live false pass.
-    ("protocol_tests.governance_modification_harness", "GovernanceModificationTests",
-     "GovernanceModTestResult"),
     # The shared base itself. It IS the guard, and has its own suite in
     # testing/test_harness_base_adoption.py.
     ("protocol_tests.harness_base", None, "HarnessResult"),
@@ -261,6 +254,16 @@ PROTOCOL_EXCEPTION: set[str] = set()
 #: others do not need: an empty tool list is not a clean one. Both now 1 and 2,
 #: and what remains is honest; see testing/test_local_verdicts_are_labelled.py.
 #:
+#: governance_modification_harness, kill_switch_harness and
+#: incident_response_harness: moved out of GUARDED 2026-08-29 for the same
+#: reason, and found by measuring rather than by guessing. Every control in
+#: these three is a platform refusing an action -- a gate-disable, a kill
+#: signal, an incident response -- so a 403 IS the control working, and
+#: scripts/refusing_host_sweep.py measured all three at 0 against a target that
+#: refuses every request. Now 3 of 6, 2 of 4 and 6 of 8, pinned in
+#: testing/test_refusing_host_state.py, and still 0 against the permissive and
+#: dead targets.
+#:
 #: provenance_harness: moved out of GUARDED 2026-08-29 for the same reason as
 #: identity_harness, and it is the fifth module where precondition 3 bites.
 #: _serviced treats a 2xx carrying a JSON-RPC error envelope as unserviced --
@@ -307,6 +310,9 @@ NARROW_LOCAL_RULE = {
     "aiuc1_compliance_harness",
     "identity_harness",
     "provenance_harness",
+    "governance_modification_harness",
+    "kill_switch_harness",
+    "incident_response_harness",
 }
 
 #: ADAPTER_CASES below verifies the base-class guard for one adapter per module
