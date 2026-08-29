@@ -115,6 +115,15 @@ These recur across rounds — always check:
    `inconclusive_detail()` in `http_helpers.py` understands both so individual
    modules do not have to.
 
+   **An exemption from that guard is not an exemption from the rule.** x402 and
+   L402 are excluded from `_serviced` because a 402 IS the protocol servicing the
+   request, and applying it would invert both modules. That is correct, and it
+   was read as needing no instrument at all: against a closed port the two
+   returned PASS on 44 of 54 and 4 of 33. There is no 402 from a host that is not
+   running. Use `silence_detail()` where a non-2xx is a real answer -- it fires
+   only when a test issued requests and not one was answered -- and
+   `inconclusive_detail()` everywhere else. Never neither.
+
 9. **A gap found in someone else's work is not permission to implement a test.**
    Adopted 2026-08-29 from a strategic review, after it caught a defect in tests
    written an hour earlier. Before adding a test family, require all six:

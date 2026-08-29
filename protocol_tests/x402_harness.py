@@ -79,7 +79,8 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX
+from protocol_tests.http_helpers import (
+    INCONCLUSIVE_PREFIX, instrument_transport, silence_detail, silence_evidence)
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -323,8 +324,35 @@ class X402SecurityTests:
         self._cached_challenge: X402Challenge | None = None
         # Track data for autonomy risk scoring
         self._autonomy_signals: dict[str, bool] = {}
+        # Every response the current test has received. Read by _record.
+        self._seen: list[dict] = []
+        instrument_transport(transport, self._seen)
 
     def _record(self, result: X402TestResult):
+        # #351. x402 sat in PROTOCOL_EXCEPTION, and that classification was
+        # granted too broadly. It excuses the non-2xx rule. It does not excuse
+        # silence, and against a closed port this module returned PASS on 44 of
+        # 54 tests -- the largest count in the repository.
+        #
+        # Against a dead host there is no 402. There is nothing. Every verdict
+        # here has the shape "nothing bad was observed", so a target that
+        # answered nothing produces 44 controls reported as holding when not one
+        # of them was exercised:
+        #
+        #     X4-026: No malformed payment payloads accepted
+        #     X4-041: No SSRF via payment callback URLs
+        #     X4-047: Expired payment authorizations rejected
+        #
+        # Fires only when this test issued requests and not one was answered, so
+        # every 402/401/4xx path is untouched and the protocol exception stands
+        # for what it was actually granted for.
+        seen = list(self._seen)
+        self._seen.clear()          # in place: the transport holds this object
+        detail = silence_detail(seen, result.details)
+        if detail is not None:
+            result.passed = False
+            result.details = detail
+            result.response_received = silence_evidence(seen, result.response_received)
         self.results.append(result)
         status = "PASS \u2705" if result.passed else "FAIL \u274c"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
@@ -3423,6 +3451,10 @@ class X402SecurityTests:
             print(f"\n[{category.upper().replace('_', ' ')}]")
             for test_name in test_names:
                 test_fn = getattr(self, test_name)
+                # Scope the answer log to this test. Without the reset, requests
+                # made by a test that raised would carry into the next one and
+                # could supply it an answer it never received.
+                self._seen.clear()
                 try:
                     test_fn()
                 except Exception as e:
