@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary
 
-The Agent Security Harness is an open-source adversarial testing framework (606 tests, 43 test-bearing modules) that maps directly to AIUC-1 certification requirements. We propose inclusion as a reference implementation tool in AIUC-1 implementation guidance, providing organizations with an executable path from requirement to evidence.
+The Agent Security Harness is an open-source adversarial testing framework (608 tests, 43 test-bearing modules) that maps directly to AIUC-1 certification requirements. We propose inclusion as a reference implementation tool in AIUC-1 implementation guidance, providing organizations with an executable path from requirement to evidence.
 
 **Key differentiator:** This is not a static scanner. The harness sends real adversarial payloads across live protocols (MCP, A2A, L402, x402) and measures whether agents make safe, policy-compliant decisions — the behavioral assurance layer that complements identity and access controls.
 
@@ -146,4 +146,4 @@ GitHub: [@msaleme](https://github.com/msaleme)
 count. `scripts/count_tests.py`
 reports test IDs in 43 files; `cli.py` registers 44 commands, the extra being
 `community_runner.py`, a host for community-contributed tests that ships none of
-its own. The 606 test count is unchanged.*
+its own. The 608 test count is unchanged.*

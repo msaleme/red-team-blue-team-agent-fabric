@@ -21,7 +21,7 @@ I am writing to introduce the Agent Security Harness, an open-source adversarial
 
 **What it is**
 
-The Agent Security Harness (Apache 2.0, pip install agent-security-harness) contains 606 executable security tests across 43 test-bearing modules. Unlike static scanners that analyze configurations, this framework sends real adversarial payloads across live agent protocols (MCP, A2A, L402, x402) and measures whether agents make safe, policy-compliant decisions when already authorized to act.
+The Agent Security Harness (Apache 2.0, pip install agent-security-harness) contains 608 executable security tests across 43 test-bearing modules. Unlike static scanners that analyze configurations, this framework sends real adversarial payloads across live agent protocols (MCP, A2A, L402, x402) and measures whether agents make safe, policy-compliant decisions when already authorized to act.
 
 We currently map to 23 of 24 AIUC-1 requirements, with 19 having production-ready tests. The mapping is maintained in a machine-readable YAML configuration and the framework produces structured JSON evidence artifacts.
 
@@ -75,5 +75,5 @@ test-bearing count. The
 project's counting script, `scripts/count_tests.py`, reports test IDs in 43
 files. `protocol_tests/cli.py` registers 44 commands, the extra one being
 `community_runner.py`, which hosts community-contributed YAML tests and ships
-none of its own. The test count of 606 is unchanged and was not affected. If
+none of its own. The test count of 608 is unchanged and was not affected. If
 this document was sent, the corrected figure is 43 test-bearing modules.*

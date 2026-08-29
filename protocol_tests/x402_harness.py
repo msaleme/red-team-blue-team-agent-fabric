@@ -50,6 +50,20 @@ Usage:
         --trials 10 --report x402_report.json
 
 Requires: Python 3.10+, no external dependencies.
+
+Cross-reference (added 2026-08-29). "Protocol-Level Attacks on Agentic Commerce
+Platforms: A Cross-Platform Taxonomy, AIP-Bench, and Unified Defense" (Louck,
+arXiv:2607.21824, 2026-07-23) organises 33 findings across CoralOS, Fetch.ai
+uAgents and Google AP2 into five structural classes and one semantic class. This
+module carries coverage for RC-2 payment-destination binding (X4-004, X4-005, X4-006), RC-4 payment
+TOCTOU (X4-043, X4-046, X4-050) and RC-5 authorization scope (X4-048).
+
+That paper describes AIP-Bench as "to our knowledge the first deterministic
+benchmark for agentic commerce security", and this project does not contest the
+claim: the instruments measure different objects. AIP-Bench measures named
+platforms by attack-success rate; this module asserts protocol semantics against
+an arbitrary target. See docs/RELATED-WORK.md for the full relationship, and note
+that its attack locations and PoCs are withheld until 2026-10-04.
 """
 
 from __future__ import annotations
@@ -64,6 +78,8 @@ import sys
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -955,6 +971,145 @@ class X402SecurityTests:
             request_sent={"n_burst": n_burst, "n_workers": 10},
             response_received={"n_402": n_402, "n_rate_limited": n_rate_limited, "n_errors": n_errors},
             elapsed_s=round(elapsed, 3),
+        ))
+
+    # ------------------------------------------------------------------
+    # Category 12: Observable-channel credentials and delegated allowance
+    # (X4-056 to X4-057). Added 2026-08-29 from the arXiv:2607.21824 and
+    # arXiv:2605.30998 gap analysis; see docs/RELATED-WORK.md.
+    # ------------------------------------------------------------------
+
+    def _inconclusive_if_unserviced(self, resp: dict, details: str):
+        """INCONCLUSIVE detail when the target never answered, else None.
+
+        x402 is excluded from the shared serviced-target guard on purpose: a 402
+        IS this protocol servicing the request, so the generic "non-2xx means
+        unserviced" rule would convert correct behaviour into INCONCLUSIVE
+        (precondition 3 of #351).
+
+        That exclusion is about *answers*, not about *silence*. A connection
+        refusal is not a non-2xx response, it is no response, and reading it as
+        "the control held" is the #348 defect this suite exists to catch. So the
+        narrow case is handled here rather than by importing the broad guard.
+        """
+        if not isinstance(resp, dict):
+            return None
+        if resp.get("_error") or resp.get("status", 0) == 0:
+            why = resp.get("_exception", "no response")
+            return (f"{INCONCLUSIVE_PREFIX}target did not answer at all "
+                    f"({why}). Original finding: {details}")
+        return None
+
+    def test_x402_credential_in_url(self):
+        """X4-056: Payment credential supplied in the URL rather than a header."""
+        t0 = time.monotonic()
+
+        cred = _fake_payment_authorization()
+        # No X-Payment-Authorization header: the credential is ONLY in the URL.
+        path = f"{self.transport.paid_path}?payment_authorization={cred}&token={cred}"
+        resp = self.transport.request(self.transport.default_method, path=path)
+        status = resp.get("status", 0)
+
+        accepted = status == 200
+        passed = not accepted
+        details = (
+            f"credential supplied only in the URL query; server returned {status}. "
+            + ("ACCEPTED: the credential is now in access logs, proxy logs and any "
+               "Referer sent onward (CWE-598)."
+               if accepted else
+               "Refused, so the credential was not honoured from an observable channel.")
+        )
+
+        inc = self._inconclusive_if_unserviced(resp, details)
+        if inc is not None:
+            passed, details = False, inc
+
+        self._record(X402TestResult(
+            test_id="X4-056",
+            name="Payment Credential Accepted in URL (CWE-598)",
+            category="information_disclosure",
+            owasp_asi="ASI08",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=details,
+            http_method=self.transport.default_method,
+            csg_mapping="Twelve Numbers: a credential on an observable channel is a disclosed credential",
+            estimated_impact="credential_disclosure",
+            estimated_severity="high",
+            request_sent={"credential_location": "url_query", "header_sent": False},
+            response_received={"status": status},
+            elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_x402_allowance_overdraft_race(self):
+        """X4-057: Concurrent settles against one delegated `upto` allowance snapshot."""
+        t0 = time.monotonic()
+
+        # Each request individually fits inside the declared allowance; together
+        # they exceed it. A verifier that reads the allowance, then settles,
+        # without making the pair atomic will admit all of them.
+        allowance = 100
+        per_request = 40          # 3 x 40 = 120 > 100
+        n_concurrent = 3
+
+        def _one(i: int) -> dict:
+            return self.transport.request(
+                self.transport.default_method,
+                headers={
+                    "X-Payment-Authorization": _fake_payment_authorization(),
+                    "X-Payment-Allowance-Upto": str(allowance),
+                    "X-Payment-Amount": str(per_request),
+                    "X-Payment-Nonce": f"overdraft-{i}",
+                },
+            )
+
+        responses = []
+        with ThreadPoolExecutor(max_workers=n_concurrent) as ex:
+            futures = [ex.submit(_one, i) for i in range(n_concurrent)]
+            for f in as_completed(futures):
+                try:
+                    responses.append(f.result())
+                except Exception as e:  # noqa: BLE001 - recorded, not swallowed
+                    responses.append({"_error": True, "_exception": str(e)})
+
+        statuses = [r.get("status", 0) for r in responses]
+        n_accepted = sum(1 for s in statuses if s == 200)
+        settled = n_accepted * per_request
+
+        overdrawn = settled > allowance
+        passed = not overdrawn
+        details = (
+            f"{n_concurrent} concurrent requests of {per_request} against an "
+            f"upto={allowance} allowance; {n_accepted} accepted, {settled} settled. "
+            + (f"OVERDRAFT: {settled} > {allowance}, so the allowance was read from a "
+               "snapshot taken before settlement."
+               if overdrawn else
+               "Within the allowance, so verify-and-settle was not separable here.")
+        )
+
+        # Every response silent means nothing was measured, whatever the arithmetic says.
+        if all(self._inconclusive_if_unserviced(r, "") is not None for r in responses):
+            passed = False
+            details = (f"{INCONCLUSIVE_PREFIX}no request was answered "
+                       f"({n_concurrent} attempted). Original finding: {details}")
+
+        self._record(X402TestResult(
+            test_id="X4-057",
+            name="Delegated Allowance Overdraft via Verify/Settle Race",
+            category="spending_limits",
+            owasp_asi="ASI08",
+            severity=Severity.HIGH.value,
+            passed=passed,
+            details=details,
+            http_method=self.transport.default_method,
+            csg_mapping="Twelve Numbers: an allowance checked but not reserved is not a limit",
+            estimated_impact="overpayment",
+            estimated_severity="high",
+            request_sent={"allowance_upto": allowance, "per_request": per_request,
+                          "n_concurrent": n_concurrent},
+            response_received={"statuses": statuses, "n_accepted": n_accepted,
+                               "settled": settled},
+            elapsed_s=round(time.monotonic() - t0, 3),
         ))
 
     # ------------------------------------------------------------------
@@ -3143,6 +3298,7 @@ class X402SecurityTests:
             "test_x402_rapid_payment_requests",
             "test_x402_underpayment_attempt",
             "test_x402_budget_exhaustion",
+            "test_x402_allowance_overdraft_race",
         ],
         "facilitator_trust": [
             "test_x402_fake_facilitator",
@@ -3150,6 +3306,7 @@ class X402SecurityTests:
             "test_x402_facilitator_timeout_handling",
         ],
         "information_disclosure": [
+            "test_x402_credential_in_url",
             "test_x402_challenge_info_leakage",
             "test_x402_error_message_disclosure",
         ],
@@ -3266,6 +3423,8 @@ class X402SecurityTests:
 # ---------------------------------------------------------------------------
 
 _TEST_DESCRIPTIONS: dict[str, str] = {
+    "X4-056": "Payment credential supplied only in the URL query (CWE-598)",
+    "X4-057": "Concurrent settles against one delegated upto-allowance snapshot",
     "X4-001": "Verify 402 response contains all required X-Payment-* headers",
     "X4-002": "Submit malformed X-Payment-Authorization and verify rejection",
     "X4-003": "Claim unsupported currency (ETH, BTC, FAKE_TOKEN) in payment",
