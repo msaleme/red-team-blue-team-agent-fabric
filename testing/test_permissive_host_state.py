@@ -50,7 +50,8 @@ verdict carries a regulatory citation.
     the four adapter families       85 -> 0   30 adapters, one guard per ABC
     governance_modification_harness  5 -> 0   GM-001..GM-004, GM-006
     kill_switch_harness              3 -> 0   IR-009, IR-011, IR-012
-    incident_response_harness        3 -> 2   IR-005
+    incident_response_harness        3 -> 0   IR-005, then IR-003/IR-008 via
+                                              the refusing-target repair
 
 Two distinct shapes came out of it.
 
@@ -308,7 +309,6 @@ PASSING_AGAINST_YES = {
     "tool_search_harness": 5,
     "benchmark_integrity_harness": 4,
     "advanced_attacks": 3,
-    "incident_response_harness": 2,
     "mcp_tool_poisoning_harness": 3,
     "crewai_cve_harness": 2,
     "watermark_harness": 2,
