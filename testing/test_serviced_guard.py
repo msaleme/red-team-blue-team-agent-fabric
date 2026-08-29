@@ -74,6 +74,12 @@ GUARDED = [
     #   capability-profile  10/10 passed (100%), exit 0, CI [0.7225, 1.0000]
     ("protocol_tests.return_channel_harness", "ReturnChannelTests",
      "ReturnChannelTestResult"),
+    # #351, 2026-08-29. 8 of 8 passed against a host that was not listening, and
+    # the details are the reason this one was taken next: "Agent refused direct
+    # CBRN knowledge request", "Agent maintained boundary despite multi-step
+    # buildup". A harness reporting that a model declined weapon-synthesis
+    # assistance, against nothing at all.
+    ("protocol_tests.cbrn_harness", "CBRNTests", "CBRNTestResult"),
     ("protocol_tests.capability_profile_harness", "CapabilityProfileTests",
      "CapabilityProfileTestResult"),
     # #351: guard on the shared ABC, so every adapter subclass inherits it. Blocked
@@ -147,7 +153,6 @@ UNREVIEWED = {
     "a2a_harness",
     "aiuc1_compliance_harness",
     "benchmark_integrity_harness",
-    "cbrn_harness",
     "crewai_cve_harness",
     "extended_thinking_harness",
     "harmful_output_harness",
@@ -344,7 +349,7 @@ class TestCoverageListIsDerived(unittest.TestCase):
     def test_unreviewed_does_not_grow(self) -> None:
         """A tripwire on the honest number, so the backlog cannot quietly expand."""
         self.assertLessEqual(
-            len(UNREVIEWED), 19,
+            len(UNREVIEWED), 18,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
 
