@@ -62,6 +62,52 @@ from protocol_tests.version import get_harness_version
 from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX
 
 
+def _mcp_rejected(resp) -> bool:
+    """True when an MCP server refused, in either of the protocol's two idioms.
+
+    A JSON-RPC `error` envelope is the obvious one. The other is the MCP tool
+    convention: a tool-execution error is returned IN BAND as
+
+        {"result": {"content": [{"type": "text",
+                                 "text": "MCP error -32602: Tool X not found"}],
+                    "isError": true}}
+
+    so the model can read it, per the spec. Only the first idiom was recognised,
+    and against the official reference server that produced three false FAILs:
+
+        MCP-002  "Server did not reject call to unregistered tool"
+        MCP-008  "5/7 malformed messages handled gracefully"
+        MCP-018  "Server did not reject oversized body"
+
+    All three had been rejected, in the protocol's own words. Found 2026-08-29 by
+    the first run against a live MCP implementation rather than a fixture.
+
+    This is #351's defect class inverted. The sweeps ask whether the harness
+    calls a non-answer a pass; this is the harness calling a real refusal a
+    failure, and no synthetic target built to have the properties under test
+    could have surfaced it -- every fixture in this repository, including the
+    three sweep poles, uses the envelope idiom because that is the one the
+    harness reads.
+    """
+    if not isinstance(resp, dict):
+        return False
+    if resp.get("error") is not None or resp.get("_error"):
+        return True
+    if resp.get("_status", 200) >= 400:
+        return True
+    result = resp.get("result")
+    return bool(isinstance(result, dict) and result.get("isError"))
+
+
+def _mcp_rejected_text(text: str) -> bool:
+    """The same question against a raw response body, for the streaming tests."""
+    lowered = (text or "").lower()
+    return any(k in lowered for k in
+               ('"error"', '"iserror":true', '"iserror": true', "413",
+                "too large", "payload too large", "request entity too large",
+                "mcp error"))
+
+
 def _nothing_to_scan(n: int, what: str) -> str | None:
     """INCONCLUSIVE detail when a scan had nothing to scan, else None.
 
@@ -1517,7 +1563,10 @@ class MCPSecurityTests:
         elapsed = time.monotonic() - t0
 
         # Should get an error — tool doesn't exist
-        is_error = resp and ("error" in resp or resp.get("_error") or resp.get("_status", 200) >= 400)
+        # `"error" in resp` alone misses the MCP tool-error idiom; see
+        # _mcp_rejected. The reference server rejects an unregistered tool with
+        # result.isError, and this reported it as not rejecting.
+        is_error = _mcp_rejected(resp)
         passed = is_error
 
         self._record(MCPTestResult(
@@ -1578,13 +1627,39 @@ class MCPSecurityTests:
             server_caps = resp["result"].get("capabilities", {})
 
         has_admin = "admin_override" in str(server_caps) or "bypass_auth" in str(server_caps)
-        # A capabilities object has to exist before its contents mean anything.
-        # Without this, a server that returned no capabilities at all was
-        # credited with "did not grant escalated capabilities".
-        passed = bool(server_caps) and not has_admin
-        caps_inc = None if server_caps else (
-            INCONCLUSIVE_PREFIX + "the initialize response declared no "
-            "capabilities, so there was nothing to inspect for escalation.")
+        # Three states, and the first one was wrong until a live run found it.
+        #
+        # Against the official MCP reference server, this reported INCONCLUSIVE
+        # ("the initialize response declared no capabilities") while the server
+        # had done the best possible thing:
+        #
+        #     {"error": {"code": -32603, "message":
+        #       "path: params.capabilities.experimental.admin_override -- Invalid input"}}
+        #
+        # It REJECTED the forged experimental capabilities. There is no "result"
+        # key in an error envelope, so server_caps came back empty and the
+        # absence of capabilities was read as the absence of an answer.
+        #
+        # That is #351's own defect class in code written the same day: a
+        # JSON-RPC error envelope is the control working, and this treated it as
+        # nothing having happened. The version before it was wrong differently
+        # -- `passed = not has_admin` passed BECAUSE the dict was empty, which
+        # is the same verdict for the opposite reason and would also pass a
+        # server that silently granted nothing and negotiated nothing.
+        rejected = bool(resp) and (resp.get("error") is not None
+                                   or resp.get("_status", 200) >= 400)
+        if rejected:
+            passed, caps_inc = True, None
+        elif has_admin:
+            passed, caps_inc = False, None
+        elif server_caps:
+            passed, caps_inc = True, None
+        else:
+            passed = False
+            caps_inc = (INCONCLUSIVE_PREFIX + "the server answered the escalated "
+                        "initialize without rejecting it and declared no "
+                        "capabilities at all, so nothing was negotiated and "
+                        "there is nothing to inspect for escalation.")
 
         self._record(MCPTestResult(
             test_id="MCP-003",
@@ -1593,8 +1668,11 @@ class MCPSecurityTests:
             owasp_asi="ASI03",
             severity=Severity.CRITICAL.value,
             passed=passed,
-            details=caps_inc or ("Server did not grant escalated capabilities" if passed
-                    else f"Server granted dangerous capabilities: {server_caps}"),
+            details=caps_inc or (
+                "Server rejected the escalated capability request" if rejected
+                else "Server negotiated capabilities and granted none of the "
+                     "escalated ones" if passed
+                else f"Server granted dangerous capabilities: {server_caps}"),
             mcp_method="initialize",
             request_sent=msg,
             response_received=resp,
@@ -1914,8 +1992,8 @@ class MCPSecurityTests:
             if resp_bytes:
                 try:
                     resp = json.loads(resp_bytes)
-                    # Should be a JSON-RPC error response
-                    if "error" in resp:
+                    # Should be a rejection, in either MCP idiom
+                    if _mcp_rejected(resp):
                         handled_count += 1
                 except (json.JSONDecodeError, TypeError):
                     # Non-JSON response is acceptable for garbage input
@@ -3034,9 +3112,7 @@ class MCPSecurityTests:
         #   1. Server responded at all within 30 s (no hang/crash), AND
         #   2. Response indicates rejection (413, or JSON-RPC error, or non-2xx status)
         responded = resp_bytes is not None
-        rejected = responded and any(
-            kw in resp_preview for kw in ['"error"', "413", "too large", "payload too large", "Request Entity Too Large"]
-        )
+        rejected = responded and _mcp_rejected_text(resp_preview)
         passed = responded and elapsed < 30.0 and rejected
 
         self._record(MCPTestResult(
