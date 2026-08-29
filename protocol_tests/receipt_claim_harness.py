@@ -367,6 +367,18 @@ class ReceiptClaimTests:
     (RCL-008)."""
 
     def __init__(self, simulate: bool = False):
+        # `simulate` is accepted but not read, and that is deliberate. This module
+        # performs no network I/O: it builds receipts locally and runs them through
+        # ClaimLevelVerifier against a frozen clock, so every run is already an
+        # offline reference run and the flag has nothing to switch. Unlike #356's
+        # identity_harness case, the help text here is accurate rather than false.
+        #
+        # Do not remove the parameter or the --simulate flag. Both are load-bearing
+        # as a published interface: testing/test_receipt_claim.py constructs
+        # ReceiptClaimTests(simulate=True), and the retained evidence report
+        # reports/round_26/VS-R04-receipt-claim-evidence.md publishes
+        # `python3 -m protocol_tests.receipt_claim_harness --simulate` as its
+        # reproduction command. A retained report's repro command must keep working.
         self.simulate = simulate
         self.results: list[RCLResult] = []
         self.now = 1_750_000_000
