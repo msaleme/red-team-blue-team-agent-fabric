@@ -25,9 +25,9 @@ one. So this module carries a narrow local rule instead: `_record` downgrades
 only on the marker `_aggregate_evidence` sets when a multi-attempt test reached
 nobody, and JSON-RPC error envelopes are untouched.
 
-## What was fixed
+## What was fixed, in two passes
 
-The counting. Loops of the shape
+**First, the counting.** Loops of the shape
 
     resp = self.transport.get(path)
     if resp.get("_error") or resp.get("_status", 200) >= 400:
@@ -35,19 +35,35 @@ The counting. Loops of the shape
 
 tallied a connection refusal as a blocked attack, and reported "3/3 traversal
 attempts blocked" and "8/8 unauthorized task operations blocked" against a host
-that was not running. `_answered` now separates an answer -- including a 4xx or
-an error envelope, both of which mean the server was reached -- from silence,
-and `_aggregate_evidence` retains the attempt and answer counts so the verdict
-is not evidence-free.
+that was not running. `_answered` separates an answer -- including a 4xx or an
+error envelope, both of which mean the server was reached -- from silence, and
+`_aggregate_evidence` retains the attempt and answer counts so the verdict is
+not evidence-free.
 
-Dead-host pass count: **11 of 13 before, 6 of 13 now.**
+That left six. Every one of them decided `passed = <nothing bad was found>` from
+a single request, or from a shape the aggregate helper did not cover, so the
+marker it sets could never reach them. A fix scoped to the mechanism rather than
+to the module.
+
+**Second, the request log.** `_record` now also reads what this test's requests
+actually came back as, via `instrument_transport` on `get`/`rpc`/`rpc_raw`. That
+is the general form: a test is covered whether or not it remembers to call the
+aggregate helper, and whether or not it records evidence at all. Reading the log
+rather than `response_received` matters because several of these convert the
+failure into a boolean or an empty list before recording it.
+
+`A2A-006` needed one more edit. It answered a failed task creation with
+`passed=True` and "server may not support tasks", which is the no-probe-surface
+class rather than the silence class -- convention 9's first precondition, an
+observable target capability. A server with no task support has not shown it
+rejects invalid state transitions.
 
 ## What is still open
 
-The six below decide `passed = <nothing bad was found>` from a single request or
-a shape the aggregate helper does not cover. Each needs its own read. They are
-listed by ID rather than described loosely, so the remaining work is countable
-and this file fails if the number silently grows.
+Nothing, against a closed port. `STILL_FALSE_PASSING` is empty and the check
+below fails if it stops being empty, in either direction. That is a statement
+about one failure mode and not a clean bill of health: this module can still
+mis-verdict against a live target in every other way.
 """
 
 from __future__ import annotations
@@ -65,11 +81,17 @@ from protocol_tests.a2a_harness import A2ASecurityTests, A2ATransport
 
 CLOSED_PORT = "http://127.0.0.1:9"
 
-# Repaired: these must not pass against a target that never answered.
-REPAIRED = {"A2A-001", "A2A-003", "A2A-004", "A2A-008", "A2A-009", "A2A-010", "A2A-013"}
+# Every test in the suite. None may pass against a target that never answered.
+REPAIRED = {
+    "A2A-001", "A2A-003", "A2A-004", "A2A-008", "A2A-009", "A2A-010", "A2A-013",
+    # Added 2026-08-29 by the request-log guard. These six survived the counting
+    # repair because none of them used _aggregate_evidence.
+    "A2A-002", "A2A-005", "A2A-006", "A2A-007", "A2A-011", "A2A-012",
+}
 
-# Still open. May shrink. Must never grow.
-STILL_FALSE_PASSING = {"A2A-002", "A2A-005", "A2A-006", "A2A-007", "A2A-011", "A2A-012"}
+# Empty, and the check below holds it empty. An entry here is a known defect
+# awaiting a read, never a resting state.
+STILL_FALSE_PASSING: set[str] = set()
 
 
 def _dead_host_results():
@@ -120,6 +142,54 @@ class TestA2AUnservicedState(unittest.TestCase):
             self.passing, STILL_FALSE_PASSING,
             "STILL_FALSE_PASSING no longer matches reality; update it to the "
             "measured set and record which repair moved it")
+
+
+class _RefusingTransport(A2ATransport):
+    """Answers every call with a JSON-RPC error envelope.
+
+    In this protocol that is frequently the control working, not a failure to
+    service the request -- which is why the shared serviced guard cannot be
+    applied here at all.
+    """
+
+    def get(self, path):
+        return {"error": {"code": -32601, "message": "Method not found"}}
+
+    def rpc(self, method, params=None):
+        return {"jsonrpc": "2.0", "id": 1,
+                "error": {"code": -32600, "message": "Request refused"}}
+
+    def rpc_raw(self, *args, **kwargs):
+        return {"error": {"code": -32600, "message": "Request refused"}}
+
+
+class TestTheGuardStaysOutOfTheWayOfARefusal(unittest.TestCase):
+    """The false-negative direction, which is the specific danger in this module.
+
+    Applying `inconclusive_detail` here downgraded A2A-007's active rejection to
+    INCONCLUSIVE and broke test_vsr03_verdict_correctness. The request-log guard
+    keys on silence alone, so a server answering every call with an error
+    envelope must still produce ordinary verdicts.
+    """
+
+    def test_an_error_envelope_is_not_silence(self):
+        suite = A2ASecurityTests(_RefusingTransport("http://target.invalid"))
+        with contextlib.redirect_stdout(io.StringIO()):
+            suite.run_all()
+        downgraded = [r.test_id for r in suite.results
+                      if "requests were answered" in (r.details or "")]
+        self.assertEqual(
+            downgraded, [],
+            f"the silence guard fired on a target that answered every call with "
+            f"a JSON-RPC error envelope: {downgraded}")
+        self.assertTrue(
+            [r for r in suite.results if r.passed],
+            "a refusing target produced no passing verdict; the guard has been "
+            "written too broadly and now inverts the protocol")
+        self.assertTrue(
+            [r for r in suite.results if not r.passed],
+            "a refusing target produced no failing verdict either, which would "
+            "mean the suite cannot distinguish targets at all")
 
 
 if __name__ == "__main__":

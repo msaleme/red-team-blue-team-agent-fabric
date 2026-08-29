@@ -80,9 +80,10 @@ KNOWN_PASSING = {
     # with the guard unable to reach verdicts that recorded no response. Both are
     # now 0 and have left this map, which is what the not-stale check is for.
 
-    # In NARROW_LOCAL_RULE. Partially repaired, remaining six pinned in detail
-    # by testing/test_a2a_unserviced_state.py.
-    "a2a_harness": 6,
+    # a2a_harness was here at 6 -- the last target-dependent remainder in the
+    # sweep. Its verdicts are now guarded by the request log as well as by
+    # _aggregate_evidence's marker, and testing/test_a2a_unserviced_state.py
+    # pins all thirteen IDs rather than a shrinking open set.
 }
 
 
