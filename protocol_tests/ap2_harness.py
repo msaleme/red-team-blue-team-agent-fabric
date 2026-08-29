@@ -67,6 +67,21 @@ Usage:
     python -m protocol_tests.ap2_harness --simulate --report ap2.json
 
 Requires: Python 3.10+, no external dependencies.
+
+Cross-reference (added 2026-08-29). "Protocol-Level Attacks on Agentic Commerce
+Platforms: A Cross-Platform Taxonomy, AIP-Bench, and Unified Defense" (Louck,
+arXiv:2607.21824, 2026-07-23) organises 33 findings across CoralOS, Fetch.ai
+uAgents and Google AP2 into five structural classes and one semantic class. This
+module carries coverage for RC-2 payment-destination binding (AP2-004, AP2-015), RC-4 payment TOCTOU
+(AP2-011, AP2-013) and RC-5 authorization scope (AP2-003, AP2-005, AP2-006,
+AP2-017).
+
+That paper describes AIP-Bench as "to our knowledge the first deterministic
+benchmark for agentic commerce security", and this project does not contest the
+claim: the instruments measure different objects. AIP-Bench measures named
+platforms by attack-success rate; this module asserts protocol semantics against
+an arbitrary target. See docs/RELATED-WORK.md for the full relationship, and note
+that its attack locations and PoCs are withheld until 2026-10-04.
 """
 
 from __future__ import annotations

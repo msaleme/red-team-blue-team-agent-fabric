@@ -83,7 +83,7 @@ Per NIST AI 800-2 Practice 1.1, possible uses of these evaluation results includ
 |---|---|
 | **Comparability** | Fixed test IDs, deterministic payloads, versioned protocol. Results across different deployments are directly comparable. |
 | **External validity** | Tests simulate realistic attack patterns drawn from InfraGard threat intelligence and OWASP incident reports, not synthetic toy scenarios. |
-| **Cost control** | Each test completes in <15 seconds. Full 606-test suite runs in <30 minutes. No GPU or expensive inference required. |
+| **Cost control** | Each test completes in <15 seconds. Full 608-test suite runs in <30 minutes. No GPU or expensive inference required. |
 | **Performance optimization** | Not applicable — we are measuring security boundaries, not model capability. We deliberately do NOT optimize prompts to bypass refusals. |
 
 #### Protocol Settings (per NIST AI 800-2 Table 2.2)
@@ -288,4 +288,4 @@ Per NIST AI 800-2, we distinguish:
 
 _Document version: 1.0_
 _NIST AI 800-2 alignment date: March 21, 2026_
-_Framework version: 4.15.0 (606 tests)_
+_Framework version: 4.15.0 (608 tests)_

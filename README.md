@@ -3,7 +3,7 @@
 [![PyPI version](https://badge.fury.io/py/agent-security-harness.svg)](https://pypi.org/project/agent-security-harness/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/security%20tests-606-green.svg)](#three-layers-of-agent-decision-security)
+[![Tests](https://img.shields.io/badge/security%20tests-608-green.svg)](#three-layers-of-agent-decision-security)
 [![OWASP Agentic T1-T17](https://img.shields.io/badge/OWASP%20Agentic%20v1.1-13%2F17%20direct-blue.svg)](docs/OWASP-AGENTIC-V1.1-COVERAGE.md)
 [![ClawScan](https://img.shields.io/badge/ClawScan-Benign-brightgreen)](https://clawhub.ai/msaleme/agent-security-harness)
 [![Static Analysis](https://img.shields.io/badge/Static%20Analysis-Benign-brightgreen)](https://clawhub.ai/msaleme/agent-security-harness)
@@ -11,7 +11,7 @@
 
 **Even if an agent is properly authenticated and authorized, can it still be manipulated into unsafe or policy-violating behavior?**
 
-606 executable security tests across 43 test-bearing modules on `main` (verified 2026-08-11 via `scripts/count_tests.py`; the v4.15.0 release carries 603). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
+608 executable security tests across 43 test-bearing modules on `main` (verified 2026-08-29 via `scripts/count_tests.py`; the v4.15.0 release carries 603). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
 
 ```
 $ agent-security test mcp --url http://localhost:8080/mcp
@@ -166,7 +166,7 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 | **Research backing** | - | Cisco blog | Papers | **7 DOIs + 3 NIST submissions** (self-authored; see [Research](#research)) |
 | **MCP server mode** | - | - | - | **Yes - invoke from any AI agent** |
 | **Statistical testing** | - | - | - | **Wilson CIs, multi-trial** |
-| **Total tests** | Config checks | YARA rules | Model probes | **606 active tests across 43 test-bearing modules** |
+| **Total tests** | Config checks | YARA rules | Model probes | **608 active tests across 43 test-bearing modules** |
 
 Star counts verified 2026-08-02 via the GitHub API. Invariant Labs' `mcp-scan` now redirects to
 `snyk/agent-scan` and is listed once rather than as two separate projects. Competitor rows describe
@@ -233,7 +233,7 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 | Resource | Link |
 |---|---|
 | Expanded Quick Start | [docs/QUICKSTART.md](docs/QUICKSTART.md) |
-| Full Test Inventory (606 tests) | [docs/TEST-INVENTORY.md](docs/TEST-INVENTORY.md) |
+| Full Test Inventory (608 tests) | [docs/TEST-INVENTORY.md](docs/TEST-INVENTORY.md) |
 | OWASP Agentic v1.1 Coverage (T1–T17) | [docs/OWASP-AGENTIC-V1.1-COVERAGE.md](docs/OWASP-AGENTIC-V1.1-COVERAGE.md) |
 | Canonical coverage mapping (source of truth) | [docs/coverage/owasp-agentic-v1.1.yaml](docs/coverage/owasp-agentic-v1.1.yaml) |
 | Release history & known gaps | [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) |
@@ -266,7 +266,8 @@ mapping and the human-in-the-loop harness** · v4.13.1 a correctness fix to that
 endpoint provenance · **v4.15.0 unserviced requests are no longer recorded as passes** (see
 [CHANGELOG.md](CHANGELOG.md)).
 
-The release carries **603** tests; `main` is at **606** — MAG-019, then MEM-011 and MEM-012, all landing after the tag. Both
+The release carries **603** tests; `main` is at **608** — MAG-019, MEM-011 and MEM-012, then X4-056 and
+X4-057 (URL-borne payment credentials and delegated-allowance overdraft), all landing after the tag. Both
 are correct for their own ref, and `scripts/check_public_metadata.py` compares public claims against
 the release rather than against `main` for exactly that reason.
 
