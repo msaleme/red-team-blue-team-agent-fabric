@@ -70,10 +70,9 @@ KNOWN_PASSING = {
     "aiuc1_compliance_harness": 3,
     "extended_thinking_harness": 2,
 
-    # In GUARDED, and the guard cannot reach these verdicts because they record
-    # no response at all. The label is currently wrong for both.
-    "advanced_attacks": 7,
-    "provenance_harness": 1,
+    # advanced_attacks and provenance_harness were here at 7 and 1, in GUARDED,
+    # with the guard unable to reach verdicts that recorded no response. Both are
+    # now 0 and have left this map, which is what the not-stale check is for.
 
     # In NARROW_LOCAL_RULE. Partially repaired, remaining six pinned in detail
     # by testing/test_a2a_unserviced_state.py.
