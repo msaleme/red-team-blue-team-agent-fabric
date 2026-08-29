@@ -87,6 +87,16 @@ KNOWN_PASSING = {
 }
 
 
+#: Ran, and deliberately emitted nothing. mcp_harness aborts before its first
+#: test when the MCP handshake fails, which is the behaviour #351 asks for. The
+#: row is here so the abort stays visible instead of reading as a clean 0/0.
+SILENT_BY_DESIGN = {"mcp_harness"}
+
+#: No runnable suite at all. harness_base is the shared ABC and defines no tests
+#: of its own, so this is a correct row rather than a gap.
+UNRUNNABLE = {"harness_base"}
+
+
 class TestDeadHostState(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -94,11 +104,43 @@ class TestDeadHostState(unittest.TestCase):
         cls.ran = [r for r in cls.rows if r["status"] == "ran"]
 
     def test_the_sweep_actually_ran(self):
-        """Assert a positive expected set, so a broken sweep cannot read as clean."""
+        r"""Assert a positive expected set, so a broken sweep cannot read as clean.
+
+        The floor was 25 while the finder matched class names against
+        `^class (\w*Tests?)` and required `run_all`. Both were conventions
+        dressed as a discovery rule, so every adapter -- plus two modules whose
+        class name lacks the suffix -- was reported as `no-suite-class` and the
+        summary counted only what it could construct.
+
+        The floor is asserted rather than restated in prose, so it cannot go
+        stale the way the sentence it replaced did.
+        """
         self.assertGreaterEqual(
-            len(self.ran), 25,
-            f"only {len(self.ran)} modules ran; the sweep is probably broken rather "
-            f"than the repository having shrunk")
+            len(self.ran), 60,
+            f"only {len(self.ran)} suites produced verdicts; the sweep is probably "
+            f"broken, or its discovery has narrowed back to a naming convention")
+
+    def test_a_suite_that_produced_nothing_is_declared(self):
+        """Ran and emitted no verdicts is not the same as ran and found nothing.
+
+        mcp_harness aborts with `if not self.initialize(): return self.results`,
+        which is correct -- it refuses to emit verdicts it cannot ground -- and
+        it rendered as `0/0`, indistinguishable from a clean sweep. Anything
+        else landing in this state is a suite that silently stopped testing.
+        """
+        silent = {r["module"] for r in self.rows if r["status"] == "ran-no-verdicts"}
+        self.assertEqual(
+            silent, SILENT_BY_DESIGN,
+            f"declared {sorted(SILENT_BY_DESIGN)}, measured {sorted(silent)}. A "
+            f"suite producing no verdicts is unmeasured, not clean.")
+
+    def test_nothing_is_unrunnable_except_what_is_declared(self):
+        cannot_run = {r["module"]: r["status"] for r in self.rows
+                      if r["status"] not in ("ran", "ran-no-verdicts")}
+        self.assertEqual(
+            set(cannot_run), UNRUNNABLE,
+            f"declared {sorted(UNRUNNABLE)}, measured {cannot_run}. A suite the "
+            f"sweep cannot construct is a suite nothing here says anything about.")
 
     def test_no_module_errors_its_way_to_a_low_score(self):
         """A module that raises is not a module that passed.

@@ -274,6 +274,15 @@ NARROW_LOCAL_RULE = {
     "aiuc1_compliance_harness",
 }
 
+#: ADAPTER_CASES below verifies the base-class guard for one adapter per module
+#: using synthetic results. That is the mechanism; it is not the outcome. As of
+#: 2026-08-29 scripts/dead_host_sweep.py constructs and runs every concrete
+#: adapter against a closed port, so "every subclass inherits it" is measured
+#: rather than argued. All of them score zero. The distinction matters here
+#: because it is exactly how advanced_attacks kept a GUARDED label while
+#: false-passing 7 of 10: the guard suite fed it synthetic results that carried
+#: a response, and the module's own tests recorded none.
+
 #: No network target, so being serviced is not a property these can have.
 #: skill_security_harness makes no HTTP calls; its verdicts read a local skill
 #: path and it already fails closed when that path is empty (0 of 8, all with
