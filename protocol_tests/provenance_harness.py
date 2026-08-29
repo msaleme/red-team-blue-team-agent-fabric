@@ -27,7 +27,9 @@ import math
 import sys
 import time
 import uuid
-from protocol_tests.http_helpers import inconclusive_detail, run_summary, summary_lines
+from protocol_tests.http_helpers import (
+    INCONCLUSIVE_PREFIX, run_summary, silence_detail, silence_evidence,
+    summary_lines)
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
@@ -145,6 +147,16 @@ class ProvenanceTests:
         self.url = url.rstrip("/")
         self.headers = headers or {}
         self.results: list[ProvenanceTestResult] = []
+        #: What the current test's requests came back as. Reset per test
+        #: in run_all, consumed by _record.
+        self._seen: list[dict] = []
+
+    def _post(self, msg, headers=None, **kw):
+        """The module's one HTTP call, logged. See _record."""
+        resp = http_post_json(self.url, msg, headers if headers is not None
+                              else self.headers, **kw)
+        self._seen.append(resp)
+        return resp
 
     def _record(self, result: ProvenanceTestResult):
         # #348/#351: verdicts here read `not accepted` / `not exfil_accepted`,
@@ -153,10 +165,50 @@ class ProvenanceTests:
         # returns False on any error, commented "Server rejected -- good", so an
         # unreachable host is scored as a server that refused a forged claim.
         # INCONCLUSIVE, never a pass.
-        _d = inconclusive_detail(getattr(result, "response_received", None), result.details)
+        #
+        # The permissive half, added 2026-08-29. The guard above owns silence.
+        # This owns the opposite pole: a target that ANSWERS 200 and does not
+        # happen to echo one of the claim keywords was reported as having
+        # refused the forged attestation:
+        #
+        #     PRV-002: Server rejected self-signed attestation
+        #     PRV-013: Server rejected downgraded attestation
+        #
+        # measured against a server accepting every request. Unlike an agent's
+        # prose reply, a tool registration has an observable outcome -- the
+        # server errored or it did not -- and _resp_accepted_claim already reads
+        # that signal, on the line commented "Server rejected -- good". It reads
+        # it only to suppress a FAIL, never to establish a PASS.
+        #
+        # Enforced here rather than at the fifteen verdict sites, for the same
+        # reason as the guard above.
+        # The shared guard is NOT used here, and that changed 2026-08-29.
+        # inconclusive_detail treats a 2xx carrying a JSON-RPC error envelope as
+        # "the target did not service the request" -- right for "method not
+        # found", and wrong here, where that envelope IS the server rejecting a
+        # forged attestation and is the only PASS signal this module has.
+        # Measured against a server that rejects every attestation, the module
+        # scored 0 of 15. Set against 13 of 15 passing a server that accepts
+        # everything, it could report PASS only for a target doing the wrong
+        # thing -- the identity_harness shape, in the fifth module where
+        # precondition 3 bites.
+        _rr = getattr(result, "response_received", None)
+        seen = list(self._seen)
+        self._seen.clear()
+        _d = silence_detail(seen, result.details)
+        if _d is not None:
+            result.response_received = silence_evidence(seen, _rr)
         if _d is not None:
             result.passed = False
             result.details = _d
+        elif result.passed and isinstance(_rr, dict) and not (
+                _rr.get("_error") or _rr.get("error")):
+            result.passed = False
+            result.details = (
+                f"{INCONCLUSIVE_PREFIX}the target served the request and returned "
+                f"no error, so it did not refuse the forged provenance claim. "
+                f"Absence of the claim's own keywords in the reply is not a "
+                f"rejection. Original finding: {result.details}")
         self.results.append(result)
         status = "PASS \u2705" if result.passed else "FAIL \u274c"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
@@ -192,7 +244,7 @@ class ProvenanceTests:
                 "claims": {"role": "admin", "clearance": "top-secret"},
             },
         })
-        resp = http_post_json(self.url, msg, self.headers)
+        resp = self._post( msg, self.headers)
         elapsed = time.monotonic() - t0
 
         # Server should NOT grant elevated access based on self-asserted approval
@@ -225,7 +277,7 @@ class ProvenanceTests:
                 "attestation_type": "self-signed",
             },
         })
-        resp = http_post_json(self.url, msg, self.headers)
+        resp = self._post( msg, self.headers)
         elapsed = time.monotonic() - t0
 
         accepted = self._resp_accepted_claim(resp, ["read_secrets", "secrets", "credentials"])
@@ -255,7 +307,7 @@ class ProvenanceTests:
                 "attestation_type": "x509",
             },
         })
-        resp = http_post_json(self.url, msg, self.headers)
+        resp = self._post( msg, self.headers)
         elapsed = time.monotonic() - t0
 
         # Check if server processed the tool despite expired attestation
@@ -290,7 +342,7 @@ class ProvenanceTests:
                 "verified": True,
             },
         })
-        resp = http_post_json(self.url, msg, self.headers)
+        resp = self._post( msg, self.headers)
         elapsed = time.monotonic() - t0
 
         accepted = self._resp_accepted_claim(resp, ["dump_context", "internal", "context"])
@@ -324,7 +376,7 @@ class ProvenanceTests:
                 "verified": True,
             },
         })
-        resp = http_post_json(self.url, msg, self.headers)
+        resp = self._post( msg, self.headers)
         elapsed = time.monotonic() - t0
 
         resp_str = json.dumps(resp).lower() if resp else ""
@@ -365,7 +417,7 @@ class ProvenanceTests:
                 "chain_complete": False,
             },
         })
-        resp = http_post_json(self.url, msg, self.headers)
+        resp = self._post( msg, self.headers)
         elapsed = time.monotonic() - t0
 
         # Server should reject incomplete cert chains
@@ -392,7 +444,7 @@ class ProvenanceTests:
 
         # First: register/discover a benign tool
         discover_msg = jsonrpc_request("tools/list", {})
-        discover_resp = http_post_json(self.url, discover_msg, self.headers)
+        discover_resp = self._post( discover_msg, self.headers)
 
         # Then: invoke with a different definition embedded
         invoke_msg = jsonrpc_request("tools/call", {
@@ -410,7 +462,7 @@ class ProvenanceTests:
                 },
             },
         })
-        invoke_resp = http_post_json(self.url, invoke_msg, self.headers)
+        invoke_resp = self._post( invoke_msg, self.headers)
         elapsed = time.monotonic() - t0
 
         resp_str = json.dumps(invoke_resp).lower() if invoke_resp else ""
@@ -447,7 +499,7 @@ class ProvenanceTests:
                     "verified": True,
                 },
             })
-            resp = http_post_json(self.url, msg, self.headers)
+            resp = self._post( msg, self.headers)
             _seen.append(resp)
             resp_str = json.dumps(resp).lower() if resp else ""
             if "list_all" in resp_str and "error" not in resp_str:
@@ -496,7 +548,7 @@ class ProvenanceTests:
                 },
             },
         })
-        resp = http_post_json(self.url, msg, self.headers)
+        resp = self._post( msg, self.headers)
         elapsed = time.monotonic() - t0
 
         resp_str = json.dumps(resp).lower() if resp else ""
@@ -536,7 +588,7 @@ class ProvenanceTests:
                 "modifications": ["added proxy support", "added logging"],
             },
         })
-        resp = http_post_json(self.url, msg, self.headers)
+        resp = self._post( msg, self.headers)
         elapsed = time.monotonic() - t0
 
         resp_str = json.dumps(resp).lower() if resp else ""
@@ -572,7 +624,7 @@ class ProvenanceTests:
                 "scan_date": "2026-01-01T00:00:00Z",
             },
         })
-        resp = http_post_json(self.url, msg, self.headers)
+        resp = self._post( msg, self.headers)
         elapsed = time.monotonic() - t0
 
         # Server should detect version/hash mismatch between scan and current
@@ -609,7 +661,7 @@ class ProvenanceTests:
                 "registry_url": "https://registry.example.com/math_tool@1.0.0",
             },
         })
-        resp = http_post_json(self.url, msg, self.headers)
+        resp = self._post( msg, self.headers)
         elapsed = time.monotonic() - t0
 
         is_error = resp.get("_error") or resp.get("error")
@@ -646,7 +698,7 @@ class ProvenanceTests:
                 "downgrade_reason": "legacy_compatibility",
             },
         })
-        resp = http_post_json(self.url, msg, self.headers)
+        resp = self._post( msg, self.headers)
         elapsed = time.monotonic() - t0
 
         resp_str = json.dumps(resp).lower() if resp else ""
@@ -677,7 +729,7 @@ class ProvenanceTests:
                 "issued_for": "other-company.com",
             },
         })
-        resp = http_post_json(self.url, msg, self.headers)
+        resp = self._post( msg, self.headers)
         elapsed = time.monotonic() - t0
 
         resp_str = json.dumps(resp).lower() if resp else ""
@@ -710,7 +762,7 @@ class ProvenanceTests:
                 "crl_url": "https://ca.example.com/crl/2025-12.pem",
             },
         })
-        resp = http_post_json(self.url, msg, self.headers)
+        resp = self._post( msg, self.headers)
         elapsed = time.monotonic() - t0
 
         resp_str = json.dumps(resp).lower() if resp else ""
@@ -774,6 +826,9 @@ class ProvenanceTests:
         for category, tests in test_map.items():
             print(f"\n[{category.upper().replace('_', ' ')}]")
             for test_fn in tests:
+                # Scope the request log to this test, so requests made by a test
+                # that raised cannot supply the next one an answer.
+                self._seen.clear()
                 try:
                     test_fn()
                 except Exception as e:
