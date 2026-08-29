@@ -49,6 +49,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 
 from protocol_tests._utils import Severity, wilson_ci, http_post_json, jsonrpc_request
+from protocol_tests.http_helpers import (
+    INCONCLUSIVE_PREFIX, silence_detail, silence_evidence)
 
 _CODE_EXEC_CALLER = "code_execution_20250825"
 
@@ -116,12 +118,50 @@ class PTCTests:
         self.headers = headers or {}
         self.simulate = simulate
         self.results: list[PTCResult] = []
+        #: What the current test's requests came back as. Reset per test in
+        #: run_all, consumed by _record.
+        self._seen: list[dict] = []
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def _post(self, payload: dict, headers: dict | None = None) -> dict:
+        """The module's one network call, plus a record of what came back.
+
+        Logging here rather than reading result.response_received is deliberate:
+        several verdicts in this module convert the failure into a value before
+        recording it, so by the time _record sees the evidence the unreachable
+        target has already become an empty list or a boolean.
+        """
+        resp = http_post_json(self.url, payload, headers=headers or self.headers)
+        self._seen.append(resp)
+        return resp
+
     def _record(self, result: PTCResult) -> None:
+        # #351. Against a closed port this module returned PASS on 9 of 10:
+        #
+        #     PTC-001: No destructive tools opted into code-exec without a gate
+        #     PTC-006: Expired container was rejected on reuse
+        #
+        # PTC-001 launders the failure explicitly:
+        #
+        #     live_tools = (resp.get("result") or {}).get("tools", []) \
+        #                  if not resp.get("_error") else []
+        #     passed = len(_unsafe_opt_ins(live_tools)) == 0
+        #
+        # The unreachable target is turned into an empty tool list and the empty
+        # list is then graded clean. PTC-006 does the shorter version:
+        # `rejected = bool(reuse_resp.get("_error"))`, so a refused connection is
+        # the container being rejected on reuse.
+        seen = list(self._seen)
+        self._seen.clear()
+        detail = silence_detail(seen, result.details)
+        if detail is not None:
+            result.passed = False
+            result.details = detail
+            result.response_received = silence_evidence(
+                seen, getattr(result, "response_received", None))
         status = "PASS ✅" if result.passed else "FAIL ❌"
         print(f"  {status}  {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
         self.results.append(result)
@@ -129,7 +169,7 @@ class PTCTests:
     def _introspect(self) -> dict:
         """Ask a live target for its registered tool/container metadata."""
         req = jsonrpc_request("ptc/introspect", {})
-        return http_post_json(self.url, req, headers=self.headers)
+        return self._post(req, headers=self.headers)
 
     @staticmethod
     def _method_unsupported(resp: dict) -> bool:
@@ -207,8 +247,8 @@ class PTCTests:
             self._record(PTCResult(
                 test_id="PTC-001", name="Destructive Tool Opted Into Code-Execution Context",
                 category="opt_in", owasp_asi="ASI05",
-                severity=Severity.CRITICAL.value, passed=True,
-                details="Target does not expose PTC tool metadata — no opt-in surface to probe.",
+                severity=Severity.CRITICAL.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Target does not expose PTC tool metadata, so the opt-in control was never exercised. Absence of a probe surface is not evidence the control holds."),
                 payload_summary="method_unsupported",
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -295,8 +335,8 @@ class PTCTests:
             self._record(PTCResult(
                 test_id="PTC-002", name="Sandbox Exfiltration Before Model Visibility",
                 category="exfiltration", owasp_asi="ASI06",
-                severity=Severity.CRITICAL.value, passed=True,
-                details="Target does not expose sandbox network traces — no side-channel surface to probe.",
+                severity=Severity.CRITICAL.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Target does not expose sandbox network traces, so the side-channel control was never exercised. Absence of a probe surface is not evidence the control holds."),
                 payload_summary="method_unsupported",
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -372,8 +412,7 @@ class PTCTests:
 
         # Live: attempt to reuse a container_id across two distinct sessions
         # and see whether the target rejects the mismatched request.
-        create_resp = http_post_json(
-            self.url,
+        create_resp = self._post(
             jsonrpc_request("ptc/container/create", {"session_id": "probe-session-1"}),
             headers=self.headers,
         )
@@ -381,8 +420,8 @@ class PTCTests:
             self._record(PTCResult(
                 test_id="PTC-003", name="Container State Leakage Across Sessions",
                 category="isolation", owasp_asi="ASI07",
-                severity=Severity.CRITICAL.value, passed=True,
-                details="Target does not expose PTC container lifecycle — no isolation surface to probe.",
+                severity=Severity.CRITICAL.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Target does not expose PTC container lifecycle, so the isolation control was never exercised. Absence of a probe surface is not evidence the control holds."),
                 payload_summary="method_unsupported",
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -400,8 +439,7 @@ class PTCTests:
             ))
             return
 
-        cross_resp = http_post_json(
-            self.url,
+        cross_resp = self._post(
             jsonrpc_request("ptc/container/use", {
                 "container_id": container_id, "session_id": "probe-session-2",
             }),
@@ -479,8 +517,8 @@ class PTCTests:
             self._record(PTCResult(
                 test_id="PTC-004", name="Client-Asserted Caller-Type Spoofing",
                 category="authentication", owasp_asi="ASI05",
-                severity=Severity.HIGH.value, passed=True,
-                details="Target does not expose caller-type derivation metadata — no spoofing surface to probe.",
+                severity=Severity.HIGH.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Target does not expose caller-type derivation metadata, so the spoofing control was never exercised. Absence of a probe surface is not evidence the control holds."),
                 payload_summary="method_unsupported",
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -562,8 +600,8 @@ class PTCTests:
             self._record(PTCResult(
                 test_id="PTC-005", name="Unbounded Batch Execution of a Side-Effecting Tool",
                 category="rate_limiting", owasp_asi="ASI05",
-                severity=Severity.HIGH.value, passed=True,
-                details="Target does not expose PTC tool metadata — no rate-limit surface to probe.",
+                severity=Severity.HIGH.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Target does not expose PTC tool metadata, so the rate-limit control was never exercised. Absence of a probe surface is not evidence the control holds."),
                 payload_summary="method_unsupported",
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -637,8 +675,7 @@ class PTCTests:
             ))
             return
 
-        create_resp = http_post_json(
-            self.url,
+        create_resp = self._post(
             jsonrpc_request("ptc/container/create", {"ttl_seconds": 1}),
             headers=self.headers,
         )
@@ -646,8 +683,8 @@ class PTCTests:
             self._record(PTCResult(
                 test_id="PTC-006", name="Expired Container Reuse",
                 category="lifecycle", owasp_asi="ASI07",
-                severity=Severity.MEDIUM.value, passed=True,
-                details="Target does not expose PTC container lifecycle — no expiry surface to probe.",
+                severity=Severity.MEDIUM.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Target does not expose PTC container lifecycle, so the expiry control was never exercised. Absence of a probe surface is not evidence the control holds."),
                 payload_summary="method_unsupported",
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -655,8 +692,7 @@ class PTCTests:
 
         container_id = (create_resp.get("result") or {}).get("container_id")
         time.sleep(2)  # let the 1-second TTL lapse
-        reuse_resp = http_post_json(
-            self.url,
+        reuse_resp = self._post(
             jsonrpc_request("ptc/container/use", {"container_id": container_id}),
             headers=self.headers,
         )
@@ -708,6 +744,9 @@ class PTCTests:
         for category, tests in test_map.items():
             print(f"\n[{category.upper()}]")
             for test_fn in tests:
+                # Scope the request log to this test, so requests made by a
+                # test that raised cannot supply the next one an answer.
+                self._seen.clear()
                 try:
                     test_fn()
                 except Exception as exc:

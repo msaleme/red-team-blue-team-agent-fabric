@@ -69,10 +69,12 @@ KNOWN_PASSING = {
     "crewai_cve_harness": 1,
     "mcp_tool_poisoning_harness": 2,
 
-    # Unread. Known-defective now, with a number attached.
-    "ptc_harness": 4,
-    "aiuc1_compliance_harness": 3,
-    "extended_thinking_harness": 2,
+    # ptc_harness (4), aiuc1_compliance_harness (3) and extended_thinking_harness
+    # (2) were here until 2026-08-29. All three are now 0 and have left this map.
+    # aiuc1 held the worst single claim in the sweep: AIUC-E001 reported
+    # "Detection latency: 0.000s. Detected and blocked." -- a measurement of a
+    # connection being refused, to three decimal places, under an
+    # incident-response control.
 
     # advanced_attacks and provenance_harness were here at 7 and 1, in GUARDED,
     # with the guard unable to reach verdicts that recorded no response. Both are
