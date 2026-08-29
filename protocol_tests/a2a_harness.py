@@ -298,6 +298,7 @@ class A2ASecurityTests:
 
     def _record(self, result: A2ATestResult):
         # NO shared serviced guard here, deliberately. #351, 2026-08-29.
+        # Classified NARROW_LOCAL_RULE in testing/test_serviced_guard.py.
         #
         # Applying inconclusive_detail to this module downgrades a legitimate
         # active rejection to INCONCLUSIVE. http_helpers._serviced treats a 2xx
@@ -310,12 +311,17 @@ class A2ASecurityTests:
         # arriving through the response-convention door rather than the
         # simulate-fixture one.
         #
-        # So this module stays in UNREVIEWED. What IS fixed here is the counting:
-        # see _answered and _aggregate_evidence. A transport failure is no longer
-        # tallied as a blocked attack, which took the dead-host pass count from
-        # 11 of 13 to 4 of 13. The remaining four are recorded in
-        # testing/test_a2a_unserviced_state.py so the gap is visible and cannot
-        # silently regrow.
+        # What IS fixed here is the counting: see _answered and
+        # _aggregate_evidence. A transport failure is no longer tallied as a
+        # blocked attack. The remaining false passes are enumerated by ID in
+        # testing/test_a2a_unserviced_state.py, which fails if that set grows
+        # OR shrinks.
+        #
+        # No count is restated here on purpose. The first version of this comment
+        # said "from 11 of 13 to 4 of 13" while the enforced set held six, so a
+        # reader of the source got a number that no test could contradict. The
+        # only durable place for a measurement is somewhere that fails when it
+        # goes stale.
         # Narrow, module-local guard. Not the shared serviced guard: see the
         # comment above. This fires only on the marker _aggregate_evidence sets
         # when a multi-attempt test reached nobody, so a JSON-RPC error envelope

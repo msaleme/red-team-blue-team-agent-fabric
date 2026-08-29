@@ -66,6 +66,9 @@ from typing import Any
 import http.client
 import urllib.request
 
+from protocol_tests.http_helpers import (
+    instrument_transport, silence_detail, silence_evidence)
+
 
 # ---------------------------------------------------------------------------
 # L402 protocol primitives
@@ -246,8 +249,30 @@ class L402SecurityTests:
         self.results: list[L402TestResult] = []
         # Cache a challenge from the server for tests that need one
         self._cached_challenge: L402Challenge | None = None
+        # Every response the current test has received. Read by _record.
+        self._seen: list[dict] = []
+        instrument_transport(transport, self._seen)
 
     def _record(self, result: L402TestResult):
+        # #351. Measured against a closed port this module returned PASS on 4
+        # of 33 tests. Small next to x402's 44 and the same defect, granted by
+        # the same over-broad PROTOCOL_EXCEPTION: precondition 3 excuses the
+        # non-2xx rule, because a 402 challenge is the protocol working. It does
+        # not excuse silence. Against a dead host there is no challenge at all.
+        #
+        # This module already had the right vocabulary for the answer. It has
+        # carried `not_evaluated` since before #351, with `failed` computed as
+        # "not passed and not not_evaluated", so the third state is counted
+        # correctly in every summary here. It was simply never wired to the
+        # unreachable-target case, which is the largest source of it.
+        seen = list(self._seen)
+        self._seen.clear()          # in place: the transport holds this object
+        detail = None if result.not_evaluated else silence_detail(seen, result.details)
+        if detail is not None:
+            result.passed = False
+            result.not_evaluated = True
+            result.details = detail
+            result.response_received = silence_evidence(seen, result.response_received)
         self.results.append(result)
         status = "N/A \u2796" if result.not_evaluated else ("PASS \u2705" if result.passed else "FAIL \u274c")
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
@@ -1988,6 +2013,9 @@ class L402SecurityTests:
             print(f"\n[{category.upper().replace('_', ' ')}]")
             for test_name in test_names:
                 test_fn = getattr(self, test_name)
+                # Scope the answer log to this test, so requests made by a test
+                # that raised cannot supply the next one an answer it never got.
+                self._seen.clear()
                 try:
                     test_fn()
                 except Exception as e:

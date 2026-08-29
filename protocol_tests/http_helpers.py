@@ -269,6 +269,115 @@ def inconclusive_detail(resp, details: str | None) -> str | None:
             f"status={status}. Original finding: {details}")
 
 
+# ---------------------------------------------------------------------------
+# Silence, for the protocols where a non-2xx is a real answer
+# ---------------------------------------------------------------------------
+#
+# x402 and L402 are exempt from _serviced, and correctly: a 402 IS the protocol
+# servicing the request, and _serviced would read every payment challenge as an
+# unserviced one and invert both modules. The exemption was then read as needing
+# no instrument at all. Against a closed port those two returned PASS on 44 of 54
+# and 4 of 33 -- there is no 402 from a host that is not running, there is
+# nothing, and every verdict of the form "no bad payment was accepted" held.
+#
+# These three functions draw the one line the exemption does not cover. They
+# live here rather than in each harness because the package already learned that
+# lesson the expensive way: one verdict defect had 44 parallel homes and each
+# repair reached only the files someone opened (CLAUDE.md convention 7).
+
+_SINK_ATTR = "_response_sink"
+_WRAPPED_ATTR = "_response_logging_installed"
+
+
+def answered(resp) -> bool:
+    """True when the target sent something back, at any status.
+
+    Deliberately weaker than :func:`_serviced`. A 402, a 401, a 404 and a 500 are
+    all answers here; only silence is not. Use this where a non-2xx is the
+    protocol working, and :func:`_serviced` everywhere else.
+    """
+    if not isinstance(resp, dict):
+        return False
+    if resp.get("_error") and resp.get("_exception"):
+        return False
+    status = resp.get("status", resp.get("_status", 0))
+    return isinstance(status, int) and status > 0
+
+
+def instrument_transport(transport, sink: list) -> None:
+    """Append every response *transport* produces to *sink*.
+
+    Wraps ``request``, ``get`` and ``post`` -- whichever exist. Wrapping only
+    ``request`` was the first version, on the reasoning that the real transports
+    route ``get`` and ``post`` through it. True of the real ones, and false of
+    the test doubles: three fakes in testing/test_vsr03_verdict_correctness.py
+    implement ``get`` alone. That failed loudly with an AttributeError, which was
+    luck. A double implementing ``get`` *and* ``request`` would have been
+    instrumented on the path it does not use, and the guard would have gone
+    quiet with every test still green.
+
+    Responses are de-duplicated by identity, so a ``get`` that delegates to
+    ``request`` is one attempt rather than two.
+
+    The sink lives on the transport rather than in the closure so a transport
+    reused across two suites feeds the live one, instead of appending to the
+    first suite's list forever while the second sees nothing.
+    """
+    if not getattr(transport, _WRAPPED_ATTR, False):
+        for name in ("request", "get", "post"):
+            inner = getattr(transport, name, None)
+            if callable(inner):
+                setattr(transport, name, _logging(transport, inner))
+        setattr(transport, _WRAPPED_ATTR, True)
+    setattr(transport, _SINK_ATTR, sink)
+
+
+def _logging(transport, inner):
+    def wrapper(*args, **kwargs):
+        resp = inner(*args, **kwargs)
+        sink = getattr(transport, _SINK_ATTR, None)
+        if sink is not None:
+            if not isinstance(resp, dict):
+                sink.append({})          # an attempt, and not an answer
+            elif not any(r is resp for r in sink):
+                sink.append(resp)
+        return resp
+    return wrapper
+
+
+def silence_detail(seen: list, details: str | None) -> str | None:
+    """Replacement ``details`` when nothing answered, else ``None``.
+
+    Same shape as :func:`inconclusive_detail`, and a deliberately narrower rule.
+    An empty *seen* returns ``None``: a test that issued no requests has nothing
+    to be silent about, and the guard must not manufacture an INCONCLUSIVE for a
+    purely local verdict.
+    """
+    if not seen or is_inconclusive(details):
+        return None
+    if any(answered(r) for r in seen):
+        return None
+    return (f"{INCONCLUSIVE_PREFIX}none of {len(seen)} requests were answered. "
+            f"Original finding: {details}")
+
+
+def silence_evidence(seen: list, existing: dict | None) -> dict:
+    """Annotate the original evidence rather than replacing it.
+
+    The finding dict a test attached -- ``{"accepted_bad": []}`` -- is exactly
+    what a reader needs in order to see *why* it was empty.
+    """
+    evidence = dict(existing or {})
+    last = seen[-1] if seen and isinstance(seen[-1], dict) else {}
+    evidence.update({
+        "attempts": len(seen),
+        "answered": 0,
+        "_error": True,
+        "_exception": last.get("_exception") or "no response",
+    })
+    return evidence
+
+
 def _serviced(resp: dict) -> bool:
     """True when the target actually processed the request.
 

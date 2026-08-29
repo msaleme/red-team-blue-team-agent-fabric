@@ -198,11 +198,21 @@ def _candidate_modules() -> set[str]:
 #: inflated relative to what is actionable."
 #:
 #: NOT a clean bill of health. It says the generic instrument does not fit.
-#: These still need reading with a payment-aware rule.
-PROTOCOL_EXCEPTION = {
-    "l402_harness",
-    "x402_harness",
-}
+#:
+#: Currently empty, and that is the finding. l402_harness and x402_harness were
+#: the only two entries, and holding them here was wrong -- not because
+#: precondition 3 is wrong, but because this bucket was doing a second job it
+#: was never given. The exception excuses one rule: that a non-2xx means the
+#: target did not service the request. It says nothing about silence, and
+#: against a closed port the two modules returned PASS on 44 of 54 and 4 of 33.
+#: There is no 402 from a host that is not running. There is nothing.
+#:
+#: "The generic instrument does not fit" had been read as "no instrument is
+#: needed". Both now carry a payment-aware rule and sit in NARROW_LOCAL_RULE.
+#: The bucket stays because the classification #351 asks for has four outcomes
+#: and a module may yet earn this one; it should be entered with the narrower
+#: claim in mind.
+PROTOCOL_EXCEPTION: set[str] = set()
 
 #: Read, found defective, repaired with a module-local rule, because the shared
 #: guard produced a false negative on this module's own semantics.
@@ -220,9 +230,24 @@ PROTOCOL_EXCEPTION = {
 #: "we consider the request allowed if the server processed it at all", and all
 #: 25 tests reported the agent had correctly allowed a legitimate request it
 #: never received. Now 0 of 25 against silence.
+#:
+#: x402_harness and l402_harness: moved here from PROTOCOL_EXCEPTION, 2026-08-29.
+#: Both keep the exception's substance -- the shared guard is still not applied,
+#: because _serviced would read every payment challenge as an unserviced request
+#: and invert the protocol. What they no longer keep is the exemption from
+#: silence. Both instrument the transport and downgrade a verdict when a test
+#: issued requests and not one was answered, which leaves every 402/401/4xx
+#: path untouched. The mechanism is in http_helpers -- answered,
+#: silence_detail, silence_evidence, instrument_transport -- not copied into
+#: both harnesses. 44 of 54 and 4 of 33 against a dead host,
+#: both now 0. The rule is derived rather than enumerated: a test added tomorrow
+#: is covered without being listed anywhere. Directional evidence for both
+#: modules is in testing/test_payment_silence_guard.py.
 NARROW_LOCAL_RULE = {
     "a2a_harness",
     "over_refusal_harness",
+    "l402_harness",
+    "x402_harness",
 }
 
 #: No network target, so being serviced is not a property these can have.

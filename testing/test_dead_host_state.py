@@ -54,14 +54,12 @@ from dead_host_sweep import sweep
 #: Every entry is a defect or an explicit not-applicable, and none is acceptable
 #: as a resting state. The comments say which is which as they are established.
 KNOWN_PASSING = {
-    # In PROTOCOL_EXCEPTION for l402/x402, and that classification does NOT
-    # cover this. Precondition 3 says a 401/402 is the protocol servicing the
-    # request, so the generic non-2xx rule misfires. Against a dead host there
-    # is no 402 at all -- there is silence -- so precondition 3 does not excuse
-    # a single one of these. The exception was granted too broadly and this is
-    # the evidence.
-    "x402_harness": 44,
-    "l402_harness": 4,
+    # x402_harness was here at 44, the largest count in the repository, and
+    # l402_harness at 4. Both were in PROTOCOL_EXCEPTION, and that classification
+    # did not cover this: precondition 3 excuses the non-2xx rule because a
+    # 401/402 is the protocol servicing the request, and against a dead host
+    # there is no 402 at all. Both now instrument the transport and record 0.
+    # They have left this map and moved to NARROW_LOCAL_RULE.
 
     # Unread. Known-defective now, with a number attached.
     "crewai_cve_harness": 9,
