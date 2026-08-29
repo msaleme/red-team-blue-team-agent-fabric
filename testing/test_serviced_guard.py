@@ -243,11 +243,21 @@ PROTOCOL_EXCEPTION: set[str] = set()
 #: both now 0. The rule is derived rather than enumerated: a test added tomorrow
 #: is covered without being listed anywhere. Directional evidence for both
 #: modules is in testing/test_payment_silence_guard.py.
+#:
+#: crewai_cve_harness and mcp_tool_poisoning_harness: read 2026-08-29, 9 of 10
+#: and 8 of 10 against a dead host. Neither uses the response-key convention
+#: _serviced reads -- crewai returns the agent's own parsed JSON, which carries
+#: no status -- so both log at their request chokepoint instead and apply
+#: silence_detail in _record. mcp_tool_poisoning also carries a second rule the
+#: others do not need: an empty tool list is not a clean one. Both now 1 and 2,
+#: and what remains is honest; see testing/test_local_verdicts_are_labelled.py.
 NARROW_LOCAL_RULE = {
     "a2a_harness",
     "over_refusal_harness",
     "l402_harness",
     "x402_harness",
+    "crewai_cve_harness",
+    "mcp_tool_poisoning_harness",
 }
 
 #: No network target, so being serviced is not a property these can have.
@@ -260,10 +270,8 @@ NO_NETWORK_TARGET = {
 
 UNREVIEWED = {
     "aiuc1_compliance_harness",
-    "crewai_cve_harness",
     "extended_thinking_harness",
     "mcp_harness",
-    "mcp_tool_poisoning_harness",
     "prompt_caching_harness",
     "ptc_harness",
 }
@@ -449,7 +457,7 @@ class TestCoverageListIsDerived(unittest.TestCase):
     def test_unreviewed_does_not_grow(self) -> None:
         """A tripwire on the honest number, so the backlog cannot quietly expand."""
         self.assertLessEqual(
-            len(UNREVIEWED), 7,
+            len(UNREVIEWED), 5,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
 

@@ -88,6 +88,8 @@ from enum import Enum
 import urllib.error
 import urllib.request
 
+from protocol_tests.http_helpers import silence_detail, silence_evidence
+
 
 # ---------------------------------------------------------------------------
 # Severity levels
@@ -118,6 +120,11 @@ class CVETestResult:
     response_received: dict | None = None
     elapsed_s: float = 0.0
     timestamp: str = ""
+    #: True when the verdict is a property of this harness rather than of any
+    #: target -- CVE-007 and CVE-008's simulate branch. Exempts the result from
+    #: the guards in _record, which would otherwise downgrade a finding that
+    #: never depended on a response.
+    locally_decided: bool = False
 
     def __post_init__(self):
         if not self.timestamp:
@@ -489,14 +496,79 @@ class MCPToolPoisoningTests:
         self.registry_url = registry_url
         self.simulate = simulate
         self.results: list[CVETestResult] = []
+        #: What the current test's requests came back as, and how many tools each
+        #: _get_tools call yielded. Both reset per test in run_all.
+        self._seen: list[dict] = []
+        self._tool_counts: list[int] = []
+
+    def _urlopen(self, req, timeout: float = 15):
+        """urlopen, plus a record of what came back. The chokepoint.
+
+        Seven request sites in this module open sockets inline, each with its own
+        exception policy -- one swallows everything with `except Exception:
+        pass`, one distinguishes 4xx from 5xx, one does neither. Rewriting them
+        into a single request method would have to pick one policy and would
+        change verdicts. Wrapping the socket instead leaves every policy intact
+        and still gives _record one place to ask whether anyone answered.
+        """
+        try:
+            resp = urllib.request.urlopen(req, timeout=timeout)
+        except urllib.error.HTTPError as e:
+            self._seen.append({"_status": e.code})
+            raise
+        except Exception as e:
+            self._seen.append({"_error": True, "_exception": str(e)})
+            raise
+        self._seen.append({"_status": resp.status})
+        return resp
 
     def _record(self, result: CVETestResult):
+        # #351. Measured against a closed port this module returned PASS on 8 of
+        # 10, and two distinct defects produced them.
+        #
+        # The first is silence, the same one x402 and crewai had:
+        #
+        #     CVE-009: No silent scope escalation detected
+        #     CVE-010: All 7 SSRF targets blocked -- no internal data leaked
+        #
+        # The second is new here, and survives against a live server. _get_tools
+        # returns [] both when the server has no tools and when it could not be
+        # reached, and four tests scan that list for poisoning:
+        #
+        #     CVE-001: Scanned 0 tools, no nested injection found
+        #     CVE-003: Contamination rate: 0.0% (0/0 tools) - below 5% threshold
+        #     CVE-004: Fewer than 2 tools available; not applicable
+        #
+        # A rate over an empty denominator is not a measurement, and "not
+        # applicable" is not "the control held". This is the shape run_summary
+        # already refuses one layer up, where pass_rate is None rather than 0
+        # when nothing was serviced.
+        seen = list(self._seen)
+        counts = list(self._tool_counts)
+        self._seen.clear()
+        self._tool_counts.clear()
+        if not result.locally_decided:
+            detail = silence_detail(seen, result.details)
+            if detail is None and counts and not any(counts):
+                detail = (f"INCONCLUSIVE - the target offered no tools to scan "
+                          f"({len(counts)} fetch(es), 0 tools). "
+                          f"Original finding: {result.details}")
+            if detail is not None:
+                result.passed = False
+                result.details = detail
+                result.response_received = silence_evidence(
+                    seen, result.response_received)
         self.results.append(result)
         status = "PASS \u2705" if result.passed else "FAIL \u274c"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _get_tools(self) -> list[dict]:
-        """Fetch tool list from server or return simulated data."""
+        """Fetch tool list from server or return simulated data.
+
+        Records how many tools each call yielded, because the return value alone
+        cannot distinguish "this server has no tools" from "this server was not
+        there", and four verdicts are computed by scanning the result.
+        """
         if self.simulate:
             return CLEAN_TOOLS + POISONED_TOOLS
         if not self.url:
@@ -514,11 +586,14 @@ class MCPToolPoisoningTests:
                          "Accept": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with self._urlopen(req, timeout=15) as resp:
                 body = json.loads(resp.read().decode())
-                return body.get("result", {}).get("tools", [])
+                tools = body.get("result", {}).get("tools", [])
+                self._tool_counts.append(len(tools))
+                return tools
         except Exception as e:
             print(f"  \u26a0\ufe0f  Could not fetch tools: {e}")
+            self._tool_counts.append(0)
             return []
 
     # ------------------------------------------------------------------
@@ -751,14 +826,14 @@ class MCPToolPoisoningTests:
             req1 = urllib.request.Request(
                 self.url, data=data1,
                 headers={"Content-Type": "application/json"}, method="POST")
-            with urllib.request.urlopen(req1, timeout=15) as r:
+            with self._urlopen(req1, timeout=15) as r:
                 resp1 = json.loads(r.read().decode())
 
             data2 = json.dumps(msg2).encode()
             req2 = urllib.request.Request(
                 self.url, data=data2,
                 headers={"Content-Type": "application/json"}, method="POST")
-            with urllib.request.urlopen(req2, timeout=15) as r:
+            with self._urlopen(req2, timeout=15) as r:
                 resp2 = json.loads(r.read().decode())
         except Exception:
             pass
@@ -844,7 +919,7 @@ class MCPToolPoisoningTests:
             req = urllib.request.Request(
                 self.url, data=data,
                 headers={"Content-Type": "application/json"}, method="POST")
-            with urllib.request.urlopen(req, timeout=15) as r:
+            with self._urlopen(req, timeout=15) as r:
                 resp = json.loads(r.read().decode())
         except Exception:
             pass
@@ -1008,21 +1083,28 @@ class MCPToolPoisoningTests:
 
         elapsed = time.monotonic() - t0
 
-        # Pass if the scanner catches v3 (the clearly malicious version)
+        # Pass if the scanner catches v3 (the clearly malicious version).
+        #
+        # This test has no live branch in any mode. tool_v1/v2/v3 are fixtures
+        # defined a few lines above and scan_tool_fields is this harness's own
+        # detector, so the verdict is a property of the scanner. It was named
+        # "Incremental Poisoning Detection" at CRITICAL severity and reported
+        # "Incremental poisoning detected", which reads as a finding about the
+        # server under test. Nothing was under test. The wording now says so.
         passed = len(v3_findings) > 0
 
         self._record(CVETestResult(
             test_id="CVE-007",
-            name="Incremental Poisoning Detection",
+            name="Incremental Poisoning Scanner Coverage (self-test, no target)",
             cve="MCP-TOOL-POISONING",
             owasp_asi="ASI04",
             severity=Severity.CRITICAL.value,
             passed=passed,
-            details=(f"v1.0: {len(v1_findings)} findings, "
-                     f"v1.1: {len(v2_findings)} findings, "
-                     f"v1.2: {len(v3_findings)} findings. "
+            details=(f"Harness self-test on fixtures: v1.0 {len(v1_findings)} "
+                     f"findings, v1.1 {len(v2_findings)}, v1.2 {len(v3_findings)}. "
                      f"Structural drift: {structural_changed}. "
-                     f"{'Incremental poisoning detected' if passed else 'Failed to detect incremental poisoning'}"),
+                     f"{'scan_tool_fields catches the malicious revision' if passed else 'scan_tool_fields MISSES the malicious revision'}. "
+                     f"Says nothing about the target."),
             attack_vector="incremental_poisoning",
             request_sent={"versions_tested": ["1.0.0", "1.1.0", "1.2.0"]},
             response_received={
@@ -1032,6 +1114,7 @@ class MCPToolPoisoningTests:
                 "structural_drift": structural_changed,
             },
             elapsed_s=round(elapsed, 3),
+            locally_decided=True,
         ))
 
     # ------------------------------------------------------------------
@@ -1076,6 +1159,10 @@ class MCPToolPoisoningTests:
                     "passed": would_pass,
                 },
                 elapsed_s=round(elapsed, 3),
+                # Decided by scan_tool_fields against POISONED_TOOLS, with no
+                # registry contacted. The wording is already subjunctive
+                # ("would flag"), which is why only the flag is added here.
+                locally_decided=True,
             ))
             return
 
@@ -1104,7 +1191,7 @@ class MCPToolPoisoningTests:
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=15) as r:
+            with self._urlopen(req, timeout=15) as r:
                 resp = json.loads(r.read().decode())
         except urllib.error.HTTPError as e:
             resp = {"_status": e.code, "_rejected": True}
@@ -1233,7 +1320,7 @@ class MCPToolPoisoningTests:
                              "Accept": "application/json"},
                     method="POST",
                 )
-                with urllib.request.urlopen(req, timeout=15) as r:
+                with self._urlopen(req, timeout=15) as r:
                     resp = json.loads(r.read().decode())
             except Exception as e:
                 resp = {"_error": str(e)}
@@ -1386,7 +1473,7 @@ class MCPToolPoisoningTests:
                              "Accept": "application/json"},
                     method="POST",
                 )
-                with urllib.request.urlopen(req, timeout=15) as r:
+                with self._urlopen(req, timeout=15) as r:
                     resp = json.loads(r.read().decode())
             except urllib.error.HTTPError as e:
                 # Only 4xx responses are evidence of correct blocking; 5xx means the
@@ -1467,6 +1554,10 @@ class MCPToolPoisoningTests:
         for cat, test_fn in all_tests:
             if categories and cat not in categories:
                 continue
+            # Scope both logs to this test, so requests made by a test that
+            # raised cannot supply the next one an answer it never got.
+            self._seen.clear()
+            self._tool_counts.clear()
             try:
                 test_fn()
             except Exception as e:

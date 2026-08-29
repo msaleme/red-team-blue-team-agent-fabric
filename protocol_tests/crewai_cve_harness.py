@@ -68,6 +68,8 @@ from enum import Enum
 from typing import Any
 import urllib.request
 
+from protocol_tests.http_helpers import silence_detail, silence_evidence
+
 
 # ---------------------------------------------------------------------------
 # Severity levels
@@ -98,6 +100,10 @@ class CrewAITestResult:
     response_received: dict | None = None
     elapsed_s: float = 0.0
     timestamp: str = ""
+    #: True when the verdict is a property of this harness rather than of any
+    #: target -- see CREW-002. Exempts the result from the silence guard, which
+    #: would otherwise downgrade a finding that never depended on a response.
+    locally_decided: bool = False
 
     def __post_init__(self):
         if not self.timestamp:
@@ -292,16 +298,55 @@ class CrewAICVETests:
         self.url = url
         self.simulate = simulate
         self.results: list[CrewAITestResult] = []
+        #: What the current test's requests came back as. Reset per test in
+        #: run_all, consumed by _record.
+        self._seen: list[dict] = []
 
     def _record(self, result: CrewAITestResult):
+        # #351. Measured against a closed port this module returned PASS on 9 of
+        # 10, the third largest count in the repository:
+        #
+        #     CREW-001: Server rejected ctypes sandbox escape attempt
+        #     CREW-006: All cloud metadata SSRF attempts were blocked
+        #     CREW-010: RCE attempt was rejected
+        #
+        # There was no server. Every one of those verdicts has the form "the
+        # attack was refused", and _send_agent_request returned
+        # {"_error": "<urlopen error [Errno 111] Connection refused>"} which the
+        # tests read as a refusal.
+        #
+        # The guard is keyed on the request log rather than on the recorded
+        # evidence, because several tests here attach a derived summary --
+        # {"results": [{"path": "/etc/passwd", "rejected": true}]} -- in which
+        # the connection failure has already been laundered into a boolean. By
+        # the time _record sees it there is nothing left to read.
+        seen = list(self._seen)
+        self._seen.clear()
+        if not result.locally_decided:
+            detail = silence_detail(seen, result.details)
+            if detail is not None:
+                result.passed = False
+                result.details = detail
+                result.response_received = silence_evidence(
+                    seen, result.response_received)
         self.results.append(result)
         status = "PASS \u2705" if result.passed else "FAIL \u274c"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _send_agent_request(self, payload: dict) -> dict | None:
-        """Send a request to the CrewAI agent endpoint."""
+        """Send a request to the CrewAI agent endpoint.
+
+        The single live-request chokepoint for this module, which is what makes
+        the guard in _record derived rather than a list of test IDs.
+
+        Each outcome is logged in the shape http_helpers.answered understands.
+        Logging explicitly at the three return points rather than inferring from
+        the return value is deliberate: the success path returns the server's
+        own parsed JSON, which carries no status field, so an inferring guard
+        would read every successful response as silence and invert the module.
+        """
         if self.simulate or not self.url:
-            return None
+            return None                      # no attempt, so nothing to log
         try:
             data = json.dumps(payload).encode()
             req = urllib.request.Request(
@@ -311,10 +356,13 @@ class CrewAICVETests:
                 method="POST",
             )
             with urllib.request.urlopen(req, timeout=15) as resp:
+                self._seen.append({"_status": resp.status})
                 return json.loads(resp.read().decode())
         except urllib.error.HTTPError as e:
+            self._seen.append({"_status": e.code})
             return {"_status": e.code, "_rejected": True}
         except Exception as e:
+            self._seen.append({"_error": True, "_exception": str(e)})
             return {"_error": str(e)}
 
     # ------------------------------------------------------------------
@@ -367,8 +415,11 @@ class CrewAICVETests:
         resp = self._send_agent_request(payload)
 
         elapsed = time.monotonic() - t0
-        # Pass if the server rejected the request or returned an error
-        rejected = resp and (resp.get("_rejected") or resp.get("_error")
+        # Pass if the server rejected the request. `resp.get("_error")` used to
+        # be one of these terms, which made a connection failure a refusal; the
+        # silence guard in _record now owns that case, so reading it here would
+        # only re-launder it into a boolean before the guard can see it.
+        rejected = resp and (resp.get("_rejected")
                              or "error" in str(resp).lower()
                              or "blocked" in str(resp).lower()
                              or "denied" in str(resp).lower())
@@ -437,23 +488,38 @@ class CrewAICVETests:
                         detected.append(variant["label"])
 
         elapsed = time.monotonic() - t0
+        # This verdict is a property of check_code_safety, not of any target.
+        # `undetected` is populated entirely by the local loop above; the live
+        # loop can only ADD to `detected` and so cannot change the outcome.
+        #
+        # It is named "Ctypes Code Execution Detection" at CRITICAL severity
+        # under CVE-2026-2275, and it read "All 4 ctypes evasion variants
+        # detected" against a closed port -- which was true, and which a reader
+        # of the report would take as a statement about their agent. It is a
+        # statement about this harness's own pattern coverage. The wording now
+        # says so, and locally_decided exempts it from the silence guard, which
+        # would otherwise downgrade a finding that never depended on a response.
         passed = len(undetected) == 0
 
         self._record(CrewAITestResult(
             test_id="CREW-002",
-            name="Ctypes Code Execution Detection",
+            name="Ctypes Payload Coverage (self-test, no target)",
             cve="CVE-2026-2275",
             owasp_asi="ASI09",
             severity=Severity.CRITICAL.value,
             passed=passed,
-            details=(f"Detected {len(detected)}/{len(evasion_variants)} ctypes "
-                     f"variants. Evasion: {undetected}"
+            details=(f"Harness self-test: check_code_safety detected "
+                     f"{len(detected)}/{len(evasion_variants)} ctypes variants. "
+                     f"Missed: {undetected}. Says nothing about the target."
                      if not passed
-                     else f"All {len(evasion_variants)} ctypes evasion variants detected"),
+                     else f"Harness self-test: check_code_safety detects all "
+                          f"{len(evasion_variants)} ctypes evasion variants. "
+                          f"Says nothing about the target."),
             attack_vector="code_execution",
             request_sent={"variants_tested": len(evasion_variants)},
             response_received={"detected": detected, "undetected": undetected},
             elapsed_s=round(elapsed, 3),
+            locally_decided=True,
         ))
 
     def test_code_execution_config_audit(self):
@@ -1113,6 +1179,9 @@ class CrewAICVETests:
         for cat, test_fn in all_tests:
             if categories and cat not in categories:
                 continue
+            # Scope the request log to this test, so requests made by a test
+            # that raised cannot supply the next one an answer it never got.
+            self._seen.clear()
             try:
                 test_fn()
             except Exception as e:
