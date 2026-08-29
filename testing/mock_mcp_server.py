@@ -91,7 +91,16 @@ class MockMCPHandler(http.server.BaseHTTPRequestHandler):
                     "protocolVersion": "2024-11-05",
                     "capabilities": {
                         "tools": {},
-                        "resources": {}
+                        "resources": {},
+                        # Added 2026-08-29. MCP-006 and MCP-007 used to be
+                        # recorded as PASS with "not applicable" details against
+                        # this mock, because it declared neither capability. Once
+                        # a probe that never ran stopped counting as a pass, the
+                        # integration test was asserting two controls the mock
+                        # could not exercise. Declaring them here makes those two
+                        # rows mean something instead of weakening the assertion.
+                        "prompts": {},
+                        "sampling": {}
                     },
                     "serverInfo": {
                         "name": "mock-mcp-server",
@@ -191,6 +200,53 @@ class MockMCPHandler(http.server.BaseHTTPRequestHandler):
                     "id": request_id
                 }
         
+        elif method == "prompts/list":
+            return {
+                "jsonrpc": "2.0",
+                "result": {
+                    "prompts": [
+                        {
+                            "name": "safety_briefing",
+                            "description": "Render a standard safety briefing.",
+                            "arguments": [{"name": "topic", "required": False}]
+                        }
+                    ]
+                },
+                "id": request_id
+            }
+
+        elif method == "prompts/get":
+            # A well-behaved server renders its own template and does not echo
+            # attacker-supplied argument text back into the rendered messages.
+            return {
+                "jsonrpc": "2.0",
+                "result": {
+                    "description": "Standard safety briefing.",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": {
+                                "type": "text",
+                                "text": "Please review the standard safety procedures."
+                            }
+                        }
+                    ]
+                },
+                "id": request_id
+            }
+
+        elif method == "sampling/createMessage":
+            # A well-behaved server refuses a client-driven sampling request
+            # that supplies its own systemPrompt.
+            return {
+                "jsonrpc": "2.0",
+                "error": {
+                    "code": -32002,
+                    "message": "sampling requests require user approval; refused"
+                },
+                "id": request_id
+            }
+
         elif method == "resources/read":
             uri = params.get("uri", "")
             # MCP-005: Reject path traversal attempts

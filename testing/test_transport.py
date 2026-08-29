@@ -573,10 +573,20 @@ class TestOAuthIssuerBinding(unittest.TestCase):
         suite.test_mcp_oauth_issuer_binding()
         self.assertFalse(suite.results[0].passed)
 
-    def test_missing_authorized_fixture_is_not_applicable(self):
+    def test_missing_authorized_fixture_is_inconclusive_not_a_pass(self):
+        """Renamed and inverted 2026-08-29.
+
+        This pinned `passed is True` for a probe that never ran, which is the
+        no-probe-surface class: sixteen sites in this module answered "Not
+        applicable" with a passing CRITICAL or HIGH verdict. An operator reading
+        a report cannot tell that row from a control that was exercised and
+        held. The string is still asserted, so the reason stays visible; only
+        the verdict changed.
+        """
         suite = MCPSecurityTests(MCPTransport(), json_output=True)
         suite.test_mcp_oauth_issuer_binding()
-        self.assertTrue(suite.results[0].passed)
+        self.assertFalse(suite.results[0].passed)
+        self.assertIn("INCONCLUSIVE", suite.results[0].details)
         self.assertIn("Not applicable", suite.results[0].details)
 
 

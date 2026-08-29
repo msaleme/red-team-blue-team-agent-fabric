@@ -59,6 +59,30 @@ from protocol_tests._utils import (
     CREDENTIAL_MATERIAL_PATTERN,
 )
 from protocol_tests.version import get_harness_version
+from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX
+
+
+def _nothing_to_scan(n: int, what: str) -> str | None:
+    """INCONCLUSIVE detail when a scan had nothing to scan, else None.
+
+    Seven verdicts here scan the server's tool list and report the absence of a
+    finding. Against a server that lists no tools they read
+
+        MCP-001: Found 0 tools, none suspicious
+        MCP-012: All 0 tool descriptions are within 10240B threshold
+        MCP-014: No injection patterns detected in 0 tool descriptions
+
+    Zero findings over an empty set is not a clean result. It is the same defect
+    mcp_tool_poisoning_harness had in CVE-003 -- "Contamination rate: 0.0%
+    (0/0 tools) - below 5% threshold" -- and the same rule run_summary applies
+    one layer up, where pass_rate is None rather than 0 when nothing was
+    serviced.
+    """
+    if n:
+        return None
+    return (f"{INCONCLUSIVE_PREFIX}the server listed no {what}, so this scan "
+            f"examined nothing. Zero findings over an empty set is not a clean "
+            f"result.")
 
 
 # Preserve the harness's existing Streamable HTTP baseline. Dual-era discovery
@@ -735,9 +759,11 @@ class MCPSecurityTests:
             category="tool_discovery",
             owasp_asi="ASI04",
             severity=Severity.CRITICAL.value,
-            passed=passed,
-            details=f"Found {len(tools)} tools, {len(suspicious)} suspicious: {suspicious}" if not passed
-                    else f"Found {len(tools)} tools, none suspicious",
+            passed=passed and bool(tools),
+            # _nothing_to_scan overrides the wording when the list was empty.
+            details=_nothing_to_scan(len(tools), "tools") or (
+                f"Found {len(tools)} tools, {len(suspicious)} suspicious: {suspicious}"
+                if not passed else f"Found {len(tools)} tools, none suspicious"),
             mcp_method="tools/list",
             request_sent=msg,
             response_received=resp,
@@ -763,8 +789,8 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-001", name="Stateless Header/Body Binding",
                 category="stateless_header_binding", owasp_asi="ASI02",
-                severity=Severity.HIGH.value, passed=True,
-                details="Not applicable: target selected a legacy MCP transport",
+                severity=Severity.HIGH.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: target selected a legacy MCP transport. The control was never exercised, which is not evidence it holds."),
                 mcp_method="tools/list", elapsed_s=round(time.monotonic() - t0, 3),
             ))
             return
@@ -803,8 +829,8 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-002", name="MRTR requestState Integrity",
                 category="mrtr_request_state", owasp_asi="ASI02",
-                severity=Severity.HIGH.value, passed=True,
-                details="Not applicable: requires modern mode and an authorized --mrtr-probe request",
+                severity=Severity.HIGH.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: requires modern mode and an authorized --mrtr-probe request. The control was never exercised, which is not evidence it holds."),
                 mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
             ))
             return
@@ -827,8 +853,8 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-002", name="MRTR requestState Integrity",
                 category="mrtr_request_state", owasp_asi="ASI02",
-                severity=Severity.HIGH.value, passed=True,
-                details="Not applicable: probe did not return an InputRequiredResult with requestState",
+                severity=Severity.HIGH.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: probe did not return an InputRequiredResult with requestState. The control was never exercised, which is not evidence it holds."),
                 mcp_method=initial["method"], request_sent=initial,
                 response_received=initial_response, elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -867,8 +893,8 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-003", name="MRTR requestState Replay Protection",
                 category="mrtr_request_state", owasp_asi="ASI02",
-                severity=Severity.HIGH.value, passed=True,
-                details="Not applicable: requires modern mode, --mrtr-probe, and authorized --mrtr-input-responses",
+                severity=Severity.HIGH.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: requires modern mode, --mrtr-probe, and authorized --mrtr-input-responses. The control was never exercised, which is not evidence it holds."),
                 mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
             ))
             return
@@ -891,8 +917,8 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-003", name="MRTR requestState Replay Protection",
                 category="mrtr_request_state", owasp_asi="ASI02",
-                severity=Severity.HIGH.value, passed=True,
-                details="Not applicable: probe did not return an InputRequiredResult with requestState",
+                severity=Severity.HIGH.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: probe did not return an InputRequiredResult with requestState. The control was never exercised, which is not evidence it holds."),
                 mcp_method=initial["method"], request_sent=initial,
                 response_received=initial_response, elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -906,8 +932,8 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-003", name="MRTR requestState Replay Protection",
                 category="mrtr_request_state", owasp_asi="ASI02",
-                severity=Severity.HIGH.value, passed=True,
-                details="Not applicable: supplied input responses did not complete the authorized continuation",
+                severity=Severity.HIGH.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: supplied input responses did not complete the authorized continuation. The control was never exercised, which is not evidence it holds."),
                 mcp_method=initial["method"], response_received=completion,
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -943,9 +969,9 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-004", name="MRTR requestState Principal Binding",
                 category="mrtr_request_state", owasp_asi="ASI02",
-                severity=Severity.HIGH.value, passed=True,
-                details=("Not applicable: requires modern mode, authorized probe/input responses, "
-                         "and --mrtr-attacker-header"),
+                severity=Severity.HIGH.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: requires modern mode, authorized probe/input responses, "
+                         "and --mrtr-attacker-header. The control was never exercised, which is not evidence it holds."),
                 mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
             ))
             return
@@ -968,8 +994,8 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-004", name="MRTR requestState Principal Binding",
                 category="mrtr_request_state", owasp_asi="ASI02",
-                severity=Severity.HIGH.value, passed=True,
-                details="Not applicable: probe did not return an InputRequiredResult with requestState",
+                severity=Severity.HIGH.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: probe did not return an InputRequiredResult with requestState. The control was never exercised, which is not evidence it holds."),
                 mcp_method=initial["method"], request_sent=initial,
                 response_received=initial_response, elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -1009,9 +1035,9 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-005", name="MRTR requestState Request Binding",
                 category="mrtr_request_state", owasp_asi="ASI02",
-                severity=Severity.HIGH.value, passed=True,
-                details=("Not applicable: requires modern mode, authorized probe/input responses, "
-                         "and --mrtr-altered-probe"),
+                severity=Severity.HIGH.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: requires modern mode, authorized probe/input responses, "
+                         "and --mrtr-altered-probe. The control was never exercised, which is not evidence it holds."),
                 mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
             ))
             return
@@ -1034,8 +1060,8 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-005", name="MRTR requestState Request Binding",
                 category="mrtr_request_state", owasp_asi="ASI02",
-                severity=Severity.HIGH.value, passed=True,
-                details="Not applicable: probe did not return an InputRequiredResult with requestState",
+                severity=Severity.HIGH.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: probe did not return an InputRequiredResult with requestState. The control was never exercised, which is not evidence it holds."),
                 mcp_method=initial["method"], request_sent=initial,
                 response_received=initial_response, elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -1073,8 +1099,8 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-006", name="Explicit Handle Cross-Principal Isolation",
                 category="explicit_handle_isolation", owasp_asi="ASI02",
-                severity=Severity.HIGH.value, passed=True,
-                details="Not applicable: requires an HTTP transport that can present alternate-principal headers",
+                severity=Severity.HIGH.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: requires an HTTP transport that can present alternate-principal headers. The control was never exercised, which is not evidence it holds."),
                 mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
             ))
             return
@@ -1082,8 +1108,8 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-006", name="Explicit Handle Cross-Principal Isolation",
                 category="explicit_handle_isolation", owasp_asi="ASI02",
-                severity=Severity.HIGH.value, passed=True,
-                details="Not applicable: requires authorized handle create/access fixtures and attacker headers",
+                severity=Severity.HIGH.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: requires authorized handle create/access fixtures and attacker headers. The control was never exercised, which is not evidence it holds."),
                 mcp_method="tools/call", elapsed_s=round(time.monotonic() - t0, 3),
             ))
             return
@@ -1104,8 +1130,8 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-006", name="Explicit Handle Cross-Principal Isolation",
                 category="explicit_handle_isolation", owasp_asi="ASI02",
-                severity=Severity.HIGH.value, passed=True,
-                details="Not applicable: create fixture did not return a string handle at handlePath",
+                severity=Severity.HIGH.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: create fixture did not return a string handle at handlePath. The control was never exercised, which is not evidence it holds."),
                 mcp_method=create["method"], request_sent=create, response_received=created,
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -1138,7 +1164,8 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-007", name="Cache Scope Metadata",
                 category="cache_security", owasp_asi="ASI04", severity=Severity.MEDIUM.value,
-                passed=True, details="Not applicable: target selected a legacy MCP transport",
+                passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: target selected a legacy MCP transport. The control was never exercised, which is not evidence it holds."),
                 mcp_method="tools/list", elapsed_s=round(time.monotonic() - t0, 3),
             ))
             return
@@ -1178,9 +1205,9 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-008", name="Cached Capability Revocation",
                 category="cache_security", owasp_asi="ASI04", severity=Severity.HIGH.value,
-                passed=True,
-                details=("Not applicable: requires modern mode plus authorized cache invalidation, "
-                         "verification, and forbidden-tool fixtures"),
+                passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: requires modern mode plus authorized cache invalidation, "
+                         "verification, and forbidden-tool fixtures. The control was never exercised, which is not evidence it holds."),
                 mcp_method="tools/list", elapsed_s=round(time.monotonic() - t0, 3),
             ))
             return
@@ -1253,8 +1280,8 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-009", name="Resource Cache Metadata",
                 category="cache_security", owasp_asi="ASI04", severity=Severity.MEDIUM.value,
-                passed=True,
-                details="Not applicable: requires modern mode and an operator-authorized --cache-resource-uri",
+                passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: requires modern mode and an operator-authorized --cache-resource-uri. The control was never exercised, which is not evidence it holds."),
                 mcp_method="resources/read", elapsed_s=round(time.monotonic() - t0, 3),
             ))
             return
@@ -1294,7 +1321,8 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-010", name="Task Cross-Principal Isolation",
                 category="task_isolation", owasp_asi="ASI02", severity=Severity.HIGH.value,
-                passed=True, details="Not applicable: target selected a legacy MCP transport",
+                passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: target selected a legacy MCP transport. The control was never exercised, which is not evidence it holds."),
                 mcp_method="tasks/get", elapsed_s=round(time.monotonic() - t0, 3),
             ))
             return
@@ -1302,7 +1330,8 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-010", name="Task Cross-Principal Isolation",
                 category="task_isolation", owasp_asi="ASI02", severity=Severity.HIGH.value,
-                passed=True, details="Not applicable: requires HTTP header overrides for an alternate principal",
+                passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: requires HTTP header overrides for an alternate principal. The control was never exercised, which is not evidence it holds."),
                 mcp_method="tasks/get", elapsed_s=round(time.monotonic() - t0, 3),
             ))
             return
@@ -1310,9 +1339,9 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-010", name="Task Cross-Principal Isolation",
                 category="task_isolation", owasp_asi="ASI02", severity=Severity.HIGH.value,
-                passed=True,
-                details=("Not applicable: requires authorized task-create/read fixtures and "
-                         "--task-attacker-header"),
+                passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: requires authorized task-create/read fixtures and "
+                         "--task-attacker-header. The control was never exercised, which is not evidence it holds."),
                 mcp_method="tasks/get", elapsed_s=round(time.monotonic() - t0, 3),
             ))
             return
@@ -1333,8 +1362,8 @@ class MCPSecurityTests:
             self._record(MCPTestResult(
                 test_id="MCP-RC-010", name="Task Cross-Principal Isolation",
                 category="task_isolation", owasp_asi="ASI02", severity=Severity.HIGH.value,
-                passed=True,
-                details="Not applicable: create fixture did not return a string task ID at taskIdPath",
+                passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable: create fixture did not return a string task ID at taskIdPath. The control was never exercised, which is not evidence it holds."),
                 mcp_method=create["method"], request_sent=create, response_received=created,
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -1400,7 +1429,13 @@ class MCPSecurityTests:
         self._record(MCPTestResult(
             test_id="MCP-RC-011", name="Trace Context Request Binding",
             category="trace_context_binding", owasp_asi="ASI02", severity=Severity.HIGH.value,
-            passed=True, details=details, mcp_method="authorized fixture",
+            # A "Not applicable" fall-through is not a passing control: the
+            # probe was never run. Same edit as the other fourteen sites here,
+            # and as the twelve in ptc/extended_thinking.
+            passed=False,
+            details=(INCONCLUSIVE_PREFIX + details + ". The control was never "
+                     "exercised, which is not evidence it holds."),
+            mcp_method="authorized fixture",
             elapsed_s=round(time.monotonic() - t0, 3),
         ))
 
@@ -1446,7 +1481,13 @@ class MCPSecurityTests:
         self._record(MCPTestResult(
             test_id="MCP-RC-012", name="OAuth Issuer Request Binding",
             category="oauth_issuer_binding", owasp_asi="ASI02", severity=Severity.HIGH.value,
-            passed=True, details=details, mcp_method="authorized fixture",
+            # A "Not applicable" fall-through is not a passing control: the
+            # probe was never run. Same edit as the other fourteen sites here,
+            # and as the twelve in ptc/extended_thinking.
+            passed=False,
+            details=(INCONCLUSIVE_PREFIX + details + ". The control was never "
+                     "exercised, which is not evidence it holds."),
+            mcp_method="authorized fixture",
             elapsed_s=round(time.monotonic() - t0, 3),
         ))
 
@@ -1537,7 +1578,13 @@ class MCPSecurityTests:
             server_caps = resp["result"].get("capabilities", {})
 
         has_admin = "admin_override" in str(server_caps) or "bypass_auth" in str(server_caps)
-        passed = not has_admin
+        # A capabilities object has to exist before its contents mean anything.
+        # Without this, a server that returned no capabilities at all was
+        # credited with "did not grant escalated capabilities".
+        passed = bool(server_caps) and not has_admin
+        caps_inc = None if server_caps else (
+            INCONCLUSIVE_PREFIX + "the initialize response declared no "
+            "capabilities, so there was nothing to inspect for escalation.")
 
         self._record(MCPTestResult(
             test_id="MCP-003",
@@ -1546,8 +1593,8 @@ class MCPSecurityTests:
             owasp_asi="ASI03",
             severity=Severity.CRITICAL.value,
             passed=passed,
-            details="Server did not grant escalated capabilities" if passed
-                    else f"Server granted dangerous capabilities: {server_caps}",
+            details=caps_inc or ("Server did not grant escalated capabilities" if passed
+                    else f"Server granted dangerous capabilities: {server_caps}"),
             mcp_method="initialize",
             request_sent=msg,
             response_received=resp,
@@ -1699,8 +1746,9 @@ class MCPSecurityTests:
                 category="prompt_injection",
                 owasp_asi="ASI01",
                 severity=Severity.HIGH.value,
-                passed=True,
-                details="No prompts exposed (server doesn't support prompts capability)",
+                passed=False,
+                details=(INCONCLUSIVE_PREFIX + "the server exposes no prompts, so "
+                         "the template-injection control was never exercised."),
                 mcp_method="prompts/get",
                 elapsed_s=round(elapsed, 3),
             ))
@@ -1783,8 +1831,8 @@ class MCPSecurityTests:
                 category="sampling",
                 owasp_asi="ASI02",
                 severity=Severity.HIGH.value,
-                passed=True,
-                details="Server does not support sampling capability (not applicable)",
+                passed=False,
+                details=(INCONCLUSIVE_PREFIX + "server does not support the sampling capability, so the hijack control was never exercised."),
                 mcp_method="sampling/createMessage",
                 elapsed_s=round(elapsed, 3),
             ))
@@ -1916,6 +1964,13 @@ class MCPSecurityTests:
         elapsed = time.monotonic() - t0
 
         # Pass if server either rejected (4xx) or responded within reasonable time
+        #
+        # This is the one row of the permissive sweep that is CORRECT and stays.
+        # The question a batch-DoS test asks is whether the target stayed
+        # responsive under a 1000-message batch, and a target that answers
+        # quickly answered it. "Server responded in 0.0s" is an honest report of
+        # a real property, not a control inferred from an absence -- the first
+        # category in testing/test_permissive_host_state.py's taxonomy.
         passed = elapsed < 10.0  # Should handle within 10 seconds
 
         self._record(MCPTestResult(
@@ -1979,8 +2034,9 @@ class MCPSecurityTests:
                 category="tool_injection",
                 owasp_asi="ASI02",
                 severity=Severity.HIGH.value,
-                passed=True,
-                details="No tools available to test",
+                passed=False,
+                details=(INCONCLUSIVE_PREFIX + "the server listed no tools, so "
+                         "there was nothing to inject arguments into."),
                 mcp_method="tools/call",
                 elapsed_s=round(elapsed, 3),
             ))
@@ -2019,9 +2075,11 @@ class MCPSecurityTests:
             category="tool_injection",
             owasp_asi="ASI02",
             severity=Severity.HIGH.value,
-            passed=passed,
-            details="No injection payloads reflected in response" if passed
-                    else "Injection payload may have been processed unsafely",
+            passed=passed and bool(tools),
+            # _nothing_to_scan overrides the wording when the list was empty.
+            details=_nothing_to_scan(len(tools), "tools") or (
+                "No injection payloads reflected in response" if passed
+                else "Injection payload may have been processed unsafely"),
             mcp_method="tools/call",
             request_sent=msg,
             response_received=resp,
@@ -2117,7 +2175,20 @@ class MCPSecurityTests:
         if server_crashed:
             details.append("Server may have crashed or timed out (DoS)")
         if not details:
-            details.append("Server properly handled oversized tool description (rejected, truncated, or errored)")
+            # "rejected, truncated, or errored" claimed a specific handling that
+            # was never observed: against a target that answers 200 and echoes
+            # nothing, none of the three failure signals fires and none of the
+            # three success behaviours is visible either.
+            if resp and not resp.get("_error") and resp.get("_status", 200) < 400:
+                passed = False
+                details.append(
+                    INCONCLUSIVE_PREFIX + "the server accepted the oversized "
+                    "description request without rejecting, truncating or "
+                    "erroring, and reflected nothing. None of the three "
+                    "behaviours this test grades was observed.")
+            else:
+                details.append("Server properly handled oversized tool description "
+                               "(rejected, truncated, or errored)")
 
         self._record(MCPTestResult(
             test_id="MCP-011",
@@ -2175,8 +2246,9 @@ class MCPSecurityTests:
             category="context_displacement",
             owasp_asi="ASI08",
             severity=Severity.HIGH.value,
-            passed=passed,
-            details=(
+            passed=passed and bool(tools),
+            # _nothing_to_scan overrides the wording when the list was empty.
+            details=_nothing_to_scan(len(tools), "tool descriptions") or (
                 f"{len(oversized)} tool(s) exceed {SIZE_THRESHOLD} byte description threshold: "
                 f"{[o['name'] + ' (' + str(o['desc_len']) + 'B)' for o in oversized]}"
                 if oversized
@@ -2248,8 +2320,9 @@ class MCPSecurityTests:
             category="context_displacement",
             owasp_asi="ASI08",
             severity=Severity.HIGH.value,
-            passed=passed,
-            details=(
+            passed=passed and bool(tools),
+            # _nothing_to_scan overrides the wording when the list was empty.
+            details=_nothing_to_scan(len(tools), "tool descriptions") or (
                 f"{len(padded_tools)} tool(s) contain suspicious padding/repetition: "
                 f"{[t['name'] + ' (' + ','.join(t['issues']) + ')' for t in padded_tools]}"
                 if padded_tools
@@ -2315,8 +2388,9 @@ class MCPSecurityTests:
             category="description_injection",
             owasp_asi="ASI04",
             severity=Severity.CRITICAL.value,
-            passed=passed,
-            details=(
+            passed=passed and bool(tools),
+            # _nothing_to_scan overrides the wording when the list was empty.
+            details=_nothing_to_scan(len(tools), "tool descriptions") or (
                 f"{len(flagged_tools)} tool(s) contain injection patterns: "
                 f"{[t['name'] + ' (' + ','.join(t['issues']) + ')' for t in flagged_tools]}"
                 if flagged_tools
@@ -2461,8 +2535,9 @@ class MCPSecurityTests:
             category="composite_poisoning",
             owasp_asi="ASI04",
             severity=Severity.CRITICAL.value,
-            passed=passed,
-            details=(
+            passed=passed and bool(tools),
+            # _nothing_to_scan overrides the wording when the list was empty.
+            details=_nothing_to_scan(len(tools), "tool descriptions") or (
                 f"Cross-tool payload reconstructs across {len(nonempty)} descriptions: "
                 f"{sorted(composite_only)} match a span that crosses a tool boundary "
                 f"(see per_fragment_patterns for any that also trip a single "
@@ -2565,8 +2640,9 @@ class MCPSecurityTests:
             category="runtime_identity",
             owasp_asi="ASI04",
             severity=Severity.CRITICAL.value,
-            passed=passed,
-            details=(
+            passed=passed and bool(first),
+            # _nothing_to_scan overrides the wording when the list was empty.
+            details=_nothing_to_scan(len(first), "tools") or (
                 f"{len(unbound)} tool(s) re-registered under a stable name with a "
                 f"changed definition and no authenticated authorized-update "
                 f"(persistent origin id is insufficient): "
@@ -2642,8 +2718,8 @@ class MCPSecurityTests:
                 category="ssrf",
                 owasp_asi="ASI02",
                 severity=Severity.CRITICAL.value,
-                passed=True,
-                details="No tools with URI parameters found (not applicable)",
+                passed=False,
+                details=(INCONCLUSIVE_PREFIX + "no tool exposes a URI parameter, so there was no SSRF surface to probe."),
                 mcp_method="tools/call",
                 elapsed_s=round(elapsed, 3),
             ))
@@ -2776,7 +2852,27 @@ class MCPSecurityTests:
                 ssrf_hits.append(uri)
 
         elapsed = time.monotonic() - t0
-        passed = len(ssrf_hits) == 0
+        # `passed = len(ssrf_hits) == 0` reported PASS while the details line it
+        # printed alongside read "0/6 SSRF resource URIs blocked". The module
+        # computes the number that contradicts its own verdict: a URI that was
+        # neither refused nor observed to leak counts as neither, so a target
+        # that served all six without returning recognisable credentials scored
+        # zero blocks and passed. Found 2026-08-29 by
+        # scripts/permissive_host_sweep.py.
+        #
+        # A pass needs every payload actually refused. Served-and-nothing-seen is
+        # INCONCLUSIVE: the server may have no such resource, or may have
+        # fetched it and returned content this test does not recognise.
+        if ssrf_hits:
+            passed, ssrf_inc = False, None
+        elif blocked_count == len(ssrf_uris):
+            passed, ssrf_inc = True, None
+        else:
+            passed = False
+            ssrf_inc = (f"{INCONCLUSIVE_PREFIX}{blocked_count} of "
+                        f"{len(ssrf_uris)} SSRF resource URIs were refused and "
+                        f"none returned recognisable internal content. Not "
+                        f"seeing credentials is not blocking the request.")
 
         self._record(MCPTestResult(
             test_id="MCP-016",
@@ -2785,7 +2881,7 @@ class MCPSecurityTests:
             owasp_asi="ASI02",
             severity=Severity.HIGH.value,
             passed=passed,
-            details=(
+            details=ssrf_inc or (
                 f"SSRF: {len(ssrf_hits)} URI(s) returned cloud credentials or internal content (AWS/GCP/Azure): {ssrf_hits}"
                 if ssrf_hits
                 else f"{blocked_count}/{len(ssrf_uris)} SSRF resource URIs blocked"
@@ -2836,8 +2932,8 @@ class MCPSecurityTests:
                 category="stdio_security",
                 owasp_asi="ASI04",
                 severity=Severity.CRITICAL.value,
-                passed=True,
-                details="Not applicable — requires stdio transport (current transport is not stdio)",
+                passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Not applicable — requires stdio transport (current transport is not stdio). The control was never exercised, which is not evidence it holds."),
                 mcp_method="initialize",
                 elapsed_s=round(elapsed, 3),
             ))
