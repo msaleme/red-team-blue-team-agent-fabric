@@ -465,29 +465,56 @@ class TestNoHarnessPassesAnUnservicedTarget(unittest.TestCase):
                 self.assertTrue(r.passed, f"{cls_name} downgraded a serviced pass")
                 self.assertNotIn("INCONCLUSIVE", r.details)
 
-    def test_adapter_base_classes_guard_every_subclass(self) -> None:
-        """#350: the guard sits on the ABC, so each adapter subclass inherits it."""
+    def test_no_adapter_subclass_overrides_the_base_guard(self) -> None:
+        """#350's property, asserted directly instead of through a fixture.
+
+        This used to feed four hand-picked adapters a synthetic result and check
+        the shared guard downgraded it. Two things changed on 2026-08-29.
+
+        The four families stopped using the shared guard. A 403 from a platform
+        IS the control working -- it is the entire PASS signal for
+        `passed = self._check_error(resp)`, the correct shape already used at
+        nine sites -- and inconclusive_detail converted every one to
+        INCONCLUSIVE. Measured against a platform denying every request, the
+        families scored 0 of 111. They now downgrade on silence only, which a
+        synthetic result carrying no request log cannot exercise.
+
+        And the fixture only ever covered 4 adapters of 30. Since PR #422,
+        scripts/dead_host_sweep.py constructs and runs every concrete adapter
+        against a closed port, and testing/test_dead_host_state.py pins the
+        result, so the OUTCOME is measured for all of them rather than argued
+        from four.
+
+        What is left to assert is the inheritance property itself, and it is
+        cheaper and stricter to read it off the classes: no concrete adapter may
+        define its own _record, because that is exactly how a subclass would
+        opt out of a guard the base class carries.
+        """
         import importlib
-        for mod_name, cls_name, res_name in ADAPTER_CASES:
+        import inspect
+        checked = 0
+        for mod_name in ("protocol_tests.enterprise_adapters",
+                         "protocol_tests.extended_enterprise_adapters",
+                         "protocol_tests.framework_adapters",
+                         "protocol_tests.cloud_agent_harness"):
             mod = importlib.import_module(mod_name)
-            result_cls = getattr(mod, res_name)
-            for label, resp in UNSERVICED.items():
-                with self.subTest(f"{cls_name} / {label}"):
-                    a = getattr(mod, cls_name)("http://127.0.0.1:9")
-                    a.results = []
-                    r = _build(result_cls, passed=True, response_received=resp)
-                    a._record(r)
-                    self.assertFalse(
-                        r.passed,
-                        f"{cls_name} recorded a PASS for '{label}' - this module set "
-                        "passed=True *because* the target errored")
-                    self.assertIn("INCONCLUSIVE", r.details)
-            with self.subTest(f"{cls_name} / serviced pass survives"):
-                a = getattr(mod, cls_name)("http://127.0.0.1:9")
-                a.results = []
-                r = _build(result_cls, passed=True, response_received=SERVICED)
-                a._record(r)
-                self.assertTrue(r.passed)
+            for name, cls in vars(mod).items():
+                if not (inspect.isclass(cls) and cls.__module__ == mod.__name__):
+                    continue
+                if getattr(cls, "__abstractmethods__", ()) or not hasattr(cls, "run_tests"):
+                    continue
+                with self.subTest(f"{mod_name}.{name}"):
+                    self.assertNotIn(
+                        "_record", vars(cls),
+                        f"{name} defines its own _record, so it does not inherit "
+                        f"the base-class guard. The package already learned this "
+                        f"the expensive way: 44 parallel _record implementations "
+                        f"meant one verdict defect had to be repaired four times.")
+                checked += 1
+        self.assertGreaterEqual(
+            checked, 25,
+            f"only {checked} concrete adapters found; discovery is broken rather "
+            f"than the repository having shrunk")
 
 
 class TestCoverageListIsDerived(unittest.TestCase):
