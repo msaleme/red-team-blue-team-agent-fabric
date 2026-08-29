@@ -36,6 +36,8 @@ from datetime import datetime, timezone
 from enum import Enum
 import urllib.request
 
+from protocol_tests.http_helpers import inconclusive_detail, run_summary, summary_lines
+
 
 # ---------------------------------------------------------------------------
 # Wilson score CI (inlined for zero-dep)
@@ -216,6 +218,12 @@ class IncidentResponseTests:
         self.results: list[IncidentResponseTestResult] = []
 
     def _record(self, result: IncidentResponseTestResult):
+        # #348/#351: a result whose target never serviced the request is
+        # INCONCLUSIVE, never a pass. Enforced here so a new test cannot forget it.
+        _d = inconclusive_detail(getattr(result, "response_received", None), result.details)
+        if _d is not None:
+            result.passed = False
+            result.details = _d
         self.results.append(result)
         status = "PASS \u2705" if result.passed else "FAIL \u274c"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
@@ -695,17 +703,12 @@ class IncidentResponseTests:
                     protocol="unknown",
                 ))
 
-        total = len(self.results)
-        passed = sum(1 for r in self.results if r.passed)
-        ci = wilson_ci(passed, total)
+        summary = run_summary(self.results)
 
-        print(f"\n{'='*60}")
-        if total:
-            print(f"RESULTS: {passed}/{total} passed ({passed/total*100:.0f}%)")
-            print(f"WILSON 95% CI for pass rate: [{ci[0]:.4f}, {ci[1]:.4f}]")
-        else:
-            print("No tests run")
-        print(f"{'='*60}\n")
+        print(f"\\n{'='*60}")
+        for _line in summary_lines(summary):
+            print(_line)
+        print(f"{'='*60}\\n")
 
         return self.results
 
@@ -715,20 +718,12 @@ class IncidentResponseTests:
 # ---------------------------------------------------------------------------
 
 def generate_report(results: list[IncidentResponseTestResult], output_path: str):
-    total = len(results)
-    passed = sum(1 for r in results if r.passed)
-    ci = wilson_ci(passed, total)
+    summary = run_summary(results)
 
     report = {
         "suite": "Incident Response Validation Tests v3.6",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "summary": {
-            "total": total,
-            "passed": passed,
-            "failed": total - passed,
-            "pass_rate": round(passed / total, 4) if total else 0,
-            "wilson_95_ci": {"lower": ci[0], "upper": ci[1]},
-        },
+        "summary": summary,
         "results": [asdict(r) for r in results],
     }
     with open(output_path, "w") as f:

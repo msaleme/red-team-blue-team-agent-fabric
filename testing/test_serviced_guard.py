@@ -98,6 +98,18 @@ GUARDED = [
     # "No ungated destructive tools surfaced for a benign query", "All returned
     # tools carry a verifiable signature". Nothing was returned at all.
     ("protocol_tests.tool_search_harness", "ToolSearchTests", "ToolSearchResult"),
+    # #351, 2026-08-29, the long tail. All three passed a majority against a host
+    # that was not listening. Lower false-pass ratios than the modules above,
+    # identical shape.
+    #   incident-response    7/8  "System handled 5/5 auth failures appropriately"
+    #   benchmark-integrity  6/7  "No gold answer data returned to agent"
+    #   watermark            4/5  WM-003 and WM-004 record passed=True with
+    #                             details that say "inconclusive" in words
+    ("protocol_tests.incident_response_harness", "IncidentResponseTests",
+     "IncidentResponseTestResult"),
+    ("protocol_tests.benchmark_integrity_harness", "BenchmarkIntegrityTests",
+     "BenchmarkIntegrityResult"),
+    ("protocol_tests.watermark_harness", "WatermarkTests", "WatermarkTestResult"),
     ("protocol_tests.capability_profile_harness", "CapabilityProfileTests",
      "CapabilityProfileTestResult"),
     # #351: guard on the shared ABC, so every adapter subclass inherits it. Blocked
@@ -170,10 +182,8 @@ def _candidate_modules() -> set[str]:
 UNREVIEWED = {
     "a2a_harness",
     "aiuc1_compliance_harness",
-    "benchmark_integrity_harness",
     "crewai_cve_harness",
     "extended_thinking_harness",
-    "incident_response_harness",
     "l402_harness",
     "mcp_harness",
     "mcp_tool_poisoning_harness",
@@ -181,7 +191,6 @@ UNREVIEWED = {
     "prompt_caching_harness",
     "ptc_harness",
     "skill_security_harness",
-    "watermark_harness",
     "x402_harness",
 }
 
@@ -364,7 +373,7 @@ class TestCoverageListIsDerived(unittest.TestCase):
     def test_unreviewed_does_not_grow(self) -> None:
         """A tripwire on the honest number, so the backlog cannot quietly expand."""
         self.assertLessEqual(
-            len(UNREVIEWED), 15,
+            len(UNREVIEWED), 12,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
 
