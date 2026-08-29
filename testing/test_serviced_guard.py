@@ -179,19 +179,68 @@ def _candidate_modules() -> set[str]:
 # guarded + unreviewed exactly. A newly added harness lands in neither and fails the suite
 # until someone classifies it. That is the difference between a guard that composes and a
 # list that has to be remembered.
-UNREVIEWED = {
+# ---------------------------------------------------------------------------
+# Classifications other than GUARDED and UNREVIEWED.
+#
+# #351 asks for four outcomes -- guarded, reviewed, protocol-specific exception,
+# or unsupported -- with no unclassified remainder. Until 2026-08-29 this module
+# offered two buckets, so anything read and found not to need the shared guard
+# had nowhere to go but UNREVIEWED, and the tripwire number meant two things at
+# once: "not yet examined" and "examined, guard does not apply".
+#
+# A module may leave UNREVIEWED for one of these only with a recorded reason.
+# Shrinking the number by relabelling is the failure this file exists to prevent.
+# ---------------------------------------------------------------------------
+
+#: The shared guard would invert the protocol's normal behaviour, so it is not
+#: applied. Precondition 3, in the issue's own words: "a 401/402 IS those
+#: protocols servicing the request, so their apparent exposure in any triage is
+#: inflated relative to what is actionable."
+#:
+#: NOT a clean bill of health. It says the generic instrument does not fit.
+#: These still need reading with a payment-aware rule.
+PROTOCOL_EXCEPTION = {
+    "l402_harness",
+    "x402_harness",
+}
+
+#: Read, found defective, repaired with a module-local rule, because the shared
+#: guard produced a false negative on this module's own semantics.
+#:
+#: a2a_harness: _serviced treats a 2xx carrying a JSON-RPC error envelope as
+#: unserviced. In A2A-007 that envelope is the server refusing an attacker push
+#: URL, which is the control working, and guarding it broke
+#: test_vsr03_verdict_correctness.py::test_active_rejection_passes. Six known
+#: false passes remain, pinned in testing/test_a2a_unserviced_state.py.
+#:
+#: over_refusal_harness: this module asks whether a legitimate request was
+#: wrongly blocked, so a -32601 or a 404 is normal processing and a PASS. The
+#: shared guard calls both unserviced and would invert the module. Its own
+#: _is_allowed returned True for a refused connection, under a comment reading
+#: "we consider the request allowed if the server processed it at all", and all
+#: 25 tests reported the agent had correctly allowed a legitimate request it
+#: never received. Now 0 of 25 against silence.
+NARROW_LOCAL_RULE = {
     "a2a_harness",
+    "over_refusal_harness",
+}
+
+#: No network target, so being serviced is not a property these can have.
+#: skill_security_harness makes no HTTP calls; its verdicts read a local skill
+#: path and it already fails closed when that path is empty (0 of 8, all with
+#: "No skill content found at skill_path").
+NO_NETWORK_TARGET = {
+    "skill_security_harness",
+}
+
+UNREVIEWED = {
     "aiuc1_compliance_harness",
     "crewai_cve_harness",
     "extended_thinking_harness",
-    "l402_harness",
     "mcp_harness",
     "mcp_tool_poisoning_harness",
-    "over_refusal_harness",
     "prompt_caching_harness",
     "ptc_harness",
-    "skill_security_harness",
-    "x402_harness",
 }
 
 # Concrete subclasses for the two adapter modules, whose guard lives on an ABC base rather
@@ -358,14 +407,16 @@ class TestCoverageListIsDerived(unittest.TestCase):
 
     def test_every_response_recording_module_is_classified(self) -> None:
         guarded = {m.rsplit(".", 1)[1] for m, _, _ in GUARDED}
-        classified = guarded | UNREVIEWED
+        classified = (guarded | UNREVIEWED | PROTOCOL_EXCEPTION
+                      | NARROW_LOCAL_RULE | NO_NETWORK_TARGET)
         candidates = _candidate_modules()
         unclassified = candidates - classified
         self.assertEqual(
             unclassified, set(),
-            "these modules record a target response but are in neither GUARDED nor "
-            f"UNREVIEWED: {sorted(unclassified)}. Check whether the verdict can be a pass "
-            "when the target never serviced the request, then add the guard or list it.")
+            "these modules record a target response and carry no classification: "
+            f"{sorted(unclassified)}. Read the module, then place it in GUARDED, "
+            "UNREVIEWED, PROTOCOL_EXCEPTION, NARROW_LOCAL_RULE or NO_NETWORK_TARGET "
+            "with a recorded reason.")
         stale = classified - candidates
         self.assertEqual(
             stale, set(), f"listed but no longer record a response: {sorted(stale)}")
@@ -373,7 +424,7 @@ class TestCoverageListIsDerived(unittest.TestCase):
     def test_unreviewed_does_not_grow(self) -> None:
         """A tripwire on the honest number, so the backlog cannot quietly expand."""
         self.assertLessEqual(
-            len(UNREVIEWED), 12,
+            len(UNREVIEWED), 7,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
 
