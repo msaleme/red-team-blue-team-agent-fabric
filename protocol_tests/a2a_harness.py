@@ -41,8 +41,9 @@ import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
 import urllib.request
+
+from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX
 
 
 # ---------------------------------------------------------------------------
@@ -235,6 +236,39 @@ class A2ATestResult:
 # A2A Security Test Suite
 # ---------------------------------------------------------------------------
 
+#: Marker set by ``_aggregate_evidence`` when a multi-attempt test reached
+#: nobody. ``_record`` downgrades on this and on nothing else, which is why this
+#: module can enforce "silence is not a pass" without adopting the shared
+#: serviced guard that mis-reads its JSON-RPC error envelopes.
+_NONE_ANSWERED = "_none_answered"
+
+
+def _answered(resp: dict) -> bool:
+    """True when the target produced a response, even a refusing one.
+
+    Deliberately weaker than ``http_helpers._serviced``. For the counting tests
+    below a 4xx, or a JSON-RPC error envelope, IS the control working: the server
+    was reached and refused. What must never count as a refusal is not reaching
+    the server at all.
+
+    The transport marks both with ``_error``, so the discriminator is whether a
+    status came back. ``urllib.error.HTTPError`` yields
+    ``{"_error": True, "_status": code, ...}`` -- an answer. Every other
+    exception yields ``{"_error": True, "_exception": str(e)}`` -- silence.
+
+    #351: without this, loops of the form
+
+        if resp.get("_error") or resp.get("_status", 200) >= 400:
+            blocked += 1
+
+    tallied a connection refusal as a blocked attack, and reported "3/3
+    traversal attempts blocked" against a host that was not running.
+    """
+    if not isinstance(resp, dict):
+        return False
+    return resp.get("_exception") is None
+
+
 class A2ASecurityTests:
     """Protocol-level security tests for A2A servers."""
 
@@ -263,9 +297,62 @@ class A2ASecurityTests:
     }
 
     def _record(self, result: A2ATestResult):
+        # NO shared serviced guard here, deliberately. #351, 2026-08-29.
+        #
+        # Applying inconclusive_detail to this module downgrades a legitimate
+        # active rejection to INCONCLUSIVE. http_helpers._serviced treats a 2xx
+        # carrying a JSON-RPC error envelope as "the server did not service the
+        # request", which is right for "method not found" and wrong here: in
+        # A2A-007 an error envelope is the server refusing an attacker-supplied
+        # push URL, which is the control working. Guarding this module broke
+        # testing/test_vsr03_verdict_correctness.py::test_active_rejection_passes,
+        # a false negative of exactly the kind precondition 1 exists to prevent,
+        # arriving through the response-convention door rather than the
+        # simulate-fixture one.
+        #
+        # So this module stays in UNREVIEWED. What IS fixed here is the counting:
+        # see _answered and _aggregate_evidence. A transport failure is no longer
+        # tallied as a blocked attack, which took the dead-host pass count from
+        # 11 of 13 to 4 of 13. The remaining four are recorded in
+        # testing/test_a2a_unserviced_state.py so the gap is visible and cannot
+        # silently regrow.
+        # Narrow, module-local guard. Not the shared serviced guard: see the
+        # comment above. This fires only on the marker _aggregate_evidence sets
+        # when a multi-attempt test reached nobody, so a JSON-RPC error envelope
+        # -- which in this protocol is often the control working -- is untouched.
+        _rr = getattr(result, "response_received", None)
+        if isinstance(_rr, dict) and _rr.get(_NONE_ANSWERED):
+            result.passed = False
+            result.details = (
+                f"{INCONCLUSIVE_PREFIX}{_rr.get('_exception')}. "
+                f"Original finding: {result.details}")
         self.results.append(result)
         status = "PASS ✅" if result.passed else "FAIL ❌"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
+
+    def _aggregate_evidence(self, attempts: int, answered: int,
+                            extra: dict | None = None) -> dict:
+        """Evidence for a multi-attempt test, so its verdict is not evidence-free.
+
+        #351: the counting tests in this module decided a verdict from a tally and
+        recorded no ``response_received`` at all, which put them out of reach of
+        the guard in ``_record``. Guarding the module downgraded 2 of 13 results
+        and left 9 reporting "3/3 traversal attempts blocked" against a host that
+        was never running.
+
+        A tally is not evidence. This retains the attempt and answer counts, and
+        when nothing answered it returns the shape ``inconclusive_detail``
+        recognises, so the downgrade happens through the same path every other
+        guarded module uses rather than through a second mechanism here.
+        """
+        ev: dict = {"attempts": attempts, "answered": answered}
+        if extra:
+            ev.update(extra)
+        if answered == 0:
+            ev["_error"] = True
+            ev["_exception"] = f"none of {attempts} attempts were answered"
+            ev[_NONE_ANSWERED] = True
+        return ev
 
     def _record_simulate(self, test_id: str, method_name: str) -> None:
         """Record a passing simulate-mode result for *test_id*."""
@@ -417,11 +504,15 @@ class A2ASecurityTests:
         ]
 
         blocked = 0
+        answered = 0
         leaked = []
         # Markers that appear only in real leaked system files, never in an A2A agent card.
         file_leak_markers = ("root:x:", "root:*:", ":x:0:0:", "/bin/bash", "/sbin/nologin", "daemon:x:")
         for path in traversal_paths:
             resp = self.transport.get(path)
+            if not _answered(resp):
+                continue
+            answered += 1
             if resp.get("_error") or resp.get("_status", 200) >= 400:
                 blocked += 1
                 continue
@@ -448,6 +539,8 @@ class A2ASecurityTests:
             details=f"{blocked}/{len(traversal_paths)} traversal attempts blocked" if passed
                     else f"Path traversal leaked file content on {len(leaked)} path(s): {', '.join(leaked)}",
             a2a_method="GET (various paths)",
+            response_received=self._aggregate_evidence(
+                len(traversal_paths), answered, {"blocked": blocked, "leaked": leaked}),
             elapsed_s=round(elapsed, 3),
         ))
 
@@ -477,16 +570,23 @@ class A2ASecurityTests:
         ]
 
         blocked = 0
+        answered = 0
         for task_id in fake_task_ids:
             # Try to get the task
             resp = self.transport.rpc("tasks/get", {"id": task_id})
-            if resp.get("error") or resp.get("_error") or resp.get("_status", 200) >= 400:
-                blocked += 1
+            if _answered(resp):
+                answered += 1
+                if (resp.get("error") or resp.get("_error")
+                        or resp.get("_status", 200) >= 400):
+                    blocked += 1
 
             # Try to cancel the task
             resp2 = self.transport.rpc("tasks/cancel", {"id": task_id})
-            if resp2.get("error") or resp2.get("_error") or resp2.get("_status", 200) >= 400:
-                blocked += 1
+            if _answered(resp2):
+                answered += 1
+                if (resp2.get("error") or resp2.get("_error")
+                        or resp2.get("_status", 200) >= 400):
+                    blocked += 1
 
         elapsed = time.monotonic() - t0
         total_attempts = len(fake_task_ids) * 2  # get + cancel for each
@@ -501,6 +601,8 @@ class A2ASecurityTests:
             passed=passed,
             details=f"{blocked}/{total_attempts} unauthorized task operations blocked",
             a2a_method="tasks/get, tasks/cancel",
+            response_received=self._aggregate_evidence(
+                total_attempts, answered, {"blocked": blocked}),
             elapsed_s=round(elapsed, 3),
         ))
 
@@ -748,6 +850,7 @@ class A2ASecurityTests:
         ]
 
         rejected = 0
+        answered = 0
         for skill_id in fake_skills:
             resp = self.transport.rpc("message/send", {
                 "message": {
@@ -759,8 +862,10 @@ class A2ASecurityTests:
                     "skillId": skill_id,
                 }
             })
-            if resp.get("error") or resp.get("_error"):
-                rejected += 1
+            if _answered(resp):
+                answered += 1
+                if resp.get("error") or resp.get("_error"):
+                    rejected += 1
             else:
                 # Check if response mentions the fake skill being executed
                 resp_str = json.dumps(resp).lower() if resp else ""
@@ -779,6 +884,8 @@ class A2ASecurityTests:
             passed=passed,
             details=f"{rejected}/{len(fake_skills)} unauthorized skill requests rejected",
             a2a_method="message/send (with skillId)",
+            response_received=self._aggregate_evidence(
+                len(fake_skills), answered, {"rejected": rejected}),
             elapsed_s=round(elapsed, 3),
         ))
 
@@ -805,6 +912,7 @@ class A2ASecurityTests:
         ]
 
         handled = 0
+        answered = 0
         for part in dangerous_parts:
             resp = self.transport.rpc("message/send", {
                 "message": {
@@ -816,8 +924,10 @@ class A2ASecurityTests:
                 }
             })
             # Should reject dangerous content types or sanitize
-            if resp.get("error") or resp.get("_error"):
-                handled += 1
+            if _answered(resp):
+                answered += 1
+                if resp.get("error") or resp.get("_error"):
+                    handled += 1
             else:
                 resp_str = json.dumps(resp).lower() if resp else ""
                 if "script" not in resp_str and "subprocess" not in resp_str:
@@ -835,6 +945,8 @@ class A2ASecurityTests:
             passed=passed,
             details=f"{handled}/{len(dangerous_parts)} dangerous content types handled safely",
             a2a_method="message/send",
+            response_received=self._aggregate_evidence(
+                len(dangerous_parts), answered, {"handled": handled}),
             elapsed_s=round(elapsed, 3),
         ))
 
@@ -867,10 +979,14 @@ class A2ASecurityTests:
         ]
 
         handled = 0
+        answered = 0
         for raw in malformed:
             resp = self.transport.rpc_raw(raw)
-            if resp.get("error") or resp.get("_error") or resp.get("_status", 200) >= 400:
-                handled += 1
+            if _answered(resp):
+                answered += 1
+                if (resp.get("error") or resp.get("_error")
+                        or resp.get("_status", 200) >= 400):
+                    handled += 1
             elif not resp:
                 handled += 1  # No response is acceptable for garbage input
 
@@ -886,6 +1002,8 @@ class A2ASecurityTests:
             passed=passed,
             details=f"{handled}/{len(malformed)} malformed requests handled gracefully",
             a2a_method="various",
+            response_received=self._aggregate_evidence(
+                len(malformed), answered, {"handled": handled}),
             elapsed_s=round(elapsed, 3),
         ))
 
