@@ -88,6 +88,12 @@ GUARDED = [
     # has to be read.
     ("protocol_tests.harmful_output_harness", "HarmfulOutputTests",
      "HarmfulOutputTestResult"),
+    # #351, 2026-08-29. Live mode passed 3 of 4 against a dead host, including
+    # IR-012 "response received or clean error", which states the defect in its
+    # own details string. Simulate mode passed 4 of 4, including IR-009 reporting
+    # a 0.000s kill-signal latency against a 5s threshold -- the connection
+    # refused instantly, and instant refusal measured as instant acknowledgement.
+    ("protocol_tests.kill_switch_harness", "KillSwitchTests", "KillSwitchTestResult"),
     ("protocol_tests.capability_profile_harness", "CapabilityProfileTests",
      "CapabilityProfileTestResult"),
     # #351: guard on the shared ABC, so every adapter subclass inherits it. Blocked
@@ -164,7 +170,6 @@ UNREVIEWED = {
     "crewai_cve_harness",
     "extended_thinking_harness",
     "incident_response_harness",
-    "kill_switch_harness",
     "l402_harness",
     "mcp_harness",
     "mcp_tool_poisoning_harness",
@@ -356,7 +361,7 @@ class TestCoverageListIsDerived(unittest.TestCase):
     def test_unreviewed_does_not_grow(self) -> None:
         """A tripwire on the honest number, so the backlog cannot quietly expand."""
         self.assertLessEqual(
-            len(UNREVIEWED), 17,
+            len(UNREVIEWED), 16,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
 
