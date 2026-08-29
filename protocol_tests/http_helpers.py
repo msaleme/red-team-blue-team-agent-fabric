@@ -123,6 +123,113 @@ def _err(resp: dict) -> bool:
     return resp.get("_error") or resp.get("_status", 200) >= 400
 
 
+#: The marker that makes a result INCONCLUSIVE rather than a pass or a failure.
+#:
+#: #404: this state has lived only as a prefix on a prose field. Nothing in the
+#: 35 result dataclasses carries it, so every summary could ask "passed?" and
+#: nothing else, and an inconclusive result fell into whichever bucket was
+#: residual -- which was `failed`. A run that established nothing was reported
+#: as a run in which the target failed everything.
+#:
+#: Defining it once is the smallest step that makes the third class countable.
+#: A field on the result classes would be better and is not blocked by this.
+INCONCLUSIVE_PREFIX = "INCONCLUSIVE - "
+
+
+def is_inconclusive(details: str | None) -> bool:
+    """True when `details` marks a result as INCONCLUSIVE.
+
+    The predicate exists so that callers stop matching the substring by hand.
+    When the state gains a structural home on the result classes, this is the
+    one place that has to learn about it.
+    """
+    return INCONCLUSIVE_PREFIX.strip(" -") in (details or "")
+
+
+def run_summary(results) -> dict:
+    """Summary counts that keep PASS, FAIL and INCONCLUSIVE distinct.
+
+    Every affected module computed this inline and identically::
+
+        total  = len(self.results)
+        passed = sum(1 for r in self.results if r.passed)
+        ci     = wilson_ci(passed, total)
+        "failed": total - passed
+
+    Three things are wrong with that once a guard can produce INCONCLUSIVE.
+
+    `failed` is a residual bucket, so an inconclusive result is counted as a
+    target failure. After #402, `return-channel` against a closed port reported
+    ``{total: 8, passed: 0, failed: 8}`` when the honest statement is that eight
+    tests established nothing.
+
+    `pass_rate` divides by `total`, so it answers "of everything attempted, how
+    much passed", when the question a reader has is "of what was actually
+    observed, how much passed".
+
+    The Wilson interval is computed over that same denominator, which is the
+    part the reviewer objected to: an interval over wholly unserviced
+    observations presents the absence of a target as a measurement, complete
+    with quantified uncertainty derived from nothing.
+
+    So the denominator here is `serviced`, and both `pass_rate` and
+    `wilson_95_ci` are ``None`` when nothing was serviced. None is deliberate
+    over 0.0: a rate of zero is a claim, and absence is not.
+
+    `total` still equals ``passed + failed + inconclusive``, so a consumer that
+    sums the buckets is not broken by this.
+    """
+    from protocol_tests.statistical import wilson_ci
+
+    results = list(results)
+    total = len(results)
+    inconclusive = sum(1 for r in results
+                       if is_inconclusive(getattr(r, "details", None)))
+    passed = sum(1 for r in results if getattr(r, "passed", False))
+    failed = total - passed - inconclusive
+    serviced = passed + failed
+
+    summary = {
+        "total": total,
+        "passed": passed,
+        "failed": failed,
+        "inconclusive": inconclusive,
+        "serviced": serviced,
+        "status": ("empty" if total == 0
+                   else "inconclusive" if serviced == 0
+                   else "completed"),
+    }
+    if serviced:
+        lo, hi = wilson_ci(passed, serviced)
+        summary["pass_rate"] = round(passed / serviced, 4)
+        summary["wilson_95_ci"] = {"lower": lo, "upper": hi}
+    else:
+        summary["pass_rate"] = None
+        summary["wilson_95_ci"] = None
+    return summary
+
+
+def summary_lines(summary: dict) -> list[str]:
+    """Console lines for a run summary, saying plainly when nothing was observed."""
+    if summary["total"] == 0:
+        return ["No tests run"]
+    if summary["serviced"] == 0:
+        return [
+            (f"RESULTS: 0/{summary['total']} passed - "
+             f"{summary['inconclusive']} INCONCLUSIVE, none serviced"),
+            ("Pass rate not computed: no request was serviced, so there is "
+             "nothing to compute it over."),
+        ]
+    pct = summary["passed"] / summary["serviced"] * 100
+    ci = summary["wilson_95_ci"]
+    lines = [(f"RESULTS: {summary['passed']}/{summary['serviced']} serviced tests "
+              f"passed ({pct:.0f}%)")]
+    if summary["inconclusive"]:
+        lines.append(f"{summary['inconclusive']} INCONCLUSIVE, excluded from the rate")
+    lines.append(f"WILSON 95% CI for pass rate: [{ci['lower']:.4f}, {ci['upper']:.4f}]")
+    return lines
+
+
 def inconclusive_detail(resp, details: str | None) -> str | None:
     """Replacement ``details`` when a result must be INCONCLUSIVE, else ``None``.
 
@@ -148,7 +255,7 @@ def inconclusive_detail(resp, details: str | None) -> str | None:
         return None
     if _serviced(resp):
         return None
-    if "INCONCLUSIVE" in (details or ""):
+    if is_inconclusive(details):
         return None
     # Read both status conventions, for the same reason _serviced does. Reading
     # only "_status" made this line report "status=0" for a harness that writes
@@ -158,7 +265,7 @@ def inconclusive_detail(resp, details: str | None) -> str | None:
     status = resp.get("_status")
     if status is None:
         status = resp.get("status", 0)
-    return ("INCONCLUSIVE - target did not service the request; "
+    return (f"{INCONCLUSIVE_PREFIX}target did not service the request; "
             f"status={status}. Original finding: {details}")
 
 

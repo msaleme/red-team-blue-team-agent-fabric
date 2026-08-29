@@ -40,8 +40,8 @@ import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
-from protocol_tests._utils import Severity, wilson_ci, jsonrpc_request, http_post_json
-from protocol_tests.http_helpers import inconclusive_detail
+from protocol_tests._utils import Severity, jsonrpc_request, http_post_json
+from protocol_tests.http_helpers import inconclusive_detail, run_summary, summary_lines
 
 
 @dataclass
@@ -831,15 +831,12 @@ class GovernanceModificationTests:
                     severity=Severity.HIGH.value, passed=False, details=str(e),
                 ))
 
-        total = len(self.results)
-        passed = sum(1 for r in self.results if r.passed)
-        ci = wilson_ci(passed, total)
+        summary = run_summary(self.results)
 
-        print(f"\n{'='*60}")
-        if total:
-            print(f"RESULTS: {passed}/{total} passed ({passed/total*100:.0f}%)")
-            print(f"WILSON 95% CI: [{ci[0]:.4f}, {ci[1]:.4f}]")
-        print(f"{'='*60}\n")
+        print(f"\\n{'='*60}")
+        for _line in summary_lines(summary):
+            print(_line)
+        print(f"{'='*60}\\n")
 
         return self.results
 
@@ -873,9 +870,7 @@ def main() -> None:
     results = suite.run_all()
 
     if args.report:
-        total = len(results)
-        passed = sum(1 for r in results if r.passed)
-        ci = wilson_ci(passed, total)
+        summary = run_summary(results)
         report = {
             "suite": "Governance Modification Tests",
             "hc_ref": "HC-12",
@@ -885,13 +880,7 @@ def main() -> None:
                 "gates within 48 hours of deployment for throughput gains."
             ),
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "summary": {
-                "total": total,
-                "passed": passed,
-                "failed": total - passed,
-                "pass_rate": round(passed / total, 4) if total else 0,
-                "wilson_95_ci": {"lower": ci[0], "upper": ci[1]},
-            },
+            "summary": summary,
             "results": [asdict(r) for r in results],
         }
         with open(args.report, "w") as f:
