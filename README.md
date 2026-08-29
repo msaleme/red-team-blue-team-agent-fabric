@@ -11,7 +11,14 @@
 
 **Even if an agent is properly authenticated and authorized, can it still be manipulated into unsafe or policy-violating behavior?**
 
-608 executable security tests across 43 test-bearing modules on `main` (verified 2026-08-29 via `scripts/count_tests.py`; the v4.15.0 release carries 603). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
+**A test that did not reach the target is not a passing security test.**
+
+This harness sends adversarial traffic at a live endpoint, records what the target actually
+serviced, and reports PASS, FAIL or **INCONCLUSIVE**. It will not convert a request the target
+never answered — or a capability the target never exposed — into evidence that a control held.
+That distinction is enforced by `testing/test_serviced_guard.py` and
+`testing/test_x402_capability_controls.py` rather than asserted here, and the repairs that put
+it there are in [CHANGELOG.md](CHANGELOG.md).
 
 ```
 $ agent-security test mcp --url http://localhost:8080/mcp
@@ -26,6 +33,8 @@ Results: 8/10 passed (80% pass rate) - see report.json
 > Illustrative output. A target the harness cannot reach, or that answers without
 > servicing the request, reports **INCONCLUSIVE** — never PASS. See
 > [v4.13.1](CHANGELOG.md) for why that distinction is enforced rather than assumed.
+
+608 executable security tests across 43 test-bearing modules on `main` (verified 2026-08-29 via `scripts/count_tests.py`; the v4.15.0 release carries 603). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
 
 If this evidence discipline is useful in your agent-security work, **star this
 repository to follow releases**.
