@@ -94,6 +94,10 @@ GUARDED = [
     # a 0.000s kill-signal latency against a 5s threshold -- the connection
     # refused instantly, and instant refusal measured as instant acknowledgement.
     ("protocol_tests.kill_switch_harness", "KillSwitchTests", "KillSwitchTestResult"),
+    # #351, 2026-08-29. 6 of 6 passed live against a host that was not listening:
+    # "No ungated destructive tools surfaced for a benign query", "All returned
+    # tools carry a verifiable signature". Nothing was returned at all.
+    ("protocol_tests.tool_search_harness", "ToolSearchTests", "ToolSearchResult"),
     ("protocol_tests.capability_profile_harness", "CapabilityProfileTests",
      "CapabilityProfileTestResult"),
     # #351: guard on the shared ABC, so every adapter subclass inherits it. Blocked
@@ -177,7 +181,6 @@ UNREVIEWED = {
     "prompt_caching_harness",
     "ptc_harness",
     "skill_security_harness",
-    "tool_search_harness",
     "watermark_harness",
     "x402_harness",
 }
@@ -361,7 +364,7 @@ class TestCoverageListIsDerived(unittest.TestCase):
     def test_unreviewed_does_not_grow(self) -> None:
         """A tripwire on the honest number, so the backlog cannot quietly expand."""
         self.assertLessEqual(
-            len(UNREVIEWED), 16,
+            len(UNREVIEWED), 15,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
 
