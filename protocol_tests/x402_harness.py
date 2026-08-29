@@ -1005,6 +1005,16 @@ class X402SecurityTests:
         t0 = time.monotonic()
 
         cred = _fake_payment_authorization()
+
+        # Control first. Without it a 402 on the URL request proves nothing about
+        # the URL channel: it is equally consistent with "this credential is not
+        # accepted anywhere". Only a credential the target honours in a header can
+        # test whether it ALSO honours it from an observable channel.
+        control = self.transport.request(
+            self.transport.default_method,
+            headers={"X-Payment-Authorization": cred})
+        control_status = control.get("status", 0)
+
         # No X-Payment-Authorization header: the credential is ONLY in the URL.
         path = f"{self.transport.paid_path}?payment_authorization={cred}&token={cred}"
         resp = self.transport.request(self.transport.default_method, path=path)
@@ -1013,14 +1023,23 @@ class X402SecurityTests:
         accepted = status == 200
         passed = not accepted
         details = (
-            f"credential supplied only in the URL query; server returned {status}. "
-            + ("ACCEPTED: the credential is now in access logs, proxy logs and any "
+            f"credential in header returned {control_status}, same credential in the "
+            f"URL query returned {status}. "
+            + ("ACCEPTED from the URL: it is now in access logs, proxy logs and any "
                "Referer sent onward (CWE-598)."
                if accepted else
-               "Refused, so the credential was not honoured from an observable channel.")
+               "Refused from the URL while accepted in the header, so the channel "
+               "is distinguished.")
         )
 
-        inc = self._inconclusive_if_unserviced(resp, details)
+        inc = (self._inconclusive_if_unserviced(control, details)
+               or self._inconclusive_if_unserviced(resp, details))
+        if inc is None and control_status != 200:
+            # The control failed, so the differential does not exist.
+            inc = (f"{INCONCLUSIVE_PREFIX}the control request was not accepted either "
+                   f"(header returned {control_status}), so a refusal of the URL-borne "
+                   f"credential cannot be attributed to the channel. Testing this "
+                   f"requires a credential the target honours. Original finding: {details}")
         if inc is not None:
             passed, details = False, inc
 
@@ -1087,11 +1106,26 @@ class X402SecurityTests:
                "Within the allowance, so verify-and-settle was not separable here.")
         )
 
-        # Every response silent means nothing was measured, whatever the arithmetic says.
+        # Two ways this measures nothing, and neither may be reported as a pass.
+        #
+        # Silence: no request was answered at all.
         if all(self._inconclusive_if_unserviced(r, "") is not None for r in responses):
             passed = False
             details = (f"{INCONCLUSIVE_PREFIX}no request was answered "
                        f"({n_concurrent} attempted). Original finding: {details}")
+        elif n_accepted == 0:
+            # Capability absent. The target answered and admitted nothing, so no
+            # settlement occurred and there was no allowance to overdraw. Reporting
+            # that as a pass says the control held when the control was never
+            # reached -- the #348 shape one level up, at the capability rather than
+            # the transport. A target that does not expose a delegated allowance
+            # cannot be graded on how it enforces one.
+            passed = False
+            details = (f"{INCONCLUSIVE_PREFIX}the target accepted none of the "
+                       f"{n_concurrent} requests, so no settlement occurred and the "
+                       f"upto={allowance} allowance was never exercised. This needs a "
+                       f"target that declares and honours a delegated allowance. "
+                       f"Original finding: {details}")
 
         self._record(X402TestResult(
             test_id="X4-057",
