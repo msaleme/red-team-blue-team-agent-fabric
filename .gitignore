@@ -53,6 +53,12 @@ november-meeting-extracted.txt
 # Published fixture sets are deliverables, not run artifacts: they are versioned,
 # byte-stable, and meant to be consumed by external evaluation harnesses.
 !reports/round_26/rcl-oracle-fixtures-*.json
+# Same reason, fourth time (see PR #299, #316): the release-claims manifest is the
+# artifact scripts/verify_release_claims.py and testing/test_release_claims.py both
+# read. `git add -A` reported success and committed the validator and its test while
+# silently dropping the file they validate; CI failed on FileNotFoundError. The
+# manifest's own "must be present and non-empty" assertion is what caught it.
+!docs/release-claims.json
 
 # LaTeX build artifacts (docs/paper-dgb/ -- source of truth is main.tex +
 # references.bib; compiled output is regenerated locally per its README)
