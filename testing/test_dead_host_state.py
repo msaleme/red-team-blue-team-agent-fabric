@@ -61,9 +61,15 @@ KNOWN_PASSING = {
     # there is no 402 at all. Both now instrument the transport and record 0.
     # They have left this map and moved to NARROW_LOCAL_RULE.
 
+    # Read 2026-08-29 and repaired. What remains in each is a harness self-test
+    # that legitimately needs no target, marked locally_decided and renamed to
+    # say so: CREW-002 measures check_code_safety's payload coverage, CVE-007
+    # and CVE-008 measure scan_tool_fields. All three were named and worded as
+    # findings about the server under test.
+    "crewai_cve_harness": 1,
+    "mcp_tool_poisoning_harness": 2,
+
     # Unread. Known-defective now, with a number attached.
-    "crewai_cve_harness": 9,
-    "mcp_tool_poisoning_harness": 8,
     "ptc_harness": 4,
     "aiuc1_compliance_harness": 3,
     "extended_thinking_harness": 2,
