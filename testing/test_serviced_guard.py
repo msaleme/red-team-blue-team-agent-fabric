@@ -67,6 +67,15 @@ GUARDED = [
     # shared http_post_json shape, and a non-2xx is not A2A servicing the request, so all
     # three preconditions were clear.
     ("protocol_tests.jailbreak_harness", "JailbreakTests", "JailbreakTestResult"),
+    # #351, found by an independent-reviewer sweep 2026-08-29 as live CLI behaviour
+    # rather than static suspicion: both reported a perfect pass against a closed
+    # port, with a Wilson interval computed over it.
+    #   return-channel       8/8 passed (100%), exit 0, CI [0.6756, 1.0000]
+    #   capability-profile  10/10 passed (100%), exit 0, CI [0.7225, 1.0000]
+    ("protocol_tests.return_channel_harness", "ReturnChannelTests",
+     "ReturnChannelTestResult"),
+    ("protocol_tests.capability_profile_harness", "CapabilityProfileTests",
+     "CapabilityProfileTestResult"),
     # #351: guard on the shared ABC, so every adapter subclass inherits it. Blocked
     # on precondition 1 until its simulate mode marked synthesised responses
     # "_simulated" instead of "simulate"; the marker was write-only, so renaming it
@@ -138,7 +147,6 @@ UNREVIEWED = {
     "a2a_harness",
     "aiuc1_compliance_harness",
     "benchmark_integrity_harness",
-    "capability_profile_harness",
     "cbrn_harness",
     "crewai_cve_harness",
     "extended_thinking_harness",
@@ -151,7 +159,6 @@ UNREVIEWED = {
     "over_refusal_harness",
     "prompt_caching_harness",
     "ptc_harness",
-    "return_channel_harness",
     "skill_security_harness",
     "tool_search_harness",
     "watermark_harness",
@@ -337,7 +344,7 @@ class TestCoverageListIsDerived(unittest.TestCase):
     def test_unreviewed_does_not_grow(self) -> None:
         """A tripwire on the honest number, so the backlog cannot quietly expand."""
         self.assertLessEqual(
-            len(UNREVIEWED), 21,
+            len(UNREVIEWED), 19,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
 
