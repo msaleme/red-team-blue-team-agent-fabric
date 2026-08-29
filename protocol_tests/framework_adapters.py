@@ -1160,7 +1160,7 @@ def generate_report(results: list[AdapterTestResult], output_path: str):
     }
     with open(output_path, "w") as f:
         json.dump(report, f, indent=2, default=str)
-    print(f"\nReport written to {output_path}")
+    print(f"\nReport written to {output_path}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -1239,7 +1239,7 @@ def main():
             if args.report:
                 with open(args.report, "w") as f:
                     json.dump(merged, f, indent=2, default=str)
-                print(f"Report written to {args.report}")
+                print(f"Report written to {args.report}", file=sys.stderr)
             results = merged.get("results", [])
         else:
             print(f"\n{'='*60}")

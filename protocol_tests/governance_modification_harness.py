@@ -971,7 +971,7 @@ def main() -> None:
         }
         with open(args.report, "w") as f:
             json.dump(report, f, indent=2, default=str)
-        print(f"Report written to {args.report}")
+        print(f"Report written to {args.report}", file=sys.stderr)
 
     sys.exit(1 if any(not r.passed for r in results) else 0)
 

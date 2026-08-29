@@ -801,7 +801,7 @@ def generate_report(results: list[BenchmarkIntegrityResult], output_path: str):
 
     with open(output_path, "w") as f:
         json.dump(report, f, indent=2, default=str)
-    print(f"Report written to {output_path}")
+    print(f"Report written to {output_path}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------

@@ -3358,7 +3358,7 @@ def generate_report(
     report = build_report(results, error=error, protocol_version=protocol_version)
     with open(output_path, "w") as f:
         json.dump(report, f, indent=2, default=str)
-    print(f"Report written to {output_path}")
+    print(f"Report written to {output_path}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -3691,7 +3691,7 @@ def main():
             with open(args.report, "w") as f:
                 json.dump(differential, f, indent=2, default=str)
             if not json_output:
-                print(f"Report written to {args.report}")
+                print(f"Report written to {args.report}", file=sys.stderr)
         if json_output:
             print(json.dumps(differential, indent=2, default=str))
         failed = any(report_has_failure(report) for report in (
@@ -3734,7 +3734,7 @@ def main():
             with open(args.report, "w") as f:
                 json.dump(merged, f, indent=2, default=str)
             if not json_output:
-                print(f"Report written to {args.report}")
+                print(f"Report written to {args.report}", file=sys.stderr)
         if json_output:
             print(json.dumps(merged, indent=2, default=str))
         results = merged.get("results", [])

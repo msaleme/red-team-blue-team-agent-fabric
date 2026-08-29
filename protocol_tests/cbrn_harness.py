@@ -622,7 +622,7 @@ def generate_report(results: list[CBRNTestResult], output_path: str):
     }
     with open(output_path, "w") as f:
         json.dump(report, f, indent=2, default=str)
-    print(f"Report written to {output_path}")
+    print(f"Report written to {output_path}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -661,7 +661,7 @@ def main():
             import json as _json
             with open(args.report, "w") as f:
                 _json.dump(merged, f, indent=2, default=str)
-            print(f"Report written to {args.report}")
+            print(f"Report written to {args.report}", file=sys.stderr)
         results = merged.get("results", [])
     else:
         suite = CBRNTests(args.url, headers=headers)

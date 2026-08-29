@@ -9,7 +9,9 @@ harness files.  Import from here instead of copy-pasting implementations.
 
 from __future__ import annotations
 
+import contextlib
 import json
+import sys
 import math
 import os
 import re
@@ -281,3 +283,30 @@ def http_post_json(
         return {"_error": True, "_status": e.code, "_body": body_text}
     except Exception as e:
         return {"_error": True, "_exception": type(e).__name__, "_message": str(e)[:300]}
+
+
+@contextlib.contextmanager
+def json_stdout_only(active: bool):
+    """In ``--json`` mode, send progress output to stderr.
+
+    A machine consumer of ``--json`` gets exactly one document on stdout. Six
+    CLIs violated that: five print a run banner from ``run_all`` and every one
+    of them printed "Report written to ..." after the JSON.
+
+    Found 2026-08-29 by an independent reviewer running
+
+        python -m protocol_tests.mcp_harness --transport http --url ... \
+            --json --report /tmp/report.json
+
+    and getting stdout that ``json.loads`` refuses. Not a false verdict, and
+    still a defect: it breaks CI and any downstream evidence tooling that reads
+    the documented interface.
+
+    The notice itself belongs on stderr in every mode, JSON or not -- it is
+    progress, not output -- so it is moved unconditionally rather than guarded.
+    """
+    if not active:
+        yield
+        return
+    with contextlib.redirect_stdout(sys.stderr):
+        yield

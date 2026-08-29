@@ -1100,7 +1100,7 @@ def main():
             if args.report:
                 with open(args.report, "w") as f:
                     json.dump(merged, f, indent=2, default=str)
-                print(f"Report written to {args.report}")
+                print(f"Report written to {args.report}", file=sys.stderr)
             results = merged.get("results", [])
         else:
             suite = IdentitySecurityTests(args.url, headers=headers)

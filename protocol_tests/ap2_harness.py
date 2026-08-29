@@ -96,7 +96,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 
-from protocol_tests._utils import Severity, wilson_ci, http_post_json
+from protocol_tests._utils import Severity, wilson_ci, http_post_json, json_stdout_only
 
 
 # ---------------------------------------------------------------------------
@@ -909,7 +909,11 @@ def main() -> None:
 
     simulate = args.simulate or not args.url
     suite = AP2MandateTests(url=args.url, headers=headers, simulate=simulate)
-    results = suite.run_all()
+    # The suite prints a run banner as it goes. In --json mode that lands
+    # on stdout ahead of the document, so a consumer gets a header and
+    # then JSON. Progress belongs on stderr; see _utils.json_stdout_only.
+    with json_stdout_only(args.json):
+        results = suite.run_all()
 
     total = len(results)
     passed = sum(1 for r in results if r.passed)
@@ -931,7 +935,7 @@ def main() -> None:
     if args.report:
         with open(args.report, "w") as f:
             json.dump(report, f, indent=2, default=str)
-        print(f"Report written to {args.report}")
+        print(f"Report written to {args.report}", file=sys.stderr)
 
     sys.exit(1 if any(not r.passed for r in results) else 0)
 
