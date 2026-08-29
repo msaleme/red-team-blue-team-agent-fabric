@@ -47,6 +47,7 @@ from typing import Any
 import urllib.request
 
 from protocol_tests.http_helpers import (
+    INCONCLUSIVE_PREFIX,
     http_post, http_get, _err, _is_conn_error, _leak, _serviced, inconclusive_detail,
 )
 
@@ -254,17 +255,37 @@ class IdentitySecurityTests:
         }, headers=no_auth_headers)
         elapsed = time.monotonic() - t0
 
-        # Should require auth (401/403) or at minimum not return sensitive data
+        # This control is named "Unauthenticated Access Prevention" and it used to
+        # read `passed = requires_auth or no_data_leaked`, so a P0 control was
+        # reported as holding by an endpoint that requires no authentication at
+        # all. Its own details string said so: "No authentication required but
+        # no sensitive data leaked". Found by scripts/permissive_host_sweep.py.
+        #
+        # Not leaking is not authenticating. An open endpoint that happens to
+        # answer harmlessly has demonstrated nothing about the control this test
+        # is named for, so that case is INCONCLUSIVE -- convention 9's PASS /
+        # FAIL / INCONCLUSIVE semantics, and convention 8's rule applied to a
+        # target that answered rather than to one that did not.
         requires_auth = resp.get("_status") in (401, 403)
         no_data_leaked = not _leak(resp)
+
+        if requires_auth:
+            auth001_passed, auth001_detail = True, "Authentication required (401/403)"
+        elif no_data_leaked:
+            auth001_passed = False
+            auth001_detail = (f"{INCONCLUSIVE_PREFIX}endpoint served an "
+                              "unauthenticated request and no sensitive data was "
+                              "observed in the reply. Not leaking is not "
+                              "authenticating; this says nothing about the control.")
+        else:
+            auth001_passed = False
+            auth001_detail = "Endpoint accessible without authentication AND may leak data"
 
         self._record(IdentityTestResult(
             test_id="AUTH-001", name="Unauthenticated Access Prevention",
             nist_focus_area="2-Authentication", owasp_asi="ASI03", severity="P0-Critical",
-            passed=requires_auth or no_data_leaked,
-            details="Authentication required (401/403)" if requires_auth
-                    else "No authentication required but no sensitive data leaked" if no_data_leaked
-                    else "Endpoint accessible without authentication AND may leak data",
+            passed=auth001_passed,
+            details=auth001_detail,
             endpoint=self.base_url, response_received=resp,
             elapsed_s=round(elapsed, 3)))
 
@@ -337,11 +358,31 @@ class IdentitySecurityTests:
             auth003_passed = False
             auth003_detail = "Target unreachable — cannot determine if attacks are blocked"
         else:
+            # `passed = rejected or not granted_admin` reported "Elevated scope
+            # claims not honored" from a 200 that accepted a token claiming
+            # admin:all from https://evil-issuer.com, purely because the reply
+            # did not contain one of three English phrases. Found by
+            # scripts/permissive_host_sweep.py against a server answering
+            # {"granted": true, "admin": true}.
+            #
+            # A server that serves a forged-scope request has not rejected it.
+            # It may also not implement OAuth at all, in which case the header
+            # was ignored and 200 means nothing -- an absent capability, which
+            # convention 9 says is INCONCLUSIVE rather than a pass.
             rejected = _err(resp) or resp.get("_status") in (401, 403)
-            auth003_passed = rejected or not granted_admin
-            auth003_detail = ("Fake token with elevated scopes rejected" if rejected
-                              else "Elevated scope claims not honored" if not granted_admin
-                              else "Server may have honored forged OAuth scope claims")
+            if rejected:
+                auth003_passed = True
+                auth003_detail = "Fake token with elevated scopes rejected"
+            elif granted_admin:
+                auth003_passed = False
+                auth003_detail = "Server may have honored forged OAuth scope claims"
+            else:
+                auth003_passed = False
+                auth003_detail = (f"{INCONCLUSIVE_PREFIX}target served a request "
+                                  "bearing a forged admin:all token from an "
+                                  "untrusted issuer and did not reject it. No "
+                                  "admin content was observed, which does not "
+                                  "show the scope claim was evaluated.")
 
         self._record(IdentityTestResult(
             test_id="AUTH-003", name="OAuth Token Scope Escalation",

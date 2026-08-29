@@ -160,7 +160,7 @@ def _suites(mod_name: str):
     return mod, found
 
 
-def _transport_for(cls):
+def _transport_for(cls, target: str = CLOSED_PORT):
     """A concrete transport from the suite's own module, for suites that take one."""
     mod = sys.modules[cls.__module__]
     for name, obj in vars(mod).items():
@@ -175,27 +175,33 @@ def _transport_for(cls):
         if not params or params[0] not in ("url", "base_url", "target", "endpoint"):
             continue
         try:
-            return obj(CLOSED_PORT)
+            return obj(target)
         except Exception:  # noqa: BLE001,S112 - a bad candidate is not an error
             continue
     return None
 
 
-def _instantiate(cls):
+def _instantiate(cls, target: str = CLOSED_PORT):
     """Best-effort construction. Suites take a url, a transport, or neither."""
     params = list(inspect.signature(cls.__init__).parameters)[1:]
     first = params[0] if params else None
     if first == "transport":
-        transport = _transport_for(cls)
+        transport = _transport_for(cls, target)
         if transport is None:
             raise TypeError(f"no concrete transport found for {cls.__name__}")
         return cls(transport)
     if first is None:
         return cls()
-    return cls(CLOSED_PORT)
+    return cls(target)
 
 
-def sweep() -> list[dict]:
+def sweep(target: str = CLOSED_PORT) -> list[dict]:
+    """Run every discoverable suite against *target* and report what passes.
+
+    The target is a parameter because the closed port is one shape of a
+    question, not the whole question. scripts/permissive_host_sweep.py passes
+    the opposite pole: a server that accepts every request.
+    """
     rows = []
     for name in _candidate_modules():
         _, suites = _suites(name)
@@ -207,7 +213,7 @@ def sweep() -> list[dict]:
             # single-suite rows keep the names every existing pin refers to.
             label = name if len(suites) == 1 else f"{name}::{cls_name}"
             try:
-                suite = _instantiate(cls)
+                suite = _instantiate(cls, target)
                 with contextlib.redirect_stdout(io.StringIO()), \
                         contextlib.redirect_stderr(io.StringIO()):
                     returned = getattr(suite, runner)()

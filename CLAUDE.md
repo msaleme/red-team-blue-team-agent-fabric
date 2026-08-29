@@ -145,6 +145,17 @@ These recur across rounds — always check:
    guard cannot catch it, because the answer was real. Write the truth table
    before the test; see `testing/test_x402_capability_controls.py`.
 
+    **The closed port is one shape of the question.** `dead_host_sweep.py` asks
+    what a harness claims when nothing answers; `permissive_host_sweep.py` asks
+    what it claims when the target says yes to everything. The second is the
+    harder pole and the one that matters against real endpoints, because the
+    target answers and every serviced-request guard correctly stays out of the
+    way. It found `AUTH-003` reporting "Elevated scope claims not honored"
+    against a server returning `{"granted": true, "admin": true}` to a forged
+    `admin:all` token. A non-zero row there is a reading list entry, not a
+    defect: it may be correct by construction, may need a marker the fixture
+    does not emit, or may be an inversion. Only reading the test separates them.
+
 10. **The progress metric is the unclassified remainder, not the test count.**
     Every module that records a target response must end up guarded, reviewed,
     carrying a documented protocol-specific exception, or declared unsupported.
