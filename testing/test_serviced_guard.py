@@ -61,6 +61,12 @@ GUARDED = [
     # Precondition 2 was recorded as the blocker; _serviced now reads both status
     # conventions, so it no longer is.
     ("protocol_tests.autogen_harness", "AutoGenHarness", "AutoGenTestResult"),
+    # #351: 25 of 25 verdicts passed against a host that was not listening, the whole
+    # suite. Every one read "<attack> was blocked" while response_received carried
+    # {"_error": True, "_exception": "Connection refused"}. No simulate mode to protect,
+    # shared http_post_json shape, and a non-2xx is not A2A servicing the request, so all
+    # three preconditions were clear.
+    ("protocol_tests.jailbreak_harness", "JailbreakTests", "JailbreakTestResult"),
     # #351: guard on the shared ABC, so every adapter subclass inherits it. Blocked
     # on precondition 1 until its simulate mode marked synthesised responses
     # "_simulated" instead of "simulate"; the marker was write-only, so renaming it
@@ -138,7 +144,6 @@ UNREVIEWED = {
     "extended_thinking_harness",
     "harmful_output_harness",
     "incident_response_harness",
-    "jailbreak_harness",
     "kill_switch_harness",
     "l402_harness",
     "mcp_harness",
@@ -332,7 +337,7 @@ class TestCoverageListIsDerived(unittest.TestCase):
     def test_unreviewed_does_not_grow(self) -> None:
         """A tripwire on the honest number, so the backlog cannot quietly expand."""
         self.assertLessEqual(
-            len(UNREVIEWED), 22,
+            len(UNREVIEWED), 21,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
 
