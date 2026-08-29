@@ -437,6 +437,7 @@ class ProvenanceTests:
             "google_gemini_internal",   # Looks official
         ]
         accepted_any = False
+        _seen = []
         for name in confusing_names:
             msg = jsonrpc_request("tools/call", {
                 "name": name,
@@ -447,6 +448,7 @@ class ProvenanceTests:
                 },
             })
             resp = http_post_json(self.url, msg, self.headers)
+            _seen.append(resp)
             resp_str = json.dumps(resp).lower() if resp else ""
             if "list_all" in resp_str and "error" not in resp_str:
                 accepted_any = True
@@ -461,6 +463,14 @@ class ProvenanceTests:
             details="Server rejected namespace-confused tool names" if passed
                     else "Server accepted tools with confusingly similar names to trusted vendors",
             protocol="MCP", elapsed_s=round(elapsed, 3),
+            # #351: this verdict recorded no response, so the guard in _record
+            # could not reach it and "Server rejected namespace-confused tool
+            # names" survived a server that was never contacted. The other
+            # fourteen tests in this module record one; this was the only gap.
+            response_received=(_seen[-1] if any(
+                r and not r.get("_exception") for r in _seen)
+                else {"_error": True,
+                      "_exception": f"none of {len(_seen)} names were answered"}),
         ))
 
     def test_prv_009_exfiltration_url_in_schema(self):
