@@ -1143,7 +1143,7 @@ class MCPToolPoisoningTests:
 
             self._record(CVETestResult(
                 test_id="CVE-008",
-                name="Marketplace Registry Integrity",
+                name="Marketplace Registry Integrity (self-test, no target)",
                 cve="MCP-TOOL-POISONING",
                 owasp_asi="ASI04",
                 severity=Severity.HIGH.value,

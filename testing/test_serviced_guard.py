@@ -251,6 +251,14 @@ PROTOCOL_EXCEPTION: set[str] = set()
 #: silence_detail in _record. mcp_tool_poisoning also carries a second rule the
 #: others do not need: an empty tool list is not a clean one. Both now 1 and 2,
 #: and what remains is honest; see testing/test_local_verdicts_are_labelled.py.
+#:
+#: ptc_harness, extended_thinking_harness, aiuc1_compliance_harness: read
+#: 2026-08-29, 4 of 6, 2 of 6 and 3 of 12 against a dead host. Each logs at its
+#: own HTTP entry point and applies silence_detail, because each launders the
+#: failure into a value -- an empty tool list, a boolean, a latency in seconds --
+#: before recording it, leaving nothing in response_received for a guard to read.
+#: ptc and extended_thinking additionally stopped grading "no probe surface" as a
+#: pass; see testing/test_no_surface_is_not_a_pass.py.
 NARROW_LOCAL_RULE = {
     "a2a_harness",
     "over_refusal_harness",
@@ -258,6 +266,9 @@ NARROW_LOCAL_RULE = {
     "x402_harness",
     "crewai_cve_harness",
     "mcp_tool_poisoning_harness",
+    "ptc_harness",
+    "extended_thinking_harness",
+    "aiuc1_compliance_harness",
 }
 
 #: No network target, so being serviced is not a property these can have.
@@ -269,11 +280,8 @@ NO_NETWORK_TARGET = {
 }
 
 UNREVIEWED = {
-    "aiuc1_compliance_harness",
-    "extended_thinking_harness",
     "mcp_harness",
     "prompt_caching_harness",
-    "ptc_harness",
 }
 
 # Concrete subclasses for the two adapter modules, whose guard lives on an ABC base rather
@@ -457,7 +465,7 @@ class TestCoverageListIsDerived(unittest.TestCase):
     def test_unreviewed_does_not_grow(self) -> None:
         """A tripwire on the honest number, so the backlog cannot quietly expand."""
         self.assertLessEqual(
-            len(UNREVIEWED), 5,
+            len(UNREVIEWED), 2,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
 
