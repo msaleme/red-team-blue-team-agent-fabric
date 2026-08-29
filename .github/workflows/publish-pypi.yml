@@ -20,8 +20,50 @@ jobs:
         with:
           python-version: "3.12"
 
+      # A clean-room execution review (2026-08-28) reported two advisories against
+      # the setuptools present in a build environment, and noted that a release
+      # pipeline should use a patched build environment and record it. `pip install
+      # build` resolved whatever was current, and nothing recorded what that was.
+      #
+      # setuptools is this package's build backend (see pyproject.toml
+      # build-system), so its version governs the artifact that ships. 79.0.1
+      # carries GHSA-h35f-9h28-mq5c and PYSEC-2026-3447, both fixed in 83.0.0,
+      # confirmed against OSV rather than taken from the report.
+      #
+      # Scope, honestly: GHSA-h35f-9h28-mq5c is a MANIFEST.in exclusion bypass in
+      # sdist. This repository has no MANIFEST.in, so that mechanism had nothing to
+      # bypass here. This is build hygiene and provenance, not the closing of a live
+      # exploit path, and should not be described as one.
       - name: Install build tools
-        run: pip install build
+        run: pip install "build>=1.3.0" "setuptools>=83.0.0" "wheel>=0.45.0"
+
+      - name: Record the build environment
+        run: |
+          {
+            echo "# Build environment for $GITHUB_REF_NAME"
+            echo "commit:   $GITHUB_SHA"
+            echo "ref:      $GITHUB_REF_NAME"
+            echo "runner:   $RUNNER_OS $(uname -m)"
+            echo "built_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "python:   $(python -VV | tr '\n' ' ')"
+            echo "---"
+            pip freeze
+          } > build-environment.txt
+          cat build-environment.txt
+
+      - name: Fail if the build backend is a version with known advisories
+        run: |
+          # A recorded environment that nobody checks is a log, not a control.
+          python - <<'EOF'
+          import sys
+          from importlib.metadata import version
+          v = version("setuptools")
+          parts = [int(p) for p in v.split(".")[:1] if p.isdigit()]
+          if not parts or parts[0] < 83:
+              sys.exit(f"setuptools {v} is below the 83.0.0 floor "
+                       f"(GHSA-h35f-9h28-mq5c, PYSEC-2026-3447)")
+          print(f"setuptools {v} meets the floor")
+          EOF
 
       - name: Build package
         run: python -m build
@@ -30,7 +72,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dist
-          path: dist/
+          path: |
+            dist/
+            build-environment.txt
 
   publish:
     name: Publish to PyPI

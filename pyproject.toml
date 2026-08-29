@@ -1,5 +1,8 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+# setuptools>=83.0.0: 68.0 permitted 79.0.1, which carries GHSA-h35f-9h28-mq5c
+# and PYSEC-2026-3447 (both fixed in 83.0.0). setuptools is this package's build
+# backend, so the floor governs what builds the released artifact.
+requires = ["setuptools>=83.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
