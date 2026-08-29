@@ -33,6 +33,7 @@ Requires: Python 3.10+, no external dependencies for core tests.
 from __future__ import annotations
 
 import argparse
+from protocol_tests.http_helpers import inconclusive_detail, run_summary, summary_lines
 import json
 import os
 import re
@@ -42,7 +43,7 @@ import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
-from protocol_tests._utils import Severity, wilson_ci, http_post_json
+from protocol_tests._utils import Severity, http_post_json
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +92,12 @@ class BenchmarkIntegrityTests:
         self.results: list[BenchmarkIntegrityResult] = []
 
     def _record(self, result: BenchmarkIntegrityResult):
+        # #348/#351: a result whose target never serviced the request is
+        # INCONCLUSIVE, never a pass. Enforced here so a new test cannot forget it.
+        _d = inconclusive_detail(getattr(result, "response_received", None), result.details)
+        if _d is not None:
+            result.passed = False
+            result.details = _d
         self.results.append(result)
         status = "PASS \u2705" if result.passed else "FAIL \u274c"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
@@ -723,16 +730,9 @@ class BenchmarkIntegrityTests:
                         payload_summary="error",
                     ))
 
-        total = len(self.results)
-        passed = sum(1 for r in self.results if r.passed)
-        ci = wilson_ci(passed, total)
-
         print(f"\n{'='*60}")
-        if total:
-            print(f"RESULTS: {passed}/{total} passed ({passed/total*100:.0f}%)")
-            print(f"WILSON 95% CI for pass rate: [{ci[0]:.4f}, {ci[1]:.4f}]")
-        else:
-            print("No tests run")
+        for _line in summary_lines(run_summary(self.results)):
+            print(_line)
         print(f"{'='*60}\n")
 
         return self.results
@@ -775,9 +775,6 @@ def load_corpus():
 
 def generate_report(results: list[BenchmarkIntegrityResult], output_path: str):
     """Write a JSON report of benchmark integrity test results."""
-    total = len(results)
-    passed = sum(1 for r in results if r.passed)
-    ci = wilson_ci(passed, total)
 
     # Severity breakdown
     by_severity: dict[str, dict[str, int]] = {}
@@ -796,11 +793,7 @@ def generate_report(results: list[BenchmarkIntegrityResult], output_path: str):
         "reference": "UC Berkeley RDI 2026 (Wang et al.) + METR Autonomy Evaluation Framework 2025",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "summary": {
-            "total": total,
-            "passed": passed,
-            "failed": total - passed,
-            "pass_rate": round(passed / total, 4) if total else 0,
-            "wilson_95_ci": {"lower": ci[0], "upper": ci[1]},
+            **run_summary(results),
             "by_severity": by_severity,
         },
         "results": [asdict(r) for r in results],

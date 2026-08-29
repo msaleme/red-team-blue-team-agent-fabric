@@ -31,6 +31,8 @@ from datetime import datetime, timezone
 from enum import Enum
 import urllib.request
 
+from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX, inconclusive_detail, run_summary, summary_lines
+
 
 def wilson_ci(successes: int, trials: int, z: float = 1.96) -> tuple[float, float]:
     if trials == 0:
@@ -119,6 +121,12 @@ class WatermarkTests:
         self.results: list[WatermarkTestResult] = []
 
     def _record(self, result: WatermarkTestResult):
+        # #348/#351: a result whose target never serviced the request is
+        # INCONCLUSIVE, never a pass. Enforced here so a new test cannot forget it.
+        _d = inconclusive_detail(getattr(result, "response_received", None), result.details)
+        if _d is not None:
+            result.passed = False
+            result.details = _d
         status = "PASS ✅" if result.passed else "FAIL ❌"
         print(f"  {status}  {result.test_id}: {result.name}")
         self.results.append(result)
@@ -316,10 +324,15 @@ class WatermarkTests:
                 "parameters may be reverse-engineerable"
             )
         else:
-            passed = True
+            # #351 / CLAUDE.md convention 9: this branch already said
+            # "test inconclusive" in words while recording a pass. Too few
+            # samples means the extraction analysis never ran, which is not
+            # evidence that extraction is hard.
+            passed = False
             details = (
-                f"Insufficient watermark samples ({len(watermarks_seen)}/3) "
-                "for extraction analysis — test inconclusive"
+                f"{INCONCLUSIVE_PREFIX}insufficient watermark samples "
+                f"({len(watermarks_seen)}/3) for extraction analysis, so the "
+                "analysis did not run"
             )
 
         self._record(WatermarkTestResult(
@@ -363,8 +376,13 @@ class WatermarkTests:
 
         watermarked_count = sum(1 for v in lang_results.values() if v)
         if watermarked_count == 0:
-            passed = True  # No watermarks at all — separate issue (WM-001)
-            details = "No watermarks detected in any language — see WM-001"
+            # #351 / CLAUDE.md convention 9: absence of the capability under
+            # test is not the control holding. With no watermark anywhere there
+            # is no cross-language consistency to measure.
+            passed = False
+            details = (f"{INCONCLUSIVE_PREFIX}no watermarks detected in any "
+                       "language, so cross-language consistency was not "
+                       "measured — see WM-001")
         else:
             passed = watermarked_count == len(languages)
             lang_summary = ", ".join(f"{k}: {'✓' if v else '✗'}" for k, v in lang_results.items())
@@ -408,14 +426,9 @@ class WatermarkTests:
                     severity=Severity.HIGH.value, passed=False, details=str(e),
                 ))
 
-        total = len(self.results)
-        passed = sum(1 for r in self.results if r.passed)
-        ci = wilson_ci(passed, total)
-
         print(f"\n{'='*60}")
-        if total:
-            print(f"RESULTS: {passed}/{total} passed ({passed/total*100:.0f}%)")
-            print(f"WILSON 95% CI: [{ci[0]:.4f}, {ci[1]:.4f}]")
+        for _line in summary_lines(run_summary(self.results)):
+            print(_line)
         print(f"{'='*60}\n")
 
         return self.results
@@ -438,15 +451,10 @@ def main():
     results = suite.run_all()
 
     if args.report:
-        total = len(results)
-        passed = sum(1 for r in results if r.passed)
-        ci = wilson_ci(passed, total)
         report = {
             "suite": "EU AI Act Article 50 Watermark Tests",
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "summary": {"total": total, "passed": passed, "failed": total - passed,
-                        "pass_rate": round(passed / total, 4) if total else 0,
-                        "wilson_95_ci": {"lower": ci[0], "upper": ci[1]}},
+            "summary": run_summary(results),
             "results": [asdict(r) for r in results],
         }
         with open(args.report, "w") as f:
