@@ -42,7 +42,7 @@ from datetime import datetime, timezone
 from enum import Enum
 import urllib.request
 
-from protocol_tests.http_helpers import http_post_json, _err, _is_conn_error, _serviced, inconclusive_detail
+from protocol_tests.http_helpers import http_post_json, _err, _is_conn_error, _serviced, inconclusive_detail, run_summary, summary_lines
 
 
 # ---------------------------------------------------------------------------
@@ -774,17 +774,12 @@ class MemoryTests:
                         protocol="unknown",
                     ))
 
-        total = len(self.results)
-        passed = sum(1 for r in self.results if r.passed)
-        ci = wilson_ci(passed, total)
+        summary = run_summary(self.results)
 
-        print(f"\n{'='*60}")
-        if total:
-            print(f"RESULTS: {passed}/{total} passed ({passed/total*100:.0f}%)")
-            print(f"WILSON 95% CI for pass rate: [{ci[0]:.4f}, {ci[1]:.4f}]")
-        else:
-            print("No tests run")
-        print(f"{'='*60}\n")
+        print(f"\\n{'='*60}")
+        for _line in summary_lines(summary):
+            print(_line)
+        print(f"{'='*60}\\n")
 
         return self.results
 
@@ -794,9 +789,7 @@ class MemoryTests:
 # ---------------------------------------------------------------------------
 
 def generate_report(results: list[MemoryTestResult], output_path: str):
-    total = len(results)
-    passed = sum(1 for r in results if r.passed)
-    ci = wilson_ci(passed, total)
+    summary = run_summary(results)
 
     report = {
         "suite": "Memory & Continuity Security Tests v3.4",
@@ -804,13 +797,7 @@ def generate_report(results: list[MemoryTestResult], output_path: str):
         "owasp_mapping": ["ASI01", "ASI03", "ASI05", "ASI07"],
         "stride_mapping": ["Information Disclosure", "Tampering", "Elevation of Privilege"],
         "github_issue": "#119",
-        "summary": {
-            "total": total,
-            "passed": passed,
-            "failed": total - passed,
-            "pass_rate": round(passed / total, 4) if total else 0,
-            "wilson_95_ci": {"lower": ci[0], "upper": ci[1]},
-        },
+        "summary": summary,
         "results": [asdict(r) for r in results],
     }
     with open(output_path, "w") as f:

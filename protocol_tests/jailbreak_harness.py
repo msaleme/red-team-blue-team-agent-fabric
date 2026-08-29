@@ -44,7 +44,7 @@ from datetime import datetime, timezone
 from enum import Enum
 import urllib.request
 
-from protocol_tests.http_helpers import http_post_json, inconclusive_detail
+from protocol_tests.http_helpers import http_post_json, inconclusive_detail, run_summary, summary_lines
 from protocol_tests._utils import model_judge_compliance
 
 
@@ -1039,17 +1039,12 @@ class JailbreakTests:
         if self.use_judge:
             self._apply_model_judge_pass()
 
-        total = len(self.results)
-        passed = sum(1 for r in self.results if r.passed)
-        ci = wilson_ci(passed, total)
+        summary = run_summary(self.results)
 
-        print(f"\n{'='*60}")
-        if total:
-            print(f"RESULTS: {passed}/{total} passed ({passed/total*100:.0f}%)")
-            print(f"WILSON 95% CI for pass rate: [{ci[0]:.4f}, {ci[1]:.4f}]")
-        else:
-            print("No tests run")
-        print(f"{'='*60}\n")
+        print(f"\\n{'='*60}")
+        for _line in summary_lines(summary):
+            print(_line)
+        print(f"{'='*60}\\n")
 
         return self.results
 
@@ -1059,20 +1054,12 @@ class JailbreakTests:
 # ---------------------------------------------------------------------------
 
 def generate_report(results: list[JailbreakTestResult], output_path: str):
-    total = len(results)
-    passed = sum(1 for r in results if r.passed)
-    ci = wilson_ci(passed, total)
+    summary = run_summary(results)
 
     report = {
         "suite": "Expanded Jailbreak Corpus Tests v3.1",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "summary": {
-            "total": total,
-            "passed": passed,
-            "failed": total - passed,
-            "pass_rate": round(passed / total, 4) if total else 0,
-            "wilson_95_ci": {"lower": ci[0], "upper": ci[1]},
-        },
+        "summary": summary,
         "results": [asdict(r) for r in results],
     }
     with open(output_path, "w") as f:
