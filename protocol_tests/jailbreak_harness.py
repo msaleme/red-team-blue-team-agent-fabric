@@ -44,7 +44,7 @@ from datetime import datetime, timezone
 from enum import Enum
 import urllib.request
 
-from protocol_tests.http_helpers import http_post_json
+from protocol_tests.http_helpers import http_post_json, inconclusive_detail
 from protocol_tests._utils import model_judge_compliance
 
 
@@ -164,6 +164,15 @@ class JailbreakTests:
         self.judge_unavailable_noted = False
 
     def _record(self, result: JailbreakTestResult):
+        # #348/#351: a result whose target never serviced the request is INCONCLUSIVE,
+        # never a pass. Enforced here rather than at each verdict so a new test cannot
+        # forget it. Every verdict in this harness reads "<attack> was blocked", which
+        # reports a security control holding when nothing answered at all. Against a
+        # host that was not listening, all 25 of 25 passed.
+        _d = inconclusive_detail(getattr(result, "response_received", None), result.details)
+        if _d is not None:
+            result.passed = False
+            result.details = _d
         self.results.append(result)
         status = "PASS \u2705" if result.passed else "FAIL \u274c"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
