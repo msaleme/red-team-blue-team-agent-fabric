@@ -47,7 +47,6 @@ SERVICED = {
 # (module, harness class, result class) for every harness carrying the guard.
 GUARDED = [
     ("protocol_tests.multi_agent_harness", "MultiAgentTests", "MultiAgentTestResult"),
-    ("protocol_tests.identity_harness", "IdentitySecurityTests", "IdentityTestResult"),
     ("protocol_tests.advanced_attacks", "AdvancedAttackTests", "AdvancedTestResult"),
     ("protocol_tests.memory_harness", "MemoryTests", "MemoryTestResult"),
     ("protocol_tests.intent_contract_harness", "IntentContractTests",
@@ -255,6 +254,17 @@ PROTOCOL_EXCEPTION: set[str] = set()
 #: others do not need: an empty tool list is not a clean one. Both now 1 and 2,
 #: and what remains is honest; see testing/test_local_verdicts_are_labelled.py.
 #:
+#: identity_harness: moved out of GUARDED 2026-08-29, and the reason is the
+#: sharpest instance of precondition 3 in the repository. inconclusive_detail
+#: treats a non-2xx as "the target did not service the request". For an
+#: authentication and authorization harness a 401 or 403 IS the control working
+#: -- it is the single most important PASS signal the module has -- and the
+#: shared guard converted every one to INCONCLUSIVE. Against a target answering
+#: 403 to everything it scored 1 of 18 with 15 INCONCLUSIVE, while scoring 7 of
+#: 18 against a target answering 200 and {"granted": true, "admin": true}. It
+#: could report PASS only for a target doing the wrong thing. Now 10 of 18
+#: against the refusing target, 0 against the permissive one, 0 against silence.
+#:
 #: ptc_harness, extended_thinking_harness, aiuc1_compliance_harness: read
 #: 2026-08-29, 4 of 6, 2 of 6 and 3 of 12 against a dead host. Each logs at its
 #: own HTTP entry point and applies silence_detail, because each launders the
@@ -272,6 +282,7 @@ NARROW_LOCAL_RULE = {
     "ptc_harness",
     "extended_thinking_harness",
     "aiuc1_compliance_harness",
+    "identity_harness",
 }
 
 #: ADAPTER_CASES below verifies the base-class guard for one adapter per module
