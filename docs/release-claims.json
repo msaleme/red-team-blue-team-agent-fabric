@@ -1,0 +1,51 @@
+{
+  "manifest_version": "1.0.0",
+  "purpose": "Bind each release-facing fact to the revision, command, and value that produced it, so a reader can reproduce or reject it without relying on narrative text. See scripts/verify_release_claims.py and GitHub issue #369.",
+  "not_established": "This manifest records provenance. It does not create independent evidence, change the E-class or I-level of any result, or support a claim that the harness improves the security of any target. A test count is an inventory fact, not a security-efficacy claim.",
+  "claims": [
+    {
+      "id": "release-test-count",
+      "fact": "The v4.15.0 release carries 603 unique test IDs.",
+      "value": "603",
+      "release_tag": "v4.15.0",
+      "commit": "90f552baae65e33f83201e4a95e2c4d3ed249c6e",
+      "command": "python3 scripts/count_tests.py",
+      "value_extraction": "Definitive count:\\s*(\\d+)",
+      "generated_on": "2026-08-29",
+      "coverage_report_revision": null,
+      "evidence_class": "E1",
+      "independence_level": "I0",
+      "limitation": "An inventory of test identifiers present at that revision. It says nothing about whether any test executed, whether a target passed, or whether the identifiers are well chosen.",
+      "surfaces": [
+        {
+          "path": "README.md",
+          "pattern": "the v4\\.15\\.0 release carries (\\d+)"
+        },
+        {
+          "path": "README.md",
+          "pattern": "The release carries \\*\\*(\\d+)\\*\\* tests"
+        }
+      ]
+    },
+    {
+      "id": "main-test-count",
+      "fact": "main carries 606 unique test IDs.",
+      "value": "606",
+      "release_tag": null,
+      "commit": "HEAD",
+      "command": "python3 scripts/count_tests.py",
+      "value_extraction": "Definitive count:\\s*(\\d+)",
+      "generated_on": "2026-08-29",
+      "coverage_report_revision": null,
+      "evidence_class": "E1",
+      "independence_level": "I0",
+      "limitation": "Same inventory limitation as release-test-count. This value moves with main by design; testing/test_code_quality.py::TestRegTestCount already pins it into pyproject.toml, README, SKILL.md and cli.py, so it is listed here for completeness rather than because it was unguarded.",
+      "surfaces": [
+        {
+          "path": "README.md",
+          "pattern": "`main` is at \\*\\*(\\d+)\\*\\*"
+        }
+      ]
+    }
+  ]
+}
