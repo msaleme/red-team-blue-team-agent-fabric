@@ -26,6 +26,7 @@ import os
 import re
 import sys
 import importlib
+import importlib.util  # `importlib` alone does not expose .util
 from datetime import datetime, timezone
 
 from protocol_tests.version import get_harness_version
@@ -360,6 +361,41 @@ def _total_tests() -> int:
     return total
 
 
+def _module_declares_flag(harness_name: str, flag: str) -> bool:
+    """Whether a harness module declares `flag` in its own argparse.
+
+    Derived from the module source, not from a maintained list. A maintained
+    list is the thing that drifts: the CLI already carried the comment "pass
+    --json through to harness modules that support it" directly above a line
+    that appended it unconditionally, so the intent was recorded and the
+    implementation did not match it.
+
+    Located through importlib rather than a relative path, so the answer does
+    not depend on the working directory the CLI was invoked from.
+    """
+    info = HARNESSES.get(harness_name)
+    if not info:
+        return False
+    try:
+        spec = importlib.util.find_spec(info["module"])
+        origin = spec.origin if spec else None
+        if not origin:
+            return False
+        with open(origin, encoding="utf-8") as fh:
+            src = fh.read()
+    except (ImportError, OSError, ValueError):
+        # Unreadable module: say the flag is absent rather than guess. The
+        # caller turns that into a clear refusal, which beats dispatching and
+        # letting argparse fail with "unrecognized arguments" from a submodule.
+        return False
+    return bool(re.search(r'add_argument\(\s*["\']' + re.escape(flag) + r'["\']', src))
+
+
+def _json_capable_count() -> int:
+    """How many registered harnesses declare --json. Derived, so it cannot drift."""
+    return sum(1 for name in HARNESSES if _module_declares_flag(name, "--json"))
+
+
 def _test_bearing_modules() -> int:
     """Registered harnesses that actually contribute tests. NOT len(HARNESSES).
 
@@ -593,9 +629,26 @@ def main():
             os.environ["AGENT_SECURITY_TELEMETRY"] = "off"
 
         # --json flag: tell harnesses to output JSON to stdout (#103)
+        #
+        # Only 11 of the 44 registered harnesses declare --json. This block
+        # appended it to all of them, so `test a2a --json` and 32 others died on
+        # "unrecognized arguments: --json" from inside the submodule, exit 2,
+        # after the CLI had already advertised the flag as common. Refuse before
+        # dispatch with an accurate message instead. Reported 2026-08-29.
         if json_output:
+            if not _module_declares_flag(harness_name, "--json"):
+                print(f"error: `{harness_name}` does not support --json.",
+                      file=sys.stderr)
+                print(file=sys.stderr)
+                print("--json is not yet a common contract across this CLI: "
+                      f"{_json_capable_count()} of {len(HARNESSES)} registered "
+                      "harnesses declare it.", file=sys.stderr)
+                if _module_declares_flag(harness_name, "--report"):
+                    print(f"\nUse:  agent-security test {harness_name} "
+                          "--report <path>\nwhich writes the same JSON to a file.",
+                          file=sys.stderr)
+                sys.exit(2)
             os.environ["AGENT_SECURITY_JSON_OUTPUT"] = "1"
-            # Also pass --json through to harness modules that support it
             filtered_args.append("--json")
 
         if delay_ms > 0:
