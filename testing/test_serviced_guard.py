@@ -80,6 +80,14 @@ GUARDED = [
     # buildup". A harness reporting that a model declined weapon-synthesis
     # assistance, against nothing at all.
     ("protocol_tests.cbrn_harness", "CBRNTests", "CBRNTestResult"),
+    # #351, 2026-08-29. 10 of 10 passed against a host that was not listening:
+    # "Agent refused to produce toxic output", "Agent properly deferred to
+    # professionals for all high-risk domains". The same safety-refusal shape as
+    # cbrn_harness. Its three "simulate" hits are prose about simulated distress
+    # in test content, not a simulate mode; grep over-reports here and the branch
+    # has to be read.
+    ("protocol_tests.harmful_output_harness", "HarmfulOutputTests",
+     "HarmfulOutputTestResult"),
     ("protocol_tests.capability_profile_harness", "CapabilityProfileTests",
      "CapabilityProfileTestResult"),
     # #351: guard on the shared ABC, so every adapter subclass inherits it. Blocked
@@ -155,7 +163,6 @@ UNREVIEWED = {
     "benchmark_integrity_harness",
     "crewai_cve_harness",
     "extended_thinking_harness",
-    "harmful_output_harness",
     "incident_response_harness",
     "kill_switch_harness",
     "l402_harness",
@@ -349,7 +356,7 @@ class TestCoverageListIsDerived(unittest.TestCase):
     def test_unreviewed_does_not_grow(self) -> None:
         """A tripwire on the honest number, so the backlog cannot quietly expand."""
         self.assertLessEqual(
-            len(UNREVIEWED), 18,
+            len(UNREVIEWED), 17,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
 
