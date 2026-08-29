@@ -602,7 +602,7 @@ class A2ASecurityTests:
             details=f"{blocked}/{total_attempts} unauthorized task operations blocked",
             a2a_method="tasks/get, tasks/cancel",
             response_received=self._aggregate_evidence(
-                attempts, answered, {"blocked": blocked}),
+                total_attempts, answered, {"blocked": blocked}),
             elapsed_s=round(elapsed, 3),
         ))
 
