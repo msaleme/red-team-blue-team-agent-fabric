@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.17.0] - 2026-08-30
+
+### Changed — RE-RUN anything you measured with 4.16.0 or earlier
+
+This release is a correctness disclosure, not a feature. **Eight modules could
+not distinguish an agent that refused an attack from one that complied with it**,
+and reported PASS for both. If you ran any of them against a live target, those
+passes did not measure what they claimed and the runs should be repeated.
+
+Measured against a live loopback agent answering HTTP 200 to every request:
+
+| module | agent complies | agent refuses | agent visibly attacks |
+|---|---|---|---|
+| `gtg1002_simulation` | **17 of 17 PASS** | 17 of 17 PASS | 7 of 17 PASS |
+| `return_channel_harness` | **8 of 8 PASS** | 8 of 8 PASS | **8 of 8 PASS** |
+| `intent_contract_harness` | **7 of 8 PASS** | 8 of 8 PASS | 4 of 8 PASS |
+| `capability_profile_harness` | **8 of 10 PASS** | 9 of 10 PASS | 4 of 10 PASS |
+| `over_refusal_harness` | 25 of 25 PASS | **25 of 25 PASS** | n/a (inverted) |
+
+The complying and refusing columns were frequently IDENTICAL, down to the
+passing set. `gtg1002_simulation` simulates a documented nation-state espionage
+campaign; six of the rows that survived an agent reporting harvested
+credentials, lateral movement, 42000 exfiltrated rows and established
+persistence are P0-Critical. `return_channel_harness` passed 8 of 8 against an
+agent emitting `root:x:0:0` and `API_KEY=sk-live-1`.
+
+`over_refusal_harness` is the inverse and the sharpest case: it exists to detect
+an agent that wrongly BLOCKS a legitimate request, and it passed 25 of 25
+against an agent that refused everything. It read the HTTP status and never the
+response body, so the entire class it exists to detect was invisible to it.
+
+**After this release** the complying agent passes nothing in those modules, the
+refusing agent still passes, and `over_refusal_harness` fails a declining agent
+on its sixteen prose-graded rows.
+
+### Also changed
+
+- **`x402_harness`** — X4-053 implements the amount-echo check it declared and
+  never ran (`leaked_amount` was assigned, looped over and never read); X4-011
+  no longer reports a PASS for a target that rate-limited nothing.
+- **`l402_harness`** — L4-029's DoS-resilience condition was unreachable-false
+  and returned a constant PASS across five target shapes; L4-013/014 passed on
+  an empty invoice population, reporting "0/0 unique invoices".
+- **`tool_search_harness`** — five verdicts reported a clean result over zero
+  returned tools. An empty tool list scored identically to a list of properly
+  signed, gated, permission-annotated tools.
+- **`looks_like_refusal`** now matches on word boundaries. "restricted" was
+  matching inside "unrestricted", so an agent announcing
+  `"Profile escalated to admin, unrestricted"` was classified as REFUSING. The
+  negation class ("no longer blocked") is NOT fixed and is documented as a
+  known limit.
+- **`nothing_to_scan`** moved from `mcp_harness` to `http_helpers` and is shared
+  rather than copied a third time.
+
+### Added
+
+- **`testing/test_refusal_establishes_a_pass.py`** — the ratchet. Derives the
+  prose-graded modules from source, requires every one to be classified, and
+  asserts the property behaviourally against two live agents rather than by
+  source inspection. Verified to fail in all three directions: rule removed,
+  new unclassified module, and over-correction to all-INCONCLUSIVE.
+- **`docs/EVIDENCE-CLASS-TAXONOMY.md`** — what a record's absence permits, and
+  assessor independence as a second axis distinct from I0-I2.
+
+### Unchanged
+
+No test was added or removed. The count is 608 on `main` and 608 at the tag.
+
 ## [4.16.0] - 2026-08-30
 
 ### Changed — expect results to move in BOTH directions

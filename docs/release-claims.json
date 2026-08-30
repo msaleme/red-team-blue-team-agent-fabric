@@ -5,9 +5,9 @@
   "claims": [
     {
       "id": "release-test-count",
-      "fact": "The v4.16.0 release carries 608 unique test IDs.",
+      "fact": "The v4.17.0 release carries 608 unique test IDs.",
       "value": "608",
-      "release_tag": "v4.16.0",
+      "release_tag": "v4.17.0",
       "commit": "52a06fed481014d2059adc10412d458db091d551",
       "command": "python3 scripts/count_tests.py",
       "value_extraction": "Definitive count:\\s*(\\d+)",
@@ -19,7 +19,7 @@
       "surfaces": [
         {
           "path": "README.md",
-          "pattern": "the v4\\.16\\.0 release carries (\\d+)"
+          "pattern": "the v4\\.17\\.0 release carries (\\d+)"
         },
         {
           "path": "README.md",
