@@ -58,9 +58,59 @@ certificate.
   about the run observed. Test it and cite E5, or state it as an untested design
   property.
 - Record negative and null results alongside favorable results.
+- **A record's absence is a claim about the record set, not about the
+  world.** Presence does not establish that an action was authorized;
+  absence does not establish that it did not occur. See below.
 
 This document is a methodology definition, not a certification framework or a
 claim that every harness result satisfies E5.
+
+### What a record's absence permits
+
+The taxonomy already says a record's **presence** is weak: an E1 artifact
+describes, and describing is not enforcing. The mirror case is easier to get
+wrong, because it does not look like a claim at all.
+
+```
+a record exists          does not establish the action was authorized
+no record exists         does not establish the action did not occur
+```
+
+Reading a missing entry as a negative result requires a property the record set
+usually does not have: that every in-scope action would have produced an entry,
+and that no entry can be removed afterwards. Neither holds by default. An entry
+may be absent because the action never happened, because the recorder was not
+running, because the action fell outside what the recorder observes, or because
+the entry was deleted by a party permitted to delete it. Those four are
+indistinguishable from the outside, and only the first supports a claim.
+
+**Measured, 2026-08-30.** Four modules in this repository graded a security
+control as holding on exactly this reasoning, computing verdicts of the form
+`passed = not <indicator matched in the response>`. Against an agent that
+complied with every request without using a listed word, `return_channel_harness`
+reported 8 of 8 controls holding, and `capability_profile_harness` reported 8 of
+10, five of those P0-Critical. Nothing was blocked. No marker was emitted. The
+absence was read as the control.
+
+The repair is not a better word list. It is to stop treating absence as a
+result: an observed refusal is a PASS, an observed violation is a FAIL, and a
+response that is neither is **INCONCLUSIVE**. `testing/test_refusal_establishes_a_pass.py`
+asserts both directions, because a module that downgraded everything to
+INCONCLUSIVE would satisfy the first half and be useless.
+
+**For any record-based claim, state which of these the record set supports.**
+
+| Claim | Requires |
+| --- | --- |
+| "This action was recorded." | The entry, with its provenance. |
+| "This action was authorized." | The entry **plus** the authorization decision it references, and an integrity method binding them. |
+| "This action did not occur." | Completeness of the record set over the claimed scope **and** either immutability or a separately auditable record of deletions. |
+
+The third is the expensive one and is usually not available. Where a record set
+permits deletion by the subject of the record, or by the principal the record is
+about, a negative claim over it is not supported at any E-level. Say so rather
+than inferring non-occurrence, and treat the gap as an open design question for
+the profile rather than a property of the run.
 
 ### Where the control point sits (resolves #343)
 
@@ -153,6 +203,56 @@ Both findings came from someone applying the axis to their own system, not from
 review inside this repository. That is the same pattern the I0 row describes: an
 assumption the author did not know they were making.
 
+### Assessor independence is a second dimension (and it disagrees)
+
+I0-I2 asks **who produced the oracle**. It does not ask **who funds or controls
+the party doing the assessing**, and those come apart.
+
+An assessment can be I1 by authorship and still worthless if the assessor is
+owned by, controlled by, or economically dependent on the party being assessed.
+Conversely a genuinely disinterested reviewer who reimplements from the same
+misread specification is independent on the second axis and still I0-equivalent
+in effect. Neither axis substitutes for the other, so track both:
+
+| Axis | Question | Failure it catches |
+| --- | --- | --- |
+| **Authorship** (I0-I2) | Who wrote the oracle, and from what? | A shared assumption between a check and the thing it checks. |
+| **Assessor interest** | Who owns, controls, or funds the assessing party? | Corroboration that is structurally guaranteed to agree. |
+
+The operational form of the second axis, as used by regulators recognising
+conformity-assessment bodies, is an ownership, control, and
+revenue-concentration test: an assessor is not independent if it is owned or
+controlled by, or derives a majority of its revenue from, any single party it
+assesses. That is a sharper and more checkable criterion than "separately
+authored," and it is the one worth applying to any body whose sign-off would
+carry weight.
+
+**Recorded, 2026-08-30, and found in review rather than from outside.** A
+competitive assessment written inside this project scored an external effort as
+better-evidenced on five separate rows, and recommended acting on it. Every one
+of the five rows resolved to the same author's artifact set: an implementation
+count asserted by that author in their own still-open issue; a standards
+artifact owned by a second account that publicly verifies the first; the
+corpus itself; a contribution that party authored into a third-party project;
+and a cross-verification whose only source was the same issue as row one.
+Five rows read as five confirmations. They were one party counted five ways,
+and one of the five was independently real, which is what made the set
+persuasive.
+
+Two things generalise from it.
+
+**Collapse a scoreboard by author before believing it.** Any comparison table
+that treats rows as independent corroboration should resolve each row to the
+account that authored the artifact and merge rows that share one. A table
+without an author column cannot show that it is not counting one party
+repeatedly.
+
+**Apply the independence standard symmetrically.** The failure was not that the
+axis was unknown. It was applied rigorously to this project's own artifacts,
+correctly downgrading them, and not at all to the sources being used to displace
+them. Asymmetric application is how a disciplined instrument reaches a wrong
+conclusion with every individual step defensible.
+
 ### Why the axis exists
 
 Two measured cases in this repository, both recorded rather than hypothetical.
@@ -194,6 +294,9 @@ written against the implementation.
 - This harness holds **no I2 evidence**. It reads protocol responses, which the
   target emits, so its observations remain inside the boundary a dishonest
   target controls. Where that limit matters to a claim, say so.
+- **Assessor interest is not authorship.** State who funds and controls a
+  party whose assessment you cite. An I1 result from an assessor economically
+  dependent on the assessed party is not independent evidence.
 - **Independence does two different jobs and they come apart.** *Detection*: two
   records that disagree establish that something is wrong. *Adjudication*: an
   independent record establishes which one is wrong. Two I0 records in
