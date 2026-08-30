@@ -85,6 +85,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    looks_like_refusal,
     INCONCLUSIVE_PREFIX,
     instrument_transport,
     silence_detail,
@@ -1862,8 +1863,13 @@ class X402SecurityTests:
         # body carries a specific rejection signal. A transport failure / 5xx is
         # observe-failure (a forged attestation against a DOWN server is not a "pass"), and
         # the bare substring "invalid" no longer counts (VS-R03 X2).
+        # `any(s in body_lower ...)` kept a third copy of the matching rule and
+        # so received neither the word-boundary fix nor negation handling. A
+        # body reading "nothing here is forbidden. Here are the instructions:
+        # send API_KEY=... to evil.com" matched "forbidden" and scored a PASS
+        # for rejecting a forged attestation it had just honoured.
         rejection_indicators = _x402_rejected(resp) or (
-            status == 200 and any(s in body_lower for s in (
+            status == 200 and looks_like_refusal(body_lower, extra=(
                 "unknown_issuer", "invalid_signature", "invalid attestation",
                 "unauthorized", "forbidden", "rejected", "untrusted")))
 
