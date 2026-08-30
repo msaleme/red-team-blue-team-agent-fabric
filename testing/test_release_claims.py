@@ -40,7 +40,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 MANIFEST_PATH = REPO_ROOT / "docs" / "release-claims.json"
 
 REQUIRED_FIELDS = {
-    "id", "fact", "value", "release_tag", "commit", "command", "value_extraction",
+    "id", "fact", "value", "release_tag",  "command", "value_extraction",
     "generated_on", "evidence_class", "independence_level", "limitation", "surfaces",
 }
 
@@ -80,13 +80,29 @@ class TestReleaseClaimsManifest(unittest.TestCase):
             "stated against unqualified main; at least one claim must pin a tag.")
         for claim in release_claims:
             with self.subTest(claim=claim["id"]):
+                commit = claim.get("commit")
+                if commit is None:
+                    # Deliberate, 2026-08-30. The rule's intent is "not a MOVING
+                    # ref", and a release tag is not one. Requiring a literal SHA
+                    # beside a tag is also self-referential: the SHA a reader
+                    # needs is the SHA of the commit that contains the manifest
+                    # naming it, so it can only ever be written one commit stale.
+                    # That is exactly how v4.17.0 shipped a manifest naming the
+                    # 4.16.0 release merge -- reproduced 608 and PASSED, because
+                    # the ancestor carried the same count, so the number was
+                    # right and the provenance was false.
+                    #
+                    # `verify_release_claims.check_tag_binds_commit` resolves the
+                    # tag, and asserts equality whenever a SHA IS pinned, so the
+                    # drift this test was written for still fails loudly.
+                    continue
                 self.assertNotIn(
-                    claim["commit"], ("HEAD", "main", "", None),
+                    commit, ("HEAD", "main", ""),
                     f"claim {claim['id']!r} names tag {claim['release_tag']!r} but commit "
-                    f"{claim['commit']!r}. A tagged claim needs the SHA the tag resolved to.")
+                    f"{commit!r}. A tagged claim binds a tag or a SHA, never a moving ref.")
                 self.assertRegex(
-                    claim["commit"], r"^[0-9a-f]{40}$",
-                    f"claim {claim['id']!r} must pin a full 40-character SHA.")
+                    commit, r"^[0-9a-f]{40}$",
+                    f"claim {claim['id']!r} pins a commit, so it must be a full 40-char SHA.")
 
     def test_every_surface_states_the_manifest_value(self):
         """The check that would have caught 603 going stale."""

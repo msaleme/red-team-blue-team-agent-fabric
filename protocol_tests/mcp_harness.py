@@ -66,6 +66,29 @@ from protocol_tests.http_helpers import (
 from protocol_tests.version import get_harness_version
 
 
+def _still_answering(transport) -> bool | None:
+    """Whether the target answers a fresh request, or None if unknowable.
+
+    `is_alive()` says a child process has not exited. It does not say the
+    process is still SERVING: a deadlocked or wedged server is alive. Two
+    details here asserted more than that from the same observation -- one said
+    "still running and still serving", the other said the request "wedged the
+    session" -- and neither sent a follow-up request. Reported 2026-08-30 by an
+    independent review of the v4.17.0 tag.
+
+    MCP-009 already resolved this the right way with a responsiveness probe.
+    The fix was scoped to the row where it was noticed, which is the recurrence
+    pattern the permissive reading list keeps finding.
+    """
+    try:
+        probe = transport.send(jsonrpc_request("tools/list", {}))
+    except Exception:
+        return False
+    if not probe:
+        return False
+    return "result" in probe or "error" in probe
+
+
 def _mcp_rejected(resp) -> bool:
     """True when an MCP server refused, in either of the protocol's two idioms.
 
@@ -2036,10 +2059,17 @@ class MCPSecurityTests:
         if passed:
             m008_detail = f"{handled_count}/{n} malformed messages handled gracefully"
         elif ignored_count and alive is True:
+            _serving = _still_answering(self.transport)
             m008_detail = (
                 f"{handled_count}/{n} rejected explicitly; {ignored_count} drew no "
-                f"response. The server process is still running and still serving, "
-                f"so it survived them without reporting a parse error.")
+                f"response. The server process is still running and answered a "
+                f"follow-up tools/list, so it survived them without reporting a "
+                f"parse error."
+                if _serving is True else
+                f"{handled_count}/{n} rejected explicitly; {ignored_count} drew no "
+                f"response. The server process had not exited, but a follow-up "
+                f"tools/list drew no answer either, so whether it is still "
+                f"serving was not established.")
         elif ignored_count and alive is False:
             m008_detail = (
                 f"{handled_count}/{n} rejected explicitly; {ignored_count} drew no "
@@ -3233,10 +3263,16 @@ class MCPSecurityTests:
         # not a crash. Reported as what was observed.
         alive = self.transport.is_alive() if not responded else None
         if alive is True:
+            _serving = _still_answering(self.transport)
             no_response_detail = (
                 f"No response after {elapsed:.1f}s. The server process is still "
-                f"running and stopped answering, so the request wedged the "
-                f"session rather than terminating the server.")
+                f"running and a follow-up tools/list drew no answer either, so "
+                f"the request wedged the session rather than terminating the "
+                f"server."
+                if _serving is False else
+                f"No response after {elapsed:.1f}s. The server process had not "
+                f"exited and still answers a follow-up tools/list, so this "
+                f"request drew no response but the session was not wedged.")
         elif alive is False:
             no_response_detail = (
                 f"No response after {elapsed:.1f}s and the server process has "

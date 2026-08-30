@@ -667,6 +667,24 @@ def main():
         if simulate and harness_name == "aiuc1":
             filtered_args.append("--simulate")
 
+        # The documented MCP example is
+        #
+        #     agent-security test mcp --url http://localhost:8080/mcp
+        #
+        # and it did not work: mcp_harness requires an explicit --transport, so
+        # the principal operator path in the CLI help and the README exited 2
+        # with {"error": "--transport required"}. Reported 2026-08-30 by an
+        # independent review of the v4.17.0 tag.
+        #
+        # Infer http from --url when no transport was given. An explicit
+        # --transport always wins, and stdio stays explicit because it takes a
+        # --command rather than a --url, so there is nothing to infer it from.
+        if (_module_declares_flag(harness_name, "--transport")
+                and any(a == "--url" or a.startswith("--url=") for a in filtered_args)
+                and not any(a == "--transport" or a.startswith("--transport=")
+                            for a in filtered_args)):
+            filtered_args += ["--transport", "http"]
+
         sys.argv = [info["module"]] + filtered_args
 
         import runpy
