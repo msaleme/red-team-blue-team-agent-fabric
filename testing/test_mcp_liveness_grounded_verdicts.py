@@ -144,7 +144,7 @@ class TestBatchDosRequiresAnObservedResponse(unittest.TestCase):
         suite = MCPSecurityTests(_T(), json_output=True)
         with contextlib.redirect_stdout(io.StringIO()), \
                 contextlib.redirect_stderr(io.StringIO()):
-            getattr(suite, "test_mcp_batch_bomb")()
+            suite.test_mcp_batch_bomb()
         return suite.results[0]
 
     def test_positive_control_a_timely_answer_passes(self):
@@ -164,6 +164,30 @@ class TestBatchDosRequiresAnObservedResponse(unittest.TestCase):
 
     def test_an_empty_response_is_not_a_response(self):
         self.assertFalse(self._run(b"").passed)
+
+    def test_ignoring_the_batch_while_still_serving_is_a_pass(self):
+        """The branch a blunter repair got wrong.
+
+        The pinned reference server sends no reply to the batch and answers a
+        normal request immediately afterwards. The oracle is responsiveness, so
+        that is the control holding, and calling it "wedged" -- which a first
+        version of this repair did, borrowing MCP-018's wording -- is the same
+        overclaim MCP-009 was being repaired for, one branch over.
+        """
+        class _Serving(MCPTransport):
+            def is_alive(self_inner): return True
+            def send(self_inner, m, **k): return {"result": {"tools": []}}
+            def send_raw(self_inner, raw, mcp_method=None, **k): return None
+
+        suite = MCPSecurityTests(_Serving(), json_output=True)
+        with contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()):
+            suite.test_mcp_batch_bomb()
+        r = suite.results[0]
+        self.assertTrue(r.passed, r.details)
+        self.assertIn("stayed responsive", r.details)
+        self.assertNotIn("wedged", r.details)
+        self.assertTrue(r.response_received["still_serving_after"])
 
     def test_silence_says_which_kind_it_was(self):
         self.assertIn("wedged", self._run(None, True).details)

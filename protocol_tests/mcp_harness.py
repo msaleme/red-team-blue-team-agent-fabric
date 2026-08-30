@@ -2128,33 +2128,51 @@ class MCPSecurityTests:
         # detect, so silence is never a pass, and where the transport owns the
         # process the harness says which kind of silence it was.
         responded = resp_bytes is not None and len(resp_bytes) > 0
-        alive = self.transport.is_alive() if not responded else None
-        preview = ""
-        if responded:
-            preview = resp_bytes[:200].decode("utf-8", errors="replace")
+        preview = resp_bytes[:200].decode("utf-8", errors="replace") if responded else ""
 
-        passed = responded and elapsed < 10.0
-        if passed:
+        # The oracle is RESPONSIVENESS, and a missing answer to the batch is not
+        # the same as a target that stopped answering. Against the pinned
+        # reference server over stdio the batch draws no reply and `tools/list`
+        # answers immediately afterwards: the server ignored the batch and
+        # survived it, which is the control holding.
+        #
+        # A first version of this repair called that case "the batch wedged the
+        # session", borrowing MCP-018's wording. MCP-018 had earned it -- there
+        # the follow-up probe genuinely goes unanswered -- and this had not. It
+        # is the same overclaim this test was just repaired for, one branch
+        # over, so the responsiveness claim is now made from a probe rather than
+        # from the batch reply alone.
+        still_serving = None
+        alive = None
+        if not responded:
+            probe = self.transport.send(jsonrpc_request("tools/list", {}))
+            still_serving = bool(probe) and "result" in probe
+            alive = self.transport.is_alive()
+
+        passed = elapsed < 10.0 and (responded or still_serving is True)
+        if passed and responded:
             m009_detail = (f"Server answered the 1000-message batch in "
                            f"{elapsed:.1f}s ({len(resp_bytes)} bytes)")
+        elif passed:
+            m009_detail = ("Server sent no reply to the 1000-message batch and "
+                           "answered a normal request immediately afterwards, "
+                           "so it ignored the batch and stayed responsive")
         elif responded:
             m009_detail = (f"Server answered in {elapsed:.1f}s, over the 10s "
                            f"threshold")
-        elif alive is True:
-            m009_detail = (f"No response to the 1000-message batch after "
-                           f"{elapsed:.1f}s. The server process is still running "
-                           f"and stopped answering, so the batch wedged the "
-                           f"session.")
         elif alive is False:
-            m009_detail = (f"No response to the 1000-message batch after "
-                           f"{elapsed:.1f}s and the server process has exited. "
-                           f"The batch terminated the server.")
+            m009_detail = ("No reply to the 1000-message batch and the server "
+                           "process has exited. The batch terminated the server.")
+        elif alive is True:
+            m009_detail = ("No reply to the 1000-message batch and no answer to "
+                           "a normal request afterwards, with the process still "
+                           "running. The batch wedged the session.")
         else:
-            m009_detail = (INCONCLUSIVE_PREFIX + f"no response to the "
-                           f"1000-message batch after {elapsed:.1f}s, and this "
-                           f"transport cannot inspect the server process, so "
-                           f"whether it is wedged, gone or still working is not "
-                           f"established here.")
+            m009_detail = (INCONCLUSIVE_PREFIX + "no reply to the 1000-message "
+                           "batch and no answer to a normal request afterwards. "
+                           "This transport cannot inspect the server process, so "
+                           "whether it is wedged, gone, or was never reachable is "
+                           "not established here.")
 
         self._record(MCPTestResult(
             test_id="MCP-009",
@@ -2170,7 +2188,8 @@ class MCPSecurityTests:
             # claim rather than take the elapsed time for an answer.
             response_received={"responded": responded,
                                "bytes": len(resp_bytes) if responded else 0,
-                               "preview": preview},
+                               "preview": preview,
+                               "still_serving_after": still_serving},
             elapsed_s=round(elapsed, 3),
         ))
 
