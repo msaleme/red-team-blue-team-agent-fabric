@@ -62,7 +62,7 @@ Results: 8/10 passed (80% pass rate) - see report.json
 > servicing the request, reports **INCONCLUSIVE** — never PASS. See
 > [v4.13.1](CHANGELOG.md) for why that distinction is enforced rather than assumed.
 
-608 executable security tests across 43 test-bearing modules on `main` (verified 2026-08-29 via `scripts/count_tests.py`; the v4.15.0 release carries 603). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
+608 executable security tests across 43 test-bearing modules on `main` (verified 2026-08-29 via `scripts/count_tests.py`; the v4.16.0 release carries 608). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
 
 If this evidence discipline is useful in your agent-security work, **star this
 repository to follow releases**.
@@ -303,10 +303,13 @@ mapping and the human-in-the-loop harness** · v4.13.1 a correctness fix to that
 endpoint provenance · **v4.16.0 three target shapes: a verdict must be able to be wrong AND to be right** · v4.15.0 unserviced requests are no longer recorded as passes (see
 [CHANGELOG.md](CHANGELOG.md)).
 
-The release carries **603** tests; `main` is at **608** — MAG-019, MEM-011 and MEM-012, then X4-056 and
-X4-057 (URL-borne payment credentials and delegated-allowance overdraft), all landing after the tag. Both
-are correct for their own ref, and `scripts/check_public_metadata.py` compares public claims against
-the release rather than against `main` for exactly that reason.
+The release carries **608** tests; `main` is at **608**. They agree at v4.16.0 because the tag was cut
+from `main` with no test added or removed since. They do not always agree: at v4.15.0 the release carried
+603 while `main` was at 608, the difference being MAG-019, MEM-011, MEM-012, X4-056 and X4-057, all
+landing after the tag. Both numbers were correct for their own ref, which is why
+`scripts/check_public_metadata.py` compares public claims against the release rather than against `main`,
+and why `docs/release-claims.json` pins the release count to a commit where re-running the command
+reproduces it.
 
 **Next — Standards & Evidence.** Reproducible settlement-time payment evidence, a methodology paper,
 and the attestation/evidence schema submitted to a standards venue. Coverage breadth and test count are
