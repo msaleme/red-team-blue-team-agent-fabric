@@ -194,3 +194,64 @@ class TestTheGuardStaysOutOfTheWayOfARefusal(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLimitationsIsAnExtensionNotAClaim(unittest.TestCase):
+    """A2A-013 failed every spec-conformant agent for lacking a non-spec field.
+
+    The A2A AgentCard schema has no `limitations` member. Checked against the
+    official a2a-sdk 1.1.2 descriptor: name, description, supported_interfaces,
+    provider, version, documentation_url, capabilities, security_schemes,
+    security_requirements, default_input_modes, default_output_modes, skills,
+    signatures, icon_url.
+
+    So an absent field is not the agent claiming it has no limitations. It is
+    the protocol having nowhere to put them. The old detail read
+
+        Agent Card has no 'limitations' field -- agents that claim no
+        limitations are suspicious
+
+    which attributes to the agent a claim it had no way to make, at MEDIUM, on
+    every conformant implementation.
+
+    Found by running this harness against a real A2A server built on the
+    official SDK. None of the three synthetic target shapes could surface it,
+    because none of them serves an agent card at all.
+
+    A `limitations` field that IS present and trivial still fails. That is a
+    real claim, deliberately made, and worth reporting.
+    """
+
+    @staticmethod
+    def _card_result(card: dict):
+        class _CardTransport(A2ATransport):
+            def get(self_inner, path):
+                return dict(card)
+
+            def rpc(self_inner, method, params=None):
+                return {"result": {}}
+
+        suite = A2ASecurityTests(_CardTransport("http://target.invalid"))
+        with contextlib.redirect_stdout(io.StringIO()):
+            suite.test_a2a_agent_card_limitations()
+        return suite.results[0]
+
+    def test_absent_field_is_inconclusive_not_a_finding(self):
+        r = self._card_result({"name": "conformant", "version": "1.0.0"})
+        self.assertFalse(r.passed)
+        self.assertIn("INCONCLUSIVE", r.details)
+        self.assertIn("does not define one", r.details)
+        self.assertNotIn("suspicious", r.details)
+
+    def test_a_trivial_declared_value_still_fails(self):
+        """The case where the agent did make the claim."""
+        r = self._card_result({"name": "x", "limitations": "none"})
+        self.assertFalse(r.passed)
+        self.assertNotIn("INCONCLUSIVE", r.details)
+        self.assertIn("trivial", r.details)
+
+    def test_meaningful_limitations_pass(self):
+        r = self._card_result({"name": "x", "limitations":
+                               "Cannot access production data; restricted to "
+                               "read-only queries within one tenant."})
+        self.assertTrue(r.passed, r.details)
