@@ -323,6 +323,13 @@ class X402TestResult:
     response_received: dict | None = None
     elapsed_s: float = 0.0
     timestamp: str = ""
+    #: The third state. l402_harness has carried this since before #351 and
+    #: computes `failed` as "not passed and not not_evaluated"; x402 had only
+    #: two, so a row whose DETAILS say the control was never exercised was
+    #: serialized as a failure and exited 1. Reported 2026-08-30 by an
+    #: independent review of the v4.17.0 tag: an output-semantics contradiction
+    #: where the prose says unmeasured and the machine surface says insecure.
+    not_evaluated: bool = False
 
     def __post_init__(self):
         if not self.timestamp:
@@ -911,6 +918,7 @@ class X402SecurityTests:
         # string ("0 rate-limited") all claimed a spending-limit control. A
         # target with no rate limiting at all is not a target that passed; it is
         # one where the control was never demonstrated. Same shape as X4-057.
+        not_evaluated = False
         if price_escalation:
             passed = False
             details_parts.append(f"PRICE ESCALATION: {amounts[0]} -> {amounts[-1]}")
@@ -919,6 +927,7 @@ class X402SecurityTests:
             details_parts.append("Rate limiting detected")
         else:
             passed = False
+            not_evaluated = True
             details_parts.append(
                 f"{INCONCLUSIVE_PREFIX}the target answered all {n_requests} rapid "
                 f"requests, rate-limited none of them, and did not escalate price. "
@@ -927,6 +936,7 @@ class X402SecurityTests:
 
         self._record(X402TestResult(
             test_id="X4-011",
+            not_evaluated=not_evaluated,
             name="Rapid Payment Request Rate Limiting",
             category="spending_limits",
             owasp_asi="ASI08",
@@ -3652,7 +3662,9 @@ def generate_report(results: list[X402TestResult], output_path: str,
         "summary": {
             "total": len(results),
             "passed": sum(1 for r in results if r.passed),
-            "failed": sum(1 for r in results if not r.passed),
+            "failed": sum(1 for r in results
+                          if not r.passed and not r.not_evaluated),
+            "not_evaluated": sum(1 for r in results if r.not_evaluated),
         },
         "autonomy_risk_score": autonomy_risk or {},
         "results": [asdict(r) for r in results],
@@ -3731,7 +3743,8 @@ def main():
         if args.report:
             generate_report(results, args.report, autonomy_risk=autonomy_risk)
 
-        failed = sum(1 for r in results if not r.passed)
+        failed = sum(1 for r in results
+                     if not r.passed and not r.not_evaluated)
         sys.exit(1 if failed > 0 else 0)
 
 

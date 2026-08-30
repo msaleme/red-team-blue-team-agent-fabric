@@ -1,19 +1,35 @@
 # Test Inventory
 
-**608 security tests across 43 test-bearing modules** on `main` (verified 2026-08-11 by `scripts/count_tests.py`)
+**608 security tests across 43 test-bearing modules** on `main` (verified 2026-08-30 by `scripts/count_tests.py`)
 
 See also: **[OWASP Agentic AI v1.1 Threat Coverage Report](OWASP-AGENTIC-V1.1-COVERAGE.md)** — per-threat T1–T17 evidence mapping with scenario coverage, mitigation-control validation and evidence classes, generated from `coverage/owasp-agentic-v1.1.yaml`. ([T1–T15 submission view](OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md))
 
-> **Canonical figures (verified 2026-08-11).** Main branch: 608 test IDs across
+> **Canonical figures (verified 2026-08-30).** Main branch: 608 test IDs across
 > 43 test-bearing modules in `protocol_tests/` (files with no `test_id` — CLI,
 > helpers, telemetry, registry — are not counted as modules). `main`'s
-> `pyproject.toml` is at `agent-security-harness` v4.15.0 (608 tests); PyPI
+> `pyproject.toml` is at `agent-security-harness` v4.17.0 (608 tests); PyPI
 > itself will show this version once the release is published (see
 > `CHANGELOG.md`). Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: 19 of
-> 20 testable requirements (95%). Research: 5 public Zenodo preprints (not
+> 20 testable requirements (95%). Research: 7 public Zenodo preprints (not
 > peer-reviewed) + 3 NIST submissions. Regenerate with `python
-> scripts/count_tests.py`. Per-module counts below are reconciled to this run;
-> some enumerated ID tables show a representative excerpt.
+> scripts/count_tests.py`.
+>
+> **Per-module counts, reconciled 2026-08-30** against that run, because an
+> independent review of the v4.17.0 tag found this file carrying two different
+> MCP figures and stale x402/enterprise ones:
+>
+> | Module | Tests |
+> |---|---|
+> | MCP Protocol | 32 |
+> | MCP Supply-Chain | 4 |
+> | MCP Tool Poisoning Reproduction | 10 |
+> | x402 Payment | 54 |
+> | x402 Fireblocks Extension | 17 |
+> | Enterprise Platforms (core) | 31 |
+> | Enterprise Platforms (extended) | 27 |
+>
+> Where an enumerated ID table below disagrees with this block, this block is
+> the reconciled figure and the table is a representative excerpt.
 
 ---
 

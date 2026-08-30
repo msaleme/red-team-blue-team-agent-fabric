@@ -84,8 +84,18 @@ class TestOversizedBodyReportsWhatWasObserved(unittest.TestCase):
     METHOD = "test_mcp_unbounded_request_body_dos"
 
     def test_alive_is_a_wedged_session_not_a_crash(self):
+        """`alive` plus a SILENT follow-up is what licenses "wedged".
+
+        Tightened 2026-08-30 after an independent review of the v4.17.0 tag:
+        the detail asserted the request "wedged the session" from is_alive()
+        alone, and a deadlocked process is alive. The claim now rests on a
+        second request drawing no answer either. The fixture used here is
+        silent to every send, so the follow-up is silent too and the wording
+        is unchanged -- what changed is that it is now earned.
+        """
         d = _run(True, self.METHOD).details
         self.assertIn("still running", d)
+        self.assertIn("follow-up", d)
         self.assertIn("wedged", d)
         self.assertNotIn("crashed", d)
 

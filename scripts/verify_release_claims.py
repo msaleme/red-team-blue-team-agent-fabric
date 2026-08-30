@@ -101,9 +101,48 @@ def check_surfaces(claim: dict) -> list[tuple[str, str, str]]:
     return out
 
 
+def tag_commit(tag: str) -> str | None:
+    """The commit a tag resolves to, or None if the tag is absent here."""
+    proc = subprocess.run(["git", "rev-parse", f"{tag}^{{commit}}"],
+                          cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
+
+def check_tag_binds_commit(claim: dict) -> tuple[str, str, str] | None:
+    """A release claim must name the commit its tag resolves to.
+
+    Reported 2026-08-30 by an independent review of the v4.17.0 tag. The
+    manifest declared `release_tag: v4.17.0` alongside the commit of the *4.16.0*
+    release merge. `regenerate` reproduced 608 from it and reported PASS,
+    because that commit is an ancestor and carries the same count -- so the
+    number was right and the provenance was false.
+
+    The manifest's stated purpose is to bind a fact to the revision that
+    produced it. Nothing asserted the two fields agreed, so they could drift
+    silently for exactly as long as the value happened not to change.
+    """
+    tag = claim.get("release_tag")
+    if not tag:
+        return None
+    label = f"{claim['id']} tag binds commit"
+    resolved = tag_commit(tag)
+    if resolved is None:
+        return (SKIP, label, f"tag {tag} is not present in this clone")
+    declared = claim.get("commit")
+    if not declared:
+        return (OK, label, f"{tag} resolves to {resolved[:12]}; no commit pinned, derived")
+    if declared != resolved:
+        return (BAD, label, (
+            f"{tag} resolves to {resolved[:12]} but the manifest declares "
+            f"{declared[:12]}. The value may still reproduce -- an ancestor with "
+            f"the same count will -- and the provenance is still false."))
+    return (OK, label, f"{tag} -> {resolved[:12]}, as declared")
+
+
 def regenerate(claim: dict) -> tuple[str, str, str]:
     """Re-run the declared command at the declared revision and compare."""
-    rev = claim.get("commit") or "HEAD"
+    rev = claim.get("commit") or (claim.get("release_tag") and
+                                  tag_commit(claim["release_tag"])) or "HEAD"
     label = f"{claim['id']} regenerate @ {claim.get('release_tag') or rev[:12]}"
 
     if not _revision_available(rev):
@@ -164,6 +203,9 @@ def main() -> int:
     rows: list[tuple[str, str, str]] = []
     for claim in manifest["claims"]:
         rows.extend(check_surfaces(claim))
+        _bind = check_tag_binds_commit(claim)
+        if _bind is not None:
+            rows.append(_bind)
         rows.append(regenerate(claim))
 
     failed = [r for r in rows if r[0] == BAD]
