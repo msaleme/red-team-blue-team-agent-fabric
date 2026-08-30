@@ -302,6 +302,15 @@ class MCPTransport:
     # to exercise it over stdio.
     supports_header_overrides = False
 
+    def is_alive(self) -> bool | None:
+        """Is the server still running? None when the transport cannot know.
+
+        Only a transport that owns the server process can answer this. Over
+        HTTP there is nothing to inspect, and a verdict that needs the answer
+        must say so rather than assume one. See StdioTransport.is_alive.
+        """
+        return None
+
     def send(self, message: dict) -> dict | None:
         raise NotImplementedError
 
@@ -508,6 +517,27 @@ class StdioTransport(MCPTransport):
             stderr=subprocess.PIPE,
             env={**os.environ, **(env or {})},
         )
+
+    def is_alive(self) -> bool | None:
+        """True if the server process is still running, None if unknowable.
+
+        Added 2026-08-30 during the first calibration of this transport against
+        a real MCP implementation. Several verdicts read a missing response and
+        reported "server may have crashed or hung" -- a disjunction the harness
+        was asserting rather than observing.
+
+        Over stdio it IS observable: the harness owns the process. Measured
+        against the official reference server, the two cases genuinely differ.
+        After seven malformed messages the process was alive and still answering
+        tools/list. After an oversized body it was alive and answering nothing.
+        Same missing response, different findings, and only one of them is a
+        denial of service.
+
+        The HTTP transport returns None from its own override: it has no process
+        to inspect, and inventing a liveness answer there would be worse than
+        admitting the limit.
+        """
+        return self.proc.poll() is None
 
     def send(self, message: dict) -> dict | None:
         line = json.dumps(message) + "\n"
@@ -1986,7 +2016,14 @@ class MCPSecurityTests:
             ))
             return
 
+        # Three outcomes, not two. Against the official reference server over
+        # stdio this reported "0/7 malformed messages handled gracefully", and
+        # the process was alive and still answering tools/list afterwards: it
+        # survived all seven and kept serving. Silence is not a rejection, and
+        # it is not a crash either. Counting only rejections and calling the
+        # rest unhandled overstates what was observed.
         handled_count = 0
+        ignored_count = 0
         for raw in malformed_messages:
             resp_bytes = self.transport.send_raw(raw, mcp_method="tools/list")
             if resp_bytes:
@@ -1999,11 +2036,38 @@ class MCPSecurityTests:
                     # Non-JSON response is acceptable for garbage input
                     handled_count += 1
             else:
-                # No response — inconclusive, don't count as handled
-                pass
+                # Silence. Counted separately from a rejection, because the two
+                # are different observations and the verdict now says which.
+                ignored_count += 1
 
         elapsed = time.monotonic() - t0
-        passed = handled_count == len(malformed_messages)
+        n = len(malformed_messages)
+        alive = self.transport.is_alive()
+        passed = handled_count == n
+
+        # A pass still requires an explicit rejection for every message, which
+        # is what the MCP spec asks for. What changes is the wording of a
+        # non-pass: silence with the server still serving is a different
+        # observation from silence with the server gone, and the old string
+        # reported both as "not handled gracefully".
+        if passed:
+            m008_detail = f"{handled_count}/{n} malformed messages handled gracefully"
+        elif ignored_count and alive is True:
+            m008_detail = (
+                f"{handled_count}/{n} rejected explicitly; {ignored_count} drew no "
+                f"response. The server process is still running and still serving, "
+                f"so it survived them without reporting a parse error.")
+        elif ignored_count and alive is False:
+            m008_detail = (
+                f"{handled_count}/{n} rejected explicitly; {ignored_count} drew no "
+                f"response and the server process has exited.")
+        elif ignored_count:
+            m008_detail = (
+                f"{handled_count}/{n} rejected explicitly; {ignored_count} drew no "
+                f"response. This transport cannot inspect the server process, so "
+                f"whether it survived them is not established here.")
+        else:
+            m008_detail = f"{handled_count}/{n} malformed messages handled gracefully"
 
         self._record(MCPTestResult(
             test_id="MCP-008",
@@ -2012,7 +2076,7 @@ class MCPSecurityTests:
             owasp_asi="ASI08",
             severity=Severity.MEDIUM.value,
             passed=passed,
-            details=f"{handled_count}/{len(malformed_messages)} malformed messages handled gracefully",
+            details=m008_detail,
             mcp_method="various",
             request_sent={"n_malformed": len(malformed_messages)},
             elapsed_s=round(elapsed, 3),
@@ -3114,6 +3178,27 @@ class MCPSecurityTests:
         responded = resp_bytes is not None
         rejected = responded and _mcp_rejected_text(resp_preview)
         passed = responded and elapsed < 30.0 and rejected
+        # "server may have crashed or hung" was a disjunction the harness
+        # asserted from a missing response. Where the transport owns the
+        # process it can resolve it, and against the official reference server
+        # over stdio the two cases are genuinely different findings: after this
+        # payload the process was alive and answering nothing, which is a hang,
+        # not a crash. Reported as what was observed.
+        alive = self.transport.is_alive() if not responded else None
+        if alive is True:
+            no_response_detail = (
+                f"No response after {elapsed:.1f}s. The server process is still "
+                f"running and stopped answering, so the request wedged the "
+                f"session rather than terminating the server.")
+        elif alive is False:
+            no_response_detail = (
+                f"No response after {elapsed:.1f}s and the server process has "
+                f"exited. The request terminated the server.")
+        else:
+            no_response_detail = (
+                f"No response after {elapsed:.1f}s. This transport cannot "
+                f"inspect the server process, so whether it crashed, hung or is "
+                f"still working is not established here.")
 
         self._record(MCPTestResult(
             test_id="MCP-018",
@@ -3128,7 +3213,7 @@ class MCPSecurityTests:
                 else (
                     f"Server did not reject oversized body in {elapsed:.1f}s — "
                     f"response: {resp_preview[:200]!r}" if responded
-                    else f"No response after {elapsed:.1f}s — server may have crashed or hung"
+                    else no_response_detail
                 )
             ),
             mcp_method="tools/call",
