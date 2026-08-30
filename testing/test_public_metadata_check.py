@@ -242,16 +242,26 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class TestWorkflowPreservesChecker(unittest.TestCase):
-    """The workflow checks out a release tag, and the checker is not in it.
+class TestWorkflowRunsTheCheckerAtTheTag(unittest.TestCase):
+    """The workflow checks out a release tag and runs the checker from it.
 
-    scripts/check_public_metadata.py was added in #360, after v4.15.0 was cut.
-    A tag is immutable, so the checker can never be present in an
-    already-released tag. The first version of this workflow checked out the tag
-    and then ran the script from it, which would have failed with a
+    It did not always. scripts/check_public_metadata.py was added in #360, after
+    v4.15.0 was cut, and a tag is immutable, so the checker could not be present
+    in the already-released tag. The first version of the workflow checked out
+    the tag and ran the script from it, which would have failed with a
     file-not-found on its first scheduled run. It never surfaced because the
-    workflow had not run yet, and every manual verification copied the script
-    into the worktree by hand, so none of them exercised the real path.
+    workflow had not run yet, and every manual verification copied the script in
+    by hand, so none of them exercised the real path.
+
+    The fix was a copy-out-copy-back around the checkout, guarded by three tests
+    here and by a fourth asserting the premise: that the checker was ABSENT from
+    the latest release tag.
+
+    v4.16.0 (2026-08-30) is the first release that contains it. The premise test
+    failed the moment that shipped, the workaround was removed, and these tests
+    now assert the plain shape. That is the whole point of writing a premise
+    down: a workaround that outlives its reason is indistinguishable from a
+    design, and nothing else in the repository would have questioned this one.
     """
 
     WORKFLOW = REPO_ROOT / ".github" / "workflows" / "public-metadata.yml"
@@ -262,27 +272,47 @@ class TestWorkflowPreservesChecker(unittest.TestCase):
     def test_workflow_exists(self) -> None:
         self.assertTrue(self.WORKFLOW.is_file())
 
-    def test_checker_is_copied_out_before_the_tag_checkout(self) -> None:
-        preserve = self.text.find("RUNNER_TEMP/check_public_metadata.py")
-        checkout = self.text.find("git checkout -q \"$TAG\"")
-        self.assertNotEqual(preserve, -1, "workflow must preserve the checker across checkout")
-        self.assertNotEqual(checkout, -1, "workflow must check out the release tag")
-        self.assertLess(preserve, checkout,
-                        "the checker must be copied out BEFORE the tag is checked out")
+    def test_the_workflow_checks_out_a_release_tag(self) -> None:
+        self.assertNotEqual(
+            self.text.find('git checkout -q "$TAG"'), -1,
+            "workflow must check out the release tag; a release-facing claim "
+            "compared against main fails every time main is legitimately ahead")
 
-    def test_checker_is_restored_after_the_tag_checkout(self) -> None:
-        checkout = self.text.find("git checkout -q \"$TAG\"")
-        restore = self.text.find('cp "$RUNNER_TEMP/check_public_metadata.py" scripts/')
-        self.assertNotEqual(restore, -1, "workflow must restore the checker after checkout")
-        self.assertLess(checkout, restore,
-                        "the checker must be copied back AFTER the tag is checked out")
+    def test_the_preserve_workaround_is_gone(self) -> None:
+        """It was needed only while the newest release predated the checker.
+
+        Left in place it would be a copy-out-copy-back that silently shadowed
+        the tag's own checker with main's, so a release could pass this check
+        using a version of the checker it does not contain.
+        """
+        self.assertEqual(
+            self.text.find("RUNNER_TEMP/check_public_metadata.py"), -1,
+            "the preserve step is back. It was removed once v4.16.0 shipped "
+            "carrying the checker; restoring it would run main's checker "
+            "against the tag's tree.")
 
     def test_workflow_verifies_the_checker_survived(self) -> None:
         """A missing checker must fail with a named error, not file-not-found."""
         self.assertIn("test -f scripts/check_public_metadata.py", self.text)
 
-    def test_checker_is_absent_from_the_latest_release_tag(self) -> None:
-        """The premise. If this ever fails, the preserve dance is unnecessary."""
+    def test_the_checker_exists_at_the_latest_release_tag(self) -> None:
+        """The premise, inverted 2026-08-30 when it stopped being true.
+
+        This used to assert the checker was ABSENT from the latest release tag,
+        which was the reason the workflow copied it out before checking the tag
+        out and back in afterwards. The checker was added after v4.15.0, so it
+        did not exist there.
+
+        v4.16.0 is the first release that contains it. The moment that shipped,
+        this test failed with "checker now exists at v4.16.0; the preserve step
+        can be simplified", which is how the workaround was noticed rather than
+        left in place for years. A workaround that outlives its reason is
+        indistinguishable from a design.
+
+        The assertion is now the other way round, because the workflow depends
+        on it: with the preserve step gone, a release tag that does not carry
+        the checker has nothing to run.
+        """
         import subprocess
         tags = subprocess.run(["git", "tag", "--sort=-v:refname"],
                               capture_output=True, text=True, cwd=REPO_ROOT).stdout.split()
@@ -292,5 +322,8 @@ class TestWorkflowPreservesChecker(unittest.TestCase):
         present = subprocess.run(
             ["git", "cat-file", "-e", f"{tag}:scripts/check_public_metadata.py"],
             capture_output=True, cwd=REPO_ROOT).returncode == 0
-        self.assertFalse(present,
-                         f"checker now exists at {tag}; the preserve step can be simplified")
+        self.assertTrue(
+            present,
+            f"{tag} does not carry scripts/check_public_metadata.py. The workflow "
+            f"no longer preserves it across the checkout, so this tag has nothing "
+            f"to run. Either the tag predates v4.16.0 or the checker was removed.")
