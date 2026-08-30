@@ -295,7 +295,7 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 
 ## Roadmap
 
-**Current: v4.16.0** (2026-08-29). Recent shipped work — v4.5 skill supply chain and governance
+**Current: v4.16.0** (2026-08-30). Recent shipped work — v4.5 skill supply chain and governance
 modification · v4.6–v4.9 payment-stack depth (AP2 mandate chain, UCP/ACP merchant journey, card-network
 agentic tokens, settlement finality, Fireblocks x402) · v4.10 benchmark integrity · v4.11–v4.12
 decision-governance corpus currency and provenance repair · **v4.13 OWASP Agentic v1.1 T1–T17 coverage
