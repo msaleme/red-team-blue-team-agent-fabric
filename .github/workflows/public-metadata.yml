@@ -5,10 +5,18 @@ name: Public metadata drift
 # latest release tag before comparing. Running against main would fail every
 # time main is legitimately ahead.
 #
-# The checker itself must survive that checkout. It was added AFTER v4.15.0,
-# so it does not exist at the tag, and the first version of this workflow would
-# have failed on its first scheduled run with a file-not-found. It never
-# surfaced because the workflow had not yet run. See the "Preserve" step below.
+# The checker itself had to survive that checkout while the latest release
+# predated it. It was added after v4.15.0, so it did not exist at that tag, and
+# the first version of this workflow would have failed its first scheduled run
+# with a file-not-found.
+#
+# v4.16.0 (2026-08-30) is the first release that contains it, so the workaround
+# expired. The copy-out-copy-back is gone and the checkout is plain.
+#
+# testing/test_public_metadata_check.py asserted the premise -- "the checker is
+# absent from the latest release tag" -- and failed the moment it stopped being
+# true, which is how this was noticed rather than left in place for years. A
+# workaround that outlives its reason is indistinguishable from a design.
 
 on:
   release:
@@ -28,11 +36,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Copied out before the checkout and back in after it. The tag is
-      # immutable, so the checker can never be added to an already-cut release.
-      - name: Preserve the metadata checker
-        run: cp scripts/check_public_metadata.py "$RUNNER_TEMP/check_public_metadata.py"
-
       - name: Check out the latest release tag
         run: |
           TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
@@ -43,13 +46,15 @@ jobs:
           echo "Comparing against $TAG"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           git checkout -q "$TAG"
-          cp "$RUNNER_TEMP/check_public_metadata.py" scripts/check_public_metadata.py
 
-      # Fail loudly and specifically rather than with a file-not-found further down.
-      - name: Verify the checker survived the checkout
+      # Kept after the preserve step was removed. A release older than v4.16.0
+      # does not carry the checker, so a tag that predates it -- a retroactive
+      # tag, or a revert of the newest release -- still needs to say so clearly
+      # rather than fail with a file-not-found further down.
+      - name: Verify the checker exists at the tag
         run: |
           test -f scripts/check_public_metadata.py \
-            || { echo "::error::checker missing after checkout of $TAG; the Preserve step did not run"; exit 1; }
+            || { echo "::error::$TAG predates scripts/check_public_metadata.py (added after v4.15.0); nothing to run"; exit 1; }
 
       - uses: actions/setup-python@v5
         with:
