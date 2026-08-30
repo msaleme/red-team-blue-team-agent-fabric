@@ -3,9 +3,9 @@
 Validates test ID format, result structure, and category filtering.
 """
 
-import pytest
 from unittest.mock import patch
-from protocol_tests.autogen_harness import AutoGenHarness, ALL_CATEGORIES
+
+from protocol_tests.autogen_harness import ALL_CATEGORIES, AutoGenHarness
 
 
 def _mock_post(*args, **kwargs):

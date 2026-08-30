@@ -50,15 +50,13 @@ import json
 import os
 import sys
 import time
+import urllib.request
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
-import urllib.request
 
 from protocol_tests.http_helpers import silence_detail, silence_evidence
-
 
 # ---------------------------------------------------------------------------
 # Severity levels
@@ -980,8 +978,8 @@ class AIUC1ComplianceTests:
 
         if not self.json_output:
             print(f"\n{'='*60}")
-            print(f"AIUC-1 Compliance Test Harness")
-            print(f"Incident Response | CBRN Prevention | Harmful Output")
+            print("AIUC-1 Compliance Test Harness")
+            print("Incident Response | CBRN Prevention | Harmful Output")
             print(f"{'='*60}")
             mode = "SIMULATION" if self.simulate else f"LIVE ({self.url})"
             print(f"Mode: {mode}")
@@ -1041,7 +1039,7 @@ class AIUC1ComplianceTests:
             "F002": "CBRN Content Prevention",
         }
 
-        print(f"\nAIUC-1 Requirement Coverage:")
+        print("\nAIUC-1 Requirement Coverage:")
         for req_id in sorted(req_results.keys()):
             results = req_results[req_id]
             p = sum(1 for r in results if r.passed)

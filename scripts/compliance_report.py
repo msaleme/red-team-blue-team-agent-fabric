@@ -120,7 +120,7 @@ def generate_compliance_html(
     # AUROC section
     section_num = 2
     try:
-        from scripts.auroc import compute_all_auroc, auroc_label
+        from scripts.auroc import auroc_label, compute_all_auroc
         auroc = compute_all_auroc(report_data)
         if auroc.get("modules"):
             parts.append(f"<h2>{section_num}. Detection Effectiveness (AUROC)</h2>")
@@ -137,7 +137,7 @@ def generate_compliance_html(
     # Framework compliance sections
     if frameworks:
         try:
-            from scripts.compliance_crosswalk import load_crosswalk, apply_crosswalk
+            from scripts.compliance_crosswalk import apply_crosswalk, load_crosswalk
         except ImportError:
             frameworks = []
     for fw in (frameworks or []):

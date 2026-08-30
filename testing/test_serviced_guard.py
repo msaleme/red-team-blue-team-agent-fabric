@@ -354,7 +354,7 @@ def _build(result_cls, **over):
     every harness whose result class differed. Introspect instead: supply a
     type-appropriate placeholder for each field that has no default.
     """
-    import dataclasses, typing
+    import dataclasses
     kw = {}
     for f in fields(result_cls):
         if f.name in over:

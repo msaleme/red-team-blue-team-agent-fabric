@@ -47,13 +47,13 @@ import json
 from pathlib import Path
 
 from protocol_tests.receipt_claim_harness import (
+    _CLEAN_TOOLS,
+    _SHARELOCK_TOOLS,
     FRESHNESS_WINDOW,
     NEGATIVES,
     ClaimLevelVerifier,
     build_tool_context_receipt,
     build_valid_receipt,
-    _CLEAN_TOOLS,
-    _SHARELOCK_TOOLS,
 )
 
 FIXTURE_SET = "rcl-oracle-fixtures"

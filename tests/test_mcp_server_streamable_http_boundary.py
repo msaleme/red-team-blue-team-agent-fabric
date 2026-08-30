@@ -14,16 +14,15 @@ import socket
 import subprocess
 import sys
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
 
 import pytest
 
 mcp = pytest.importorskip("mcp")
 from mcp import ClientSession  # noqa: E402
 from mcp.client.streamable_http import streamable_http_client  # noqa: E402
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 

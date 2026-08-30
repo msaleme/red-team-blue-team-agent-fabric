@@ -584,7 +584,7 @@ def _cases_asserting(pattern: str) -> list[str]:
     return [
         c.id
         for c in CORPUS
-        if re.search(pattern, (c.source or "").split("NOTE:")[0], re.I)
+        if re.search(pattern, (c.source or "").split("NOTE:")[0], re.IGNORECASE)
     ]
 
 
@@ -601,7 +601,7 @@ def _guarded_tables() -> str:
     blocks = re.findall(
         r"<!-- dgb:(?:source|internal)-table:start -->(.*?)<!-- dgb:(?:source|internal)-table:end -->",
         text,
-        re.S,
+        re.DOTALL,
     )
     assert len(blocks) == 2, "both guarded tables must be anchored"
     return "\n".join(blocks)
@@ -674,7 +674,7 @@ def test_source_patterns_do_not_match_on_substrings():
     for pattern in list(_SOURCE_PATTERNS.values()) + _EXTERNAL_SOURCE_PATTERNS:
         for case in CORPUS:
             claim = (case.source or "").split("NOTE:")[0]
-            for hit in re.finditer(pattern, claim, re.I):
+            for hit in re.finditer(pattern, claim, re.IGNORECASE):
                 matched = hit.group(0)
                 assert any(n.lower() in matched.lower() for n in known_names), (
                     f"{case.id}: {pattern!r} matched {matched!r}, which is not a "
@@ -696,7 +696,7 @@ def test_dbc_028_is_not_credited_to_metr():
 
     case = next(c for c in CORPUS if c.id == "DBC-028")
     assert "metrics" in case.source
-    assert not re.search(_SOURCE_PATTERNS["METR"], case.source, re.I), (
+    assert not re.search(_SOURCE_PATTERNS["METR"], case.source, re.IGNORECASE), (
         "DBC-028 cites UC Berkeley RDI and says 'self-reported metrics'; it must "
         "not resolve as a METR citation"
     )
@@ -719,7 +719,7 @@ def test_author_grounded_count_is_derived():
 
     external = set()
     for pattern in _EXTERNAL_SOURCE_PATTERNS:
-        external |= {c.id for c in CORPUS if re.search(pattern, claim(c), re.I)}
+        external |= {c.id for c in CORPUS if re.search(pattern, claim(c), re.IGNORECASE)}
     author_grounded = {c.id for c in CORPUS} - external
 
     text = README.read_text(encoding="utf-8")
@@ -753,7 +753,7 @@ def test_paper_grounding_figure_matches_the_corpus():
 
     external = set()
     for pattern in _EXTERNAL_SOURCE_PATTERNS:
-        external |= {c.id for c in CORPUS if re.search(pattern, claim(c), re.I)}
+        external |= {c.id for c in CORPUS if re.search(pattern, claim(c), re.IGNORECASE)}
     author_grounded = {c.id for c in CORPUS} - external
 
     # LaTeX wraps at column ~78, so any occurrence may be split across lines at

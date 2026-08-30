@@ -9,11 +9,11 @@ Usage:
 Listens on: http://localhost:8402
 """
 
-import json
 import http.server
+import json
 import socketserver
 import sys
-from typing import Any, Dict
+from typing import Any
 
 
 class MockMCPHandler(http.server.BaseHTTPRequestHandler):
@@ -65,7 +65,7 @@ class MockMCPHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(error_response).encode('utf-8'))
     
-    def _handle_jsonrpc_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    def _handle_jsonrpc_request(self, request: dict[str, Any]) -> dict[str, Any]:
         """Handle JSON-RPC 2.0 requests"""
         method = request.get("method")
         params = request.get("params", {})

@@ -21,8 +21,8 @@ import json
 import sys
 
 try:
-    from cryptography.hazmat.primitives.serialization import load_pem_public_key
     from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives.serialization import load_pem_public_key
     _CRYPTO = True
 except ImportError:  # pragma: no cover - environment dependent
     _CRYPTO = False

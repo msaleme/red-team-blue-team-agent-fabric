@@ -40,18 +40,20 @@ import inspect
 import json
 import sys
 import time
+import urllib.error
+import urllib.request
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
-import urllib.error
-import urllib.request
 from urllib.parse import urlparse, urlunparse
 
 from protocol_tests.http_helpers import (
-    INCONCLUSIVE_PREFIX, refused, silence_detail, silence_evidence)
-
+    INCONCLUSIVE_PREFIX,
+    refused,
+    silence_detail,
+    silence_evidence,
+)
 
 # ---------------------------------------------------------------------------
 # Test result model (shared across adapters)
@@ -1187,7 +1189,7 @@ def main():
         print("\nAvailable Framework Adapters:\n")
         for name, cls in ADAPTERS.items():
             print(f"  {name:20s} — {cls.description}")
-        print(f"\nUsage: python -m protocol_tests.framework_adapters <framework> --url <URL> --run")
+        print("\nUsage: python -m protocol_tests.framework_adapters <framework> --url <URL> --run")
         return
 
     if not args.framework or not args.url:
@@ -1243,7 +1245,7 @@ def main():
             results = merged.get("results", [])
         else:
             print(f"\n{'='*60}")
-            print(f"FRAMEWORK ADAPTER SECURITY TESTS v3.0")
+            print("FRAMEWORK ADAPTER SECURITY TESTS v3.0")
             print(f"Framework: {adapter_cls.description}")
             print(f"Target: {args.url}")
             print(f"{'='*60}")
@@ -1267,7 +1269,7 @@ def main():
         sys.exit(1 if failed > 0 else 0)
     else:
         print(f"\nAdapter configured for {adapter_cls.description} at {args.url}")
-        print(f"Run with --run to execute tests, or --export <file.json> to export config")
+        print("Run with --run to execute tests, or --export <file.json> to export config")
 
 
 if __name__ == "__main__":

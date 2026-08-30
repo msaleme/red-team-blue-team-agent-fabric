@@ -1,7 +1,6 @@
 """Tests for protocol_tests.trial_runner (#88)."""
 from __future__ import annotations
 
-import pytest
 from dataclasses import dataclass
 
 

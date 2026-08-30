@@ -33,7 +33,6 @@ Requires: Python 3.10+, no external dependencies for core tests.
 from __future__ import annotations
 
 import argparse
-from protocol_tests.http_helpers import inconclusive_detail, run_summary, summary_lines
 import json
 import os
 import re
@@ -44,7 +43,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from protocol_tests._utils import Severity, http_post_json
-
+from protocol_tests.http_helpers import inconclusive_detail, run_summary, summary_lines
 
 # ---------------------------------------------------------------------------
 # Test result model
@@ -706,7 +705,7 @@ class BenchmarkIntegrityTests:
         mode_label = "[SIMULATE]" if self.simulate else f"[LIVE: {self.url}]"
         print(f"\n{'='*60}")
         print("BENCHMARK INTEGRITY TEST SUITE v1.0")
-        print(f"UC Berkeley RDI / METR Vulnerability Taxonomy")
+        print("UC Berkeley RDI / METR Vulnerability Taxonomy")
         print(f"{'='*60}")
         print(f"Mode: {mode_label}")
 

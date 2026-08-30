@@ -18,10 +18,11 @@ from __future__ import annotations
 
 import traceback
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any
 
-from protocol_tests.statistical import wilson_ci, TrialResult, enhance_report
+from protocol_tests.statistical import TrialResult, enhance_report, wilson_ci
 
 
 def run_with_trials(

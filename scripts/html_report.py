@@ -530,7 +530,7 @@ def generate_html(report_data: dict[str, Any]) -> str:
     if not auroc_data:
         # Compute on the fly if not pre-embedded
         try:
-            from scripts.auroc import compute_all_auroc, auroc_color, auroc_label
+            from scripts.auroc import compute_all_auroc
             auroc_data = compute_all_auroc(report_data)
         except Exception:
             auroc_data = None
@@ -539,7 +539,8 @@ def generate_html(report_data: dict[str, Any]) -> str:
         parts.append("<h2>AUROC — Detection Effectiveness</h2>")
         overall = auroc_data.get("overall", 0.5)
         try:
-            from scripts.auroc import auroc_color as _ac, auroc_label as _al
+            from scripts.auroc import auroc_color as _ac
+            from scripts.auroc import auroc_label as _al
             oc = _ac(overall)
             ol = _al(overall)
         except Exception:

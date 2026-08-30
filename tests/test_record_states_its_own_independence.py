@@ -16,16 +16,15 @@ import pytest
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
+# Use the shipped inference rather than a hand-written scope: a hand-written one
+# drifted from the schema enums the first time this test was run.
 from protocol_tests.attestation import (  # noqa: E402
     EVIDENCE_CLASSES,
     INDEPENDENCE_LEVELS,
+    _infer_scope,  # noqa: E402
     generate_attestation_report,
     validate_attestation_report,
 )
-
-# Use the shipped inference rather than a hand-written scope: a hand-written one
-# drifted from the schema enums the first time this test was run.
-from protocol_tests.attestation import _infer_scope  # noqa: E402
 
 ENTRY = {
     "test_id": "RCL-001", "category": "receipt_claim", "result": "pass",

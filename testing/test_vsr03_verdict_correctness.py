@@ -18,8 +18,8 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from protocol_tests.mcp_harness import _strip_server_sentinels, MCPSecurityTests
-from protocol_tests.l402_harness import _rejected, L402SecurityTests
+from protocol_tests.l402_harness import L402SecurityTests, _rejected
+from protocol_tests.mcp_harness import MCPSecurityTests, _strip_server_sentinels
 
 
 class _FixedTransport:
@@ -643,8 +643,11 @@ class TestIdentityInformationalVerdicts(unittest.TestCase):
 
     def test_informational_excluded_from_both_counts(self):
         """Excluded from passed AND failed, not shuffled from one into the other."""
+        import json
+        import os
+        import tempfile
+
         from protocol_tests.identity_harness import generate_report
-        import json, tempfile, os
         results = [self._result(test_id="A", passed=True),
                    self._result(test_id="B", passed=False),
                    self._result(test_id="C", informational=True)]

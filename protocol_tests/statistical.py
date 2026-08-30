@@ -19,10 +19,10 @@ from __future__ import annotations
 
 import json
 import math
-import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any
 
 
 def wilson_ci(successes: int, trials: int, z: float = 1.96) -> tuple[float, float]:
@@ -51,7 +51,7 @@ def wilson_ci(successes: int, trials: int, z: float = 1.96) -> tuple[float, floa
 
     denominator = 1 + z2 / n
     center = (p_hat + z2 / (2 * n)) / denominator
-    spread = z * math.sqrt((p_hat * (1 - p_hat) / n + z2 / (4 * n * n))) / denominator
+    spread = z * math.sqrt(p_hat * (1 - p_hat) / n + z2 / (4 * n * n)) / denominator
 
     lower = max(0.0, center - spread)
     upper = min(1.0, center + spread)
@@ -172,7 +172,6 @@ def enhance_report(report: dict, trial_results: list[TrialResult] | None = None)
     - NIST AI 800-2 compliance metadata
     """
     import subprocess
-    import os
 
     # Add git commit hash
     try:

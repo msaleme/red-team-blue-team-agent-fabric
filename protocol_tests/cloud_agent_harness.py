@@ -42,16 +42,18 @@ import argparse
 import json
 import sys
 import time
+import urllib.request
 import uuid
-
-from protocol_tests.http_helpers import (
-    INCONCLUSIVE_PREFIX, refused, silence_detail, silence_evidence)
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Any
-import urllib.request
 
+from protocol_tests.http_helpers import (
+    INCONCLUSIVE_PREFIX,
+    refused,
+    silence_detail,
+    silence_evidence,
+)
 
 # ---------------------------------------------------------------------------
 # Test result model
@@ -1015,7 +1017,7 @@ def main():
         platforms_to_test = list(PLATFORMS.keys())
 
     print(f"\n{'='*60}")
-    print(f"Cloud Agent Platform Security Tests")
+    print("Cloud Agent Platform Security Tests")
     print(f"{'='*60}")
     mode = "SIMULATION" if args.simulate else f"LIVE ({args.url})"
     print(f"Mode: {mode}")

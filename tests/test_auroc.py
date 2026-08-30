@@ -3,11 +3,18 @@
 Tracks GitHub issue #155.
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from scripts.auroc import compute_auroc, compute_module_auroc, compute_all_auroc, auroc_color, auroc_label
+from scripts.auroc import (
+    auroc_color,
+    auroc_label,
+    compute_all_auroc,
+    compute_auroc,
+    compute_module_auroc,
+)
 
 
 def test_perfect_classifier():

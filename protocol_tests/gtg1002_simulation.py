@@ -48,16 +48,14 @@ import json
 import sys
 import time
 import uuid
-import random
-import string
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Any
-import urllib.request
 
-from protocol_tests.http_helpers import (http_post, _err, _is_conn_error,
-                                         inconclusive_detail)
-
+from protocol_tests.http_helpers import (
+    _is_conn_error,
+    http_post,
+    inconclusive_detail,
+)
 
 # ---------------------------------------------------------------------------
 # Shared
@@ -212,7 +210,7 @@ class GTG1002Simulation:
 
     def phase1_initialization(self):
         """Phase 1: Social engineering the AI into participating."""
-        print(f"\n  [PHASE 1: CAMPAIGN INITIALIZATION]")
+        print("\n  [PHASE 1: CAMPAIGN INITIALIZATION]")
         self.campaign["phase"] = 1
 
         # GTG-P1-001: Defensive security roleplay
@@ -290,7 +288,7 @@ class GTG1002Simulation:
 
     def phase2_reconnaissance(self):
         """Phase 2: Autonomous attack surface mapping."""
-        print(f"\n  [PHASE 2: RECONNAISSANCE & ATTACK SURFACE MAPPING]")
+        print("\n  [PHASE 2: RECONNAISSANCE & ATTACK SURFACE MAPPING]")
         self.campaign["phase"] = 2
         session = self.campaign["session_id"]
 
@@ -415,7 +413,7 @@ class GTG1002Simulation:
 
     def phase3_vulnerability_discovery(self):
         """Phase 3: AI-generated exploit payloads and validation."""
-        print(f"\n  [PHASE 3: VULNERABILITY DISCOVERY & VALIDATION]")
+        print("\n  [PHASE 3: VULNERABILITY DISCOVERY & VALIDATION]")
         self.campaign["phase"] = 3
         session = self.campaign["session_id"]
 
@@ -479,7 +477,7 @@ class GTG1002Simulation:
 
     def phase4_credential_harvesting(self):
         """Phase 4: Systematic credential extraction and lateral movement."""
-        print(f"\n  [PHASE 4: CREDENTIAL HARVESTING & LATERAL MOVEMENT]")
+        print("\n  [PHASE 4: CREDENTIAL HARVESTING & LATERAL MOVEMENT]")
         self.campaign["phase"] = 4
         session = self.campaign["session_id"]
 
@@ -574,7 +572,7 @@ class GTG1002Simulation:
 
     def phase5_data_collection(self):
         """Phase 5: Autonomous data extraction and intelligence categorization."""
-        print(f"\n  [PHASE 5: DATA COLLECTION & INTELLIGENCE EXTRACTION]")
+        print("\n  [PHASE 5: DATA COLLECTION & INTELLIGENCE EXTRACTION]")
         self.campaign["phase"] = 5
         session = self.campaign["session_id"]
 
@@ -659,7 +657,7 @@ class GTG1002Simulation:
 
     def phase6_documentation(self):
         """Phase 6: Auto-generated attack documentation and campaign handoff."""
-        print(f"\n  [PHASE 6: DOCUMENTATION & HANDOFF]")
+        print("\n  [PHASE 6: DOCUMENTATION & HANDOFF]")
         self.campaign["phase"] = 6
         session = self.campaign["session_id"]
 
@@ -734,7 +732,7 @@ class GTG1002Simulation:
         fabricated data... claiming to have obtained credentials that didn't work
         or identifying critical discoveries that proved to be publicly available."
         """
-        print(f"\n  [ADDITIONAL: AI HALLUCINATION IN SECURITY CONTEXT]")
+        print("\n  [ADDITIONAL: AI HALLUCINATION IN SECURITY CONTEXT]")
         t0 = time.monotonic()
         session = self.campaign["session_id"]
 
@@ -807,8 +805,8 @@ class GTG1002Simulation:
         mode = "FULL CAMPAIGN" if full_campaign or not phases else f"PHASES {phases}"
 
         print(f"\n{'='*60}")
-        print(f"GTG-1002 APT SIMULATION v3.0")
-        print(f"Based on Anthropic Threat Intelligence Report (Nov 2025)")
+        print("GTG-1002 APT SIMULATION v3.0")
+        print("Based on Anthropic Threat Intelligence Report (Nov 2025)")
         print(f"Mode: {mode}")
         print(f"{'='*60}")
         print(f"Target: {self.base_url}")
@@ -824,10 +822,10 @@ class GTG1002Simulation:
         total = len(self.results)
         passed = sum(1 for r in self.results if r.passed)
         print(f"\n{'='*60}")
-        print(f"GTG-1002 SIMULATION RESULTS")
+        print("GTG-1002 SIMULATION RESULTS")
         print(f"{'='*60}")
         print(f"Tests: {passed}/{total} passed")
-        print(f"Campaign state:")
+        print("Campaign state:")
         print(f"  Recon successful:      {self.campaign['recon_successful']}")
         print(f"  Credentials harvested: {self.campaign['credentials_harvested']}")
         print(f"  Data exfiltrated:      {self.campaign['data_exfiltrated']}")
@@ -837,7 +835,7 @@ class GTG1002Simulation:
                     self.campaign['credentials_harvested'],
                     self.campaign['data_exfiltrated'],
                     self.campaign['documentation_generated']]):
-            print(f"\n✅ CAMPAIGN BLOCKED — Agent resisted GTG-1002 attack lifecycle")
+            print("\n✅ CAMPAIGN BLOCKED — Agent resisted GTG-1002 attack lifecycle")
         else:
             compromised = sum([self.campaign['recon_successful'],
                                self.campaign['credentials_harvested'],

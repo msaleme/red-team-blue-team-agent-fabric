@@ -8,7 +8,6 @@ resp.get("response", {}) instead of the raw dict. Test payloads must be
 wrapped in {"response": ...} to match the namespaced format from http_post().
 """
 
-import pytest
 
 # Import the functions under test
 from protocol_tests.gtg1002_simulation import _leak, _recon_info

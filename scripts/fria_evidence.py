@@ -18,11 +18,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from datetime import datetime, timezone
 from typing import Any
-
 
 # FRIA categories per EU AI Act Article 27
 FRIA_CATEGORIES = {

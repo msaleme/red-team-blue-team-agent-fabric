@@ -9,11 +9,11 @@ import threading
 import urllib.request
 
 from protocol_tests.x402_merchant import (
+    MockFacilitator,
     PaymentRequirements,
     SyntheticMerchant,
-    MockFacilitator,
-    parse_x_payment,
     encode_x_payment,
+    parse_x_payment,
     serve,
 )
 

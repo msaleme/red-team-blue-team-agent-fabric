@@ -3,11 +3,16 @@
 Tracks GitHub issue #158.
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from scripts.fria_evidence import generate_fria_evidence, fria_narrative_report, FRIA_CATEGORIES
+from scripts.fria_evidence import (
+    FRIA_CATEGORIES,
+    fria_narrative_report,
+    generate_fria_evidence,
+)
 
 
 def test_all_categories_present():

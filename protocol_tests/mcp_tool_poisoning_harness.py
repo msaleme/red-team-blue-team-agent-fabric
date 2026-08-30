@@ -81,15 +81,14 @@ import json
 import re
 import sys
 import time
+import urllib.error
+import urllib.request
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
-import urllib.error
-import urllib.request
 
 from protocol_tests.http_helpers import silence_detail, silence_evidence
-
 
 # ---------------------------------------------------------------------------
 # Severity levels
@@ -1543,9 +1542,9 @@ class MCPToolPoisoningTests:
         ]
 
         print(f"\n{'='*60}")
-        print(f"MCP Tool Poisoning Reproduction Suite")
-        print(f"Invariant Labs Tool Poisoning (2025) + ClawHub RFC #99")
-        print(f"CVE-009/010: OpenClaw CVE-2026-35625 / CVE-2026-35629")
+        print("MCP Tool Poisoning Reproduction Suite")
+        print("Invariant Labs Tool Poisoning (2025) + ClawHub RFC #99")
+        print("CVE-009/010: OpenClaw CVE-2026-35625 / CVE-2026-35629")
         print(f"{'='*60}")
         mode = "SIMULATION" if self.simulate else f"LIVE ({self.url or self.registry_url})"
         print(f"Mode: {mode}")

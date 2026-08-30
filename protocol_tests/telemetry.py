@@ -9,7 +9,12 @@ This module is intentionally small (<100 lines) so you can audit it in 2 minutes
 Source: https://github.com/msaleme/red-team-blue-team-agent-fabric/blob/main/protocol_tests/telemetry.py
 """
 from __future__ import annotations
-import json, os, platform, sys, threading
+
+import json
+import os
+import platform
+import sys
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen

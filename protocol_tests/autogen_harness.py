@@ -32,19 +32,18 @@ Requires: Python 3.10+, no external dependencies.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import hmac
 import json
 import sys
 import time
+import urllib.request
 import uuid
-import hashlib
-import hmac
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any
-import urllib.request
 
 from protocol_tests.http_helpers import inconclusive_detail
-
 
 # ---------------------------------------------------------------------------
 # Shared
@@ -699,7 +698,7 @@ def main() -> None:
         }
 
     print(f"\n{'='*60}")
-    print(f"AUTOGEN SECURITY TESTS COMPLETE")
+    print("AUTOGEN SECURITY TESTS COMPLETE")
     s = report["summary"]
     print(f"Total: {s['total']}  Passed: {s['passed']}  Failed: {s['failed']}")
     print(f"{'='*60}")

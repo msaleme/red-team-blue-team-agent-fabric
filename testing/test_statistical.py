@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 """Unit tests for protocol_tests.statistical module."""
-import os, sys, tempfile, unittest
+import os
+import sys
+import tempfile
+import unittest
 from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from protocol_tests.statistical import (
-    wilson_ci, bootstrap_ci, run_with_trials,
-    TrialResult, enhance_report, generate_statistical_report,
+    TrialResult,
+    bootstrap_ci,
+    enhance_report,
+    generate_statistical_report,
+    run_with_trials,
+    wilson_ci,
 )
 
 

@@ -48,9 +48,12 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 
-from protocol_tests._utils import Severity, wilson_ci, http_post_json, jsonrpc_request
+from protocol_tests._utils import Severity, http_post_json, jsonrpc_request, wilson_ci
 from protocol_tests.http_helpers import (
-    INCONCLUSIVE_PREFIX, silence_detail, silence_evidence)
+    INCONCLUSIVE_PREFIX,
+    silence_detail,
+    silence_evidence,
+)
 
 _CODE_EXEC_CALLER = "code_execution_20250825"
 
@@ -738,8 +741,8 @@ class PTCTests:
         print("Sandboxed code-execution attack surface")
         print(f"{'=' * 60}")
         print(f"Mode:    {mode_label}")
-        print(f"Context: Claude Cookbook tool-use-programmatic-tool-calling-ptc pattern —")
-        print(f"         tool results stay in-sandbox, only the aggregate reaches the model.")
+        print("Context: Claude Cookbook tool-use-programmatic-tool-calling-ptc pattern —")
+        print("         tool results stay in-sandbox, only the aggregate reaches the model.")
 
         for category, tests in test_map.items():
             print(f"\n[{category.upper()}]")

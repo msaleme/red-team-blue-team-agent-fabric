@@ -61,15 +61,12 @@ import json
 import re
 import sys
 import time
-import uuid
+import urllib.request
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
-import urllib.request
 
 from protocol_tests.http_helpers import silence_detail, silence_evidence
-
 
 # ---------------------------------------------------------------------------
 # Severity levels
@@ -1169,8 +1166,8 @@ class CrewAICVETests:
         ]
 
         print(f"\n{'='*60}")
-        print(f"CrewAI CVE Reproduction Suite")
-        print(f"CVE-2026-2275 / 2285 / 2286 / 2287 | VU#221883")
+        print("CrewAI CVE Reproduction Suite")
+        print("CVE-2026-2275 / 2285 / 2286 / 2287 | VU#221883")
         print(f"{'='*60}")
         mode = "SIMULATION" if self.simulate else f"LIVE ({self.url})"
         print(f"Mode: {mode}")

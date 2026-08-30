@@ -21,16 +21,15 @@ Usage:
 
 from __future__ import annotations
 
+import importlib
+import importlib.util  # `importlib` alone does not expose .util
 import json as _json
 import os
 import re
 import sys
-import importlib
-import importlib.util  # `importlib` alone does not expose .util
 from datetime import datetime, timezone
 
 from protocol_tests.version import get_harness_version
-
 
 # Single source of truth: pyproject.toml (via version.py), never hardcoded (issue #5)
 VERSION = get_harness_version()
@@ -141,7 +140,7 @@ def _simulate_harness(harness_name: str, info: dict,
         print(f"{'=' * 60}")
         print(f"SIMULATION: {harness_name.upper()} — {info['description']}")
         print(f"{'=' * 60}")
-        print(f"Mode: SIMULATION (no live target)")
+        print("Mode: SIMULATION (no live target)")
         print(f"Tests: {len(results)}")
         print()
         for r in results:
@@ -463,10 +462,10 @@ def main():
         print(f"agent-security-harness v{VERSION}")
         print(f"Tests: {_total_tests()} across {_test_bearing_modules()} test-bearing "
               f"modules ({len(HARNESSES)} registered harnesses)")
-        print(f"Protocols: MCP (JSON-RPC 2.0), A2A, L402, x402")
-        print(f"Platforms: 25 cloud + 20 enterprise adapters")
-        print(f"Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF, AIUC-1")
-        print(f"Research:  https://doi.org/10.5281/zenodo.19162104")
+        print("Protocols: MCP (JSON-RPC 2.0), A2A, L402, x402")
+        print("Platforms: 25 cloud + 20 enterprise adapters")
+        print("Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF, AIUC-1")
+        print("Research:  https://doi.org/10.5281/zenodo.19162104")
         sys.exit(0)
 
     if args[0] == "list":
@@ -506,8 +505,8 @@ def main():
     if args[0] == "config":
         # Handle config subcommands (e.g. --no-telemetry)
         if "--no-telemetry" in args:
-            from pathlib import Path
             import json as _json
+            from pathlib import Path
             cfg_dir = Path.home() / ".agent-security"
             cfg_dir.mkdir(parents=True, exist_ok=True)
             cfg_file = cfg_dir / "telemetry.json"
@@ -515,8 +514,8 @@ def main():
             print("Telemetry disabled. Config written to ~/.agent-security/telemetry.json")
             sys.exit(0)
         elif "--telemetry" in args:
-            from pathlib import Path
             import json as _json
+            from pathlib import Path
             cfg_dir = Path.home() / ".agent-security"
             cfg_dir.mkdir(parents=True, exist_ok=True)
             cfg_file = cfg_dir / "telemetry.json"
@@ -569,6 +568,7 @@ def main():
         ver_args = ver_parser.parse_args(args[1:])
 
         import json as _json
+
         from protocol_tests.attestation_registry import verify_attestation
         try:
             result = verify_attestation(ver_args.registry_id)

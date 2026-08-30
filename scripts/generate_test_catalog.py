@@ -23,18 +23,17 @@ import argparse
 import re
 import subprocess
 import sys
-from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from count_tests import (  # noqa: E402
+    _ERR_SUFFIX,
     ARG_ID_RE,
     EXCLUDE_IDS,
     HARNESS_DIR,
     MODULE_NAMES,
     TEST_ID_RE,
-    _ERR_SUFFIX,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -44,12 +43,12 @@ CORPUS_FILE = REPO_ROOT / "benchmarks" / "decision_behavior_corpus.py"
 # name= appearing in the same constructor call as test_id=
 _ID_THEN_NAME = re.compile(
     r'test_id\s*=\s*["\']([^"\']+)["\'][^)]*?name\s*=\s*["\']([^"\']+)["\']',
-    re.S,
+    re.DOTALL,
 )
 # name= appearing before test_id= in the same call
 _NAME_THEN_ID = re.compile(
     r'name\s*=\s*["\']([^"\']+)["\'][^)]*?test_id\s*=\s*["\']([^"\']+)["\']',
-    re.S,
+    re.DOTALL,
 )
 # Docstring form:  """SS-002: Permission Declaration Validation (HIGH, category: x)
 _DOCSTRING = re.compile(
@@ -228,7 +227,7 @@ def main() -> int:
         current = args.out.read_text(encoding="utf-8")
         # Compare test lines only; the commit stamp legitimately changes every commit.
         def ids_in(t: str) -> set[str]:
-            return set(re.findall(r"^([A-Z][A-Z0-9]*(?:-[A-Z0-9]+[a-z]?)+) \|", t, re.M))
+            return set(re.findall(r"^([A-Z][A-Z0-9]*(?:-[A-Z0-9]+[a-z]?)+) \|", t, re.MULTILINE))
         have, want = ids_in(current), ids_in(content)
         if have != want:
             missing, extra = sorted(want - have), sorted(have - want)

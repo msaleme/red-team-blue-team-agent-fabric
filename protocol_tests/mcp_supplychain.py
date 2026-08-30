@@ -457,7 +457,7 @@ class MCPSupplyChainTests:
             name = s.get("package_name")
             if not name:
                 continue
-            internal_looking = bool(re.search(r"internal|corp|private|intra", name, re.I)) \
+            internal_looking = bool(re.search(r"internal|corp|private|intra", name, re.IGNORECASE)) \
                 or (not name.startswith("@") and name.count("-") >= 2)
             public = self._npm_public(name)
             details_lines.append(
