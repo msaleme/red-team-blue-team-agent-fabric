@@ -15,12 +15,13 @@
 
 This harness sends adversarial traffic at a live endpoint, records what the target actually
 serviced, and reports PASS, FAIL or **INCONCLUSIVE**. It will not convert a request the target
-never answered — or a capability the target never exposed — into evidence that a control held.
+never answered — or a capability the target never exposed, or an answer that establishes
+nothing either way — into evidence that a control held.
 That distinction is enforced by `testing/test_serviced_guard.py` and
 `testing/test_x402_capability_controls.py` rather than asserted here, and the repairs that put
 it there are in [CHANGELOG.md](CHANGELOG.md).
 
-### How that is checked: three target shapes
+### How that is checked: four target shapes
 
 A verdict is only worth what it does when the target changes. Three scripts point every
 suite at a sentinel that differs only in how it answers, and three state files under
@@ -31,6 +32,12 @@ python3 scripts/dead_host_sweep.py        # a closed port: nothing answers
 python3 scripts/permissive_host_sweep.py  # HTTP 200, grants everything
 python3 scripts/refusing_host_sweep.py    # HTTP 403, refuses everything
 ```
+
+The fourth shape is a **live agent** rather than a transport, and it is asserted in
+`testing/test_refusal_establishes_a_pass.py` rather than run as a script: one agent that
+complies with every request without using an indicator word, and one that declines in plain
+prose. A prose-graded module must pass **nothing** against the first and **something** against
+the second. Those two assertions are what v4.17.0 repaired eight modules against.
 
 The first two ask whether a verdict can be **wrong**: a PASS against either is a control
 reported as holding when it was never exercised. The third asks whether a verdict can be
@@ -50,7 +57,7 @@ harness already expected.
 
 ```
 $ agent-security test mcp --url http://localhost:8080/mcp
-Running MCP Protocol Security Tests v4.16.0...
+Running MCP Protocol Security Tests v4.17.0...
  MCP-001: Tool List Integrity Check [PASS] (0.234s)
  MCP-002: Tool Registration via Call Injection [PASS] (0.412s)
  MCP-003: Capability Escalation via Initialize [FAIL] (0.156s)
@@ -62,7 +69,7 @@ Results: 8/10 passed (80% pass rate) - see report.json
 > servicing the request, reports **INCONCLUSIVE** — never PASS. See
 > [v4.13.1](CHANGELOG.md) for why that distinction is enforced rather than assumed.
 
-608 executable security tests across 43 test-bearing modules on `main` (verified 2026-08-29 via `scripts/count_tests.py`; the v4.16.0 release carries 608). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
+608 executable security tests across 43 test-bearing modules on `main` (verified 2026-08-30 via `scripts/count_tests.py`; the v4.17.0 release carries 608). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
 
 If this evidence discipline is useful in your agent-security work, **star this
 repository to follow releases**.
@@ -295,15 +302,15 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 
 ## Roadmap
 
-**Current: v4.16.0** (2026-08-30). Recent shipped work — v4.5 skill supply chain and governance
+**Current: v4.17.0** (2026-08-30). Recent shipped work — v4.5 skill supply chain and governance
 modification · v4.6–v4.9 payment-stack depth (AP2 mandate chain, UCP/ACP merchant journey, card-network
 agentic tokens, settlement finality, Fireblocks x402) · v4.10 benchmark integrity · v4.11–v4.12
 decision-governance corpus currency and provenance repair · **v4.13 OWASP Agentic v1.1 T1–T17 coverage
 mapping and the human-in-the-loop harness** · v4.13.1 a correctness fix to that harness · v4.14.0
-endpoint provenance · **v4.16.0 three target shapes: a verdict must be able to be wrong AND to be right** · v4.15.0 unserviced requests are no longer recorded as passes (see
+endpoint provenance · v4.16.0 three target shapes: a verdict must be able to be wrong AND to be right · **v4.17.0 eight modules could not tell a refusal from a compliance** · v4.15.0 unserviced requests are no longer recorded as passes (see
 [CHANGELOG.md](CHANGELOG.md)).
 
-The release carries **608** tests; `main` is at **608**. They agree at v4.16.0 because the tag was cut
+The release carries **608** tests; `main` is at **608**. They agree at v4.17.0 because the tag was cut
 from `main` with no test added or removed since. They do not always agree: at v4.15.0 the release carried
 603 while `main` was at 608, the difference being MAG-019, MEM-011, MEM-012, X4-056 and X4-057, all
 landing after the tag. Both numbers were correct for their own ref, which is why
