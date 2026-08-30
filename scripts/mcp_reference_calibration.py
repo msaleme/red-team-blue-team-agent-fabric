@@ -103,8 +103,19 @@ def calibrate(command: list[str]) -> dict:
 
     counts = {c: sum(1 for x in rows if x["class"] == c)
               for c in ("PASS", "FAIL", "INCONCLUSIVE")}
+    # Zero results means the MCP session never initialised, which in practice
+    # means the server never started: `npx` exists but the pinned package is not
+    # in the local cache, so `--offline` cannot resolve it. Popen still succeeds,
+    # nothing answers, and run_all returns empty.
+    #
+    # This has to be its own state. The first version of this job only caught an
+    # exception, so on a machine without the cache the caller received
+    # {"PASS": 0, "FAIL": 0, "INCONCLUSIVE": 0} and the state test read it as
+    # "the class split moved" -- turning UNMEASURED into a confident and wrong
+    # failure message. That is the defect this whole job exists to catch, in the
+    # job itself.
     return {"server": REFERENCE_SERVER, "total": len(rows),
-            "counts": counts, "rows": rows}
+            "launched": bool(rows), "counts": counts, "rows": rows}
 
 
 def main() -> int:
@@ -126,6 +137,14 @@ def main() -> int:
         print(f"reference server did not run: {type(exc).__name__}: {exc}",
               file=sys.stderr)
         print("UNMEASURED, not clean. Retry with --network if it is not cached.",
+              file=sys.stderr)
+        return 2
+
+    if not report["launched"]:
+        print(f"{REFERENCE_SERVER} produced no results: the MCP session never "
+              f"initialised, so the server almost certainly did not start.",
+              file=sys.stderr)
+        print("UNMEASURED, not clean. Retry with --network to populate the cache.",
               file=sys.stderr)
         return 2
 
