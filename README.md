@@ -20,6 +20,34 @@ That distinction is enforced by `testing/test_serviced_guard.py` and
 `testing/test_x402_capability_controls.py` rather than asserted here, and the repairs that put
 it there are in [CHANGELOG.md](CHANGELOG.md).
 
+### How that is checked: three target shapes
+
+A verdict is only worth what it does when the target changes. Three scripts point every
+suite at a sentinel that differs only in how it answers, and three state files under
+`testing/` pin what each one claims:
+
+```bash
+python3 scripts/dead_host_sweep.py        # a closed port: nothing answers
+python3 scripts/permissive_host_sweep.py  # HTTP 200, grants everything
+python3 scripts/refusing_host_sweep.py    # HTTP 403, refuses everything
+```
+
+The first two ask whether a verdict can be **wrong**: a PASS against either is a control
+reported as holding when it was never exercised. The third asks whether a verdict can be
+**right**, which the other two cannot see — a suite that cannot pass a target which refuses
+every attack scores zero against all three, and that is what a healthy module looks like from
+the first two poles.
+
+These are diagnostic sentinels, not conformant implementations. A non-zero row is a reading
+list rather than a defect count: it may be correct by construction (`over_refusal_harness`
+asks whether *legitimate* requests are wrongly blocked, so it should pass a target that blocks
+nothing), it may need a marker the generic sentinel does not emit, or it may be a real
+inversion. Only reading the test separates them.
+
+Sentinels are the floor. The first run against a real MCP implementation found two defect
+classes all three had structurally missed, because every sentinel spoke the response idiom the
+harness already expected.
+
 ```
 $ agent-security test mcp --url http://localhost:8080/mcp
 Running MCP Protocol Security Tests v4.15.0...
