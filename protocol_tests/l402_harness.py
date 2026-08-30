@@ -930,7 +930,14 @@ class L402SecurityTests:
         has_rate_limit = n_rate_limited > 0
         all_unique = unique_invoices == len(invoices) if invoices else True
 
-        passed = has_rate_limit or all_unique
+        # `all_unique` defaults to True on an empty list, so a target that
+        # issued no challenge at all -- no 402, no WWW-Authenticate -- passed
+        # while reporting "0/0 unique invoices". Neither disjunct measured
+        # anything: no invoices to collide, and no rate limiting observed.
+        # Uniqueness is a real property where invoices exist. It cannot be
+        # established from none.
+        not_evaluated = not invoices and not has_rate_limit
+        passed = (has_rate_limit or all_unique) and not not_evaluated
 
         self._record(L402TestResult(
             test_id="L4-013",
@@ -939,9 +946,13 @@ class L402SecurityTests:
             owasp_asi="ASI08",
             severity=Severity.MEDIUM.value,
             passed=passed,
+            not_evaluated=not_evaluated,
             details=(f"{n_requests} requests in {elapsed:.1f}s: "
                      f"{n_402} got 402, {n_rate_limited} rate-limited, "
-                     f"{unique_invoices}/{len(invoices)} unique invoices"),
+                     f"{unique_invoices}/{len(invoices)} unique invoices"
+                     + ("; the target issued no invoices and rate-limited "
+                        "nothing, so neither property was observed"
+                        if not_evaluated else "")),
             http_method="GET",
             request_sent={"n_requests": n_requests},
             response_received={"n_402": n_402, "n_rate_limited": n_rate_limited,
@@ -985,7 +996,10 @@ class L402SecurityTests:
         all_unique = unique_invoices == len(invoices) if invoices else True
         n_rate_limited = sum(1 for s in statuses if s == 429)
 
-        passed = all_unique or n_rate_limited > 0
+        # Same shape as L4-013: `all_unique` is True for an empty list, so a
+        # target that issued no challenge passed on a population of zero.
+        not_evaluated = not invoices and n_rate_limited == 0
+        passed = (all_unique or n_rate_limited > 0) and not not_evaluated
 
         self._record(L402TestResult(
             test_id="L4-014",
@@ -994,9 +1008,13 @@ class L402SecurityTests:
             owasp_asi="ASI08",
             severity=Severity.MEDIUM.value,
             passed=passed,
+            not_evaluated=not_evaluated,
             details=(f"{n_workers} concurrent requests: "
                      f"{unique_invoices}/{len(invoices)} unique invoices, "
-                     f"{n_rate_limited} rate-limited"),
+                     f"{n_rate_limited} rate-limited"
+                     + ("; the target issued no invoices and rate-limited "
+                        "nothing, so neither property was observed"
+                        if not_evaluated else "")),
             http_method="GET",
             request_sent={"n_concurrent": n_workers},
             response_received={"unique_invoices": unique_invoices, "total_invoices": len(invoices),
@@ -1719,19 +1737,34 @@ class L402SecurityTests:
             ("repeated_colons", "L402 " + "mac:pre:" * 100000),
         ]
 
+        # `status != 200 or not resp.get("_error")` was false only when a
+        # response was BOTH a 200 and a transport error, which the transport
+        # cannot produce: it sets `_error` on a failed request, and a failed
+        # request carries status 0, never 200. The except-branch incremented
+        # `handled` as well. Measured across five target shapes -- dead,
+        # permissive, refusing, leaking and always-500 -- the verdict was a
+        # constant PASS. A DoS-resilience check that cannot be wrong is not
+        # evidence of resilience.
+        #
+        # `_rejected` is this module's own answer and already carries the
+        # reasoning (VS-R03 B1): a 5xx is not a rejection, it may be the
+        # oversized payload faulting the parser, which is the attack landing.
         handled = 0
+        observed = 0
         for label, auth_value in large_variants:
             try:
                 resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_value}, timeout=10.0)
-                status = resp.get("status", 0)
-                # Any non-200 response or clean error is fine
-                if status != 200 or not resp.get("_error"):
-                    handled += 1
             except Exception:
-                handled += 1  # Exception means server didn't crash silently
+                # The request did not complete, so nothing was observed about
+                # how the server handles it. Not a graceful rejection.
+                continue
+            observed += 1
+            if _rejected(resp):
+                handled += 1
 
         elapsed = time.monotonic() - t0
-        passed = handled == len(large_variants)
+        not_evaluated = observed == 0
+        passed = (not not_evaluated) and handled == len(large_variants)
 
         self._record(L402TestResult(
             test_id="L4-029",
@@ -1740,7 +1773,13 @@ class L402SecurityTests:
             owasp_asi="ASI08",
             severity=Severity.MEDIUM.value,
             passed=passed,
-            details=f"{handled}/{len(large_variants)} oversized payloads handled gracefully",
+            not_evaluated=not_evaluated,
+            details=(f"none of {len(large_variants)} oversized payloads produced an "
+                     f"observed response, so resilience was not measured"
+                     if not_evaluated else
+                     f"{handled}/{observed} oversized payloads actively rejected "
+                     f"(4xx, not a 5xx parser fault); {len(large_variants) - observed} "
+                     f"never completed"),
             http_method="GET",
             request_sent={"variants": [label for label, _ in large_variants]},
             elapsed_s=round(elapsed, 3),
