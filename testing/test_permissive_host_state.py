@@ -102,11 +102,19 @@ sharpest printed its own contradiction:
 leak counted as neither. The module computed `blocked_count` and did not read it.
 A pass now needs all six actually refused.
 
-**One row is correct and stays.** MCP-009 sends a 1000-message batch and passes
-if the server stays responsive; "Server responded in 0.0s" against a target that
-answers fast is an honest report of a real property, not a control inferred from
-an absence. It is the first row of the sweep to land in category 1, which is
-what that category was written for.
+**One row was kept as correct, and that was wrong.** MCP-009 was described here
+as the sweep's first genuine category-1 pass: a batch-DoS check whose
+"Server responded in 0.0s" reported a real property. An independent review on
+2026-08-30 showed it discarded the transport's return entirely and computed
+`passed = elapsed < 10.0`, so a transport answering nothing produced a PASS with
+`response_received=None`. It passed the permissive sentinel for a plausible
+reason and would have passed silence identically.
+
+The correct-by-construction category is real, and `over_refusal_harness` is its
+example: that module asks whether a LEGITIMATE request was wrongly blocked, so a
+target blocking nothing should pass all 25. MCP-009 was not a second example, it
+was a false pass wearing one, and it is the reason this file argues for reading
+the test rather than trusting the row.
 
 Verified against a third target shape, a well-behaved MCP server that lists two
 clean tools and refuses resource reads: 12 of 32 pass, including

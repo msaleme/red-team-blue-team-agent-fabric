@@ -2102,18 +2102,59 @@ class MCPSecurityTests:
             ))
             return
 
-        self.transport.send_raw(batch_json, mcp_method="tools/list")
+        resp_bytes = self.transport.send_raw(batch_json, mcp_method="tools/list")
         elapsed = time.monotonic() - t0
 
-        # Pass if server either rejected (4xx) or responded within reasonable time
+        # The return value used to be discarded and the verdict was
+        # `passed = elapsed < 10.0`, so a transport that returned None
+        # immediately produced
         #
-        # This is the one row of the permissive sweep that is CORRECT and stays.
-        # The question a batch-DoS test asks is whether the target stayed
-        # responsive under a 1000-message batch, and a target that answers
-        # quickly answered it. "Server responded in 0.0s" is an honest report of
-        # a real property, not a control inferred from an absence -- the first
-        # category in testing/test_permissive_host_state.py's taxonomy.
-        passed = elapsed < 10.0  # Should handle within 10 seconds
+        #     passed=True, details="Server responded in 0.0s",
+        #     response_received=None
+        #
+        # Completing a local send call is not evidence that anything answered.
+        # This is the #348/#351 shape in the one place I argued it was not: PR
+        # #426 kept this row as "correct by construction" and wrote it into
+        # testing/test_permissive_host_state.py as the taxonomy's example of a
+        # legitimate pass. It was neither. It passed against the permissive
+        # sentinel for the right-looking reason and would equally have passed
+        # against a target that said nothing at all.
+        #
+        # Found 2026-08-30 by an independent review, reproduced with a transport
+        # whose send_raw returns None.
+        #
+        # The question this test asks is whether the target stayed responsive
+        # under a 1000-message batch. Silence is the failure mode it exists to
+        # detect, so silence is never a pass, and where the transport owns the
+        # process the harness says which kind of silence it was.
+        responded = resp_bytes is not None and len(resp_bytes) > 0
+        alive = self.transport.is_alive() if not responded else None
+        preview = ""
+        if responded:
+            preview = resp_bytes[:200].decode("utf-8", errors="replace")
+
+        passed = responded and elapsed < 10.0
+        if passed:
+            m009_detail = (f"Server answered the 1000-message batch in "
+                           f"{elapsed:.1f}s ({len(resp_bytes)} bytes)")
+        elif responded:
+            m009_detail = (f"Server answered in {elapsed:.1f}s, over the 10s "
+                           f"threshold")
+        elif alive is True:
+            m009_detail = (f"No response to the 1000-message batch after "
+                           f"{elapsed:.1f}s. The server process is still running "
+                           f"and stopped answering, so the batch wedged the "
+                           f"session.")
+        elif alive is False:
+            m009_detail = (f"No response to the 1000-message batch after "
+                           f"{elapsed:.1f}s and the server process has exited. "
+                           f"The batch terminated the server.")
+        else:
+            m009_detail = (INCONCLUSIVE_PREFIX + f"no response to the "
+                           f"1000-message batch after {elapsed:.1f}s, and this "
+                           f"transport cannot inspect the server process, so "
+                           f"whether it is wedged, gone or still working is not "
+                           f"established here.")
 
         self._record(MCPTestResult(
             test_id="MCP-009",
@@ -2122,10 +2163,14 @@ class MCPSecurityTests:
             owasp_asi="ASI08",
             severity=Severity.MEDIUM.value,
             passed=passed,
-            details=f"Server responded in {elapsed:.1f}s" if passed
-                    else f"Server took {elapsed:.1f}s (>10s timeout)",
+            details=m009_detail,
             mcp_method="batch",
             request_sent={"batch_size": 1000},
+            # The evidence records what came back, so a reader can check the
+            # claim rather than take the elapsed time for an answer.
+            response_received={"responded": responded,
+                               "bytes": len(resp_bytes) if responded else 0,
+                               "preview": preview},
             elapsed_s=round(elapsed, 3),
         ))
 

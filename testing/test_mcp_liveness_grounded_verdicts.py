@@ -106,6 +106,84 @@ class TestOversizedBodyReportsWhatWasObserved(unittest.TestCase):
                 self.assertFalse(_run(alive, self.METHOD).passed)
 
 
+class TestBatchDosRequiresAnObservedResponse(unittest.TestCase):
+    """MCP-009 computed a verdict from elapsed time and ignored what came back.
+
+        resp = self.transport.send_raw(batch_json, mcp_method="tools/list")
+        passed = elapsed < 10.0
+        details = f"Server responded in {elapsed:.1f}s"
+
+    The return was discarded, so a transport answering nothing produced
+
+        passed=True, details="Server responded in 0.0s", response_received=None
+
+    Completing a local send call is not evidence that anything answered.
+
+    This one is worth the extra words because of how it survived. PR #426 read
+    every row of the permissive sweep, kept this one deliberately, wrote a
+    comment into the source calling it "the one row that is CORRECT and stays",
+    and cited it in testing/test_permissive_host_state.py as the taxonomy's
+    example of a legitimate pass. The reasoning was that a batch-DoS test asks
+    whether the target stayed responsive, and a fast answer is a real property.
+    That is true of a fast ANSWER and the test never checked for one.
+
+    It passed the permissive sentinel for a plausible-looking reason, which is
+    exactly the case the sweep cannot separate from a real pass on its own. An
+    independent review found it by reading the source. Silence is the failure
+    mode a DoS test exists to detect, so silence is never a pass here.
+    """
+
+    METHOD = "test_mcp_batch_bomb"
+
+    @staticmethod
+    def _run(resp, alive=None):
+        class _T(MCPTransport):
+            def is_alive(self_inner): return alive
+            def send(self_inner, m, **k): return None
+            def send_raw(self_inner, raw, mcp_method=None, **k): return resp
+        suite = MCPSecurityTests(_T(), json_output=True)
+        with contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()):
+            getattr(suite, "test_mcp_batch_bomb")()
+        return suite.results[0]
+
+    def test_positive_control_a_timely_answer_passes(self):
+        r = self._run(b'{"jsonrpc":"2.0","id":1,"result":{}}')
+        self.assertTrue(r.passed, r.details)
+        self.assertIn("answered", r.details)
+
+    def test_negative_control_immediate_silence_is_never_a_pass(self):
+        """The regression. This returned PASS with response_received=None."""
+        for alive in (True, False, None):
+            with self.subTest(alive=alive):
+                r = self._run(None, alive)
+                self.assertFalse(
+                    r.passed,
+                    f"silence produced a PASS: {r.details!r}")
+                self.assertNotIn("Server responded", r.details)
+
+    def test_an_empty_response_is_not_a_response(self):
+        self.assertFalse(self._run(b"").passed)
+
+    def test_silence_says_which_kind_it_was(self):
+        self.assertIn("wedged", self._run(None, True).details)
+        self.assertIn("exited", self._run(None, False).details)
+        self.assertIn("cannot inspect", self._run(None, None).details)
+
+    def test_the_evidence_records_what_came_back(self):
+        """The detail claimed a response; the evidence recorded None.
+
+        A reader could not check the claim against the result. Both directions
+        are now recorded, so the row can be audited without rerunning it.
+        """
+        answered = self._run(b'{"jsonrpc":"2.0","id":1,"result":{}}')
+        self.assertTrue(answered.response_received["responded"])
+        self.assertGreater(answered.response_received["bytes"], 0)
+        silent = self._run(None)
+        self.assertFalse(silent.response_received["responded"])
+        self.assertEqual(silent.response_received["bytes"], 0)
+
+
 class TestMalformedHandlingSeparatesIgnoredFromDead(unittest.TestCase):
     METHOD = "test_mcp_malformed_jsonrpc"
 
