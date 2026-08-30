@@ -52,7 +52,7 @@ framework:
 assessment:
   project: Agent Security Harness
   repository: https://github.com/msaleme/red-team-blue-team-agent-fabric
-  harness_version: 4.15.0
+  harness_version: 4.16.0
   git_commit: 19dbfb871d1379a42bbfa22fa06bb2edda58a2c0
   assessed_at: '2026-08-02T18:30:00Z'
   reverified_at: '2026-08-03T01:05:00Z'
@@ -94,6 +94,18 @@ assessment:
       or extended_enterprise_adapters against an unresponsive target reported more
       passes than it measured. commit and assessed_at are deliberately unchanged from
       1.1.
+  - report: '1.4'
+    commit: 19dbfb871d1379a42bbfa22fa06bb2edda58a2c0
+    harness: 4.16.0
+    date: '2026-08-29'
+    change: Re-pinned to the v4.16.0 release. No threat, scenario or control
+      verdict changed, and no test was added or removed. Like 4.15.0, this release
+      changes runtime behaviour, and in both directions. More verdicts report
+      INCONCLUSIVE, and some that previously reported FAIL now report PASS because
+      ten modules could not recognise a target visibly refusing an attack. This
+      mapping adjudicates coverage rather than run output, so its verdicts are
+      unaffected and were not redone. Stated plainly for readers who rely on run
+      output instead. commit and assessed_at are deliberately unchanged from 1.1.
 
   total_repository_tests: 608
   total_tests_command: python scripts/count_tests.py

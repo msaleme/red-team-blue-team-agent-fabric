@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.16.0] - 2026-08-29
+
 ### Changed — expect results to move in BOTH directions
 
 Two kinds of verdict change, and the second is new. **More results will report

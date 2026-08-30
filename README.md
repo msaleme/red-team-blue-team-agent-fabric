@@ -50,7 +50,7 @@ harness already expected.
 
 ```
 $ agent-security test mcp --url http://localhost:8080/mcp
-Running MCP Protocol Security Tests v4.15.0...
+Running MCP Protocol Security Tests v4.16.0...
  MCP-001: Tool List Integrity Check [PASS] (0.234s)
  MCP-002: Tool Registration via Call Injection [PASS] (0.412s)
  MCP-003: Capability Escalation via Initialize [FAIL] (0.156s)
@@ -295,12 +295,12 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 
 ## Roadmap
 
-**Current: v4.15.0** (2026-08-07). Recent shipped work — v4.5 skill supply chain and governance
+**Current: v4.16.0** (2026-08-29). Recent shipped work — v4.5 skill supply chain and governance
 modification · v4.6–v4.9 payment-stack depth (AP2 mandate chain, UCP/ACP merchant journey, card-network
 agentic tokens, settlement finality, Fireblocks x402) · v4.10 benchmark integrity · v4.11–v4.12
 decision-governance corpus currency and provenance repair · **v4.13 OWASP Agentic v1.1 T1–T17 coverage
 mapping and the human-in-the-loop harness** · v4.13.1 a correctness fix to that harness · v4.14.0
-endpoint provenance · **v4.15.0 unserviced requests are no longer recorded as passes** (see
+endpoint provenance · **v4.16.0 three target shapes: a verdict must be able to be wrong AND to be right** · v4.15.0 unserviced requests are no longer recorded as passes (see
 [CHANGELOG.md](CHANGELOG.md)).
 
 The release carries **603** tests; `main` is at **608** — MAG-019, MEM-011 and MEM-012, then X4-056 and
