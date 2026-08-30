@@ -60,6 +60,7 @@ HAS_THE_RULE = {
     "intent_contract_harness",
     "return_channel_harness",
     "capability_profile_harness",
+    "gtg1002_simulation",
 }
 
 #: Read, and a DIFFERENT remedy was correct. The independent review of the
@@ -81,7 +82,6 @@ DIFFERENT_REMEDY = {
 UNREAD = {
     "advanced_attacks",
     "cbrn_harness",
-    "gtg1002_simulation",
     "harmful_output_harness",
 }
 
@@ -173,7 +173,7 @@ class TestTheClassIsDerivedAndClassified(unittest.TestCase):
 
     def test_unread_does_not_grow(self) -> None:
         self.assertLessEqual(
-            len(UNREAD), 4,
+            len(UNREAD), 3,
             "UNREAD grew. A module may only leave this set, by being read.")
 
 
