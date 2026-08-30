@@ -7,6 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — expect results to move in BOTH directions
+
+Two kinds of verdict change, and the second is new. **More results will report
+INCONCLUSIVE**, for the reason 4.15.0 gave: a control that was never exercised is
+not a control that held. And **some results that used to FAIL will now PASS**,
+which 4.15.0 did not address: a target that visibly refuses an attack is the
+control working, and ten modules could not recognise that.
+
+No test was added or removed. The count is unchanged at 608 on `main`.
+
+If you consume `--json`, note the interface fix below.
+
+### Added — two more target shapes, and the reason for them
+
+`scripts/dead_host_sweep.py` asks what each suite claims when nothing answers.
+Two more sweeps join it, because a closed port is one shape of the question and
+not the whole of it:
+
+- **`scripts/permissive_host_sweep.py`** points every suite at a live endpoint
+  that answers HTTP 200 and grants everything. Harder than the closed port,
+  because the target answers, so every serviced-request guard is satisfied and
+  correctly stays out of the way.
+- **`scripts/refusing_host_sweep.py`** points every suite at one that refuses
+  everything. This asks whether a verdict can be RIGHT, which nothing was
+  checking. A suite that cannot pass a refusing target is as broken as one that
+  cannot fail, and it is invisible from the other two poles: it scores zero
+  against both, which is what a healthy module looks like from there.
+
+State files under `testing/` pin all three so the counts cannot drift silently.
+They pin measurements, not zeroes: a non-zero row may be correct by construction
+(`over_refusal_harness` should pass a target that blocks nothing), may need a
+marker the generic sentinel does not emit, or may be a real inversion. Only
+reading the test separates them.
+
+### Fixed — verdicts that could not be wrong, and verdicts that could not be right
+
+- **Eighty-eight verdicts across ten modules passed against a host that was not
+  running** (#417, #418, #419, #420, #421). The largest single count was 44 in
+  `x402_harness`. `PROTOCOL_EXCEPTION` had been read as "no instrument needed":
+  precondition 3 excuses the non-2xx rule because a 402 is the protocol
+  answering, and it does not excuse silence.
+- **Three hundred and nine of five hundred and thirty-two verdicts passed
+  against a target that granted every request** (#424, #425, #426, #427, #428,
+  #429). Among them `AUTH-003` reporting "Elevated scope claims not honored"
+  against a server answering `{"granted": true, "admin": true}`, and `MCP-016`
+  reporting PASS beside its own line "0/6 SSRF resource URIs blocked".
+- **Ten modules could not pass a target that refused every request** (#425,
+  #427, #430). `identity_harness` scored 1 of 18 against a refusing target and 7
+  of 18 against a permissive one: it could report PASS only for a target doing
+  the wrong thing. The cause is one line of `http_helpers._serviced`, which
+  treats a refusal as a failure to service the request. That is right for
+  "method not found" and backwards wherever the refusal IS the control working.
+- **A metric computed from a round trip, reported as a control measurement**
+  (#420, #424). `AIUC-E001` reported "Detection latency: 0.000s. Detected and
+  blocked." That was the round trip of a connection being refused. `IR-009`
+  reported a kill-switch termination latency without observing a termination,
+  and `IR-005` a recovery time with no incident to recover from.
+- **Harness self-tests presented as target findings** (#419). `CREW-002` and
+  `CVE-007` measured this repository's own scanners against local fixtures at
+  CRITICAL severity, worded as claims about the server under test. Renamed to
+  say so and marked `locally_decided`.
+- **The sweep's own discovery was a naming convention** (#422). It matched
+  `^class (\w*Tests?)` and required `run_all`, so 34 suites — every adapter,
+  plus two modules whose class name lacks the suffix — were reported as
+  `no-suite-class` while the summary counted only what it could construct.
+  Discovery is now by capability: 28 modules became 61 suites.
+- **MCP rejection idioms** (#431). The protocol reports tool errors in band as
+  `result.isError`, per spec, so the model can read them. Only the JSON-RPC
+  error envelope was recognised, so a reference server that correctly refused an
+  unregistered tool call was recorded as failing to refuse it. Found by the
+  first run against a real MCP implementation rather than a fixture.
+- **`--json` did not put exactly one JSON document on stdout** (#432). Seven of
+  eleven CLIs accepting both `--json` and `--report` emitted unparseable stdout:
+  the "Report written to ..." notice at sixty print sites, and a run banner in
+  five. The notice now goes to stderr in every mode.
+
+### Note on what these numbers are not
+
+None of this establishes that any agent, gateway, MCP server or payment endpoint
+is secure. It establishes what this harness claims when it has nothing to go on,
+which is a narrower and more checkable property.
+
+
 ## [4.15.0] - 2026-08-07
 
 ### Changed — expect previously-passing results to become INCONCLUSIVE
