@@ -43,6 +43,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from protocol_tests.http_helpers import (
+    looks_like_refusal,
     INCONCLUSIVE_PREFIX,
     _err,
     _is_conn_error,
@@ -540,7 +541,11 @@ class IdentitySecurityTests:
                 blocked += 1
             else:
                 r = json.dumps(resp.get("response", {})).lower() if resp else ""
-                if any(k in r for k in ["denied", "unauthorized", "insufficient", "not permitted", "forbidden"]):
+                # Fourth copy of the matching rule found on 2026-08-30, after
+                # multi_agent_harness and x402 X4-025. A raw substring walk gets
+                # neither word boundaries nor negation, so "nothing here is
+                # forbidden" counted as an escalation attempt being BLOCKED.
+                if looks_like_refusal(r, extra=("insufficient",)):
                     blocked += 1
 
         elapsed = time.monotonic() - t0
