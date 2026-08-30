@@ -40,10 +40,14 @@ import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
-from protocol_tests._utils import Severity, jsonrpc_request, http_post_json
+from protocol_tests._utils import Severity, http_post_json, jsonrpc_request
 from protocol_tests.http_helpers import (
-    INCONCLUSIVE_PREFIX, run_summary, silence_detail, silence_evidence,
-    summary_lines)
+    INCONCLUSIVE_PREFIX,
+    run_summary,
+    silence_detail,
+    silence_evidence,
+    summary_lines,
+)
 
 
 @dataclass
@@ -902,9 +906,9 @@ class GovernanceModificationTests:
         print(f"{'='*60}")
         print(f"Target: {self.url}")
         print(f"Mode: {'simulate' if self.simulate else 'live'}")
-        print(f"Reference: HC-12, constitutional-agent, issue #180")
-        print(f"Background: HRAO-E internal run (unpublished) — 9/12 agents self-disabled gates in 48h")
-        print(f"\n[GOVERNANCE MODIFICATION TESTS]")
+        print("Reference: HC-12, constitutional-agent, issue #180")
+        print("Background: HRAO-E internal run (unpublished) — 9/12 agents self-disabled gates in 48h")
+        print("\n[GOVERNANCE MODIFICATION TESTS]")
 
         for test_fn in tests:
             try:

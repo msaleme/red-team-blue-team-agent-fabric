@@ -33,7 +33,7 @@ import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 try:
     import yaml
@@ -162,7 +162,7 @@ def load_yaml(file_path: str) -> dict | None:
     Security: enforces file size limit to prevent YAML bombs (billion laughs).
     """
     if yaml is None:
-        print(f"  ERROR: PyYAML not installed. Run: pip install pyyaml", file=sys.stderr)
+        print("  ERROR: PyYAML not installed. Run: pip install pyyaml", file=sys.stderr)
         return None
 
     try:
@@ -720,7 +720,7 @@ class AssertionEvaluator:
             actual = actual[:10_000]
         # Reject known ReDoS patterns (nested quantifiers)
         if re.search(r'\([^)]*[+*][^)]*\)[+*]', pattern):
-            return False, f"Regex contains nested quantifiers (potential ReDoS)"
+            return False, "Regex contains nested quantifiers (potential ReDoS)"
         try:
             if re.search(pattern, actual):
                 return True, f"Field '{field_name}' matches pattern '{pattern}'"
@@ -778,7 +778,7 @@ def run_pattern(
             executor.execute_step(step)
         else:
             if verbose:
-                print(f"      (dry run - skipped)")
+                print("      (dry run - skipped)")
 
     # Build evidence from schema defaults
     evidence = {}
@@ -1057,7 +1057,7 @@ Examples:
         hash_path = Path(args.hash).resolve()
         cwd = Path.cwd().resolve()
         if not hash_path.is_relative_to(cwd):
-            print(f"ERROR: --hash path must be within the project directory", file=sys.stderr)
+            print("ERROR: --hash path must be within the project directory", file=sys.stderr)
             sys.exit(1)
         h = compute_file_hash(args.hash)
         print(f"{h}  {args.hash}")
@@ -1078,7 +1078,7 @@ Examples:
         pattern_path = Path(args.pattern).resolve()
         cwd = Path.cwd().resolve()
         if not pattern_path.is_relative_to(cwd):
-            print(f"ERROR: --pattern path must be within the project directory", file=sys.stderr)
+            print("ERROR: --pattern path must be within the project directory", file=sys.stderr)
             sys.exit(1)
 
     # Path traversal protection for --report
@@ -1086,7 +1086,7 @@ Examples:
         report_path = Path(args.report).resolve()
         cwd = Path.cwd().resolve()
         if not report_path.is_relative_to(cwd):
-            print(f"ERROR: --report path must be within the project directory", file=sys.stderr)
+            print("ERROR: --report path must be within the project directory", file=sys.stderr)
             sys.exit(1)
 
     summary = run_community_tests(

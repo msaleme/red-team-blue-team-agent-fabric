@@ -34,10 +34,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
 import json
-import os
 import re
 import sys
 import time
@@ -45,7 +43,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from protocol_tests._utils import Severity, wilson_ci, HIDDEN_INSTRUCTION_PATTERN
+from protocol_tests._utils import HIDDEN_INSTRUCTION_PATTERN, Severity, wilson_ci
 
 _URL_PATTERN = re.compile(r'https?://[^\s"\'<>]{10,}', re.IGNORECASE)
 _BASE64_PATTERN = re.compile(r'[A-Za-z0-9+/]{40,}={0,2}')
@@ -1107,7 +1105,7 @@ class SkillSecurityTests:
             ).hexdigest()
             if declared_hash != actual_hash:
                 issues.append(
-                    f"hash mismatch — content may have been modified post-signing"
+                    "hash mismatch — content may have been modified post-signing"
                 )
 
         if HIDDEN_INSTRUCTION_PATTERN.search(content):
@@ -1156,9 +1154,9 @@ class SkillSecurityTests:
         print("RFC #99 — Agent Instruction Supply Chain Security")
         print(f"{'=' * 60}")
         print(f"Mode:       {mode_label}")
-        print(f"Context:    341 malicious skills on ClawHub (12% of registry)")
-        print(f"Threat:     Instruction-layer poisoning — rewrites agent goals,")
-        print(f"            not just tool outputs (one layer above MCP tool-output poisoning)")
+        print("Context:    341 malicious skills on ClawHub (12% of registry)")
+        print("Threat:     Instruction-layer poisoning — rewrites agent goals,")
+        print("            not just tool outputs (one layer above MCP tool-output poisoning)")
 
         for category, tests in test_map.items():
             print(f"\n[{category.upper().replace('_', ' ')}]")

@@ -27,8 +27,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 try:  # optional: only needed to actually verify a signature
-    from cryptography.hazmat.primitives.serialization import load_pem_public_key
     from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives.serialization import load_pem_public_key
     _CRYPTO = True
 except ImportError:  # pragma: no cover - environment dependent
     _CRYPTO = False

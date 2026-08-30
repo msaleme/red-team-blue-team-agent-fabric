@@ -22,18 +22,17 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import math
+import re
 import sys
 import time
+import urllib.request
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
-import urllib.request
 
 from protocol_tests.http_helpers import inconclusive_detail, run_summary, summary_lines
-
 
 # ---------------------------------------------------------------------------
 # Wilson score CI (inlined for zero-dep)
@@ -48,7 +47,7 @@ def wilson_ci(successes: int, trials: int, z: float = 1.96) -> tuple[float, floa
     n = trials
     denominator = 1 + z2 / n
     center = (p_hat + z2 / (2 * n)) / denominator
-    spread = z * math.sqrt((p_hat * (1 - p_hat) / n + z2 / (4 * n * n))) / denominator
+    spread = z * math.sqrt(p_hat * (1 - p_hat) / n + z2 / (4 * n * n)) / denominator
     lower = max(0.0, center - spread)
     upper = min(1.0, center + spread)
     return (round(lower, 4), round(upper, 4))
@@ -686,8 +685,8 @@ class CapabilityProfileTests:
         print("CAPABILITY PROFILE VALIDATION TEST SUITE v3.6")
         print(f"{'='*60}")
         print(f"Target: {self.url}")
-        print(f"OWASP: ASI05 (Insecure Output Handling), ASI09 (Human-Agent Trust Exploitation)")
-        print(f"STRIDE: Elevation of Privilege, Tampering")
+        print("OWASP: ASI05 (Insecure Output Handling), ASI09 (Human-Agent Trust Exploitation)")
+        print("STRIDE: Elevation of Privilege, Tampering")
 
         for category, tests in test_map.items():
             print(f"\n[{category.upper().replace('_', ' ')}]")

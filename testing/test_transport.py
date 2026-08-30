@@ -1,31 +1,32 @@
 #!/usr/bin/env python3
 """Unit tests for MCP transport and JSON-RPC primitives."""
-import json
 import io
+import json
 import os
 import sys
 import unittest
 import urllib.error
 from unittest.mock import MagicMock, patch
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from protocol_tests.mcp_harness import (
     AUTO_PROTOCOL_VERSION,
-    build_differential_report,
     LEGACY_PROTOCOL_VERSION,
     MODERN_PROTOCOL_VERSION,
+    UNSUPPORTED_PROTOCOL_VERSION_CODE,
+    UNSUPPORTED_PROTOCOL_VERSION_CODE_RC,
     MCPSecurityTests,
+    MCPTransport,
+    StreamableHTTPTransport,
+    _header_value,
+    _is_unsupported_protocol_version_error,
     _json_path,
     _replace_handle,
     _replace_task_id,
-    _is_unsupported_protocol_version_error,
-    UNSUPPORTED_PROTOCOL_VERSION_CODE,
-    UNSUPPORTED_PROTOCOL_VERSION_CODE_RC,
-    MCPTransport,
-    report_has_failure,
-    StreamableHTTPTransport,
-    _header_value,
+    build_differential_report,
     jsonrpc_notification,
     jsonrpc_request,
+    report_has_failure,
 )
 
 

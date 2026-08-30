@@ -46,17 +46,17 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
+from protocol_tests._utils import (
+    HIDDEN_INSTRUCTION_PATTERN,
+    Severity,
+    http_post_json,
+    jsonrpc_request,
+)
 from protocol_tests.http_helpers import (
     INCONCLUSIVE_PREFIX,
     inconclusive_detail,
     run_summary,
     summary_lines,
-)
-from protocol_tests._utils import (
-    Severity,
-    HIDDEN_INSTRUCTION_PATTERN,
-    http_post_json,
-    jsonrpc_request,
 )
 
 #: Lexical markers for side-effecting / destructive tool semantics. A tool
@@ -762,9 +762,9 @@ class ToolSearchTests:
         print("Embedding-based tool discovery attack surface")
         print(f"{'=' * 60}")
         print(f"Mode:    {mode_label}")
-        print(f"Context: Claude Cookbook tool-search-with-embeddings pattern —")
-        print(f"         no signature verification, no post-discovery access control,")
-        print(f"         ranking driven purely by gameable text similarity.")
+        print("Context: Claude Cookbook tool-search-with-embeddings pattern —")
+        print("         no signature verification, no post-discovery access control,")
+        print("         ranking driven purely by gameable text similarity.")
 
         for category, tests in test_map.items():
             print(f"\n[{category.upper()}]")

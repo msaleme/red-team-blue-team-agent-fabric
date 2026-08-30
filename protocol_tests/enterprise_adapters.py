@@ -34,17 +34,17 @@ import argparse
 import json
 import sys
 import time
-import uuid
+import urllib.request
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Any
-import urllib.request
 
 from protocol_tests.http_helpers import (
-    INCONCLUSIVE_PREFIX, _serviced, refused, silence_detail,
-    silence_evidence)
-
+    INCONCLUSIVE_PREFIX,
+    refused,
+    silence_detail,
+    silence_evidence,
+)
 
 # ---------------------------------------------------------------------------
 # Shared infrastructure
@@ -989,7 +989,7 @@ def main():
         print("\nAvailable Enterprise Platform Adapters:\n")
         for name, cls in ENTERPRISE_ADAPTERS.items():
             print(f"  {name:20s} — {cls.description}")
-        print(f"\nUsage: python -m protocol_tests.enterprise_adapters <platform> --url <URL> --run")
+        print("\nUsage: python -m protocol_tests.enterprise_adapters <platform> --url <URL> --run")
         return
 
     if not args.platform or not args.url:
@@ -1021,7 +1021,7 @@ def main():
             results = merged.get("results", [])
         else:
             print(f"\n{'='*60}")
-            print(f"ENTERPRISE PLATFORM SECURITY TESTS v3.0")
+            print("ENTERPRISE PLATFORM SECURITY TESTS v3.0")
             print(f"Platform: {adapter_cls.description}")
             print(f"Target: {args.url}")
             print(f"{'='*60}")
@@ -1041,7 +1041,7 @@ def main():
         sys.exit(1 if failed > 0 else 0)
     else:
         print(f"\nAdapter configured for {adapter_cls.description} at {args.url}")
-        print(f"Run with --run to execute tests")
+        print("Run with --run to execute tests")
 
 
 if __name__ == "__main__":

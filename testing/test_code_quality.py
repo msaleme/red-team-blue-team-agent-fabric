@@ -57,7 +57,7 @@ class TestAllModulesImportable(unittest.TestCase):
 
 
 class TestNoHardcodedSecrets(unittest.TestCase):
-    PATTERNS = [re.compile(r'(?:api_key|secret_key)\s*=\s*["\'][^"\']{16,}["\']', re.I),
+    PATTERNS = [re.compile(r'(?:api_key|secret_key)\s*=\s*["\'][^"\']{16,}["\']', re.IGNORECASE),
                 re.compile(r'(?<!")sk-[A-Za-z0-9]{20,}'), re.compile(r'AKIA[0-9A-Z]{16}')]
     def test_clean(self):
         v = []
@@ -596,11 +596,11 @@ class TestRegVersionConsistency(unittest.TestCase):
     """
     def _pyproject_version(self):
         with open(os.path.join(REPO_ROOT, "pyproject.toml")) as f:
-            m = re.search(r'^version\s*=\s*["\']([^"\']+)["\']', f.read(), re.M)
+            m = re.search(r'^version\s*=\s*["\']([^"\']+)["\']', f.read(), re.MULTILINE)
         self.assertIsNotNone(m, "pyproject.toml must declare a version")
         return m.group(1)
     def test_cli_version_matches_pyproject(self):
-        import protocol_tests.cli as cli
+        from protocol_tests import cli
         self.assertEqual(cli.VERSION, self._pyproject_version())
     def test_cli_version_not_hardcoded_literal(self):
         with open(os.path.join(REPO_ROOT, "protocol_tests", "cli.py")) as f:
@@ -622,7 +622,9 @@ class TestRegFireblocks(unittest.TestCase):
 
     def test_integrity_detects_recipient_tamper(self):
         from protocol_tests.x402_fireblocks_harness import (
-            sign_integrity_envelope, verify_integrity)
+            sign_integrity_envelope,
+            verify_integrity,
+        )
         accepts = [{"scheme": "exact", "payTo": "0xMerchant", "maxAmountRequired": "1000000"}]
         env = sign_integrity_envelope(1, accepts, 1000, 2000)
         # Untampered verifies.
@@ -635,7 +637,9 @@ class TestRegFireblocks(unittest.TestCase):
 
     def test_integrity_freshness_window(self):
         from protocol_tests.x402_fireblocks_harness import (
-            sign_integrity_envelope, verify_integrity)
+            sign_integrity_envelope,
+            verify_integrity,
+        )
         accepts = [{"payTo": "0xM"}]
         body = {"x402Version": 1, "accepts": accepts}
         expired = sign_integrity_envelope(1, accepts, 100, 200)
@@ -693,21 +697,21 @@ class TestRegAP2(unittest.TestCase):
         self.assertIn("ap2", HARNESSES)
 
     def test_valid_chain_verifies(self):
-        from protocol_tests.ap2_harness import _valid_chain, AP2Verifier
+        from protocol_tests.ap2_harness import AP2Verifier, _valid_chain
         openm, checkout, payment = _valid_chain(1000)
         v = AP2Verifier(latest_checkout_jwt=checkout["checkout_jwt"])
         self.assertTrue(v.verify_checkout(openm, checkout, 1000).ok)
         self.assertTrue(v.verify_payment(checkout, payment, 1000).ok)
 
     def test_checkout_hash_tamper_rejected(self):
-        from protocol_tests.ap2_harness import _valid_chain, AP2Verifier
+        from protocol_tests.ap2_harness import AP2Verifier, _valid_chain
         openm, checkout, _ = _valid_chain(1000)
         checkout["checkout_jwt"]["total"] = 999999  # tamper, stale hash claim
         v = AP2Verifier(latest_checkout_jwt=checkout["checkout_jwt"]).verify_checkout(openm, checkout, 1000)
         self.assertFalse(v.ok)
 
     def test_amount_cap_escalation_rejected(self):
-        from protocol_tests.ap2_harness import _valid_chain, AP2Verifier, canonical_hash
+        from protocol_tests.ap2_harness import AP2Verifier, _valid_chain, canonical_hash
         openm, checkout, _ = _valid_chain(1000)
         checkout["cart"]["total"] = 10_000_000
         checkout["checkout_jwt"]["total"] = 10_000_000
@@ -723,7 +727,7 @@ class TestRegAP2(unittest.TestCase):
         self.assertIn("unknown", reason)
 
     def test_chain_link_and_replay(self):
-        from protocol_tests.ap2_harness import _valid_chain, AP2Verifier
+        from protocol_tests.ap2_harness import AP2Verifier, _valid_chain
         openm, checkout, payment = _valid_chain(1000)
         # Unchained payment rejected.
         bad = dict(payment, transaction_id="some-other-cart")
@@ -737,7 +741,7 @@ class TestRegAP2(unittest.TestCase):
         # A Payment Mandate needs asymmetric, non-repudiable provenance. Symmetric
         # keyed-MAC (HMAC) is rejected; asymmetric schemes (incl. deterministic
         # EdDSA) are accepted — determinism is not the criterion.
-        from protocol_tests.ap2_harness import _valid_chain, AP2Verifier
+        from protocol_tests.ap2_harness import AP2Verifier, _valid_chain
         openm, checkout, payment = _valid_chain(1000)
         payment["sig_scheme"] = "hmac"
         self.assertFalse(AP2Verifier().verify_payment(checkout, payment, 1000).ok)
@@ -747,7 +751,7 @@ class TestRegAP2(unittest.TestCase):
                         "asymmetric EdDSA must be accepted; determinism is not the criterion")
 
     def test_funding_scope_binding(self):
-        from protocol_tests.ap2_harness import _valid_chain, AP2Verifier
+        from protocol_tests.ap2_harness import AP2Verifier, _valid_chain
         openm, checkout, payment = _valid_chain(1000)
         payment["payment_instrument"]["scope"]["merchant"] = "wrong_merchant"
         self.assertFalse(AP2Verifier().verify_payment(checkout, payment, 1000).ok)

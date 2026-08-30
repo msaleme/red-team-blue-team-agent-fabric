@@ -37,16 +37,18 @@ import json
 import re
 import sys
 import time
+import urllib.request
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
-import urllib.request
 
 from protocol_tests.http_helpers import (
-    INCONCLUSIVE_PREFIX, instrument_transport, is_inconclusive,
-    silence_evidence)
-
+    INCONCLUSIVE_PREFIX,
+    instrument_transport,
+    is_inconclusive,
+    silence_evidence,
+)
 
 # ---------------------------------------------------------------------------
 # A2A JSON-RPC 2.0 primitives

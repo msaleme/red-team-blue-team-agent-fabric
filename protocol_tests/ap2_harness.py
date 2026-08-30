@@ -93,11 +93,10 @@ import json
 import sys
 import time
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
-from protocol_tests._utils import Severity, wilson_ci, http_post_json, json_stdout_only
-
+from protocol_tests._utils import Severity, http_post_json, json_stdout_only, wilson_ci
 
 # ---------------------------------------------------------------------------
 # Canonical hashing (the mandate chain link)
@@ -863,7 +862,7 @@ class AP2MandateTests:
         print(f"Mode: {'simulate (reference model)' if self.simulate else 'live'}")
         print("Layer: authorization/trust (AP2, FIDO-governed) above settlement")
         print("Mandates: Intent/open Checkout -> Cart/closed Checkout -> Payment")
-        print(f"\n[AP2 MANDATE-CHAIN TESTS]")
+        print("\n[AP2 MANDATE-CHAIN TESTS]")
         for fn in tests:
             try:
                 fn()

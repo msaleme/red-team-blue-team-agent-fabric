@@ -61,7 +61,7 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
-from protocol_tests._utils import Severity, wilson_ci, http_post_json, json_stdout_only
+from protocol_tests._utils import Severity, http_post_json, json_stdout_only, wilson_ci
 
 
 @dataclass

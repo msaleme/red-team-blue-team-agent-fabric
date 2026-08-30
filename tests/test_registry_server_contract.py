@@ -9,7 +9,6 @@ reference is a contract nothing checks. Each test names the contract section it
 pins.
 """
 
-import copy
 import hashlib
 import json
 import os

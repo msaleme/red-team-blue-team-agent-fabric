@@ -57,18 +57,18 @@ import os
 import re
 import sys
 import time
+import urllib.request
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
-import http.client
-import urllib.request
 
 from protocol_tests.http_helpers import (
-    instrument_transport, silence_detail, silence_evidence)
-
+    instrument_transport,
+    silence_detail,
+    silence_evidence,
+)
 
 # ---------------------------------------------------------------------------
 # L402 protocol primitives
@@ -420,7 +420,7 @@ class L402SecurityTests:
             details=(f"Server returned {status} (rejected)" if passed else f"Server returned {status} (GRANTED ACCESS)") +
                     ("; INFO LEAK detected in error body" if info_leak else ""),
             http_method="GET",
-            request_sent={"authorization": f"L402 <macaroon>:<fake_preimage>"},
+            request_sent={"authorization": "L402 <macaroon>:<fake_preimage>"},
             response_received={"status": status, "body_preview": resp.get("body", "")[:200]},
             elapsed_s=round(elapsed, 3),
         ))
@@ -1725,10 +1725,7 @@ class L402SecurityTests:
                 resp = self.transport.get(self.PATH_INDEX, headers={"Authorization": auth_value}, timeout=10.0)
                 status = resp.get("status", 0)
                 # Any non-200 response or clean error is fine
-                if status != 200:
-                    handled += 1
-                # Even 200 counts as "handled" if server didn't crash
-                elif not resp.get("_error"):
+                if status != 200 or not resp.get("_error"):
                     handled += 1
             except Exception:
                 handled += 1  # Exception means server didn't crash silently
@@ -2185,7 +2182,7 @@ def _run_statistical(
     report_path: str | None,
 ):
     """Run tests multiple times and compute Wilson score confidence intervals."""
-    from protocol_tests.statistical import wilson_ci, enhance_report, TrialResult
+    from protocol_tests.statistical import TrialResult, enhance_report, wilson_ci
 
     all_tests_flat: list[tuple[str, str, str]] = []  # (category, method_name, test_id)
     id_idx = 0

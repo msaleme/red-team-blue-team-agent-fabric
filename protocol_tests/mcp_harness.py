@@ -36,30 +36,29 @@ from __future__ import annotations
 import argparse
 import base64
 import json
-import re
 import os
+import re
 import subprocess
 import sys
 import time
+import urllib.parse
+import urllib.request
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
-import socket
-import urllib.parse
-import urllib.request
 
 from protocol_tests._utils import (
-    URL_PATTERN,
     BASE64_BLOB_PATTERN,
-    ENCODED_CMD_PATTERN,
-    HIDDEN_INSTRUCTION_PATTERN,
     COMPOSITE_INSTRUCTION_PATTERN,
-    FORWARD_BRIDGE_PATTERN,
     CREDENTIAL_MATERIAL_PATTERN,
+    ENCODED_CMD_PATTERN,
+    FORWARD_BRIDGE_PATTERN,
+    HIDDEN_INSTRUCTION_PATTERN,
+    URL_PATTERN,
 )
-from protocol_tests.version import get_harness_version
 from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX
+from protocol_tests.version import get_harness_version
 
 
 def _mcp_rejected(resp) -> bool:
@@ -721,7 +720,7 @@ class MCPSecurityTests:
             self._connection_error = err_msg
             return False
 
-        except socket.timeout:
+        except TimeoutError:
             url = _sanitize_url(getattr(self.transport, "url", "unknown"))
             err_msg = f"Could not connect to {url} — is the server running? (connection timed out)"
             if not self.json_output:

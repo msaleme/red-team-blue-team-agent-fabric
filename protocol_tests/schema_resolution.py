@@ -23,7 +23,7 @@ class RegisteredSchema:
     sha256: str
 
     @classmethod
-    def from_document(cls, identifier: str, document: dict[str, Any]) -> "RegisteredSchema":
+    def from_document(cls, identifier: str, document: dict[str, Any]) -> RegisteredSchema:
         canonical = json.dumps(document, sort_keys=True, separators=(",", ":")).encode("utf-8")
         return cls(identifier=identifier, document=document, sha256=hashlib.sha256(canonical).hexdigest())
 

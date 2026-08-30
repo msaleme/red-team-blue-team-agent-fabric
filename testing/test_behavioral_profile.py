@@ -5,9 +5,6 @@ from __future__ import annotations
 import json
 import os
 import sys
-import tempfile
-
-import pytest
 
 # Ensure repo root is on path
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -16,11 +13,11 @@ sys.path.insert(0, REPO_ROOT)
 from scripts.behavioral_profile import (
     _extract_results,
     _index_by_test_id,
-    compute_stability,
-    detect_drift,
-    compute_risk_score,
-    compute_trend,
     build_profile,
+    compute_risk_score,
+    compute_stability,
+    compute_trend,
+    detect_drift,
     generate_markdown,
 )
 

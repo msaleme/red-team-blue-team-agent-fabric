@@ -9,7 +9,6 @@ Greps all test_id= values from protocol_tests/*.py and outputs:
 This is the single source of truth for test count reconciliation.
 """
 
-import os
 import re
 import sys
 from collections import defaultdict

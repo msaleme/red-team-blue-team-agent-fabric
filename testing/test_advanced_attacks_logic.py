@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Unit tests for advanced_attacks.py helpers."""
-import os, sys, unittest
+import os
+import sys
+import unittest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from protocol_tests.advanced_attacks import _err, _leak, AdvancedTestResult
+from protocol_tests.advanced_attacks import AdvancedTestResult, _err, _leak
 
 
 class TestErrorDetection(unittest.TestCase):

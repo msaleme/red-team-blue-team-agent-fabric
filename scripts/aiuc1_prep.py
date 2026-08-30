@@ -31,8 +31,6 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
-
 
 from protocol_tests.version import get_harness_version
 
@@ -219,7 +217,8 @@ def run_harness(url: str, harnesses: list[str] | None = None, simulate: bool = F
     all_results: list[dict] = []
     suites = harnesses or ["mcp", "a2a", "identity"]
     tmp_dir = tempfile.mkdtemp(prefix="aiuc1_")
-    import atexit, shutil
+    import atexit
+    import shutil
     atexit.register(shutil.rmtree, tmp_dir, True)
 
     for suite in suites:
@@ -359,28 +358,28 @@ def generate_readiness_report(statuses: list[RequirementStatus], target: str = "
         categories.setdefault(s.category, []).append(s)
 
     lines = [
-        f"# AIUC-1 Pre-Certification Readiness Report",
-        f"",
+        "# AIUC-1 Pre-Certification Readiness Report",
+        "",
         f"**Generated:** {time_str}",
         f"**Target:** {target}",
         f"**Framework:** Agent Security Harness v{HARNESS_VERSION}",
-        f"**Standard:** AIUC-1 (AI Agent Certification)",
-        f"",
-        f"---",
-        f"",
-        f"## Executive Summary",
-        f"",
-        f"| Metric | Value |",
-        f"|--------|-------|",
+        "**Standard:** AIUC-1 (AI Agent Certification)",
+        "",
+        "---",
+        "",
+        "## Executive Summary",
+        "",
+        "| Metric | Value |",
+        "|--------|-------|",
         f"| Total AIUC-1 Requirements | {total_reqs} |",
         f"| Requirements Covered | {covered_count}/{total_reqs} |",
         f"| Passing | {len(passing)}/{total_reqs} ({passing_pct:.0f}%) |",
         f"| Failing | {len(failing)} |",
         f"| Not Yet Covered (Gaps) | {len(gaps)} |",
         f"| Awaiting Test Results | {len(no_results)} |",
-        f"",
+        "",
         f"### Overall Readiness: {covered_count}/{total_reqs} requirements covered, {passing_pct:.0f}% passing",
-        f"",
+        "",
     ]
 
     # Readiness grade
@@ -397,11 +396,11 @@ def generate_readiness_report(statuses: list[RequirementStatus], target: str = "
 
     lines.extend([
         f"**Readiness Grade: {grade}**",
-        f"",
-        f"---",
-        f"",
-        f"## Per-Category Breakdown",
-        f"",
+        "",
+        "---",
+        "",
+        "## Per-Category Breakdown",
+        "",
     ])
 
     status_emoji = {
@@ -421,9 +420,9 @@ def generate_readiness_report(statuses: list[RequirementStatus], target: str = "
 
         lines.extend([
             f"### {cat_name} ({cat_pass}/{cat_total} passing)",
-            f"",
-            f"| Requirement | Title | Status | Tests | Details |",
-            f"|-------------|-------|--------|-------|---------|",
+            "",
+            "| Requirement | Title | Status | Tests | Details |",
+            "|-------------|-------|--------|-------|---------|",
         ])
 
         for s in cat_reqs:
@@ -440,55 +439,55 @@ def generate_readiness_report(statuses: list[RequirementStatus], target: str = "
 
     # Gap analysis
     lines.extend([
-        f"---",
-        f"",
-        f"## Gap Analysis",
-        f"",
+        "---",
+        "",
+        "## Gap Analysis",
+        "",
     ])
 
     if gaps:
         for s in gaps:
             lines.extend([
                 f"### {s.req_id}: {s.title} ({s.category})",
-                f"",
-                f"**Status:** Not Yet Covered",
-                f"",
+                "",
+                "**Status:** Not Yet Covered",
+                "",
                 f"**Gap Notes:** {s.notes}",
-                f"",
+                "",
                 f"**Mapped Test IDs:** {', '.join(s.test_ids) if s.test_ids else 'None defined'}",
-                f"",
+                "",
             ])
     else:
         lines.append("No gaps identified - all requirements covered!\n")
 
     if failing:
         lines.extend([
-            f"### Failing Requirements",
-            f"",
+            "### Failing Requirements",
+            "",
         ])
         for s in failing:
             lines.extend([
                 f"- **{s.req_id} ({s.title}):** {s.failed}/{s.total} tests failing",
-                f"",
+                "",
             ])
 
     # Recommendations
     lines.extend([
-        f"---",
-        f"",
-        f"## Recommendations",
-        f"",
-        f"### Priority 1: Close Safety Gaps (E001-E003)",
-        f"1. Integrate incident response harness with live infrastructure",
-        f"2. Deploy circuit-breaker / kill-switch mechanisms and test under load",
-        f"3. Connect audit trail validation to production logging pipeline",
-        f"",
-        f"### Priority 2: Close Content Safety Gaps (F001-F002)",
-        f"1. Build dedicated harmful content filtering test suite",
-        f"2. Validate CBRN tests against production LLM endpoints (not simulation)",
-        f"3. Add hate speech, misinformation, and manipulation detection tests",
-        f"",
-        f"### Priority 3: Fix Failing Tests",
+        "---",
+        "",
+        "## Recommendations",
+        "",
+        "### Priority 1: Close Safety Gaps (E001-E003)",
+        "1. Integrate incident response harness with live infrastructure",
+        "2. Deploy circuit-breaker / kill-switch mechanisms and test under load",
+        "3. Connect audit trail validation to production logging pipeline",
+        "",
+        "### Priority 2: Close Content Safety Gaps (F001-F002)",
+        "1. Build dedicated harmful content filtering test suite",
+        "2. Validate CBRN tests against production LLM endpoints (not simulation)",
+        "3. Add hate speech, misinformation, and manipulation detection tests",
+        "",
+        "### Priority 3: Fix Failing Tests",
     ])
 
     if failing:
@@ -498,26 +497,26 @@ def generate_readiness_report(statuses: list[RequirementStatus], target: str = "
         lines.append("- No failing tests to fix")
 
     lines.extend([
-        f"",
-        f"### Priority 4: Full Coverage Run",
-        f"1. Run all harness suites against the target endpoint",
-        f"2. Include identity, provenance, and attestation harnesses",
-        f"3. Generate final attestation report for submission",
-        f"",
-        f"---",
-        f"",
-        f"## Next Steps",
-        f"",
-        f"1. **Address gaps** in Safety (E001-E003) and Content Safety (F001-F002)",
-        f"2. **Re-run** full harness suite after fixes",
-        f"3. **Generate attestation report** using `agent-security test attestation`",
-        f"4. **Submit** attestation report to AIUC-1 certification body",
-        f"5. **Schedule** periodic re-testing (recommend weekly during development)",
-        f"",
-        f"---",
-        f"",
+        "",
+        "### Priority 4: Full Coverage Run",
+        "1. Run all harness suites against the target endpoint",
+        "2. Include identity, provenance, and attestation harnesses",
+        "3. Generate final attestation report for submission",
+        "",
+        "---",
+        "",
+        "## Next Steps",
+        "",
+        "1. **Address gaps** in Safety (E001-E003) and Content Safety (F001-F002)",
+        "2. **Re-run** full harness suite after fixes",
+        "3. **Generate attestation report** using `agent-security test attestation`",
+        "4. **Submit** attestation report to AIUC-1 certification body",
+        "5. **Schedule** periodic re-testing (recommend weekly during development)",
+        "",
+        "---",
+        "",
         f"*Report generated by Agent Security Harness v{HARNESS_VERSION} AIUC-1 Prep Tool*",
-        f"*Repository: https://github.com/msaleme/red-team-blue-team-agent-fabric*",
+        "*Repository: https://github.com/msaleme/red-team-blue-team-agent-fabric*",
     ])
 
     return "\n".join(lines)
@@ -651,7 +650,7 @@ Examples:
     passing = len([s for s in statuses if s.status == "COVERED+PASS"])
     gaps = len([s for s in statuses if s.status == "NOT YET COVERED"])
     print(f"\n{'='*50}")
-    print(f"AIUC-1 READINESS SUMMARY")
+    print("AIUC-1 READINESS SUMMARY")
     print(f"{'='*50}")
     print(f"  Covered:    {covered}/20 requirements")
     print(f"  Passing:    {passing}/20 requirements")

@@ -13,7 +13,9 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from protocol_tests.receipt_claim_harness import (
-    ClaimLevelVerifier, build_valid_receipt, NEGATIVES,
+    NEGATIVES,
+    ClaimLevelVerifier,
+    build_valid_receipt,
 )
 
 NOW = 1_750_000_000
@@ -57,21 +59,31 @@ class TestFamilyWiring(unittest.TestCase):
     field and drives claim-level accept/reject."""
 
     def test_clean_toolset_wired_check_is_accepted(self):
-        from protocol_tests.receipt_claim_harness import build_tool_context_receipt, _CLEAN_TOOLS
+        from protocol_tests.receipt_claim_harness import (
+            _CLEAN_TOOLS,
+            build_tool_context_receipt,
+        )
         v = ClaimLevelVerifier(NOW)
         r = build_tool_context_receipt(NOW, _CLEAN_TOOLS)
         self.assertTrue(v.verify_envelope(r))
         self.assertEqual(v.verify(r).verdict, "accept")
 
     def test_sharelock_toolset_failing_check_is_rejected(self):
-        from protocol_tests.receipt_claim_harness import build_tool_context_receipt, _SHARELOCK_TOOLS
+        from protocol_tests.receipt_claim_harness import (
+            _SHARELOCK_TOOLS,
+            build_tool_context_receipt,
+        )
         v = ClaimLevelVerifier(NOW)
         r = build_tool_context_receipt(NOW, _SHARELOCK_TOOLS)
         self.assertTrue(v.verify_envelope(r), "envelope must verify (that is the point)")
         self.assertEqual(v.verify(r).verdict, "reject")
 
     def test_passing_check_bound_to_wrong_toolset_is_rejected(self):
-        from protocol_tests.receipt_claim_harness import build_tool_context_receipt, _CLEAN_TOOLS, _SHARELOCK_TOOLS
+        from protocol_tests.receipt_claim_harness import (
+            _CLEAN_TOOLS,
+            _SHARELOCK_TOOLS,
+            build_tool_context_receipt,
+        )
         v = ClaimLevelVerifier(NOW)
         r = build_tool_context_receipt(NOW, _CLEAN_TOOLS, action_tools=_SHARELOCK_TOOLS)
         self.assertTrue(v.verify_envelope(r))

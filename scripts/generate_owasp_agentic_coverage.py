@@ -436,7 +436,7 @@ def render(d: dict, view: str) -> str:
     w("python scripts/validate_owasp_agentic_mapping.py           # all validation rules")
     w("python scripts/generate_owasp_agentic_coverage.py          # regenerate both views + JSON")
     w("")
-    w(f"# verify the OWASP source you are reading is the one assessed")
+    w("# verify the OWASP source you are reading is the one assessed")
     w(f"sha256sum {fw['source_pdf']}")
     w(f"# expect {fw['source_sha256']}")
     w("```")

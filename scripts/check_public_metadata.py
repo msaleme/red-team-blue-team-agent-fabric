@@ -161,8 +161,8 @@ def citation_fields(repo: str | None = None) -> tuple[str | None, str | None]:
                         accept="application/vnd.github.raw")
         except Exception:                          # noqa: BLE001
             return (None, None)
-    v = re.search(r'^version:\s*"?([^"\s]+)"?', text, re.M)
-    d = re.search(r'^date-released:\s*"?(\d{4}-\d{2}-\d{2})"?', text, re.M)
+    v = re.search(r'^version:\s*"?([^"\s]+)"?', text, re.MULTILINE)
+    d = re.search(r'^date-released:\s*"?(\d{4}-\d{2}-\d{2})"?', text, re.MULTILINE)
     return (v.group(1) if v else None, d.group(1) if d else None)
 
 
@@ -363,8 +363,8 @@ def main() -> int:
     for p in problems:
         print(f"  - {p}")
     print(f"\ncurrent : {description}")
-    print(f"\nThe description is the text repository search matches, so this is a")
-    print(f"discovery defect. Fix it at Settings -> About, or:")
+    print("\nThe description is the text repository search matches, so this is a")
+    print("discovery defect. Fix it at Settings -> About, or:")
     print(f"\n  gh repo edit {args.repo} --description '<corrected text>'")
     return 1
 

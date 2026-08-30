@@ -76,19 +76,20 @@ import os
 import re
 import sys
 import time
+import urllib.parse
+import urllib.request
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
-from protocol_tests.http_helpers import (
-    INCONCLUSIVE_PREFIX, instrument_transport, silence_detail, silence_evidence)
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
-import http.client
-import urllib.parse
-import urllib.request
 
+from protocol_tests.http_helpers import (
+    INCONCLUSIVE_PREFIX,
+    instrument_transport,
+    silence_detail,
+    silence_evidence,
+)
 
 # ---------------------------------------------------------------------------
 # x402 protocol constants and primitives
@@ -1667,9 +1668,7 @@ class X402SecurityTests:
                 rev_data = json.loads(body)
                 # Expect a list or object with revoked entries
                 if isinstance(rev_data, dict) and ("revoked" in rev_data or "entries" in rev_data
-                                                    or "issuers" in rev_data or "keys" in rev_data):
-                    revocation_functional = True
-                elif isinstance(rev_data, list):
+                                                    or "issuers" in rev_data or "keys" in rev_data) or isinstance(rev_data, list):
                     revocation_functional = True
                 else:
                     issues.append("Revocation endpoint returned JSON but unrecognized schema")
@@ -2743,7 +2742,7 @@ class X402SecurityTests:
             owasp_asi="ASI03",
             severity=Severity.CRITICAL.value,
             passed=passed,
-            details=(f"Both settlement claims accepted for same nonce — DOUBLE SPEND"
+            details=("Both settlement claims accepted for same nonce — DOUBLE SPEND"
                      if not passed
                      else f"At most 1 settlement accepted ({settlement_claims}) — safe"),
             http_method="GET",
@@ -3687,7 +3686,7 @@ def _run_statistical(
     report_path: str | None,
 ):
     """Run tests multiple times and compute Wilson score confidence intervals."""
-    from protocol_tests.statistical import wilson_ci, enhance_report, TrialResult
+    from protocol_tests.statistical import TrialResult, enhance_report, wilson_ci
 
     # Flatten to (category, method) — the real test_id comes from each executed result,
     # not a positional list. The old hardcoded range(1, 26) had 25 IDs for 52 tests and

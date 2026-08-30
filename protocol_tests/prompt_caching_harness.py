@@ -47,11 +47,10 @@ import json
 import re
 import sys
 import time
-import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 
-from protocol_tests._utils import Severity, wilson_ci, http_post_json, jsonrpc_request
+from protocol_tests._utils import Severity, http_post_json, jsonrpc_request, wilson_ci
 
 #: Default TTL per Claude API prompt-caching documentation.
 _DEFAULT_TTL_SECONDS = 5 * 60
@@ -655,8 +654,8 @@ class PromptCachingTests:
         print("Cache isolation and lifecycle attack surface")
         print(f"{'=' * 60}")
         print(f"Mode:    {mode_label}")
-        print(f"Context: Claude Cookbook misc-prompt-caching pattern — 5-min default TTL")
-        print(f"         refreshed on each hit, no documented cross-session/tenant isolation guarantee.")
+        print("Context: Claude Cookbook misc-prompt-caching pattern — 5-min default TTL")
+        print("         refreshed on each hit, no documented cross-session/tenant isolation guarantee.")
 
         for category, tests in test_map.items():
             print(f"\n[{category.upper()}]")

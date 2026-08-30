@@ -11,15 +11,14 @@ from __future__ import annotations
 
 import contextlib
 import json
-import sys
 import math
 import os
 import re
-import uuid
+import sys
 import urllib.error
 import urllib.request
+import uuid
 from enum import Enum
-
 
 #: Prompt injection markers — shared across skill_security_harness.py and mcp_harness.py
 HIDDEN_INSTRUCTION_PATTERN = re.compile(
@@ -114,7 +113,7 @@ def wilson_ci(passed: int, total: int, z: float = 1.96) -> tuple[float, float]:
     n = total
     denominator = 1 + z2 / n
     center = (p_hat + z2 / (2 * n)) / denominator
-    spread = z * math.sqrt((p_hat * (1 - p_hat) / n + z2 / (4 * n * n))) / denominator
+    spread = z * math.sqrt(p_hat * (1 - p_hat) / n + z2 / (4 * n * n)) / denominator
     return (round(max(0.0, center - spread), 4), round(min(1.0, center + spread), 4))
 
 

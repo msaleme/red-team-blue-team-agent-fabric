@@ -39,19 +39,19 @@ import re
 import sys
 import time
 import uuid
-import base64
-import hashlib
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Any
-import urllib.request
 
 from protocol_tests.http_helpers import (
     INCONCLUSIVE_PREFIX,
-    http_post, http_get, _err, _is_conn_error, _leak, _serviced,
-    silence_detail, silence_evidence,
+    _err,
+    _is_conn_error,
+    _leak,
+    http_get,
+    http_post,
+    silence_detail,
+    silence_evidence,
 )
-
 
 # ---------------------------------------------------------------------------
 # Did the target refuse, or did it just not say the word?

@@ -15,7 +15,6 @@ from protocol_tests.mcp_supplychain import (
     resolve_binary_candidates,
 )
 
-
 # --- command parsing --------------------------------------------------------
 
 def test_parse_unpinned_npx():

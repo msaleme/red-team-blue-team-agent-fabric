@@ -11,16 +11,16 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 __all__ = [
-    "validate_attestation_report",
-    "migrate_legacy_report",
-    "generate_attestation_report",
-    "AttestationEntry",
-    "SCHEMA_VERSION",
     "EVIDENCE_CLASSES",
     "INDEPENDENCE_LEVELS",
+    "SCHEMA_VERSION",
+    "AttestationEntry",
+    "generate_attestation_report",
+    "migrate_legacy_report",
+    "validate_attestation_report",
 ]
 
 SCHEMA_VERSION = "1.0.0"
@@ -35,7 +35,7 @@ INDEPENDENCE_LEVELS = ("I0", "I1", "I2")
 # Scope/remediation lookup for known test IDs
 # ---------------------------------------------------------------------------
 
-_SCOPE_DEFAULTS: Dict[str, Dict[str, str]] = {
+_SCOPE_DEFAULTS: dict[str, dict[str, str]] = {
     "MCP": {
         "protocol": "mcp",
         "layer": "protocol",
@@ -79,7 +79,7 @@ _SCOPE_DEFAULTS: Dict[str, Dict[str, str]] = {
 }
 
 
-def _infer_scope(test_id: str, category: str = "") -> Dict[str, str]:
+def _infer_scope(test_id: str, category: str = "") -> dict[str, str]:
     """Infer scope metadata from a test_id prefix."""
     prefix = test_id.split("-")[0] if "-" in test_id else test_id[:3]
     defaults = _SCOPE_DEFAULTS.get(prefix, {"protocol": "other", "layer": "operational"})
@@ -90,7 +90,7 @@ def _infer_scope(test_id: str, category: str = "") -> Dict[str, str]:
     }
 
 
-def _default_remediation() -> Dict[str, Any]:
+def _default_remediation() -> dict[str, Any]:
     """Return a placeholder remediation block."""
     return {
         "description": "Review test details and apply protocol-specific hardening.",
@@ -112,10 +112,10 @@ class AttestationEntry:
         category: str,
         result: str,
         severity: str,
-        timestamp: Optional[str] = None,
+        timestamp: str | None = None,
         **kwargs: Any,
     ):
-        self.data: Dict[str, Any] = {
+        self.data: dict[str, Any] = {
             "test_id": test_id,
             "category": category,
             "result": result,
@@ -135,7 +135,7 @@ class AttestationEntry:
         if "remediation" not in self.data:
             self.data["remediation"] = _default_remediation()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return dict(self.data)
 
 
@@ -144,14 +144,14 @@ class AttestationEntry:
 # ---------------------------------------------------------------------------
 
 def generate_attestation_report(
-    entries: List[Dict[str, Any]],
+    entries: list[dict[str, Any]],
     suite: str,
     harness_version: str,
-    target: Optional[str] = None,
-    evidence_class: Optional[str] = None,
-    independence_level: Optional[str] = None,
-    system_under_test: Optional[str] = None,
-) -> Dict[str, Any]:
+    target: str | None = None,
+    evidence_class: str | None = None,
+    independence_level: str | None = None,
+    system_under_test: str | None = None,
+) -> dict[str, Any]:
     """Build a complete attestation report dict.
 
     `independence_level` and `system_under_test` land INSIDE the report, which is
@@ -188,7 +188,7 @@ def generate_attestation_report(
     errored = sum(1 for e in entries if e.get("result") == "error")
     skipped = sum(1 for e in entries if e.get("result") == "skip")
 
-    report: Dict[str, Any] = {
+    report: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         # `producer` is the provider-neutral spelling (#137). `harness_version` is
         # retained because five scripts read it and the schema still accepts it;
@@ -224,7 +224,7 @@ def generate_attestation_report(
 # Legacy migration (v3.7 -> v3.8)
 # ---------------------------------------------------------------------------
 
-def migrate_legacy_report(legacy: Dict[str, Any], harness_version: str = "3.8.0") -> Dict[str, Any]:
+def migrate_legacy_report(legacy: dict[str, Any], harness_version: str = "3.8.0") -> dict[str, Any]:
     """Convert a v3.7-style report to the v3.8 attestation format.
 
     v3.7 format:
@@ -233,7 +233,7 @@ def migrate_legacy_report(legacy: Dict[str, Any], harness_version: str = "3.8.0"
 
     Returns a valid attestation report dict.
     """
-    entries: List[Dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
 
     for r in legacy.get("results", []):
         result_str = "pass" if r.get("passed") else "fail"
@@ -262,13 +262,13 @@ def migrate_legacy_report(legacy: Dict[str, Any], harness_version: str = "3.8.0"
 # Schema validation
 # ---------------------------------------------------------------------------
 
-def validate_attestation_report(report: Dict[str, Any]) -> List[str]:
+def validate_attestation_report(report: dict[str, Any]) -> list[str]:
     """Validate a report dict against the attestation schema.
 
     Returns a list of error messages (empty = valid).
     Uses jsonschema if available, otherwise does basic structural checks.
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     try:
         import jsonschema  # type: ignore[import-untyped]
@@ -335,7 +335,7 @@ def validate_attestation_report(report: Dict[str, Any]) -> List[str]:
 # CLI helper
 # ---------------------------------------------------------------------------
 
-def write_attestation_report(report: Dict[str, Any], output_path: str) -> None:
+def write_attestation_report(report: dict[str, Any], output_path: str) -> None:
     """Write an attestation report to a JSON file."""
     with open(output_path, "w") as f:
         json.dump(report, f, indent=2, default=str)

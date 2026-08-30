@@ -91,12 +91,10 @@ import ipaddress
 import json
 import sys
 import time
-import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 
-from protocol_tests._utils import Severity, wilson_ci, http_post_json, json_stdout_only
-
+from protocol_tests._utils import Severity, http_post_json, json_stdout_only, wilson_ci
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -610,7 +608,9 @@ class X402FireblocksTests:
         body["resource"]["url"] = "http://169.254.169.254/latest/meta-data/"
         ok, _ = verify_integrity(env, body, now, require=True)  # expected True
         # Independent SSRF guard (what a hardened client must add):
-        from protocol_tests._utils import HIDDEN_INSTRUCTION_PATTERN  # noqa: F401 (import guard)
+        from protocol_tests._utils import (
+            HIDDEN_INSTRUCTION_PATTERN,  # noqa: F401 (import guard)
+        )
         ssrf_host = body["resource"]["url"].split("/")[2]
         ssrf_blocked = any(m in ssrf_host for m in _PRIVATE_HOST_MARKERS)
         model_pass = ok and ssrf_blocked
@@ -927,7 +927,7 @@ class X402FireblocksTests:
         print(f"Mode: {'simulate (reference model)' if self.simulate else 'live'}")
         print("Controls: request integrity, did:web resolution, spend governance, "
               "batch settlement")
-        print(f"\n[FIREBLOCKS x402 CONFORMANCE TESTS]")
+        print("\n[FIREBLOCKS x402 CONFORMANCE TESTS]")
         for fn in tests:
             try:
                 fn()

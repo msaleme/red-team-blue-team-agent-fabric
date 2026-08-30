@@ -32,7 +32,7 @@ import json
 import sys
 import threading
 import urllib.request
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 # Base Sepolia USDC (testnet) — the asset VS-R02 settles in.

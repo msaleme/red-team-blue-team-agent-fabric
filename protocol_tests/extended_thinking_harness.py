@@ -48,10 +48,12 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
-from protocol_tests._utils import Severity, wilson_ci, http_post_json, jsonrpc_request
+from protocol_tests._utils import Severity, http_post_json, jsonrpc_request, wilson_ci
 from protocol_tests.http_helpers import (
-    INCONCLUSIVE_PREFIX, silence_detail, silence_evidence)
-
+    INCONCLUSIVE_PREFIX,
+    silence_detail,
+    silence_evidence,
+)
 
 # ---------------------------------------------------------------------------
 # Result model
@@ -692,9 +694,9 @@ class ExtendedThinkingTests:
         print("Thinking-block tamper-evidence conformance")
         print(f"{'=' * 60}")
         print(f"Mode:    {mode_label}")
-        print(f"Context: Claude Cookbook extended-thinking-with-tool-use pattern —")
-        print(f"         signed, conversation-bound thinking blocks; tests whether an")
-        print(f"         implementation layer actually preserves those guarantees.")
+        print("Context: Claude Cookbook extended-thinking-with-tool-use pattern —")
+        print("         signed, conversation-bound thinking blocks; tests whether an")
+        print("         implementation layer actually preserves those guarantees.")
 
         for category, tests in test_map.items():
             print(f"\n[{category.upper()}]")

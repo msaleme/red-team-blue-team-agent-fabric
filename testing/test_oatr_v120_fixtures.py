@@ -17,10 +17,7 @@ from __future__ import annotations
 
 import base64
 import json
-import os
-import struct
 import unittest
-from datetime import datetime, timezone
 from pathlib import Path
 
 FIXTURES_PATH = Path(__file__).parent / "fixtures" / "oatr_test_tokens.json"

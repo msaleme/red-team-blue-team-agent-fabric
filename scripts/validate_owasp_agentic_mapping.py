@@ -238,7 +238,7 @@ def validate(check_reports: bool = True) -> list[str]:
         if m and int(m.group(1)) != d["assessment"]["total_repository_tests"]:
             fail("r15_total", f"mapping {d['assessment']['total_repository_tests']} vs {m.group(1)}")
 
-    version = re.search(r'^version = "([^"]+)"', (ROOT / "pyproject.toml").read_text(), re.M).group(1)
+    version = re.search(r'^version = "([^"]+)"', (ROOT / "pyproject.toml").read_text(), re.MULTILINE).group(1)
     if d["assessment"]["harness_version"] != version:
         fail("r15_version", f"mapping {d['assessment']['harness_version']} vs pyproject {version}")
     sha = d["assessment"]["git_commit"]
