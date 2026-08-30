@@ -68,13 +68,34 @@ jobs:
       - name: Build package
         run: python -m build
 
-      - name: Upload build artifacts
+      # Two artifacts, not one path list. upload-artifact@v4 roots a multi-path
+      # artifact at the least common ancestor of its paths, so `dist/` plus a
+      # file at the workspace root produced an artifact containing
+      # `dist/<wheel>` AND `build-environment.txt`. Downloading that into
+      # `path: dist/` yields `dist/dist/<wheel>` and `dist/build-environment.txt`,
+      # and twine then reports
+      #
+      #     no Python distribution packages to publish in the directory 'dist/'
+      #     Checking dist/build-environment.txt: InvalidDistribution
+      #
+      # which is exactly how v4.16.0 failed to publish on 2026-08-30.
+      #
+      # The recording step landed 2026-08-28 and every publish before it
+      # succeeded, so this workflow shipped broken and stayed broken through one
+      # release. It only runs on `release: published`, so no push, no PR and no
+      # scheduled job could have exercised it. Infrequent automation is
+      # unverified automation.
+      - name: Upload distributions
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dist
-          path: |
-            dist/
-            build-environment.txt
+          path: dist/
+
+      - name: Upload the build-environment record
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: build-environment
+          path: build-environment.txt
 
   publish:
     name: Publish to PyPI
@@ -89,6 +110,28 @@ jobs:
         with:
           name: dist
           path: dist/
+
+      # A malformed dist/ made twine emit a WARNING and then fail on the first
+      # non-distribution file it met. Assert the positive expected set instead,
+      # so the next shape of this defect names itself rather than arriving as an
+      # InvalidDistribution on an unrelated filename.
+      - name: Assert dist/ holds exactly the distributions
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          wheels=(dist/*.whl); sdists=(dist/*.tar.gz)
+          others=()
+          for f in dist/*; do
+            case "$f" in *.whl|*.tar.gz) ;; *) others+=("$f") ;; esac
+          done
+          echo "wheels: ${#wheels[@]}  sdists: ${#sdists[@]}  other: ${#others[@]}"
+          ls -la dist/
+          [ "${#wheels[@]}" -ge 1 ] || { echo "::error::no wheel in dist/"; exit 1; }
+          [ "${#sdists[@]}" -ge 1 ] || { echo "::error::no sdist in dist/"; exit 1; }
+          if [ "${#others[@]}" -gt 0 ]; then
+            echo "::error::dist/ contains non-distribution files: ${others[*]}"
+            exit 1
+          fi
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@v1.13.0 # Docker-based action requires tag ref, not SHA
