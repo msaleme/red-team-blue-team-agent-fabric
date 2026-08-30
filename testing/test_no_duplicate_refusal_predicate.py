@@ -67,6 +67,15 @@ PERMANENT = {
         "Measured 2026-08-30: the shared predicate gives 3 false positives in 8 "
         "sample legitimate answers. Narrower on purpose."),
     "http_helpers.py": "is the canonical implementation.",
+    "agent_prose_outcome.py": (
+        "agent-prose-outcome-v1: a SECOND canonical predicate, deliberately. "
+        "The reviewer's point, 2026-08-30: the durable architecture is one "
+        "canonical helper PER EVIDENCE DOMAIN, not one helper. Consolidating "
+        "agent prose, protocol rejection, transport execution and capability "
+        "applicability behind a single predicate would be false consolidation, "
+        "because a protocol 402 and an agent saying 'I cannot' are different "
+        "kinds of evidence. This file owns the agent-prose domain; the guard "
+        "rejects UNREGISTERED inline copies, not registered families."),
 }
 
 #: Known duplicates, measured 2026-08-30. Each re-implements refusal matching
