@@ -555,3 +555,37 @@ def _leak(resp: dict) -> bool:
                                   "bearer ", '"token": "ey', "access_token",
                                   "refresh_token", "token_secret",
                                   "credential", "private_key"])
+
+
+def nothing_to_scan(n: int, what: str) -> str | None:
+    """INCONCLUSIVE detail when a scan had nothing to scan, else None.
+
+    Seven verdicts here scan the server's tool list and report the absence of a
+    finding. Against a server that lists no tools they read
+
+        MCP-001: Found 0 tools, none suspicious
+        MCP-012: All 0 tool descriptions are within 10240B threshold
+        MCP-014: No injection patterns detected in 0 tool descriptions
+
+    Zero findings over an empty set is not a clean result. It is the same defect
+    mcp_tool_poisoning_harness had in CVE-003 -- "Contamination rate: 0.0%
+    (0/0 tools) - below 5% threshold" -- and the same rule run_summary applies
+    one layer up, where pass_rate is None rather than 0 when nothing was
+    serviced.
+
+    Shared since 2026-08-30, when tool_search_harness was found reporting the
+    same shape against a target that answered and listed nothing:
+
+        TS-002: All returned tools carry a verifiable signature.
+        TS-003: No injection patterns found in returned tool descriptions.
+        TS-006: Side-effecting results carry at least one safety-metadata field.
+
+    That module had already fixed the UNREACHABLE empty case and said so in
+    `_unreachable`'s docstring. The answered-but-empty case is a step later and
+    was still a pass. A third copy of this rule was the alternative.
+    """
+    if n:
+        return None
+    return (f"{INCONCLUSIVE_PREFIX}the server listed no {what}, so this scan "
+            f"examined nothing. Zero findings over an empty set is not a clean "
+            f"result.")

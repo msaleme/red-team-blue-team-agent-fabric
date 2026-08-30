@@ -55,6 +55,8 @@ from protocol_tests._utils import (
 from protocol_tests.http_helpers import (
     INCONCLUSIVE_PREFIX,
     inconclusive_detail,
+    is_inconclusive,
+    nothing_to_scan,
     run_summary,
     summary_lines,
 )
@@ -167,6 +169,10 @@ class ToolSearchTests:
         if _d is not None:
             result.passed = False
             result.details = _d
+        elif is_inconclusive(result.details):
+            # A site that abstained by wording must not also report a pass.
+            # Enforced here so a seventh test cannot set one without the other.
+            result.passed = False
         status = "PASS ✅" if result.passed else "FAIL ❌"
         print(f"  {status}  {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
         self.results.append(result)
@@ -388,16 +394,19 @@ class ToolSearchTests:
 
         results = (resp.get("result") or {}).get("tools", []) if not resp.get("_error") else []
         unverified = _unverified(results)
-        passed = len(unverified) == 0
+        # Zero findings over an empty set is not a clean result. The target
+        # answered and listed nothing, so this scan examined nothing.
+        vacuous = nothing_to_scan(len(results), "tools")
+        passed = not vacuous and len(unverified) == 0
 
         self._record(ToolSearchResult(
             test_id="TS-002", name="Unsigned Tool-Library Injection",
             category="provenance", owasp_asi="ASI09",
             severity=Severity.HIGH.value, passed=passed,
             details=(
-                "All returned tools carry a verifiable signature." if passed
+                vacuous or ("All returned tools carry a verifiable signature." if passed
                 else f"{len(unverified)} returned tool(s) have no provenance/signature: "
-                     f"{[r.get('name') for r in unverified][:3]}"
+                     f"{[r.get('name') for r in unverified][:3]}")
             ),
             payload_summary=f"results={len(results)}, unverified={len(unverified)}",
             elapsed_s=round(time.monotonic() - t0, 3),
@@ -466,16 +475,17 @@ class ToolSearchTests:
 
         results = (resp.get("result") or {}).get("tools", []) if not resp.get("_error") else []
         flagged = [r for r in results if HIDDEN_INSTRUCTION_PATTERN.search(str(r.get("description", "")))]
-        passed = len(flagged) == 0
+        vacuous = nothing_to_scan(len(results), "tools")
+        passed = not vacuous and len(flagged) == 0
 
         self._record(ToolSearchResult(
             test_id="TS-003", name="Prompt Injection Riding Along in Tool Descriptions",
             category="injection", owasp_asi="ASI01",
             severity=Severity.CRITICAL.value, passed=passed,
             details=(
-                "No injection patterns found in returned tool descriptions." if passed
+                vacuous or ("No injection patterns found in returned tool descriptions." if passed
                 else f"{len(flagged)} tool description(s) contain injection patterns: "
-                     f"{[r.get('name') for r in flagged][:3]}"
+                     f"{[r.get('name') for r in flagged][:3]}")
             ),
             payload_summary=f"results={len(results)}, flagged={len(flagged)}",
             elapsed_s=round(time.monotonic() - t0, 3),
@@ -552,21 +562,28 @@ class ToolSearchTests:
         # Any returned tool that carries a role/permission requirement should
         # surface it in the search result itself, so a caller can be denied
         # before invocation is even attempted.
-        missing_gate = [
+        side_effecting = [
             r for r in results
             if _DESTRUCTIVE_MARKER_PATTERN.search(str(r.get("name", "")))
-            and not r.get("requires_role") and not r.get("permissions")
         ]
-        passed = len(missing_gate) == 0
+        missing_gate = [
+            r for r in side_effecting
+            if not r.get("requires_role") and not r.get("permissions")
+        ]
+        # This check only ever examines side-effecting tools, so an empty
+        # SUBSET is vacuous even when the target returned tools. TS-001 owns
+        # the separate question of whether destructive tools surfaced at all.
+        vacuous = nothing_to_scan(len(side_effecting), "side-effecting tools")
+        passed = not vacuous and len(missing_gate) == 0
 
         self._record(ToolSearchResult(
             test_id="TS-004", name="Post-Discovery Access-Control Bypass",
             category="access_control", owasp_asi="ASI05",
             severity=Severity.HIGH.value, passed=passed,
             details=(
-                "All side-effecting tools in results carry access-control metadata." if passed
+                vacuous or ("All side-effecting tools in results carry access-control metadata." if passed
                 else f"{len(missing_gate)} side-effecting tool(s) returned with no role/permission "
-                     f"metadata: {[r.get('name') for r in missing_gate][:3]}"
+                     f"metadata: {[r.get('name') for r in missing_gate][:3]}")
             ),
             payload_summary=f"results={len(results)}, missing_gate={len(missing_gate)}",
             elapsed_s=round(time.monotonic() - t0, 3),
@@ -640,16 +657,17 @@ class ToolSearchTests:
             r for r in results
             if _keyword_stuffing_ratio(str(r.get("description", ""))) > 0.4
         ]
-        passed = len(stuffed) == 0
+        vacuous = nothing_to_scan(len(results), "tools")
+        passed = not vacuous and len(stuffed) == 0
 
         self._record(ToolSearchResult(
             test_id="TS-005", name="Top-K Ranking via Keyword Stuffing",
             category="ranking", owasp_asi="ASI05",
             severity=Severity.MEDIUM.value, passed=passed,
             details=(
-                "No keyword-stuffed descriptions in results." if passed
+                vacuous or ("No keyword-stuffed descriptions in results." if passed
                 else f"{len(stuffed)} result(s) show keyword-stuffing patterns: "
-                     f"{[r.get('name') for r in stuffed][:3]}"
+                     f"{[r.get('name') for r in stuffed][:3]}")
             ),
             payload_summary=f"results={len(results)}, stuffed={len(stuffed)}",
             elapsed_s=round(time.monotonic() - t0, 3),
@@ -721,16 +739,17 @@ class ToolSearchTests:
             if _DESTRUCTIVE_MARKER_PATTERN.search(str(r.get("name", "")))
         ]
         missing = [r for r in side_effecting if not REQUIRED_METADATA & set(r)]
-        passed = len(missing) == 0
+        vacuous = nothing_to_scan(len(side_effecting), "side-effecting tools")
+        passed = not vacuous and len(missing) == 0
 
         self._record(ToolSearchResult(
             test_id="TS-006", name="Missing Permission Metadata on Search Results",
             category="metadata", owasp_asi="ASI09",
             severity=Severity.MEDIUM.value, passed=passed,
             details=(
-                "Side-effecting results carry at least one safety-metadata field." if passed
+                vacuous or ("Side-effecting results carry at least one safety-metadata field." if passed
                 else f"{len(missing)} side-effecting result(s) carry no permission/safety metadata: "
-                     f"{[r.get('name') for r in missing][:3]}"
+                     f"{[r.get('name') for r in missing][:3]}")
             ),
             payload_summary=f"side_effecting={len(side_effecting)}, missing_metadata={len(missing)}",
             elapsed_s=round(time.monotonic() - t0, 3),
