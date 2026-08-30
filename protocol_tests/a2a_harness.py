@@ -1197,8 +1197,32 @@ class A2ASecurityTests:
                 category="agent_card_limitations",
                 owasp_asi="ASI09",
                 severity=Severity.MEDIUM.value,
+                # The A2A AgentCard schema has no `limitations` member. Checked
+                # against the official a2a-sdk 1.1.2 AgentCard descriptor on
+                # 2026-08-30: name, description, supported_interfaces, provider,
+                # version, documentation_url, capabilities, security_schemes,
+                # security_requirements, default_input_modes,
+                # default_output_modes, skills, signatures, icon_url. No
+                # `limitations`.
+                #
+                # So an absent field is not the agent claiming it has no
+                # limitations. It is the protocol having nowhere to put them,
+                # and this check asking for an extension beyond the spec. The
+                # old wording -- "agents that claim no limitations are
+                # suspicious" -- attributed to the agent a claim it had no way
+                # to make, and failed every conformant implementation at MEDIUM.
+                #
+                # Found by running this harness against a real A2A server built
+                # on the official SDK. The three synthetic target shapes could
+                # not surface it: none of them serves an agent card at all.
+                #
+                # A field that IS present and trivial still fails below. That is
+                # a real claim, deliberately made, and worth reporting.
                 passed=False,
-                details="Agent Card has no 'limitations' field — agents that claim no limitations are suspicious",
+                details=(INCONCLUSIVE_PREFIX + "the Agent Card carries no "
+                         "'limitations' field, and the A2A AgentCard schema does "
+                         "not define one. This check is an extension beyond the "
+                         "spec, so its absence says nothing about the agent."),
                 a2a_method="GET /.well-known/agent.json",
                 response_received=card,
                 elapsed_s=round(elapsed, 3),
