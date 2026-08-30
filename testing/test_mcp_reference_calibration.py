@@ -69,6 +69,16 @@ class TestReferenceCalibration(unittest.TestCase):
             raise unittest.SkipTest(
                 f"pinned reference server did not launch ({exc}); calibration "
                 f"UNMEASURED, not clean. Populate the npm cache to run it.")
+        if not cls.report["launched"]:
+            # The failure mode this file nearly shipped with. On a machine
+            # without the pinned package cached, npx exists so Popen succeeds,
+            # nothing answers, and the suite returns zero results. Comparing
+            # those zeros to EXPECTED produced "the class split moved", which is
+            # a confident and wrong description of a fixture that never started.
+            raise unittest.SkipTest(
+                "the MCP session never initialised, so the pinned reference "
+                "server did not start (npx present, package not cached). "
+                "Calibration UNMEASURED, not clean.")
 
     def test_the_suite_actually_produced_results(self):
         self.assertEqual(
