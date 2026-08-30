@@ -95,6 +95,26 @@ from protocol_tests.http_helpers import (
 # x402 protocol constants and primitives
 # ---------------------------------------------------------------------------
 
+#: Shortest amount for which "does the response echo it back" is decidable by
+#: substring. Below this, a chance match is the likely reading, not an echo: "0"
+#: matches the 0 in `"jsonrpc": "2.0"` and "-1" matches the -1 in "container-1",
+#: both of which are present in the repository's own permissive sentinel. A check
+#: that fires on a benign body is a check that gets muted, so short amounts are
+#: reported as undecidable rather than graded.
+_ECHO_MIN_DIGITS = 6
+
+
+def _amount_echoed(amount: str, body: str) -> bool:
+    """True if *body* echoes *amount* as a standalone number, not as a substring.
+
+    Digit boundaries keep "1000000" from matching inside "10000000". Amounts
+    shorter than `_ECHO_MIN_DIGITS` are never reported as echoed; see above.
+    """
+    if not body or len(amount) < _ECHO_MIN_DIGITS:
+        return False
+    return re.search(rf"(?<!\d){re.escape(amount)}(?!\d)", body) is not None
+
+
 # Required x402 payment challenge headers
 X402_REQUIRED_HEADERS = [
     "x-payment-required",
@@ -878,16 +898,32 @@ class X402SecurityTests:
             except (ValueError, TypeError):
                 pass
 
-        passed = has_rate_limit or not price_escalation
-
         details_parts = [
             f"{n_requests} requests in {elapsed:.1f}s",
             f"{n_402} got 402, {n_rate_limited} rate-limited",
         ]
-        if has_rate_limit:
-            details_parts.append("Rate limiting detected")
+
+        # The control this test is named for is rate limiting, and the harm it
+        # also detects is adaptive price escalation. `has_rate_limit or not
+        # price_escalation` reported a PASS for a target that rate-limited
+        # nothing, so long as the price held steady -- the verdict was "no
+        # escalation observed" while the name, the ASI08 mapping and the details
+        # string ("0 rate-limited") all claimed a spending-limit control. A
+        # target with no rate limiting at all is not a target that passed; it is
+        # one where the control was never demonstrated. Same shape as X4-057.
         if price_escalation:
+            passed = False
             details_parts.append(f"PRICE ESCALATION: {amounts[0]} -> {amounts[-1]}")
+        elif has_rate_limit:
+            passed = True
+            details_parts.append("Rate limiting detected")
+        else:
+            passed = False
+            details_parts.append(
+                f"{INCONCLUSIVE_PREFIX}the target answered all {n_requests} rapid "
+                f"requests, rate-limited none of them, and did not escalate price. "
+                f"No rate-limiting control was exercised, so this measures the "
+                f"absence of one harm rather than the presence of the control")
 
         self._record(X402TestResult(
             test_id="X4-011",
@@ -3083,7 +3119,14 @@ class X402SecurityTests:
     # ------------------------------------------------------------------
 
     def test_x402_metadata_side_channel(self):
-        """X4-053: Detect timing/size side channels in payment responses."""
+        """X4-053: Detect amount-dependent side channels in payment responses.
+
+        Evaluates two observable channels: response body-size variance across
+        payment amounts, and whether a response echoes the submitted amount
+        back. Per-request latency is recorded as evidence but is NOT part of
+        the verdict -- a loopback timing threshold would fail on a true
+        statement, and a check that cannot pass gets muted.
+        """
         t0 = time.monotonic()
 
         # Send requests with varying payment amounts and measure response
@@ -3112,12 +3155,16 @@ class X402SecurityTests:
             })
             req_elapsed = time.monotonic() - req_t0
 
+            resp_body = resp.get("body", "") or ""
             responses.append({
                 "label": label,
                 "status": resp.get("status", 0),
-                "body_len": len(resp.get("body", "")),
+                "body_len": len(resp_body),
                 "elapsed_ms": round(req_elapsed * 1000, 1),
                 "headers_count": len(resp.get("headers", {})),
+                # The check the original loop declared and never performed.
+                "echoed_amount": _amount_echoed(amount, resp_body),
+                "echo_testable": len(amount) >= _ECHO_MIN_DIGITS,
             })
 
         elapsed = time.monotonic() - t0
@@ -3131,16 +3178,19 @@ class X402SecurityTests:
         min_body = min(body_lengths) if body_lengths else 0
         body_variance = max_body - min_body
 
-        # Also check if any response leaked the actual amount back
-        leaked_amount = False
-        for r in responses:
-            # Already captured in resp above; re-check bodies would need storage
-            pass
+        # A response that echoes the submitted amount is an amount-dependent
+        # channel regardless of how uniform the body sizes are. The original
+        # code declared this check, could not perform it because the loop kept
+        # only len(body), and left `leaked_amount` unread -- so the verdict
+        # claimed a channel it never looked at. The body is retained above now.
+        echoed_labels = [r["label"] for r in responses if r["echoed_amount"]]
+        untestable = [r["label"] for r in responses if not r["echo_testable"]]
+        leaked_amount = bool(echoed_labels)
 
         # Side channel if body sizes vary by more than 500 bytes across
         # different invalid payment amounts (suggests amount-dependent processing)
         side_channel_detected = body_variance > 500
-        passed = not side_channel_detected
+        passed = not side_channel_detected and not leaked_amount
 
         self._record(X402TestResult(
             test_id="X4-053",
@@ -3150,13 +3200,19 @@ class X402SecurityTests:
             severity=Severity.MEDIUM.value,
             passed=passed,
             details=(f"Response body variance: {body_variance} bytes across payment amounts "
-                     f"(side channel {'DETECTED' if side_channel_detected else 'not detected'})"),
+                     f"(size channel {'DETECTED' if side_channel_detected else 'not detected'}); "
+                     + (f"amount ECHOED back for: {echoed_labels}" if leaked_amount
+                        else "no response echoed the submitted amount")
+                     + (f"; echo not decidable for {untestable} (too few digits to "
+                        f"distinguish an echo from a chance match)" if untestable else "")),
             http_method="GET",
             csg_mapping="HC-43: Error responses must not vary in size/timing based on payment amount validation",
             estimated_impact="info_leak",
             estimated_severity="medium",
             request_sent={"test_amounts": [l for l, _ in test_amounts]},
-            response_received={"responses": responses, "body_variance": body_variance},
+            response_received={"responses": responses, "body_variance": body_variance,
+                               "echoed_amount_labels": echoed_labels,
+                               "echo_undecidable_labels": untestable},
             elapsed_s=round(elapsed, 3),
         ))
 
