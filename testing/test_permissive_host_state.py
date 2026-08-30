@@ -53,6 +53,7 @@ verdict carries a regulatory citation.
     incident_response_harness        3 -> 0   IR-005, then IR-003/IR-008 via
                                               the refusing-target repair
     x402_harness                     9 -> 8   read in full; only X4-011 moved
+    l402_harness                     5 -> 3   read in full; L4-013/014 moved
 
 ## x402_harness: nine rows read, and eight of them were already correct
 
@@ -97,6 +98,54 @@ while the details string reported "0 rate-limited". Escalation is now a FAIL,
 observed rate limiting is a PASS, and neither observed is INCONCLUSIVE. That is
 the X4-057 shape: a control that was never exercised cannot be reported as one
 that held. This is the only row of the nine whose count moved, 9 -> 8.
+
+## l402_harness: the same question, and one verdict that could not be wrong
+
+Read straight after x402 because it is the other payment module and the shapes
+were expected to rhyme. They did. All five of its permissive passes also passed
+against the refusing target, none passed only there, and the same fourth-target
+method settled them: a server issuing ONE reused invoice to every caller, never
+a 429, leaking a stack trace and Lightning node details; plus a fifth shape that
+returns 500 to everything.
+
+L4-013, L4-014 and L4-033 fail against those, so they are working detectors.
+L4-031 fails against the always-500 target -- it measures whether the server
+stays up under a flood, and a refusing server that answers every request is
+genuinely resilient, so passing there is correct by construction.
+
+**Two vacuous passes on an empty population.** L4-013 and L4-014 both compute
+
+    all_unique = unique_invoices == len(invoices) if invoices else True
+
+so a target that issued no challenge at all -- no 402, no WWW-Authenticate --
+passed while its own details string read "0/0 unique invoices". Neither disjunct
+measured anything: no invoices to collide and no rate limiting seen. Invoice
+uniqueness is a real property where invoices exist and cannot be established
+from none. Both now report `not_evaluated`, the third state this module has
+carried since before #351.
+
+**One verdict that could not be wrong.** L4-029 asks whether the server
+survives a 1MB Authorization header, and scored it
+
+    if status != 200 or not resp.get("_error"):
+        handled += 1
+    except Exception:
+        handled += 1
+
+The condition is false only for a response that is both a 200 and a transport
+error, which the transport cannot produce -- it sets `_error` on a failed
+request and a failed request carries status 0, never 200 -- and the except
+branch incremented `handled` too. Measured across five target shapes (dead,
+permissive, refusing, leaking, always-500) it was a constant PASS. A
+DoS-resilience verdict that cannot be wrong is not evidence of resilience; it is
+the third pole's question, arriving in a module that had already answered it.
+
+The module's own `_rejected()` carries the right rule and the reasoning for it
+(VS-R03 B1: a 5xx is not a rejection, it may be the payload faulting the parser,
+which is the attack landing). L4-029 now uses it, an exception counts as nothing
+observed rather than as graceful handling, and zero observations is
+`not_evaluated`. Against a stub transport the verdict now moves: 200 FAIL,
+500 FAIL, 431 PASS, transport error N/A. Before, all four were PASS.
 
 **The repair for X4-053 first shipped the defect it was fixing.** A plain
 `amount in body` echo test fires on the repository's own permissive sentinel:
@@ -366,7 +415,7 @@ PASSING_AGAINST_YES = {
     "cbrn_harness": 6,
     "harmful_output_harness": 6,
     "a2a_harness": 5,
-    "l402_harness": 5,
+    "l402_harness": 3,
     "tool_search_harness": 5,
     "benchmark_integrity_harness": 4,
     "advanced_attacks": 3,
