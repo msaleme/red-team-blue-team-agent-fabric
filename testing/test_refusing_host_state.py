@@ -82,6 +82,10 @@ RECOGNISES_NO_REFUSAL = {
     "prompt_caching_harness",
     "return_channel_harness",
     "skill_security_harness",
+    # 2026-08-30: joined the list BY BEING REPAIRED. A 403 yields no tool
+    # list, so there is nothing to scan and the honest verdict is
+    # INCONCLUSIVE. Before the repair it passed 5 of 6 here, vacuously.
+    "tool_search_harness",
     "watermark_harness",
 }
 

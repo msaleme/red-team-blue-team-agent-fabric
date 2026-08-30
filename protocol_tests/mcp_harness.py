@@ -57,7 +57,12 @@ from protocol_tests._utils import (
     HIDDEN_INSTRUCTION_PATTERN,
     URL_PATTERN,
 )
-from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX
+from protocol_tests.http_helpers import (
+    INCONCLUSIVE_PREFIX,
+    # Shared 2026-08-30: tool_search_harness had the same shape. Kept under
+    # the local name so the fourteen call sites below are unchanged.
+    nothing_to_scan as _nothing_to_scan,
+)
 from protocol_tests.version import get_harness_version
 
 
@@ -107,27 +112,6 @@ def _mcp_rejected_text(text: str) -> bool:
                 "mcp error"))
 
 
-def _nothing_to_scan(n: int, what: str) -> str | None:
-    """INCONCLUSIVE detail when a scan had nothing to scan, else None.
-
-    Seven verdicts here scan the server's tool list and report the absence of a
-    finding. Against a server that lists no tools they read
-
-        MCP-001: Found 0 tools, none suspicious
-        MCP-012: All 0 tool descriptions are within 10240B threshold
-        MCP-014: No injection patterns detected in 0 tool descriptions
-
-    Zero findings over an empty set is not a clean result. It is the same defect
-    mcp_tool_poisoning_harness had in CVE-003 -- "Contamination rate: 0.0%
-    (0/0 tools) - below 5% threshold" -- and the same rule run_summary applies
-    one layer up, where pass_rate is None rather than 0 when nothing was
-    serviced.
-    """
-    if n:
-        return None
-    return (f"{INCONCLUSIVE_PREFIX}the server listed no {what}, so this scan "
-            f"examined nothing. Zero findings over an empty set is not a clean "
-            f"result.")
 
 
 # Preserve the harness's existing Streamable HTTP baseline. Dual-era discovery
