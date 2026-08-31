@@ -347,6 +347,26 @@ It is a reproduction of a pinned artifact by one external party, submitted as a 
 **not** as a contribution, endorsement, certification, or adoption. It is not a substitute for
 independent review of the harness as a whole, which this project still does not have.
 
+**"A third independent implementation is worth more to this corpus than any additional vector."**
+That is [`fixtures/rcl/CONFORMANCE.md`](fixtures/rcl/CONFORMANCE.md) §7, verbatim, and it is not
+modesty. Two implementations agreeing establishes that they share a reading; only a third can tell
+you whether that reading is the contract or a coincidence.
+
+The bar is lower than it sounds. The corpus is eleven vectors, one fixture file, and a pinned hash;
+the run above was a single Node script written against the published format.
+[`docs/REPRODUCING.md`](docs/REPRODUCING.md) has the pin, the canonical byte basis that is the most
+common reason a correct implementation computes a different digest, and the table of what does and
+does not count as independent. §7 of `CONFORMANCE.md` adds the one rule that decides whether your
+result counts at all: **write the verifier from the published contract, not from
+`protocol_tests/receipt_claim_harness.py`.** Reading our implementation first turns an independent
+result into a port, and the value is entirely in the independence. File it with the
+[reproduction report template](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/new?template=reproduction-report.yml).
+
+**A result that contradicts ours gets published too.** #304 is the precedent for that as well: it
+matched 11 of 11 and *still* surfaced two defects in our own contract description, both corrected
+above. Disagreement is the more useful outcome, not the awkward one — a reproduction that only
+agrees may just mean two implementations share the same wrong assumption.
+
 *Using the harness? Open a PR to add yourself, or tag us in your project.*
 
 ---
