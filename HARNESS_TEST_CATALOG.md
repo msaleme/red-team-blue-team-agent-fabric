@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `af3d641`
+**Generated:** `scripts/generate_test_catalog.py` at commit `11f82cd`
 **Test count:** 608 unique test IDs across 44 registered harness modules (43 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -455,39 +455,39 @@ IR-012 | Graceful Degradation on Termination | protocol_tests/kill_switch_harnes
 ### L402 Payment (`protocol_tests/l402_harness.py`) — 33 tests
 
 ```
-L4-001 | 402 Challenge Header Present | protocol_tests/l402_harness.py:339
-L4-002 | Malformed Invoice Rejection | protocol_tests/l402_harness.py:381
-L4-003 | Unpaid / Expired Token Rejection | protocol_tests/l402_harness.py:419
-L4-004 | Tampered Macaroon Rejection | protocol_tests/l402_harness.py:445
-L4-005 | Unauthorized Caveat Injection | protocol_tests/l402_harness.py:496
-L4-006 | Stripped Macaroon Signature | protocol_tests/l402_harness.py:555
-L4-007 | Fake Preimage Rejection | protocol_tests/l402_harness.py:628
-L4-008 | Cross-Session Preimage Replay | protocol_tests/l402_harness.py:651
-L4-009 | Caveat Scope Widening | protocol_tests/l402_harness.py:704
-L4-010 | Permission Escalation via Caveats | protocol_tests/l402_harness.py:757
-L4-011 | Incomplete Authorization Header | protocol_tests/l402_harness.py:836
-L4-012 | Pre-Settlement Race Condition | protocol_tests/l402_harness.py:865
-L4-013 | Rapid Invoice Generation | protocol_tests/l402_harness.py:948
-L4-014 | Concurrent Invoice Uniqueness | protocol_tests/l402_harness.py:1010
-L4-015 | Forged Caveat HMAC | protocol_tests/l402_harness.py:1042
-L4-016 | Nested Caveat Depth Attack | protocol_tests/l402_harness.py:1100
-L4-017 | Third-Party Caveat Extension | protocol_tests/l402_harness.py:1157
-L4-018 | Caveat Unicode Smuggling | protocol_tests/l402_harness.py:1214
-L4-019 | Stale Channel State Token | protocol_tests/l402_harness.py:1295
-L4-020 | Force-Close Timing Exploitation | protocol_tests/l402_harness.py:1337
-L4-021 | HTLC Timeout Exploitation | protocol_tests/l402_harness.py:1375
-L4-022 | Preimage Hash Correlation | protocol_tests/l402_harness.py:1399
-L4-023 | Preimage Length Manipulation | protocol_tests/l402_harness.py:1473
-L4-024 | Invoice Amount Consistency | protocol_tests/l402_harness.py:1504
-L4-025 | Overpayment / Underpayment Edge Cases | protocol_tests/l402_harness.py:1571
-L4-026 | Invoice Expiry Bypass | protocol_tests/l402_harness.py:1594
-L4-027 | Multi-Hop Routing Header Injection | protocol_tests/l402_harness.py:1660
-L4-028 | Payment Replay Across Channels | protocol_tests/l402_harness.py:1687
-L4-029 | Large Payload DoS Resilience | protocol_tests/l402_harness.py:1775
-L4-030 | Header Injection DoS | protocol_tests/l402_harness.py:1831
-L4-031 | Concurrent Challenge Flood | protocol_tests/l402_harness.py:1872
-L4-032 | Protocol Downgrade (LSAT Compat) | protocol_tests/l402_harness.py:1916
-L4-033 | Information Disclosure in Errors | protocol_tests/l402_harness.py:1960
+L4-001 | 402 Challenge Header Present | protocol_tests/l402_harness.py:344
+L4-002 | Malformed Invoice Rejection | protocol_tests/l402_harness.py:386
+L4-003 | Unpaid / Expired Token Rejection | protocol_tests/l402_harness.py:424
+L4-004 | Tampered Macaroon Rejection | protocol_tests/l402_harness.py:450
+L4-005 | Unauthorized Caveat Injection | protocol_tests/l402_harness.py:501
+L4-006 | Stripped Macaroon Signature | protocol_tests/l402_harness.py:560
+L4-007 | Fake Preimage Rejection | protocol_tests/l402_harness.py:633
+L4-008 | Cross-Session Preimage Replay | protocol_tests/l402_harness.py:656
+L4-009 | Caveat Scope Widening | protocol_tests/l402_harness.py:709
+L4-010 | Permission Escalation via Caveats | protocol_tests/l402_harness.py:762
+L4-011 | Incomplete Authorization Header | protocol_tests/l402_harness.py:841
+L4-012 | Pre-Settlement Race Condition | protocol_tests/l402_harness.py:870
+L4-013 | Rapid Invoice Generation | protocol_tests/l402_harness.py:953
+L4-014 | Concurrent Invoice Uniqueness | protocol_tests/l402_harness.py:1015
+L4-015 | Forged Caveat HMAC | protocol_tests/l402_harness.py:1047
+L4-016 | Nested Caveat Depth Attack | protocol_tests/l402_harness.py:1105
+L4-017 | Third-Party Caveat Extension | protocol_tests/l402_harness.py:1162
+L4-018 | Caveat Unicode Smuggling | protocol_tests/l402_harness.py:1219
+L4-019 | Stale Channel State Token | protocol_tests/l402_harness.py:1300
+L4-020 | Force-Close Timing Exploitation | protocol_tests/l402_harness.py:1342
+L4-021 | HTLC Timeout Exploitation | protocol_tests/l402_harness.py:1380
+L4-022 | Preimage Hash Correlation | protocol_tests/l402_harness.py:1404
+L4-023 | Preimage Length Manipulation | protocol_tests/l402_harness.py:1478
+L4-024 | Invoice Amount Consistency | protocol_tests/l402_harness.py:1509
+L4-025 | Overpayment / Underpayment Edge Cases | protocol_tests/l402_harness.py:1576
+L4-026 | Invoice Expiry Bypass | protocol_tests/l402_harness.py:1599
+L4-027 | Multi-Hop Routing Header Injection | protocol_tests/l402_harness.py:1665
+L4-028 | Payment Replay Across Channels | protocol_tests/l402_harness.py:1692
+L4-029 | Large Payload DoS Resilience | protocol_tests/l402_harness.py:1780
+L4-030 | Header Injection DoS | protocol_tests/l402_harness.py:1836
+L4-031 | Concurrent Challenge Flood | protocol_tests/l402_harness.py:1877
+L4-032 | Protocol Downgrade (LSAT Compat) | protocol_tests/l402_harness.py:1921
+L4-033 | Information Disclosure in Errors | protocol_tests/l402_harness.py:1980
 ```
 
 ### MCP Protocol (`protocol_tests/mcp_harness.py`) — 32 tests
