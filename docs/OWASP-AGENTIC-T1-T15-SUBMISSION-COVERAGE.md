@@ -11,7 +11,7 @@
 | Report view | Submission (T1–T15) |
 | Report version | 1.0 |
 | Project | Agent Security Harness |
-| Harness version | `4.17.0` |
+| Harness version | `4.18.0rc1` |
 | Assessed commit | [`8d8bc08933637381a32fc32041f139d34eb6271f`](https://github.com/msaleme/red-team-blue-team-agent-fabric/commit/8d8bc08933637381a32fc32041f139d34eb6271f) |
 | Assessed at | 2026-08-02T18:30:00Z |
 | Repository tests | 608 (`python scripts/count_tests.py`) |
