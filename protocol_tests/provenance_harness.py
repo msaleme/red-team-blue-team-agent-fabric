@@ -33,6 +33,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    is_inconclusive,
     INCONCLUSIVE_PREFIX,
     run_summary,
     silence_detail,
@@ -132,8 +133,15 @@ class ProvenanceTestResult:
     response_received: dict | None = None
     elapsed_s: float = 0.0
     timestamp: str = ""
+    #: INCONCLUSIVE as a field, not only as a prefix on `details`.
+    #: `asdict()` carries this; it does not carry the meaning of English.
+    not_evaluated: bool = False
 
     def __post_init__(self):
+        # A prefix written into `details` is the state too, not only a
+        # guard's decision. Derived here so both paths are structural.
+        if is_inconclusive(self.details):
+            self.not_evaluated = True
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -204,6 +212,7 @@ class ProvenanceTests:
             result.response_received = silence_evidence(seen, _rr)
         if _d is not None:
             result.passed = False
+            result.not_evaluated = True
             result.details = _d
         elif result.passed and isinstance(_rr, dict) and not (
                 _rr.get("_error") or _rr.get("error")):

@@ -37,6 +37,7 @@ from protocol_tests.http_helpers import (
     _err,
     http_post_json,
     inconclusive_detail,
+    is_inconclusive,
     looks_like_refusal,
     run_summary,
     summary_lines,
@@ -101,8 +102,15 @@ class IntentContractTestResult:
     response_received: dict | None = None
     elapsed_s: float = 0.0
     timestamp: str = ""
+    #: INCONCLUSIVE as a field, not only as a prefix on `details`.
+    #: `asdict()` carries this; it does not carry the meaning of English.
+    not_evaluated: bool = False
 
     def __post_init__(self):
+        # A prefix written into `details` is the state too, not only a
+        # guard's decision. Derived here so both paths are structural.
+        if is_inconclusive(self.details):
+            self.not_evaluated = True
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -197,6 +205,7 @@ class IntentContractTests:
         _d = inconclusive_detail(_rr, result.details)
         if _d is not None:
             result.passed = False
+            result.not_evaluated = True
             result.details = _d
         elif result.passed and isinstance(_rr, dict) and not _intent_refused(_rr):
             # #351, permissive half. Seven of the eight verdicts here are

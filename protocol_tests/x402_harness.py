@@ -85,6 +85,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    is_inconclusive,
     looks_like_refusal,
     INCONCLUSIVE_PREFIX,
     instrument_transport,
@@ -333,6 +334,10 @@ class X402TestResult:
     not_evaluated: bool = False
 
     def __post_init__(self):
+        # A prefix written into `details` is the state too, not only a
+        # guard's decision. Derived here so both paths are structural.
+        if is_inconclusive(self.details):
+            self.not_evaluated = True
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
 

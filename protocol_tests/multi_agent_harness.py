@@ -54,6 +54,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    is_inconclusive,
     INCONCLUSIVE_PREFIX,
     _err,
     _is_conn_error,
@@ -124,8 +125,15 @@ class MultiAgentTestResult:
     response_received: dict | None = None
     elapsed_s: float = 0.0
     timestamp: str = ""
+    #: INCONCLUSIVE as a field, not only as a prefix on `details`.
+    #: `asdict()` carries this; it does not carry the meaning of English.
+    not_evaluated: bool = False
 
     def __post_init__(self):
+        # A prefix written into `details` is the state too, not only a
+        # guard's decision. Derived here so both paths are structural.
+        if is_inconclusive(self.details):
+            self.not_evaluated = True
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -276,6 +284,7 @@ class MultiAgentTests:
         _d = inconclusive_detail(_rr, result.details)
         if _d is not None:
             result.passed = False
+            result.not_evaluated = True
             result.details = _d
         elif result.passed and isinstance(_rr, dict) and not _multi_agent_refused(_rr):
             # #351, permissive-target half. Every verdict in this module is
@@ -293,6 +302,7 @@ class MultiAgentTests:
             _, _inc = _multi_agent_verdict(_rr, succeeded=False)
             if _inc is not None:
                 result.passed = False
+                result.not_evaluated = True
                 result.details = _inc
         self.results.append(result)
         status = "PASS \u2705" if result.passed else "FAIL \u274c"
