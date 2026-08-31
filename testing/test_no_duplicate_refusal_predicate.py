@@ -97,7 +97,6 @@ PERMANENT = {
 KNOWN_DUPLICATES = {
     "multi_agent_harness.py": "a SECOND refusal predicate at :1125, missed when "
                               "the first was routed through the shared helper",
-    "gtg1002_simulation.py": 'raw `and "refuse" not in resp_str` suppression at :527',
     "advanced_attacks.py": 'raw `and "refuse" not in resp_str` suppression at :330',
     "autogen_harness.py": 'raw `and "denied" not in resp_str` suppression at :603',
     "ap2_harness.py": "payment-protocol rejection tuple at :315",
