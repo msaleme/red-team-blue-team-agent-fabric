@@ -37,6 +37,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
+import verify_release_claims  # noqa: E402
+
 MANIFEST_PATH = REPO_ROOT / "docs" / "release-claims.json"
 
 REQUIRED_FIELDS = {
@@ -116,3 +118,34 @@ class TestReleaseClaimsManifest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestAnUnresolvableTagIsNotSilentlyHead(unittest.TestCase):
+    """A declared tag that does not exist must SKIP, never regenerate at HEAD.
+
+    `regenerate()` resolved `commit or (tag and tag_commit(tag)) or "HEAD"`, so
+    an absent tag made the middle term falsy and the command ran against HEAD --
+    while the label still read `regenerate @ <tag>`. The run then reported
+    "reproduced 608 @ v4.18.0" for a tag that did not exist.
+
+    Same defect as the one this manifest was built to catch, one level up: the
+    number is right and the provenance is false.
+    """
+
+    def test_a_missing_tag_skips_and_says_it_reproduced_nothing(self):
+        claim = {"id": "synthetic", "release_tag": "v0.0.0-no-such-tag",
+                 "command": "python3 scripts/count_tests.py",
+                 "value": "608", "value_extraction": r"Definitive count:\s*(\d+)"}
+        status, label, detail = verify_release_claims.regenerate(claim)
+        self.assertEqual(status, verify_release_claims.SKIP, f"{label}: {detail}")
+        self.assertIn("NOT reproduced", detail)
+        self.assertIn("v0.0.0-no-such-tag", label)
+
+    def test_a_claim_with_no_tag_still_regenerates_at_head(self):
+        """The positive control. Main-branch claims must keep working."""
+        claim = {"id": "synthetic-head",
+                 "command": "python3 scripts/count_tests.py",
+                 "value": None, "value_extraction": r"Definitive count:\s*(\d+)"}
+        status, label, _ = verify_release_claims.regenerate(claim)
+        self.assertIn("HEAD", label)
+        self.assertNotEqual(status, verify_release_claims.SKIP)
+

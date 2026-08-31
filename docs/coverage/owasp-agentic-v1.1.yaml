@@ -52,7 +52,7 @@ framework:
 assessment:
   project: Agent Security Harness
   repository: https://github.com/msaleme/red-team-blue-team-agent-fabric
-  harness_version: "4.18.0rc1"
+  harness_version: "4.18.0"
   git_commit: "8d8bc08933637381a32fc32041f139d34eb6271f"
   assessed_at: '2026-08-02T18:30:00Z'
   reverified_at: '2026-08-03T01:05:00Z'
