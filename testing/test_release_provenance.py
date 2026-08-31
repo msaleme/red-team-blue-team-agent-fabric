@@ -73,6 +73,52 @@ class TestTheStatement(unittest.TestCase):
         self.assertIsNone(tools["definitely-not-installed"])
 
 
+class TestTheDirtyTreeQuestion(unittest.TestCase):
+    """`tree_is_dirty` must mean modified SOURCE, not build output.
+
+    v4.18.0rc1 failed on this and nothing in the unit tests could have caught it,
+    because they build synthetic dists in a temp directory and never run
+    `python -m build` in the repository. In CI the real build had already created
+    `dist/`, `*.egg-info/` and `build-environment.txt` before this script ran, so
+    `git status --porcelain` reported untracked files, every CI build looked
+    dirty, and the verifier correctly refused a statement that was correctly
+    produced.
+
+    Tested against a throwaway repository rather than this one, so the assertion
+    does not depend on whether the working tree happens to be clean right now.
+    """
+
+    def setUp(self):
+        import subprocess as sp
+        import tempfile
+        self.repo = Path(tempfile.mkdtemp())
+        run = lambda *a: sp.run(a, cwd=self.repo, capture_output=True, check=True)
+        run("git", "init", "-q", ".")
+        (self.repo / "tracked.txt").write_text("source\n")
+        run("git", "add", "tracked.txt")
+        run("git", "-c", "user.email=t@t", "-c", "user.name=t",
+            "commit", "-qm", "init")
+
+    def _dirty(self) -> bool:
+        return bool(build_provenance.git(
+            "status", "--porcelain", "--untracked-files=no", cwd=self.repo))
+
+    def test_untracked_build_output_does_not_make_the_tree_dirty(self):
+        (self.repo / "build-environment.txt").write_text("x\n")
+        (self.repo / "dist").mkdir()
+        (self.repo / "dist" / "pkg.whl").write_text("x\n")
+        self.assertFalse(self._dirty(),
+                         "build output was counted as a modified source tree; "
+                         "this is the defect that failed v4.18.0rc1")
+
+    def test_a_modified_tracked_file_does_make_the_tree_dirty(self):
+        """The positive control. A check that never fires is not a check."""
+        (self.repo / "tracked.txt").write_text("source, edited\n")
+        self.assertTrue(self._dirty(),
+                        "a modified tracked file was not reported; the dirty-tree "
+                        "check cannot detect the thing it exists for")
+
+
 class TestTheVerifier(unittest.TestCase):
     """The verifier has to be able to fail. A checker that always passes is not one."""
 
@@ -201,10 +247,18 @@ class TestTheScriptsRunAsCommands(unittest.TestCase):
         """The positive control. A verifier that refuses everything is not one."""
         import tempfile
         tmp = Path(tempfile.mkdtemp())
+        # GITHUB_REF_NAME is pinned to a tag that cannot exist. Left unset,
+        # `build_provenance.py` falls back to `git describe --exact-match` and
+        # picks up whatever tag this working copy happens to sit on -- which it
+        # did, the moment v4.18.0rc1 was cut on this commit. The verifier then
+        # correctly reported that the real tag disagrees with the fake SHA below.
+        # A fixture that reads the surrounding repository is testing the
+        # repository.
         ci = {"GITHUB_RUN_ID": "424242", "GITHUB_RUN_ATTEMPT": "1",
               "GITHUB_REPOSITORY": "msaleme/red-team-blue-team-agent-fabric",
               "GITHUB_WORKFLOW": "Publish to PyPI",
               "GITHUB_SERVER_URL": "https://github.com",
+              "GITHUB_REF_NAME": "v0.0.0-not-a-real-tag",
               "GITHUB_SHA": "d" * 40, "GITHUB_EVENT_NAME": "release"}
         out = self._build(tmp, ci)
         statement = json.loads(out.read_text())
