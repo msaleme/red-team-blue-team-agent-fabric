@@ -70,22 +70,32 @@ tested only the stale direction.
 
 ## Attribution
 
-**The implementer is not named here.** They published their report themselves,
-under their own account, in [issue #304](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/304),
-which is public and linked above. A reader who wants to know who ran it can
-follow the link.
+**The implementer is named with their consent.** The cross-implementation was
+written and run by **[@VrtxOmega](https://github.com/VrtxOmega)** in
+**[VrtxOmega/veritas-agent-trust-lab](https://github.com/VrtxOmega/veritas-agent-trust-lab)**,
+whose own report and verifier runner are the primary artifacts:
 
-Permission to cite them by name in a citable artifact was requested on
-2026-08-26 with the explicit statement that no obligation was attached, and that
-if they would rather not be named, this note would record only that an external
-implementation exists. No reply was received. **That is not a refusal and is not
-recorded as one.** It is the default branch of a promise that was made when the
-question was asked, and it stays available to revise if they would prefer to be
-cited.
+| | |
+|---|---|
+| Cross-evaluation report | [`evidence/EXTERNAL_RCL_CROSS_EVALUATION.md`](https://github.com/VrtxOmega/veritas-agent-trust-lab/blob/main/evidence/EXTERNAL_RCL_CROSS_EVALUATION.md) |
+| Verifier runner | [`scripts/verify-external-rcl.mjs`](https://github.com/VrtxOmega/veritas-agent-trust-lab/blob/main/scripts/verify-external-rcl.mjs) |
+| Report as filed | [issue #304](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/304) |
 
-Citing the public issue is a reference to a public primary source. Naming a
-party as a co-signer of one's own claim is a different act and needs their
-affirmative agreement, which is why this note does the first and not the second.
+**How the consent was obtained, because the sequence matters.** Permission to
+cite them by name was requested on 2026-08-26 with the explicit statement that
+no obligation was attached, and that if they would rather not be named, this
+note would record only that an external implementation exists. No reply had
+arrived by 2026-08-30, so this note was published on that default branch, with
+the silence recorded as silence and **not** as a refusal. They replied on
+2026-08-31 granting the request; the note was then revised. A request that
+carries a real default costs nothing to decline, which is the only reason the
+answer to it means anything.
+
+**Naming them is still not a co-sign.** They reproduced a pinned artifact and
+reported the result. They have not reviewed this repository, do not vouch for
+it, and their own report says so first: it is filed as *not a contribution*, and
+it disclaims independent validation of either project. Their words on the scope
+govern over any summary of them here.
 
 ## What this does not establish
 
