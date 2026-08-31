@@ -137,14 +137,55 @@ def _err(resp: dict) -> bool:
 INCONCLUSIVE_PREFIX = "INCONCLUSIVE - "
 
 
-def is_inconclusive(details: str | None) -> bool:
-    """True when `details` marks a result as INCONCLUSIVE.
+#: The structural home #404 said would be better and did not block on.
+#:
+#: A prose prefix is a display artifact. It survives `asdict()` only as English,
+#: so a consumer reading a serialised report has to re-implement the substring
+#: match to recover a state the harness already knew -- which is the predicate
+#: duplication #460 guards against internally, exported across the boundary.
+#:
+#: `l402_harness` and `x402_harness` reached this conclusion first and carry
+#: `not_evaluated: bool` on their result classes. Their own report writers count
+#: it. Nothing shared knew about it, so the two vocabularies described the same
+#: state in disjoint code paths -- which is why `run_summary` below would have
+#: miscounted a field-only result as a target failure had one ever reached it.
+#: That was latent, not live. It is closed here rather than left to be found.
+#:
+#: `identity_harness` independently arrived at a third name, `informational`,
+#: and its comment is careful that the two are not synonyms: `not_evaluated`
+#: means a required PRECONDITION was missing, `informational` means the check
+#: ran fine and there is nothing to assert. That distinction is real and worth
+#: keeping on the result. It is not a distinction the *summary* can act on --
+#: as that same comment says, "Both are excluded from pass and fail counts for
+#: the same reason: an unevaluated result must not be scored as secure."
+#:
+#: So both fields are read here, and neither is renamed. A module keeps the word
+#: that says what happened to it; the shared bucket asks only whether a verdict
+#: was ever serviced.
+#:
+#: The field is the canonical marker on a *result*; `inconclusive` stays the
+#: bucket name in a *summary*. Those are different objects and the names are
+#: not redundant.
+INCONCLUSIVE_FIELDS = ("not_evaluated", "informational")
 
-    The predicate exists so that callers stop matching the substring by hand.
-    When the state gains a structural home on the result classes, this is the
-    one place that has to learn about it.
+
+def is_inconclusive(subject) -> bool:
+    """True when `subject` is INCONCLUSIVE.
+
+    Accepts either a result object or its `details` string, because this is the
+    one predicate and callers should not have to know which form they hold. On
+    a result it reads the structural field first and falls back to the prefix,
+    so a module that has not migrated yet is counted exactly as before.
+
+    The docstring this replaces promised that when the state gained a
+    structural home, this would be the one place that had to learn about it.
+    This is that.
     """
-    return INCONCLUSIVE_PREFIX.strip(" -") in (details or "")
+    if subject is None or isinstance(subject, str):
+        return INCONCLUSIVE_PREFIX.strip(" -") in (subject or "")
+    if any(getattr(subject, f, False) for f in INCONCLUSIVE_FIELDS):
+        return True
+    return is_inconclusive(getattr(subject, "details", None))
 
 
 def run_summary(results) -> dict:
@@ -184,8 +225,7 @@ def run_summary(results) -> dict:
 
     results = list(results)
     total = len(results)
-    inconclusive = sum(1 for r in results
-                       if is_inconclusive(getattr(r, "details", None)))
+    inconclusive = sum(1 for r in results if is_inconclusive(r))
     passed = sum(1 for r in results if getattr(r, "passed", False))
     failed = total - passed - inconclusive
     serviced = passed + failed

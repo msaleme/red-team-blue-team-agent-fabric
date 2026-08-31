@@ -169,7 +169,7 @@ class ToolSearchTests:
         if _d is not None:
             result.passed = False
             result.details = _d
-        elif is_inconclusive(result.details):
+        elif is_inconclusive(result):
             # A site that abstained by wording must not also report a pass.
             # Enforced here so a seventh test cannot set one without the other.
             result.passed = False

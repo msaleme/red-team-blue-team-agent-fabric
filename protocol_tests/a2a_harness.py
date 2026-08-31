@@ -365,7 +365,7 @@ class A2ASecurityTests:
                 f"{INCONCLUSIVE_PREFIX}{_rr.get('_exception')}. "
                 f"Original finding: {result.details}")
         elif (seen and not any(_answered(r) for r in seen)
-                and not is_inconclusive(result.details)):
+                and not is_inconclusive(result)):
             result.passed = False
             result.details = (
                 f"{INCONCLUSIVE_PREFIX}none of {len(seen)} requests were "
