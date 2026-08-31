@@ -332,10 +332,12 @@ explicitly *not* goals. Full detail and the anti-goals in [ROADMAP.md](ROADMAP.m
 
 ### Independent reproduction
 
-The only external check this project has received. [@VrtxOmega](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/304)
-wrote a **separate Node verifier** for the portable receipt-claim oracle fixtures and ran it against a
-pinned commit and fixture hash, matching all 11 RCL results including both acceptance controls — so it
-did not pass by rejecting everything.
+The only external check this project has received. [@VrtxOmega](https://github.com/VrtxOmega), in
+[veritas-agent-trust-lab](https://github.com/VrtxOmega/veritas-agent-trust-lab), wrote a **separate Node
+verifier** for the portable receipt-claim oracle fixtures and ran it against a pinned commit and fixture
+hash, matching all 11 RCL results including both acceptance controls — so it did not pass by rejecting
+everything. Reported in [#304](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/304);
+named here with their consent, granted 2026-08-31.
 
 The exchange also produced two corrections to this repository: `signature_algorithm` now names the
 actual encoding and states plainly that it is **not** RFC 8785 JCS, and `coverage_gaps` now declares

@@ -152,11 +152,13 @@ implementation exists.
 | Implementation | Language | Corpus ref | Verdicts | Acceptance controls | Notes |
 |---|---|---|---|---|---|
 | Reference (`ClaimLevelVerifier`, this repo) | Python | `1.0` @ `4164151383…` | 11/11 | preserved | expectations are executed at export, not hand-written |
-| Independent implementation (unnamed pending consent) | Node | `1.0` @ `0bc47dab…` | 11/11 | preserved | written from the published contract alone; surfaced two contract-description defects, corrected in #307 |
+| Independent implementation ([VrtxOmega/veritas-agent-trust-lab](https://github.com/VrtxOmega/veritas-agent-trust-lab)) | Node | `1.0` @ `0bc47dab…` | 11/11 | preserved | written from the published contract alone; surfaced two contract-description defects, corrected in #307 |
 
-**The second row is deliberately unnamed.** The implementer scoped their own result conservatively
-and has not consented to being cited. Do not add their name, repository, or a link to this table
-without that consent. If it is granted, the row may name them and nothing else about it changes.
+**The second row is named because consent was granted**, on 2026-08-31, in
+[#304](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/304). Nothing else about
+the row changed when the name was added, which was the standing commitment. The implementer scoped
+their own result conservatively; a name in this table is attribution, not a co-sign. The rule above
+still governs any *future* row: do not add a name, repository, or link without that party's consent.
 
 The second row's result was obtained against the historical hash; see §1 for why that is the same
 eleven vectors.
