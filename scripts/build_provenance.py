@@ -117,7 +117,19 @@ def build(dist: Path, source_date: str | None = None) -> dict:
         "source": {
             "commit": os.environ.get("GITHUB_SHA") or git("rev-parse", "HEAD"),
             "ref_name": os.environ.get("GITHUB_REF_NAME") or git("describe", "--tags", "--exact-match"),
-            "tree_is_dirty": bool(git("status", "--porcelain")),
+            # `--untracked-files=no` is load-bearing, and v4.18.0rc1 is why.
+            #
+            # This asked `git status --porcelain`, which reports untracked files.
+            # By the time this script runs, `python -m build` has already created
+            # `dist/`, `*.egg-info/` and `build/`, and the workflow has written
+            # `build-environment.txt`. So every CI build looked dirty, and the
+            # verifier correctly refused a statement that was correctly produced.
+            # The rehearsal failed at the step it was cut to exercise.
+            #
+            # The question this field exists to answer is whether the SOURCE
+            # differs from the commit being claimed. Build output is not source,
+            # and a release build always has some.
+            "tree_is_dirty": bool(git("status", "--porcelain", "--untracked-files=no")),
         },
         "build_environment": {
             "python": sys.version.split()[0],
