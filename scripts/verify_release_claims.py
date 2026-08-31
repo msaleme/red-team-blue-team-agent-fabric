@@ -141,9 +141,33 @@ def check_tag_binds_commit(claim: dict) -> tuple[str, str, str] | None:
 
 def regenerate(claim: dict) -> tuple[str, str, str]:
     """Re-run the declared command at the declared revision and compare."""
-    rev = claim.get("commit") or (claim.get("release_tag") and
-                                  tag_commit(claim["release_tag"])) or "HEAD"
-    label = f"{claim['id']} regenerate @ {claim.get('release_tag') or rev[:12]}"
+    # A declared tag that cannot be resolved must NOT fall through to HEAD.
+    #
+    # It did. `claim.get("commit") or (tag and tag_commit(tag)) or "HEAD"` makes
+    # the middle term None when the tag is absent, so the command ran against
+    # HEAD while the label still read `regenerate @ v4.18.0`, and the run
+    # reported "reproduced 608 @ v4.18.0" for a tag that did not exist.
+    #
+    # That is the same defect this function's own docstring describes one level
+    # up: the number is right and the provenance is false. Found 2026-08-31
+    # while pointing this manifest at v4.18.0 before the tag was cut, where it
+    # was harmless because HEAD was about to become that tag. A typo'd tag name,
+    # or one that was deleted, would have been silently mislabelled instead.
+    tag = claim.get("release_tag")
+    declared_commit = claim.get("commit")
+    label = f"{claim['id']} regenerate @ {tag or (declared_commit or 'HEAD')[:12]}"
+
+    if declared_commit:
+        rev = declared_commit
+    elif tag:
+        rev = tag_commit(tag)
+        if rev is None:
+            return (SKIP, label, (
+                f"tag {tag} is not present in this clone, so nothing was "
+                f"regenerated at it. The value was NOT reproduced; this is not a "
+                f"claim about {tag}."))
+    else:
+        rev = "HEAD"
 
     if not _revision_available(rev):
         return (SKIP, label, (
