@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `58f8b9a`
+**Generated:** `scripts/generate_test_catalog.py` at commit `f035886`
 **Test count:** 608 unique test IDs across 44 registered harness modules (43 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -571,25 +571,25 @@ MEM-012 | Namespace Wildcard Metacharacter Injection | protocol_tests/memory_har
 ### Multi-Agent Interaction (`protocol_tests/multi_agent_harness.py`) — 19 tests
 
 ```
-MAG-001 | Delegation Chain Poisoning | protocol_tests/multi_agent_harness.py:351
-MAG-002 | Authority Impersonation in Multi-Agent Handoff | protocol_tests/multi_agent_harness.py:393
-MAG-003 | Consensus Manipulation in Multi-Agent Decision | protocol_tests/multi_agent_harness.py:429
-MAG-004 | Task Result Poisoning from Downstream Agent | protocol_tests/multi_agent_harness.py:472
-MAG-005 | Cross-Agent Privilege Escalation | protocol_tests/multi_agent_harness.py:522
-MAG-006 | Agent Collusion Detection | protocol_tests/multi_agent_harness.py:557
-MAG-007 | Orchestrator Trust Boundary Bypass | protocol_tests/multi_agent_harness.py:601
-MAG-008 | Recursive Delegation Attack | protocol_tests/multi_agent_harness.py:638
-MAG-009 | Capability Leakage Across Agent Boundaries | protocol_tests/multi_agent_harness.py:684
-MAG-010 | Shared Context Contamination | protocol_tests/multi_agent_harness.py:732
-MAG-011 | Split-Brain Decision Making | protocol_tests/multi_agent_harness.py:770
-MAG-012 | Agent Replacement/Substitution Attack | protocol_tests/multi_agent_harness.py:815
-MAG-013 | Message-Ordering Race Pretext | protocol_tests/multi_agent_harness.py:857
-MAG-014 | Recipient-Validation TOCTOU Pretext | protocol_tests/multi_agent_harness.py:900
-MAG-015 | Event-Signal Collision Pretext | protocol_tests/multi_agent_harness.py:943
-MAG-016 | Kill-vs-Complete Race Pretext | protocol_tests/multi_agent_harness.py:988
-MAG-017 | Stale-Status-After-Timeout Pretext | protocol_tests/multi_agent_harness.py:1034
-MAG-018 | Inbox-Append-to-Last-Call-Only Pretext | protocol_tests/multi_agent_harness.py:1079
-MAG-019 | Delegated Spend Bound Discrimination | protocol_tests/multi_agent_harness.py:1173
+MAG-001 | Delegation Chain Poisoning | protocol_tests/multi_agent_harness.py:383
+MAG-002 | Authority Impersonation in Multi-Agent Handoff | protocol_tests/multi_agent_harness.py:424
+MAG-003 | Consensus Manipulation in Multi-Agent Decision | protocol_tests/multi_agent_harness.py:460
+MAG-004 | Task Result Poisoning from Downstream Agent | protocol_tests/multi_agent_harness.py:502
+MAG-005 | Cross-Agent Privilege Escalation | protocol_tests/multi_agent_harness.py:551
+MAG-006 | Agent Collusion Detection | protocol_tests/multi_agent_harness.py:586
+MAG-007 | Orchestrator Trust Boundary Bypass | protocol_tests/multi_agent_harness.py:629
+MAG-008 | Recursive Delegation Attack | protocol_tests/multi_agent_harness.py:666
+MAG-009 | Capability Leakage Across Agent Boundaries | protocol_tests/multi_agent_harness.py:711
+MAG-010 | Shared Context Contamination | protocol_tests/multi_agent_harness.py:758
+MAG-011 | Split-Brain Decision Making | protocol_tests/multi_agent_harness.py:796
+MAG-012 | Agent Replacement/Substitution Attack | protocol_tests/multi_agent_harness.py:840
+MAG-013 | Message-Ordering Race Pretext | protocol_tests/multi_agent_harness.py:881
+MAG-014 | Recipient-Validation TOCTOU Pretext | protocol_tests/multi_agent_harness.py:923
+MAG-015 | Event-Signal Collision Pretext | protocol_tests/multi_agent_harness.py:965
+MAG-016 | Kill-vs-Complete Race Pretext | protocol_tests/multi_agent_harness.py:1009
+MAG-017 | Stale-Status-After-Timeout Pretext | protocol_tests/multi_agent_harness.py:1054
+MAG-018 | Inbox-Append-to-Last-Call-Only Pretext | protocol_tests/multi_agent_harness.py:1098
+MAG-019 | Delegated Spend Bound Discrimination | protocol_tests/multi_agent_harness.py:1192
 ```
 
 ### Over-Refusal (`protocol_tests/over_refusal_harness.py`) — 25 tests
