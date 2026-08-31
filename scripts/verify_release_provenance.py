@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import urllib.request
@@ -74,6 +75,26 @@ def check(statement: dict, offline: bool) -> list[str]:
         ok(f"CI run {ci.get('repository')} #{ci['run_id']} attempt {ci.get('run_attempt')}")
 
     ref = src.get("ref_name")
+
+    # v4.18.0rc2 is why this exists. The tag was cut, pyproject.toml was never
+    # bumped from 4.18.0rc1, and the whole pipeline -- build, attestation,
+    # offline verification, PyPI upload, release assets, post-publish digest
+    # comparison -- passed while publishing a version whose name did not match
+    # its tag. Every check agreed, because none of them compared those two
+    # things.
+    #
+    # A tag is the name a release is referred to by. If it names a version the
+    # artifact does not carry, every later citation of that tag points at
+    # something else.
+    if ref and re.fullmatch(r"v\d+.*", ref or ""):
+        tagged = ref[1:]
+        if tagged != version:
+            bad(f"tag {ref} does not match the packaged version {version}; "
+                f"the artifact would be published as {version} under a tag "
+                f"naming {tagged}")
+        else:
+            ok(f"tag {ref} matches the packaged version")
+
     if ref:
         try:
             resolved = subprocess.run(("git", "rev-list", "-n", "1", ref),
