@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `6d1797a`
+**Generated:** `scripts/generate_test_catalog.py` at commit `af3d641`
 **Test count:** 608 unique test IDs across 44 registered harness modules (43 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -18,34 +18,34 @@
 ### A2A Protocol (`protocol_tests/a2a_harness.py`) — 13 tests
 
 ```
-A2A-001 | Agent Card Discovery | protocol_tests/a2a_harness.py:303
-A2A-002 | Agent Card Spoofing via Message Metadata | protocol_tests/a2a_harness.py:304
-A2A-003 | Agent Card Path Traversal | protocol_tests/a2a_harness.py:305
-A2A-004 | Unauthorized Task Access/Cancel | protocol_tests/a2a_harness.py:306
-A2A-005 | Task Message Injection (Prompt + Data + File) | protocol_tests/a2a_harness.py:307
-A2A-006 | Task State Manipulation | protocol_tests/a2a_harness.py:308
-A2A-007 | Push Notification URL Redirect | protocol_tests/a2a_harness.py:309
-A2A-008 | Unauthorized Skill Request | protocol_tests/a2a_harness.py:310
-A2A-009 | Artifact Content Type Abuse | protocol_tests/a2a_harness.py:311
-A2A-010 | Malformed Request Handling | protocol_tests/a2a_harness.py:312
-A2A-011 | Undocumented Method Enumeration | protocol_tests/a2a_harness.py:313
-A2A-012 | Cross-Context Data Leakage | protocol_tests/a2a_harness.py:314
-A2A-013 | Agent Card Limitations Field Verification | protocol_tests/a2a_harness.py:315
+A2A-001 | Agent Card Discovery | protocol_tests/a2a_harness.py:325
+A2A-002 | Agent Card Spoofing via Message Metadata | protocol_tests/a2a_harness.py:326
+A2A-003 | Agent Card Path Traversal | protocol_tests/a2a_harness.py:327
+A2A-004 | Unauthorized Task Access/Cancel | protocol_tests/a2a_harness.py:328
+A2A-005 | Task Message Injection (Prompt + Data + File) | protocol_tests/a2a_harness.py:329
+A2A-006 | Task State Manipulation | protocol_tests/a2a_harness.py:330
+A2A-007 | Push Notification URL Redirect | protocol_tests/a2a_harness.py:331
+A2A-008 | Unauthorized Skill Request | protocol_tests/a2a_harness.py:332
+A2A-009 | Artifact Content Type Abuse | protocol_tests/a2a_harness.py:333
+A2A-010 | Malformed Request Handling | protocol_tests/a2a_harness.py:334
+A2A-011 | Undocumented Method Enumeration | protocol_tests/a2a_harness.py:335
+A2A-012 | Cross-Context Data Leakage | protocol_tests/a2a_harness.py:336
+A2A-013 | Agent Card Limitations Field Verification | protocol_tests/a2a_harness.py:337
 ```
 
 ### Advanced Attacks (`protocol_tests/advanced_attacks.py`) — 10 tests
 
 ```
-CHAIN-001 | Credential → Identity → Cloud Pivot (3-Step Chain) | protocol_tests/advanced_attacks.py:489
-CHAIN-002 | SaaS Lateral Movement (Doc → Email → Finance) | protocol_tests/advanced_attacks.py:532
-JAIL-001 | Jailbreak Persistence (Same Session + Cross-Session) | protocol_tests/advanced_attacks.py:634
-JAIL-002 | Roleplay-Based Jailbreak (4 Personas) | protocol_tests/advanced_attacks.py:685
-POLY-001 | Polymorphic Injection (10 Unique Payloads) | protocol_tests/advanced_attacks.py:226
-POLY-002 | Encoding Evasion (8 Variants) | protocol_tests/advanced_attacks.py:263
-RECON-001 | Attack Surface Self-Mapping (5 Queries) | protocol_tests/advanced_attacks.py:578
-STATE-001 | Trust-Building → Escalation (8 turns) | protocol_tests/advanced_attacks.py:320
-STATE-002 | Playbook Injection Bypass (Mexico Breach Pattern) | protocol_tests/advanced_attacks.py:396
-STATE-003 | Guardrail Erosion (8-Step Progressive Escalation) | protocol_tests/advanced_attacks.py:438
+CHAIN-001 | Credential → Identity → Cloud Pivot (3-Step Chain) | protocol_tests/advanced_attacks.py:500
+CHAIN-002 | SaaS Lateral Movement (Doc → Email → Finance) | protocol_tests/advanced_attacks.py:543
+JAIL-001 | Jailbreak Persistence (Same Session + Cross-Session) | protocol_tests/advanced_attacks.py:645
+JAIL-002 | Roleplay-Based Jailbreak (4 Personas) | protocol_tests/advanced_attacks.py:696
+POLY-001 | Polymorphic Injection (10 Unique Payloads) | protocol_tests/advanced_attacks.py:237
+POLY-002 | Encoding Evasion (8 Variants) | protocol_tests/advanced_attacks.py:274
+RECON-001 | Attack Surface Self-Mapping (5 Queries) | protocol_tests/advanced_attacks.py:589
+STATE-001 | Trust-Building → Escalation (8 turns) | protocol_tests/advanced_attacks.py:331
+STATE-002 | Playbook Injection Bypass (Mexico Breach Pattern) | protocol_tests/advanced_attacks.py:407
+STATE-003 | Guardrail Erosion (8-Step Progressive Escalation) | protocol_tests/advanced_attacks.py:449
 ```
 
 ### AIUC-1 Compliance (`protocol_tests/aiuc1_compliance_harness.py`) — 12 tests
