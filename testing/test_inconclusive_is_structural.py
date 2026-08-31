@@ -48,31 +48,12 @@ PROTOCOL_TESTS = pathlib.Path(__file__).resolve().parents[1] / "protocol_tests"
 #: Modules whose result dataclasses still carry INCONCLUSIVE only as a prefix on
 #: `details`. **This list may shrink as modules migrate, and must never grow.**
 #:
-#: Adding a module here is not a way to pass this test. A new result class that
-#: can be INCONCLUSIVE gets the field; the list is for the ones that predate it.
-PREFIX_ONLY = {
-    "a2a_harness",
-    "capability_profile_harness",
-    "cloud_agent_harness",
-    "enterprise_adapters",
-    "extended_enterprise_adapters",
-    "extended_thinking_harness",
-    "framework_adapters",
-    "governance_modification_harness",
-    "gtg1002_simulation",
-    "incident_response_harness",
-    "intent_contract_harness",
-    "jailbreak_harness",
-    "kill_switch_harness",
-    "mcp_harness",
-    "memory_harness",
-    "multi_agent_harness",
-    "over_refusal_harness",
-    "provenance_harness",
-    "ptc_harness",
-    "tool_search_harness",
-    "watermark_harness",
-}
+#: It is now empty: all 21 migrated. The list stays because an empty ratchet is
+#: still a ratchet -- a new module that can report INCONCLUSIVE without carrying
+#: the field fails this test rather than quietly reopening the debt. Adding a
+#: module here is not a way to pass. A result class that can be INCONCLUSIVE gets
+#: the field.
+PREFIX_ONLY: set[str] = set()
 
 
 def _modules_that_can_be_inconclusive() -> dict[str, bool]:
@@ -234,3 +215,55 @@ def test_the_state_survives_serialisation():
         "an unexercised control is not a pass; the field distinguishes it from a "
         "failure without changing that"
     )
+
+
+def test_a_prefix_in_details_implies_the_field_on_every_module():
+    """The invariant the migration exists to establish.
+
+    A reader of a serialised result must not have to parse English. So on every
+    inconclusive-capable module, constructing a result whose `details` carries the
+    prefix must also set the field -- whether the module writes the prefix at
+    construction (mcp_harness does, 27 times) or a guard applies it later.
+
+    `identity_harness` is why this covers the modules that were structural first
+    rather than only the 21 that migrated: it carries `informational` for a
+    different concept and used the prose prefix for this one, so a prefixed result
+    there had neither field set.
+    """
+    import dataclasses
+    import importlib
+
+    surveyed = _modules_that_can_be_inconclusive()
+    assert surveyed, "no modules surveyed -- the derivation is broken, not the repo"
+
+    failures = []
+    for name in sorted(surveyed):
+        module = importlib.import_module(f"protocol_tests.{name}")
+        source = (PROTOCOL_TESTS / f"{name}.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        cls = next(n for n in ast.walk(tree)
+                   if isinstance(n, ast.ClassDef)
+                   and any(isinstance(b, ast.AnnAssign)
+                           and getattr(b.target, "id", "") == "passed" for b in n.body))
+        result_cls = getattr(module, cls.name)
+
+        required = {}
+        for f in dataclasses.fields(result_cls):
+            if (f.default is dataclasses.MISSING
+                    and f.default_factory is dataclasses.MISSING):
+                required[f.name] = (
+                    False if f.type in ("bool", bool)
+                    else {} if "dict" in str(f.type)
+                    else 0.0 if "float" in str(f.type)
+                    else "x")
+        required["details"] = INCONCLUSIVE_PREFIX + "the control was never exercised"
+
+        record = result_cls(**required)
+        if not getattr(record, INCONCLUSIVE_FIELDS[0], False):
+            failures.append(f"{name}: prefix in details but the field is False")
+        elif not is_inconclusive(record):
+            failures.append(f"{name}: field set but the predicate disagrees")
+
+    assert not failures, (
+        "the prefix must imply the field everywhere, or a serialised record is "
+        "still only readable as English:\n  " + "\n  ".join(failures))

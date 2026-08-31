@@ -35,6 +35,7 @@ from enum import Enum
 from protocol_tests.http_helpers import (
     INCONCLUSIVE_PREFIX,
     inconclusive_detail,
+    is_inconclusive,
     looks_like_refusal,
     run_summary,
     summary_lines,
@@ -137,8 +138,15 @@ class CapabilityProfileTestResult:
     #: Such a row is not prose-graded and the permissive-half rule below must
     #: not downgrade it. Same flag and same reason as memory_harness MEM-011/012.
     directly_observed: bool = False
+    #: INCONCLUSIVE as a field, not only as a prefix on `details`.
+    #: `asdict()` carries this; it does not carry the meaning of English.
+    not_evaluated: bool = False
 
     def __post_init__(self):
+        # A prefix written into `details` is the state too, not only a
+        # guard's decision. Derived here so both paths are structural.
+        if is_inconclusive(self.details):
+            self.not_evaluated = True
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -265,6 +273,7 @@ class CapabilityProfileTests:
         _d = inconclusive_detail(_rr, result.details)
         if _d is not None:
             result.passed = False
+            result.not_evaluated = True
             result.details = _d
         elif (result.passed and not result.directly_observed
                 and isinstance(_rr, dict) and not _capability_refused(_rr)):

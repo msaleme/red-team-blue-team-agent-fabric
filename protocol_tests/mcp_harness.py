@@ -58,6 +58,7 @@ from protocol_tests._utils import (
     URL_PATTERN,
 )
 from protocol_tests.http_helpers import (
+    is_inconclusive,
     INCONCLUSIVE_PREFIX,
     # Shared 2026-08-30: tool_search_harness had the same shape. Kept under
     # the local name so the fourteen call sites below are unchanged.
@@ -611,8 +612,15 @@ class MCPTestResult:
     response_received: dict | None = None
     elapsed_s: float = 0.0
     timestamp: str = ""
+    #: INCONCLUSIVE as a field, not only as a prefix on `details`.
+    #: `asdict()` carries this; it does not carry the meaning of English.
+    not_evaluated: bool = False
 
     def __post_init__(self):
+        # A prefix written into `details` is the state too, not only a
+        # guard's decision. Derived here so both paths are structural.
+        if is_inconclusive(self.details):
+            self.not_evaluated = True
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
 

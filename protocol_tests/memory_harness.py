@@ -42,6 +42,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    is_inconclusive,
     INCONCLUSIVE_PREFIX,
     _err,
     _is_conn_error,
@@ -133,8 +134,15 @@ class MemoryTestResult:
     #: _record must not touch them; testing/test_memory_namespace_boundary.py
     #: caught it doing so.
     directly_observed: bool = False
+    #: INCONCLUSIVE as a field, not only as a prefix on `details`.
+    #: `asdict()` carries this; it does not carry the meaning of English.
+    not_evaluated: bool = False
 
     def __post_init__(self):
+        # A prefix written into `details` is the state too, not only a
+        # guard's decision. Derived here so both paths are structural.
+        if is_inconclusive(self.details):
+            self.not_evaluated = True
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -231,6 +239,7 @@ class MemoryTests:
         _d = inconclusive_detail(_rr, result.details)
         if _d is not None:
             result.passed = False
+            result.not_evaluated = True
             result.details = _d
         elif (result.passed and not result.directly_observed
                 and isinstance(_rr, dict) and not _memory_refused(_rr)):

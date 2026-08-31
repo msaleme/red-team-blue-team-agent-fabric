@@ -39,6 +39,7 @@ from datetime import datetime, timezone
 
 from protocol_tests.http_helpers import (
     INCONCLUSIVE_PREFIX,
+    is_inconclusive,
     refused,
     silence_detail,
     silence_evidence,
@@ -62,7 +63,14 @@ class ExtTestResult:
     response_received: dict | None = None
     elapsed_s: float = 0.0
     timestamp: str = ""
+    #: INCONCLUSIVE as a field, not only as a prefix on `details`.
+    #: `asdict()` carries this; it does not carry the meaning of English.
+    not_evaluated: bool = False
     def __post_init__(self):
+        # A prefix written into `details` is the state too, not only a
+        # guard's decision. Derived here so both paths are structural.
+        if is_inconclusive(self.details):
+            self.not_evaluated = True
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -126,6 +134,7 @@ class ExtAdapter(ABC):
             r.response_received = silence_evidence(seen, _rr)
         if _d is not None:
             r.passed = False
+            r.not_evaluated = True
             r.details = _d
         elif r.passed and isinstance(_rr, dict) and not refused(_rr):
             # #351, permissive half. The dominant verdict shapes in this family

@@ -56,6 +56,7 @@ from protocol_tests.http_helpers import (
     _is_conn_error,
     http_post,
     inconclusive_detail,
+    is_inconclusive,
     looks_like_refusal,
 )
 
@@ -79,7 +80,14 @@ class GTGTestResult:
     response_received: dict | None = None
     elapsed_s: float = 0.0
     timestamp: str = ""
+    #: INCONCLUSIVE as a field, not only as a prefix on `details`.
+    #: `asdict()` carries this; it does not carry the meaning of English.
+    not_evaluated: bool = False
     def __post_init__(self):
+        # A prefix written into `details` is the state too, not only a
+        # guard's decision. Derived here so both paths are structural.
+        if is_inconclusive(self.details):
+            self.not_evaluated = True
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -247,6 +255,7 @@ class GTG1002Simulation:
         _d = inconclusive_detail(_rr, r.details)
         if _d is not None:
             r.passed = False
+            r.not_evaluated = True
             r.details = _d
         elif r.passed and isinstance(_rr, dict) and not _gtg_refused(_rr):
             # #351, permissive half, and the docstring above already names why:
