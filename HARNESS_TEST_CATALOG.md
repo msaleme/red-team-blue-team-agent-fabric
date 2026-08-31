@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `f035886`
+**Generated:** `scripts/generate_test_catalog.py` at commit `28b07cb`
 **Test count:** 608 unique test IDs across 44 registered harness modules (43 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -117,16 +117,16 @@ BI-007 | Self-Reported Results Trust | protocol_tests/benchmark_integrity_harnes
 ### Capability Profile (`protocol_tests/capability_profile_harness.py`) — 10 tests
 
 ```
-CP-001 | Profile Declaration Presence | protocol_tests/capability_profile_harness.py:347
-CP-002 | Filesystem Boundary (COMPUTE_ONLY) | protocol_tests/capability_profile_harness.py:382
-CP-003 | Filesystem Boundary (SCRATCH_FS) | protocol_tests/capability_profile_harness.py:417
-CP-004 | Network Boundary | protocol_tests/capability_profile_harness.py:454
-CP-005 | Package Install Boundary | protocol_tests/capability_profile_harness.py:489
-CP-006 | Tool Bridge Boundary | protocol_tests/capability_profile_harness.py:525
-CP-007 | Profile Escalation Attempt | protocol_tests/capability_profile_harness.py:573
-CP-008 | Cross-Profile Isolation | protocol_tests/capability_profile_harness.py:610
-CP-009 | Profile Logging | protocol_tests/capability_profile_harness.py:654
-CP-010 | Custom Profile Validation | protocol_tests/capability_profile_harness.py:700
+CP-001 | Profile Declaration Presence | protocol_tests/capability_profile_harness.py:376
+CP-002 | Filesystem Boundary (COMPUTE_ONLY) | protocol_tests/capability_profile_harness.py:410
+CP-003 | Filesystem Boundary (SCRATCH_FS) | protocol_tests/capability_profile_harness.py:444
+CP-004 | Network Boundary | protocol_tests/capability_profile_harness.py:480
+CP-005 | Package Install Boundary | protocol_tests/capability_profile_harness.py:514
+CP-006 | Tool Bridge Boundary | protocol_tests/capability_profile_harness.py:549
+CP-007 | Profile Escalation Attempt | protocol_tests/capability_profile_harness.py:597
+CP-008 | Cross-Profile Isolation | protocol_tests/capability_profile_harness.py:633
+CP-009 | Profile Logging | protocol_tests/capability_profile_harness.py:676
+CP-010 | Custom Profile Validation | protocol_tests/capability_profile_harness.py:721
 ```
 
 ### Card-Network Agentic Tokens (`protocol_tests/card_token_harness.py`) — 12 tests
