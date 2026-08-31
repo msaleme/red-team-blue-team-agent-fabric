@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `a75fb87`
+**Generated:** `scripts/generate_test_catalog.py` at commit `7197676`
 **Test count:** 608 unique test IDs across 44 registered harness modules (43 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -18,34 +18,34 @@
 ### A2A Protocol (`protocol_tests/a2a_harness.py`) — 13 tests
 
 ```
-A2A-001 | Agent Card Discovery | protocol_tests/a2a_harness.py:296
-A2A-002 | Agent Card Spoofing via Message Metadata | protocol_tests/a2a_harness.py:297
-A2A-003 | Agent Card Path Traversal | protocol_tests/a2a_harness.py:298
-A2A-004 | Unauthorized Task Access/Cancel | protocol_tests/a2a_harness.py:299
-A2A-005 | Task Message Injection (Prompt + Data + File) | protocol_tests/a2a_harness.py:300
-A2A-006 | Task State Manipulation | protocol_tests/a2a_harness.py:301
-A2A-007 | Push Notification URL Redirect | protocol_tests/a2a_harness.py:302
-A2A-008 | Unauthorized Skill Request | protocol_tests/a2a_harness.py:303
-A2A-009 | Artifact Content Type Abuse | protocol_tests/a2a_harness.py:304
-A2A-010 | Malformed Request Handling | protocol_tests/a2a_harness.py:305
-A2A-011 | Undocumented Method Enumeration | protocol_tests/a2a_harness.py:306
-A2A-012 | Cross-Context Data Leakage | protocol_tests/a2a_harness.py:307
-A2A-013 | Agent Card Limitations Field Verification | protocol_tests/a2a_harness.py:308
+A2A-001 | Agent Card Discovery | protocol_tests/a2a_harness.py:303
+A2A-002 | Agent Card Spoofing via Message Metadata | protocol_tests/a2a_harness.py:304
+A2A-003 | Agent Card Path Traversal | protocol_tests/a2a_harness.py:305
+A2A-004 | Unauthorized Task Access/Cancel | protocol_tests/a2a_harness.py:306
+A2A-005 | Task Message Injection (Prompt + Data + File) | protocol_tests/a2a_harness.py:307
+A2A-006 | Task State Manipulation | protocol_tests/a2a_harness.py:308
+A2A-007 | Push Notification URL Redirect | protocol_tests/a2a_harness.py:309
+A2A-008 | Unauthorized Skill Request | protocol_tests/a2a_harness.py:310
+A2A-009 | Artifact Content Type Abuse | protocol_tests/a2a_harness.py:311
+A2A-010 | Malformed Request Handling | protocol_tests/a2a_harness.py:312
+A2A-011 | Undocumented Method Enumeration | protocol_tests/a2a_harness.py:313
+A2A-012 | Cross-Context Data Leakage | protocol_tests/a2a_harness.py:314
+A2A-013 | Agent Card Limitations Field Verification | protocol_tests/a2a_harness.py:315
 ```
 
 ### Advanced Attacks (`protocol_tests/advanced_attacks.py`) — 10 tests
 
 ```
-CHAIN-001 | Credential → Identity → Cloud Pivot (3-Step Chain) | protocol_tests/advanced_attacks.py:429
-CHAIN-002 | SaaS Lateral Movement (Doc → Email → Finance) | protocol_tests/advanced_attacks.py:472
-JAIL-001 | Jailbreak Persistence (Same Session + Cross-Session) | protocol_tests/advanced_attacks.py:574
-JAIL-002 | Roleplay-Based Jailbreak (4 Personas) | protocol_tests/advanced_attacks.py:625
-POLY-001 | Polymorphic Injection (10 Unique Payloads) | protocol_tests/advanced_attacks.py:171
-POLY-002 | Encoding Evasion (8 Variants) | protocol_tests/advanced_attacks.py:218
-RECON-001 | Attack Surface Self-Mapping (5 Queries) | protocol_tests/advanced_attacks.py:518
-STATE-001 | Trust-Building → Escalation (8 turns) | protocol_tests/advanced_attacks.py:275
-STATE-002 | Playbook Injection Bypass (Mexico Breach Pattern) | protocol_tests/advanced_attacks.py:336
-STATE-003 | Guardrail Erosion (8-Step Progressive Escalation) | protocol_tests/advanced_attacks.py:378
+CHAIN-001 | Credential → Identity → Cloud Pivot (3-Step Chain) | protocol_tests/advanced_attacks.py:489
+CHAIN-002 | SaaS Lateral Movement (Doc → Email → Finance) | protocol_tests/advanced_attacks.py:532
+JAIL-001 | Jailbreak Persistence (Same Session + Cross-Session) | protocol_tests/advanced_attacks.py:634
+JAIL-002 | Roleplay-Based Jailbreak (4 Personas) | protocol_tests/advanced_attacks.py:685
+POLY-001 | Polymorphic Injection (10 Unique Payloads) | protocol_tests/advanced_attacks.py:226
+POLY-002 | Encoding Evasion (8 Variants) | protocol_tests/advanced_attacks.py:263
+RECON-001 | Attack Surface Self-Mapping (5 Queries) | protocol_tests/advanced_attacks.py:578
+STATE-001 | Trust-Building → Escalation (8 turns) | protocol_tests/advanced_attacks.py:320
+STATE-002 | Playbook Injection Bypass (Mexico Breach Pattern) | protocol_tests/advanced_attacks.py:396
+STATE-003 | Guardrail Erosion (8-Step Progressive Escalation) | protocol_tests/advanced_attacks.py:438
 ```
 
 ### AIUC-1 Compliance (`protocol_tests/aiuc1_compliance_harness.py`) — 12 tests
@@ -117,16 +117,16 @@ BI-007 | Self-Reported Results Trust | protocol_tests/benchmark_integrity_harnes
 ### Capability Profile (`protocol_tests/capability_profile_harness.py`) — 10 tests
 
 ```
-CP-001 | Profile Declaration Presence | protocol_tests/capability_profile_harness.py:338
-CP-002 | Filesystem Boundary (COMPUTE_ONLY) | protocol_tests/capability_profile_harness.py:373
-CP-003 | Filesystem Boundary (SCRATCH_FS) | protocol_tests/capability_profile_harness.py:408
-CP-004 | Network Boundary | protocol_tests/capability_profile_harness.py:445
-CP-005 | Package Install Boundary | protocol_tests/capability_profile_harness.py:480
-CP-006 | Tool Bridge Boundary | protocol_tests/capability_profile_harness.py:516
-CP-007 | Profile Escalation Attempt | protocol_tests/capability_profile_harness.py:564
-CP-008 | Cross-Profile Isolation | protocol_tests/capability_profile_harness.py:601
-CP-009 | Profile Logging | protocol_tests/capability_profile_harness.py:645
-CP-010 | Custom Profile Validation | protocol_tests/capability_profile_harness.py:691
+CP-001 | Profile Declaration Presence | protocol_tests/capability_profile_harness.py:347
+CP-002 | Filesystem Boundary (COMPUTE_ONLY) | protocol_tests/capability_profile_harness.py:382
+CP-003 | Filesystem Boundary (SCRATCH_FS) | protocol_tests/capability_profile_harness.py:417
+CP-004 | Network Boundary | protocol_tests/capability_profile_harness.py:454
+CP-005 | Package Install Boundary | protocol_tests/capability_profile_harness.py:489
+CP-006 | Tool Bridge Boundary | protocol_tests/capability_profile_harness.py:525
+CP-007 | Profile Escalation Attempt | protocol_tests/capability_profile_harness.py:573
+CP-008 | Cross-Profile Isolation | protocol_tests/capability_profile_harness.py:610
+CP-009 | Profile Logging | protocol_tests/capability_profile_harness.py:654
+CP-010 | Custom Profile Validation | protocol_tests/capability_profile_harness.py:700
 ```
 
 ### Card-Network Agentic Tokens (`protocol_tests/card_token_harness.py`) — 12 tests
@@ -149,44 +149,44 @@ CTK-012 | Cross-Network Token Substitution | protocol_tests/card_token_harness.p
 ### CBRN Prevention (`protocol_tests/cbrn_harness.py`) — 8 tests
 
 ```
-CBRN-001 | Direct Knowledge Boundary | protocol_tests/cbrn_harness.py:296
-CBRN-002 | Dual-Use Redirection | protocol_tests/cbrn_harness.py:328
-CBRN-003 | Multi-Step Synthesis Chain | protocol_tests/cbrn_harness.py:364
-CBRN-004 | Tool-Assisted Knowledge Extraction | protocol_tests/cbrn_harness.py:401
-CBRN-005 | Academic Framing Bypass | protocol_tests/cbrn_harness.py:430
-CBRN-006 | Fiction/Roleplay Framing | protocol_tests/cbrn_harness.py:460
-CBRN-007 | Translation/Encoding Bypass | protocol_tests/cbrn_harness.py:495
-CBRN-008 | Threshold Testing | protocol_tests/cbrn_harness.py:538
+CBRN-001 | Direct Knowledge Boundary | protocol_tests/cbrn_harness.py:340
+CBRN-002 | Dual-Use Redirection | protocol_tests/cbrn_harness.py:371
+CBRN-003 | Multi-Step Synthesis Chain | protocol_tests/cbrn_harness.py:408
+CBRN-004 | Tool-Assisted Knowledge Extraction | protocol_tests/cbrn_harness.py:444
+CBRN-005 | Academic Framing Bypass | protocol_tests/cbrn_harness.py:472
+CBRN-006 | Fiction/Roleplay Framing | protocol_tests/cbrn_harness.py:501
+CBRN-007 | Translation/Encoding Bypass | protocol_tests/cbrn_harness.py:535
+CBRN-008 | Threshold Testing | protocol_tests/cbrn_harness.py:578
 ```
 
 ### Cloud Agent Platforms (`protocol_tests/cloud_agent_harness.py`) — 25 tests
 
 ```
-AZR-001 | Tool Definition Override | protocol_tests/cloud_agent_harness.py:411
-AZR-002 | Grounding Source Manipulation | protocol_tests/cloud_agent_harness.py:436
-AZR-003 | Thread Isolation Bypass | protocol_tests/cloud_agent_harness.py:461
-AZR-004 | File Search Poisoning | protocol_tests/cloud_agent_harness.py:489
-AZR-005 | Code Interpreter Escape | protocol_tests/cloud_agent_harness.py:515
-BRK-001 | Action Group Injection | protocol_tests/cloud_agent_harness.py:253
-BRK-002 | Knowledge Base Poisoning | protocol_tests/cloud_agent_harness.py:279
-BRK-003 | Session State Exfiltration | protocol_tests/cloud_agent_harness.py:303
-BRK-004 | Lambda Function Escape | protocol_tests/cloud_agent_harness.py:327
-BRK-005 | Guardrail Bypass via Multi-Turn | protocol_tests/cloud_agent_harness.py:360
-SFA-001 | Topic Classification Bypass | protocol_tests/cloud_agent_harness.py:709
-SFA-002 | Apex Action Injection | protocol_tests/cloud_agent_harness.py:734
-SFA-003 | Record Access Boundary Violation | protocol_tests/cloud_agent_harness.py:760
-SFA-004 | Flow Orchestration Escape | protocol_tests/cloud_agent_harness.py:785
-SFA-005 | Einstein Trust Layer Bypass | protocol_tests/cloud_agent_harness.py:811
-VTX-001 | Tool Parameter Injection | protocol_tests/cloud_agent_harness.py:563
-VTX-002 | Datastore Poisoning | protocol_tests/cloud_agent_harness.py:587
-VTX-003 | Extension Authentication Bypass | protocol_tests/cloud_agent_harness.py:613
-VTX-004 | Cross-Agent Context Leakage | protocol_tests/cloud_agent_harness.py:637
-VTX-005 | Webhook Callback Manipulation | protocol_tests/cloud_agent_harness.py:664
-WXO-001 | Skill Catalog Injection | protocol_tests/cloud_agent_harness.py:859
-WXO-002 | Decision Engine Manipulation | protocol_tests/cloud_agent_harness.py:882
-WXO-003 | Integration Credential Leakage | protocol_tests/cloud_agent_harness.py:905
-WXO-004 | Workflow Automation Hijack | protocol_tests/cloud_agent_harness.py:928
-WXO-005 | Multi-Tenant Isolation | protocol_tests/cloud_agent_harness.py:951
+AZR-001 | Tool Definition Override | protocol_tests/cloud_agent_harness.py:420
+AZR-002 | Grounding Source Manipulation | protocol_tests/cloud_agent_harness.py:445
+AZR-003 | Thread Isolation Bypass | protocol_tests/cloud_agent_harness.py:470
+AZR-004 | File Search Poisoning | protocol_tests/cloud_agent_harness.py:498
+AZR-005 | Code Interpreter Escape | protocol_tests/cloud_agent_harness.py:524
+BRK-001 | Action Group Injection | protocol_tests/cloud_agent_harness.py:262
+BRK-002 | Knowledge Base Poisoning | protocol_tests/cloud_agent_harness.py:288
+BRK-003 | Session State Exfiltration | protocol_tests/cloud_agent_harness.py:312
+BRK-004 | Lambda Function Escape | protocol_tests/cloud_agent_harness.py:336
+BRK-005 | Guardrail Bypass via Multi-Turn | protocol_tests/cloud_agent_harness.py:369
+SFA-001 | Topic Classification Bypass | protocol_tests/cloud_agent_harness.py:718
+SFA-002 | Apex Action Injection | protocol_tests/cloud_agent_harness.py:743
+SFA-003 | Record Access Boundary Violation | protocol_tests/cloud_agent_harness.py:769
+SFA-004 | Flow Orchestration Escape | protocol_tests/cloud_agent_harness.py:794
+SFA-005 | Einstein Trust Layer Bypass | protocol_tests/cloud_agent_harness.py:820
+VTX-001 | Tool Parameter Injection | protocol_tests/cloud_agent_harness.py:572
+VTX-002 | Datastore Poisoning | protocol_tests/cloud_agent_harness.py:596
+VTX-003 | Extension Authentication Bypass | protocol_tests/cloud_agent_harness.py:622
+VTX-004 | Cross-Agent Context Leakage | protocol_tests/cloud_agent_harness.py:646
+VTX-005 | Webhook Callback Manipulation | protocol_tests/cloud_agent_harness.py:673
+WXO-001 | Skill Catalog Injection | protocol_tests/cloud_agent_harness.py:868
+WXO-002 | Decision Engine Manipulation | protocol_tests/cloud_agent_harness.py:891
+WXO-003 | Integration Credential Leakage | protocol_tests/cloud_agent_harness.py:914
+WXO-004 | Workflow Automation Hijack | protocol_tests/cloud_agent_harness.py:937
+WXO-005 | Multi-Tenant Isolation | protocol_tests/cloud_agent_harness.py:960
 ```
 
 ### CrewAI CVE Reproduction (`protocol_tests/crewai_cve_harness.py`) — 10 tests
@@ -207,148 +207,148 @@ CREW-010 | Fallback Sandbox RCE Chain | protocol_tests/crewai_cve_harness.py:110
 ### Enterprise Platforms (core) (`protocol_tests/enterprise_adapters.py`) — 31 tests
 
 ```
-AQ-001 | Data Source Boundary Escape (S3 + Confluence) | protocol_tests/enterprise_adapters.py:490
-AQ-002 | IAM Role Escalation | protocol_tests/enterprise_adapters.py:507
-AQ-003 | Destructive Action Execution | protocol_tests/enterprise_adapters.py:525
-ENT-OR-001 | Supplier Bank Detail Exfiltration | protocol_tests/enterprise_adapters.py:745
-ENT-OR-002 | Approval Workflow Bypass (Purchase Orders) | protocol_tests/enterprise_adapters.py:763
-ENT-OR-003 | SQL Injection via Agent | protocol_tests/enterprise_adapters.py:783
-GC-001 | Agent Injection (BigQuery + Drive) | protocol_tests/enterprise_adapters.py:416
-GC-002 | Data Store Grounding Poisoning | protocol_tests/enterprise_adapters.py:433
-GC-003 | Workspace Action Boundary (Email Exfil) | protocol_tests/enterprise_adapters.py:452
-MS-001 | Copilot Prompt Injection (Dataverse + Power Automate) | protocol_tests/enterprise_adapters.py:326
-MS-002 | Plugin/Connector Permission Escape | protocol_tests/enterprise_adapters.py:344
-MS-003 | Cross-Tenant Data Access | protocol_tests/enterprise_adapters.py:361
-MS-004 | Graph API Scope Escalation | protocol_tests/enterprise_adapters.py:379
-OC-001 | Session Message Injection | protocol_tests/enterprise_adapters.py:235
-OC-002 | Cross-Session History Access | protocol_tests/enterprise_adapters.py:251
-OC-003 | Elevated Tool Execution Escape | protocol_tests/enterprise_adapters.py:268
-OC-004 | Cron Job Injection | protocol_tests/enterprise_adapters.py:287
-SAP-001 | Financial Posting Injection (Vendor Invoice) | protocol_tests/enterprise_adapters.py:654
-SAP-002 | Safety Procedure Override (Plant Maintenance) | protocol_tests/enterprise_adapters.py:674
-SAP-003 | Cross-Company Code Data Access | protocol_tests/enterprise_adapters.py:690
-SAP-004 | SCADA Setpoint Manipulation via Agent | protocol_tests/enterprise_adapters.py:708
-SF-001 | Cross-Object Data Access (Opportunities + Contacts) | protocol_tests/enterprise_adapters.py:820
-SF-002 | Destructive Flow Trigger via Agent | protocol_tests/enterprise_adapters.py:838
-SF-003 | MuleSoft API Policy Bypass | protocol_tests/enterprise_adapters.py:854
-SN-001 | CMDB Data Exfiltration (Server Inventory) | protocol_tests/enterprise_adapters.py:890
-SN-002 | Change Management Bypass (Emergency Change) | protocol_tests/enterprise_adapters.py:909
-SN-003 | Mass Incident Escalation Manipulation | protocol_tests/enterprise_adapters.py:928
-WD-001 | PII Exfiltration via HCM Agent | protocol_tests/enterprise_adapters.py:562
-WD-002 | Payroll Modification via Social Engineering | protocol_tests/enterprise_adapters.py:581
-WD-003 | Cross-Employee Data Access (CEO Compensation) | protocol_tests/enterprise_adapters.py:597
-WD-004 | Mass Benefits Enrollment Manipulation | protocol_tests/enterprise_adapters.py:615
+AQ-001 | Data Source Boundary Escape (S3 + Confluence) | protocol_tests/enterprise_adapters.py:499
+AQ-002 | IAM Role Escalation | protocol_tests/enterprise_adapters.py:516
+AQ-003 | Destructive Action Execution | protocol_tests/enterprise_adapters.py:534
+ENT-OR-001 | Supplier Bank Detail Exfiltration | protocol_tests/enterprise_adapters.py:754
+ENT-OR-002 | Approval Workflow Bypass (Purchase Orders) | protocol_tests/enterprise_adapters.py:772
+ENT-OR-003 | SQL Injection via Agent | protocol_tests/enterprise_adapters.py:792
+GC-001 | Agent Injection (BigQuery + Drive) | protocol_tests/enterprise_adapters.py:425
+GC-002 | Data Store Grounding Poisoning | protocol_tests/enterprise_adapters.py:442
+GC-003 | Workspace Action Boundary (Email Exfil) | protocol_tests/enterprise_adapters.py:461
+MS-001 | Copilot Prompt Injection (Dataverse + Power Automate) | protocol_tests/enterprise_adapters.py:335
+MS-002 | Plugin/Connector Permission Escape | protocol_tests/enterprise_adapters.py:353
+MS-003 | Cross-Tenant Data Access | protocol_tests/enterprise_adapters.py:370
+MS-004 | Graph API Scope Escalation | protocol_tests/enterprise_adapters.py:388
+OC-001 | Session Message Injection | protocol_tests/enterprise_adapters.py:244
+OC-002 | Cross-Session History Access | protocol_tests/enterprise_adapters.py:260
+OC-003 | Elevated Tool Execution Escape | protocol_tests/enterprise_adapters.py:277
+OC-004 | Cron Job Injection | protocol_tests/enterprise_adapters.py:296
+SAP-001 | Financial Posting Injection (Vendor Invoice) | protocol_tests/enterprise_adapters.py:663
+SAP-002 | Safety Procedure Override (Plant Maintenance) | protocol_tests/enterprise_adapters.py:683
+SAP-003 | Cross-Company Code Data Access | protocol_tests/enterprise_adapters.py:699
+SAP-004 | SCADA Setpoint Manipulation via Agent | protocol_tests/enterprise_adapters.py:717
+SF-001 | Cross-Object Data Access (Opportunities + Contacts) | protocol_tests/enterprise_adapters.py:829
+SF-002 | Destructive Flow Trigger via Agent | protocol_tests/enterprise_adapters.py:847
+SF-003 | MuleSoft API Policy Bypass | protocol_tests/enterprise_adapters.py:863
+SN-001 | CMDB Data Exfiltration (Server Inventory) | protocol_tests/enterprise_adapters.py:899
+SN-002 | Change Management Bypass (Emergency Change) | protocol_tests/enterprise_adapters.py:918
+SN-003 | Mass Incident Escalation Manipulation | protocol_tests/enterprise_adapters.py:937
+WD-001 | PII Exfiltration via HCM Agent | protocol_tests/enterprise_adapters.py:571
+WD-002 | Payroll Modification via Social Engineering | protocol_tests/enterprise_adapters.py:590
+WD-003 | Cross-Employee Data Access (CEO Compensation) | protocol_tests/enterprise_adapters.py:606
+WD-004 | Mass Benefits Enrollment Manipulation | protocol_tests/enterprise_adapters.py:624
 ```
 
 ### Enterprise Platforms (extended) (`protocol_tests/extended_enterprise_adapters.py`) — 27 tests
 
 ```
-AP-001 | KYC Process Rule Override | protocol_tests/extended_enterprise_adapters.py:762
-AP-002 | Record-Level Security Bypass | protocol_tests/extended_enterprise_adapters.py:776
-AT-001 | Cross-Project Data Access (Security + HR) | protocol_tests/extended_enterprise_adapters.py:513
-AT-002 | Confluence Knowledge Base Poisoning | protocol_tests/extended_enterprise_adapters.py:529
-DB-001 | Unity Catalog Permission Bypass | protocol_tests/extended_enterprise_adapters.py:344
-DB-002 | Notebook Code Execution Escape | protocol_tests/extended_enterprise_adapters.py:361
-DB-003 | MLflow Model Registry Poisoning | protocol_tests/extended_enterprise_adapters.py:379
-HS-001 | Contact PII Export (Including DNC) | protocol_tests/extended_enterprise_adapters.py:716
-HS-002 | Mass Phishing Email via Agent | protocol_tests/extended_enterprise_adapters.py:732
-IF-001 | MRO Approved Supplier Override | protocol_tests/extended_enterprise_adapters.py:609
-IF-002 | Field Service Safety Permit Bypass | protocol_tests/extended_enterprise_adapters.py:626
-IF-003 | Safety Budget Reallocation | protocol_tests/extended_enterprise_adapters.py:643
-IN-001 | Multi-Tenant Cross-Company Access | protocol_tests/extended_enterprise_adapters.py:672
-IN-002 | Supply Chain Address Redirect | protocol_tests/extended_enterprise_adapters.py:688
-MX-001 | Mass Work Order Close (Skip Safety Inspection) | protocol_tests/extended_enterprise_adapters.py:196
-MX-002 | Asset Data Bulk Export | protocol_tests/extended_enterprise_adapters.py:210
-MX-003 | IoT Sensor Threshold Manipulation (Pump Vibration) | protocol_tests/extended_enterprise_adapters.py:226
-MX-004 | Predictive Maintenance Alert Override | protocol_tests/extended_enterprise_adapters.py:244
-PG-001 | Mass Claim Approval (Skip Fraud Detection) | protocol_tests/extended_enterprise_adapters.py:415
-PG-002 | Decision Strategy Override (Credit Risk) | protocol_tests/extended_enterprise_adapters.py:431
-SC-001 | SQL Injection via Cortex Analyst | protocol_tests/extended_enterprise_adapters.py:280
-SC-002 | Cross-Database Boundary Escape | protocol_tests/extended_enterprise_adapters.py:294
-SC-003 | Data Share Exfiltration to External Account | protocol_tests/extended_enterprise_adapters.py:310
-UI-001 | Robot Credential Asset Exfiltration | protocol_tests/extended_enterprise_adapters.py:464
-UI-002 | Process Execution with Injected Connection | protocol_tests/extended_enterprise_adapters.py:480
-ZD-001 | Customer PII Bulk Exfiltration | protocol_tests/extended_enterprise_adapters.py:557
-ZD-002 | Mass Ticket Closure (Competitor Sabotage) | protocol_tests/extended_enterprise_adapters.py:573
+AP-001 | KYC Process Rule Override | protocol_tests/extended_enterprise_adapters.py:771
+AP-002 | Record-Level Security Bypass | protocol_tests/extended_enterprise_adapters.py:785
+AT-001 | Cross-Project Data Access (Security + HR) | protocol_tests/extended_enterprise_adapters.py:522
+AT-002 | Confluence Knowledge Base Poisoning | protocol_tests/extended_enterprise_adapters.py:538
+DB-001 | Unity Catalog Permission Bypass | protocol_tests/extended_enterprise_adapters.py:353
+DB-002 | Notebook Code Execution Escape | protocol_tests/extended_enterprise_adapters.py:370
+DB-003 | MLflow Model Registry Poisoning | protocol_tests/extended_enterprise_adapters.py:388
+HS-001 | Contact PII Export (Including DNC) | protocol_tests/extended_enterprise_adapters.py:725
+HS-002 | Mass Phishing Email via Agent | protocol_tests/extended_enterprise_adapters.py:741
+IF-001 | MRO Approved Supplier Override | protocol_tests/extended_enterprise_adapters.py:618
+IF-002 | Field Service Safety Permit Bypass | protocol_tests/extended_enterprise_adapters.py:635
+IF-003 | Safety Budget Reallocation | protocol_tests/extended_enterprise_adapters.py:652
+IN-001 | Multi-Tenant Cross-Company Access | protocol_tests/extended_enterprise_adapters.py:681
+IN-002 | Supply Chain Address Redirect | protocol_tests/extended_enterprise_adapters.py:697
+MX-001 | Mass Work Order Close (Skip Safety Inspection) | protocol_tests/extended_enterprise_adapters.py:205
+MX-002 | Asset Data Bulk Export | protocol_tests/extended_enterprise_adapters.py:219
+MX-003 | IoT Sensor Threshold Manipulation (Pump Vibration) | protocol_tests/extended_enterprise_adapters.py:235
+MX-004 | Predictive Maintenance Alert Override | protocol_tests/extended_enterprise_adapters.py:253
+PG-001 | Mass Claim Approval (Skip Fraud Detection) | protocol_tests/extended_enterprise_adapters.py:424
+PG-002 | Decision Strategy Override (Credit Risk) | protocol_tests/extended_enterprise_adapters.py:440
+SC-001 | SQL Injection via Cortex Analyst | protocol_tests/extended_enterprise_adapters.py:289
+SC-002 | Cross-Database Boundary Escape | protocol_tests/extended_enterprise_adapters.py:303
+SC-003 | Data Share Exfiltration to External Account | protocol_tests/extended_enterprise_adapters.py:319
+UI-001 | Robot Credential Asset Exfiltration | protocol_tests/extended_enterprise_adapters.py:473
+UI-002 | Process Execution with Injected Connection | protocol_tests/extended_enterprise_adapters.py:489
+ZD-001 | Customer PII Bulk Exfiltration | protocol_tests/extended_enterprise_adapters.py:566
+ZD-002 | Mass Ticket Closure (Competitor Sabotage) | protocol_tests/extended_enterprise_adapters.py:582
 ```
 
 ### Extended Thinking (`protocol_tests/extended_thinking_harness.py`) — 6 tests
 
 ```
-ET-001 | Tampered Thinking-Block Signature Accepted | protocol_tests/extended_thinking_harness.py:197
-ET-002 | Missing Thinking Block Before Tool-Result Turn Accepted | protocol_tests/extended_thinking_harness.py:284
-ET-003 | Redacted-Thinking Payload Exposed to End User | protocol_tests/extended_thinking_harness.py:377
-ET-004 | Intermediate Reasoning Exposed Mid-Tool-Chain | protocol_tests/extended_thinking_harness.py:462
-ET-005 | Cross-Conversation Signature Replay Accepted | protocol_tests/extended_thinking_harness.py:544
-ET-006 | Silent Thinking-Budget Truncation | protocol_tests/extended_thinking_harness.py:627
+ET-001 | Tampered Thinking-Block Signature Accepted | protocol_tests/extended_thinking_harness.py:206
+ET-002 | Missing Thinking Block Before Tool-Result Turn Accepted | protocol_tests/extended_thinking_harness.py:293
+ET-003 | Redacted-Thinking Payload Exposed to End User | protocol_tests/extended_thinking_harness.py:386
+ET-004 | Intermediate Reasoning Exposed Mid-Tool-Chain | protocol_tests/extended_thinking_harness.py:471
+ET-005 | Cross-Conversation Signature Replay Accepted | protocol_tests/extended_thinking_harness.py:553
+ET-006 | Silent Thinking-Budget Truncation | protocol_tests/extended_thinking_harness.py:636
 ```
 
 ### Framework Adapters (`protocol_tests/framework_adapters.py`) — 15 tests
 
 ```
-AG-002 | Code Execution Sandbox Escape | protocol_tests/framework_adapters.py:456
-AG-004 | Agent Group Chat Participant Injection | protocol_tests/framework_adapters.py:491
-AG-005 | Speaker Selection Poisoning | protocol_tests/framework_adapters.py:523
-AG-006 | Nested Conversation Escape | protocol_tests/framework_adapters.py:555
-AG-007 | Message Source Spoofing | protocol_tests/framework_adapters.py:591
-BR-004 | Session Hijacking | protocol_tests/framework_adapters.py:747
-CA-002 | Crew Member Injection | protocol_tests/framework_adapters.py:385
-LC-002 | Schema Disclosure Check | protocol_tests/framework_adapters.py:293
-LC-005 | Chain-of-Thought / System Prompt Extraction | protocol_tests/framework_adapters.py:332
-OA-002 | Handoff to Unauthorized Agent | protocol_tests/framework_adapters.py:640
-OA-004 | Tool Schema Injection via Run | protocol_tests/framework_adapters.py:671
-PA-001 | Prompt Injection via Workflow YAML | protocol_tests/framework_adapters.py:787
-PA-002 | Browser Bridge Unauthenticated Access | protocol_tests/framework_adapters.py:885
-PA-003 | Event Stream Exposure | protocol_tests/framework_adapters.py:952
-PA-004 | Template Injection via Tool Definitions | protocol_tests/framework_adapters.py:1031
+AG-002 | Code Execution Sandbox Escape | protocol_tests/framework_adapters.py:465
+AG-004 | Agent Group Chat Participant Injection | protocol_tests/framework_adapters.py:500
+AG-005 | Speaker Selection Poisoning | protocol_tests/framework_adapters.py:532
+AG-006 | Nested Conversation Escape | protocol_tests/framework_adapters.py:564
+AG-007 | Message Source Spoofing | protocol_tests/framework_adapters.py:600
+BR-004 | Session Hijacking | protocol_tests/framework_adapters.py:756
+CA-002 | Crew Member Injection | protocol_tests/framework_adapters.py:394
+LC-002 | Schema Disclosure Check | protocol_tests/framework_adapters.py:302
+LC-005 | Chain-of-Thought / System Prompt Extraction | protocol_tests/framework_adapters.py:341
+OA-002 | Handoff to Unauthorized Agent | protocol_tests/framework_adapters.py:649
+OA-004 | Tool Schema Injection via Run | protocol_tests/framework_adapters.py:680
+PA-001 | Prompt Injection via Workflow YAML | protocol_tests/framework_adapters.py:796
+PA-002 | Browser Bridge Unauthenticated Access | protocol_tests/framework_adapters.py:894
+PA-003 | Event Stream Exposure | protocol_tests/framework_adapters.py:961
+PA-004 | Template Injection via Tool Definitions | protocol_tests/framework_adapters.py:1040
 ```
 
 ### governance_modification_harness.py (`protocol_tests/governance_modification_harness.py`) — 6 tests
 
 ```
-GM-001 | Gate Self-Disable | protocol_tests/governance_modification_harness.py:279
-GM-002 | Threshold Self-Modification | protocol_tests/governance_modification_harness.py:382
-GM-003 | Permission Self-Escalation | protocol_tests/governance_modification_harness.py:501
-GM-004 | Kill-Switch Bypass | protocol_tests/governance_modification_harness.py:599
-GM-005 | Amendment Self-Ratification | protocol_tests/governance_modification_harness.py:705
-GM-006 | Audit Log Tampering | protocol_tests/governance_modification_harness.py:834
+GM-001 | Gate Self-Disable | protocol_tests/governance_modification_harness.py:290
+GM-002 | Threshold Self-Modification | protocol_tests/governance_modification_harness.py:393
+GM-003 | Permission Self-Escalation | protocol_tests/governance_modification_harness.py:512
+GM-004 | Kill-Switch Bypass | protocol_tests/governance_modification_harness.py:610
+GM-005 | Amendment Self-Ratification | protocol_tests/governance_modification_harness.py:716
+GM-006 | Audit Log Tampering | protocol_tests/governance_modification_harness.py:845
 ```
 
 ### GTG-1002 APT Simulation (`protocol_tests/gtg1002_simulation.py`) — 17 tests
 
 ```
-GTG-P1-001 | Defensive Security Roleplay (CrowdStrike Impersonation) | protocol_tests/gtg1002_simulation.py:315
-GTG-P1-002 | Escalating Persona Social Engineering (3 Roles) | protocol_tests/gtg1002_simulation.py:360
-GTG-P2-001 | Systematic Infrastructure Enumeration (6 Queries) | protocol_tests/gtg1002_simulation.py:423
-GTG-P2-002 | MCP Tool Abuse for System Reconnaissance | protocol_tests/gtg1002_simulation.py:448
-GTG-P2-003 | Multi-Target Parallel Reconnaissance (3 Targets) | protocol_tests/gtg1002_simulation.py:495
-GTG-P3-001 | Exploit Payload Generation Request | protocol_tests/gtg1002_simulation.py:534
-GTG-P3-002 | Callback/Beacon Validation (Exfil Channel Test) | protocol_tests/gtg1002_simulation.py:558
-GTG-P4-001 | Credential Extraction from Configurations (4 Techniques) | protocol_tests/gtg1002_simulation.py:617
-GTG-P4-002 | Lateral Movement — Cross-System Credential Testing | protocol_tests/gtg1002_simulation.py:641
-GTG-P4-003 | Privilege Level Mapping Across Discovered Credentials | protocol_tests/gtg1002_simulation.py:659
-GTG-P5-001 | Autonomous Database Extraction (Full User Table) | protocol_tests/gtg1002_simulation.py:692
-GTG-P5-002 | Intelligence Categorization by Value (High/Med/Low) | protocol_tests/gtg1002_simulation.py:718
-GTG-P5-003 | Persistent Backdoor Account Creation | protocol_tests/gtg1002_simulation.py:742
-GTG-P6-001 | Attack Documentation Auto-Generation (Markdown Report) | protocol_tests/gtg1002_simulation.py:788
-GTG-P6-002 | Campaign Handoff to Second Operator | protocol_tests/gtg1002_simulation.py:813
-HALL-001 | Security Finding Hallucination (Nonexistent System) | protocol_tests/gtg1002_simulation.py:854
-HALL-002 | Credential Fabrication (No Prior Context) | protocol_tests/gtg1002_simulation.py:877
+GTG-P1-001 | Defensive Security Roleplay (CrowdStrike Impersonation) | protocol_tests/gtg1002_simulation.py:324
+GTG-P1-002 | Escalating Persona Social Engineering (3 Roles) | protocol_tests/gtg1002_simulation.py:369
+GTG-P2-001 | Systematic Infrastructure Enumeration (6 Queries) | protocol_tests/gtg1002_simulation.py:432
+GTG-P2-002 | MCP Tool Abuse for System Reconnaissance | protocol_tests/gtg1002_simulation.py:457
+GTG-P2-003 | Multi-Target Parallel Reconnaissance (3 Targets) | protocol_tests/gtg1002_simulation.py:504
+GTG-P3-001 | Exploit Payload Generation Request | protocol_tests/gtg1002_simulation.py:543
+GTG-P3-002 | Callback/Beacon Validation (Exfil Channel Test) | protocol_tests/gtg1002_simulation.py:567
+GTG-P4-001 | Credential Extraction from Configurations (4 Techniques) | protocol_tests/gtg1002_simulation.py:626
+GTG-P4-002 | Lateral Movement — Cross-System Credential Testing | protocol_tests/gtg1002_simulation.py:650
+GTG-P4-003 | Privilege Level Mapping Across Discovered Credentials | protocol_tests/gtg1002_simulation.py:668
+GTG-P5-001 | Autonomous Database Extraction (Full User Table) | protocol_tests/gtg1002_simulation.py:701
+GTG-P5-002 | Intelligence Categorization by Value (High/Med/Low) | protocol_tests/gtg1002_simulation.py:727
+GTG-P5-003 | Persistent Backdoor Account Creation | protocol_tests/gtg1002_simulation.py:751
+GTG-P6-001 | Attack Documentation Auto-Generation (Markdown Report) | protocol_tests/gtg1002_simulation.py:797
+GTG-P6-002 | Campaign Handoff to Second Operator | protocol_tests/gtg1002_simulation.py:822
+HALL-001 | Security Finding Hallucination (Nonexistent System) | protocol_tests/gtg1002_simulation.py:863
+HALL-002 | Credential Fabrication (No Prior Context) | protocol_tests/gtg1002_simulation.py:886
 ```
 
 ### Harmful Output (`protocol_tests/harmful_output_harness.py`) — 10 tests
 
 ```
-HO-001 | Direct Toxicity Elicitation | protocol_tests/harmful_output_harness.py:312
-HO-002 | Indirect Toxicity via Context | protocol_tests/harmful_output_harness.py:340
-HO-003 | Distressed Output Detection | protocol_tests/harmful_output_harness.py:372
-HO-004 | High-Risk Advice Boundary | protocol_tests/harmful_output_harness.py:406
-HO-005 | Bias Probing (Demographic) | protocol_tests/harmful_output_harness.py:457
-HO-006 | Deception Encouragement | protocol_tests/harmful_output_harness.py:484
-HO-007 | Scope Boundary (Political) | protocol_tests/harmful_output_harness.py:514
-HO-008 | Scope Boundary (Medical) | protocol_tests/harmful_output_harness.py:541
-HO-009 | Multi-Step Harmful Chain | protocol_tests/harmful_output_harness.py:581
-HO-010 | Output Content Classification | protocol_tests/harmful_output_harness.py:617
+HO-001 | Direct Toxicity Elicitation | protocol_tests/harmful_output_harness.py:361
+HO-002 | Indirect Toxicity via Context | protocol_tests/harmful_output_harness.py:390
+HO-003 | Distressed Output Detection | protocol_tests/harmful_output_harness.py:423
+HO-004 | High-Risk Advice Boundary | protocol_tests/harmful_output_harness.py:457
+HO-005 | Bias Probing (Demographic) | protocol_tests/harmful_output_harness.py:509
+HO-006 | Deception Encouragement | protocol_tests/harmful_output_harness.py:536
+HO-007 | Scope Boundary (Political) | protocol_tests/harmful_output_harness.py:567
+HO-008 | Scope Boundary (Medical) | protocol_tests/harmful_output_harness.py:594
+HO-009 | Multi-Step Harmful Chain | protocol_tests/harmful_output_harness.py:634
+HO-010 | Output Content Classification | protocol_tests/harmful_output_harness.py:670
 ```
 
 ### hitl_harness.py (`protocol_tests/hitl_harness.py`) — 8 tests
@@ -367,164 +367,164 @@ HITL-008 | Fabricated Authority Used to Move a Human. | protocol_tests/hitl_harn
 ### Identity & Authorization (`protocol_tests/identity_harness.py`) — 18 tests
 
 ```
-AUDIT-001 | Action Audit Trail Availability | protocol_tests/identity_harness.py:720
-AUDIT-002 | Action Non-Repudiation (Attribution in Response) | protocol_tests/identity_harness.py:752
-AUTH-001 | Unauthenticated Access Prevention | protocol_tests/identity_harness.py:403
-AUTH-002 | Expired/Revoked Credential Rejection | protocol_tests/identity_harness.py:439
-AUTH-003 | OAuth Token Scope Escalation | protocol_tests/identity_harness.py:506
-AUTHZ-001 | Least Privilege Enforcement | protocol_tests/identity_harness.py:559
-AUTHZ-002 | Delegation Chain Validation ( | protocol_tests/identity_harness.py:599
-AUTHZ-003 | Human-in-the-Loop Approval Forgery | protocol_tests/identity_harness.py:633
-AUTHZ-004 | Zero-Trust Re-Authorization on Context Change | protocol_tests/identity_harness.py:681
-DATA-001 | Cross-Source Data Aggregation Sensitivity | protocol_tests/identity_harness.py:787
-DATA-002 | Prompt Provenance / Injection via Context | protocol_tests/identity_harness.py:825
-DATA-003 | Output Data Sensitivity Classification | protocol_tests/identity_harness.py:856
-ID-001 | Agent Identity Metadata Availability | protocol_tests/identity_harness.py:237
-ID-002 | Agent Identity Spoofing Resistance | protocol_tests/identity_harness.py:282
-ID-003 | Ephemeral Identity Isolation (Cross-Session) | protocol_tests/identity_harness.py:351
-STD-001 | OAuth 2.1 / OIDC Discovery Endpoints | protocol_tests/identity_harness.py:891
-STD-002 | SPIFFE Workload Identity Support | protocol_tests/identity_harness.py:914
-STD-003 | SCIM Agent Lifecycle Management | protocol_tests/identity_harness.py:944
+AUDIT-001 | Action Audit Trail Availability | protocol_tests/identity_harness.py:730
+AUDIT-002 | Action Non-Repudiation (Attribution in Response) | protocol_tests/identity_harness.py:762
+AUTH-001 | Unauthenticated Access Prevention | protocol_tests/identity_harness.py:409
+AUTH-002 | Expired/Revoked Credential Rejection | protocol_tests/identity_harness.py:445
+AUTH-003 | OAuth Token Scope Escalation | protocol_tests/identity_harness.py:512
+AUTHZ-001 | Least Privilege Enforcement | protocol_tests/identity_harness.py:569
+AUTHZ-002 | Delegation Chain Validation ( | protocol_tests/identity_harness.py:609
+AUTHZ-003 | Human-in-the-Loop Approval Forgery | protocol_tests/identity_harness.py:643
+AUTHZ-004 | Zero-Trust Re-Authorization on Context Change | protocol_tests/identity_harness.py:691
+DATA-001 | Cross-Source Data Aggregation Sensitivity | protocol_tests/identity_harness.py:797
+DATA-002 | Prompt Provenance / Injection via Context | protocol_tests/identity_harness.py:835
+DATA-003 | Output Data Sensitivity Classification | protocol_tests/identity_harness.py:866
+ID-001 | Agent Identity Metadata Availability | protocol_tests/identity_harness.py:243
+ID-002 | Agent Identity Spoofing Resistance | protocol_tests/identity_harness.py:288
+ID-003 | Ephemeral Identity Isolation (Cross-Session) | protocol_tests/identity_harness.py:357
+STD-001 | OAuth 2.1 / OIDC Discovery Endpoints | protocol_tests/identity_harness.py:901
+STD-002 | SPIFFE Workload Identity Support | protocol_tests/identity_harness.py:924
+STD-003 | SCIM Agent Lifecycle Management | protocol_tests/identity_harness.py:954
 ```
 
 ### Incident Response (`protocol_tests/incident_response_harness.py`) — 8 tests
 
 ```
-IR-001 | Security Breach Alert Triggering | protocol_tests/incident_response_harness.py:308
-IR-002 | Harmful Output Escalation | protocol_tests/incident_response_harness.py:344
-IR-003 | Hallucination Detection Alerting | protocol_tests/incident_response_harness.py:396
-IR-004 | Kill Switch Activation | protocol_tests/incident_response_harness.py:449
-IR-005 | Recovery Time Measurement | protocol_tests/incident_response_harness.py:513
-IR-006 | Log Completeness | protocol_tests/incident_response_harness.py:578
-IR-007 | Notification Timeline | protocol_tests/incident_response_harness.py:628
-IR-008 | Cascading Failure Containment | protocol_tests/incident_response_harness.py:700
+IR-001 | Security Breach Alert Triggering | protocol_tests/incident_response_harness.py:317
+IR-002 | Harmful Output Escalation | protocol_tests/incident_response_harness.py:353
+IR-003 | Hallucination Detection Alerting | protocol_tests/incident_response_harness.py:405
+IR-004 | Kill Switch Activation | protocol_tests/incident_response_harness.py:458
+IR-005 | Recovery Time Measurement | protocol_tests/incident_response_harness.py:522
+IR-006 | Log Completeness | protocol_tests/incident_response_harness.py:587
+IR-007 | Notification Timeline | protocol_tests/incident_response_harness.py:637
+IR-008 | Cascading Failure Containment | protocol_tests/incident_response_harness.py:709
 ```
 
 ### intent_contract_harness.py (`protocol_tests/intent_contract_harness.py`) — 8 tests
 
 ```
-INT-001 | Intent Declaration Completeness | protocol_tests/intent_contract_harness.py:261
-INT-002 | Intent-Action Consistency | protocol_tests/intent_contract_harness.py:301
-INT-003 | Intent Scope Violation | protocol_tests/intent_contract_harness.py:336
-INT-004 | Intent Modification Mid-Execution | protocol_tests/intent_contract_harness.py:377
-INT-005 | Implicit Intent Escalation | protocol_tests/intent_contract_harness.py:425
-INT-006 | Intent Contract Forgery | protocol_tests/intent_contract_harness.py:466
-INT-007 | Multi-Step Intent Decomposition Attack | protocol_tests/intent_contract_harness.py:513
-INT-008 | Intent Ambiguity Exploitation | protocol_tests/intent_contract_harness.py:550
+INT-001 | Intent Declaration Completeness | protocol_tests/intent_contract_harness.py:270
+INT-002 | Intent-Action Consistency | protocol_tests/intent_contract_harness.py:310
+INT-003 | Intent Scope Violation | protocol_tests/intent_contract_harness.py:345
+INT-004 | Intent Modification Mid-Execution | protocol_tests/intent_contract_harness.py:386
+INT-005 | Implicit Intent Escalation | protocol_tests/intent_contract_harness.py:434
+INT-006 | Intent Contract Forgery | protocol_tests/intent_contract_harness.py:475
+INT-007 | Multi-Step Intent Decomposition Attack | protocol_tests/intent_contract_harness.py:522
+INT-008 | Intent Ambiguity Exploitation | protocol_tests/intent_contract_harness.py:559
 ```
 
 ### Jailbreak (`protocol_tests/jailbreak_harness.py`) — 25 tests
 
 ```
-JB-001 | Classic DAN Jailbreak | protocol_tests/jailbreak_harness.py:257
-JB-002 | System Prompt Override | protocol_tests/jailbreak_harness.py:280
-JB-003 | Fictional Framing Bypass | protocol_tests/jailbreak_harness.py:304
-JB-004 | Gradual Persona Shift | protocol_tests/jailbreak_harness.py:332
-JB-005 | Base64-Encoded Instructions | protocol_tests/jailbreak_harness.py:358
-JB-006 | Unicode Homoglyph Bypass | protocol_tests/jailbreak_harness.py:385
-JB-007 | Zero-Width Character Insertion | protocol_tests/jailbreak_harness.py:407
-JB-008 | HTML Entity Encoded Jailbreak | protocol_tests/jailbreak_harness.py:429
-JB-009 | Mixed-Script Encoding Bypass | protocol_tests/jailbreak_harness.py:452
-JB-010 | Tokenizer Boundary Exploitation | protocol_tests/jailbreak_harness.py:476
-JB-011 | System Prompt Impersonation | protocol_tests/jailbreak_harness.py:514
-JB-012 | Developer Mode Activation | protocol_tests/jailbreak_harness.py:537
-JB-013 | Fake Tool Response Injection | protocol_tests/jailbreak_harness.py:568
-JB-014 | Multi-Agent Authority Claim | protocol_tests/jailbreak_harness.py:606
-JB-015 | Compliance/Legal Override | protocol_tests/jailbreak_harness.py:630
-JB-016 | Few-Shot Jailbreak | protocol_tests/jailbreak_harness.py:662
-JB-017 | Translation-Based Bypass | protocol_tests/jailbreak_harness.py:684
-JB-018 | Code Generation Bypass | protocol_tests/jailbreak_harness.py:710
-JB-019 | Hypothetical Framing | protocol_tests/jailbreak_harness.py:734
-JB-020 | Progressive Escalation | protocol_tests/jailbreak_harness.py:760
-JB-021 | Cross-Session Jailbreak Persistence | protocol_tests/jailbreak_harness.py:810
-JB-022 | State Leakage Between Agents | protocol_tests/jailbreak_harness.py:852
-JB-023 | Partial Compliance Detection | protocol_tests/jailbreak_harness.py:885
-JB-024 | Self-Reinforcing Jailbreak | protocol_tests/jailbreak_harness.py:910
-JB-025 | Recovery to Safe State | protocol_tests/jailbreak_harness.py:946
+JB-001 | Classic DAN Jailbreak | protocol_tests/jailbreak_harness.py:266
+JB-002 | System Prompt Override | protocol_tests/jailbreak_harness.py:289
+JB-003 | Fictional Framing Bypass | protocol_tests/jailbreak_harness.py:313
+JB-004 | Gradual Persona Shift | protocol_tests/jailbreak_harness.py:341
+JB-005 | Base64-Encoded Instructions | protocol_tests/jailbreak_harness.py:367
+JB-006 | Unicode Homoglyph Bypass | protocol_tests/jailbreak_harness.py:394
+JB-007 | Zero-Width Character Insertion | protocol_tests/jailbreak_harness.py:416
+JB-008 | HTML Entity Encoded Jailbreak | protocol_tests/jailbreak_harness.py:438
+JB-009 | Mixed-Script Encoding Bypass | protocol_tests/jailbreak_harness.py:461
+JB-010 | Tokenizer Boundary Exploitation | protocol_tests/jailbreak_harness.py:485
+JB-011 | System Prompt Impersonation | protocol_tests/jailbreak_harness.py:523
+JB-012 | Developer Mode Activation | protocol_tests/jailbreak_harness.py:546
+JB-013 | Fake Tool Response Injection | protocol_tests/jailbreak_harness.py:577
+JB-014 | Multi-Agent Authority Claim | protocol_tests/jailbreak_harness.py:615
+JB-015 | Compliance/Legal Override | protocol_tests/jailbreak_harness.py:639
+JB-016 | Few-Shot Jailbreak | protocol_tests/jailbreak_harness.py:671
+JB-017 | Translation-Based Bypass | protocol_tests/jailbreak_harness.py:693
+JB-018 | Code Generation Bypass | protocol_tests/jailbreak_harness.py:719
+JB-019 | Hypothetical Framing | protocol_tests/jailbreak_harness.py:743
+JB-020 | Progressive Escalation | protocol_tests/jailbreak_harness.py:769
+JB-021 | Cross-Session Jailbreak Persistence | protocol_tests/jailbreak_harness.py:819
+JB-022 | State Leakage Between Agents | protocol_tests/jailbreak_harness.py:861
+JB-023 | Partial Compliance Detection | protocol_tests/jailbreak_harness.py:894
+JB-024 | Self-Reinforcing Jailbreak | protocol_tests/jailbreak_harness.py:919
+JB-025 | Recovery to Safe State | protocol_tests/jailbreak_harness.py:955
 ```
 
 ### kill_switch_harness.py (`protocol_tests/kill_switch_harness.py`) — 4 tests
 
 ```
-IR-009 | Kill-Switch Termination Latency | protocol_tests/kill_switch_harness.py:267
-IR-010 | Post-Termination Action Prevention | protocol_tests/kill_switch_harness.py:328
-IR-011 | Kill-Switch Bypass Resistance | protocol_tests/kill_switch_harness.py:352
-IR-012 | Graceful Degradation on Termination | protocol_tests/kill_switch_harness.py:487
+IR-009 | Kill-Switch Termination Latency | protocol_tests/kill_switch_harness.py:278
+IR-010 | Post-Termination Action Prevention | protocol_tests/kill_switch_harness.py:339
+IR-011 | Kill-Switch Bypass Resistance | protocol_tests/kill_switch_harness.py:363
+IR-012 | Graceful Degradation on Termination | protocol_tests/kill_switch_harness.py:498
 ```
 
 ### L402 Payment (`protocol_tests/l402_harness.py`) — 33 tests
 
 ```
-L4-001 | 402 Challenge Header Present | protocol_tests/l402_harness.py:334
-L4-002 | Malformed Invoice Rejection | protocol_tests/l402_harness.py:376
-L4-003 | Unpaid / Expired Token Rejection | protocol_tests/l402_harness.py:414
-L4-004 | Tampered Macaroon Rejection | protocol_tests/l402_harness.py:440
-L4-005 | Unauthorized Caveat Injection | protocol_tests/l402_harness.py:491
-L4-006 | Stripped Macaroon Signature | protocol_tests/l402_harness.py:550
-L4-007 | Fake Preimage Rejection | protocol_tests/l402_harness.py:623
-L4-008 | Cross-Session Preimage Replay | protocol_tests/l402_harness.py:646
-L4-009 | Caveat Scope Widening | protocol_tests/l402_harness.py:699
-L4-010 | Permission Escalation via Caveats | protocol_tests/l402_harness.py:752
-L4-011 | Incomplete Authorization Header | protocol_tests/l402_harness.py:831
-L4-012 | Pre-Settlement Race Condition | protocol_tests/l402_harness.py:860
-L4-013 | Rapid Invoice Generation | protocol_tests/l402_harness.py:943
-L4-014 | Concurrent Invoice Uniqueness | protocol_tests/l402_harness.py:1005
-L4-015 | Forged Caveat HMAC | protocol_tests/l402_harness.py:1037
-L4-016 | Nested Caveat Depth Attack | protocol_tests/l402_harness.py:1095
-L4-017 | Third-Party Caveat Extension | protocol_tests/l402_harness.py:1152
-L4-018 | Caveat Unicode Smuggling | protocol_tests/l402_harness.py:1209
-L4-019 | Stale Channel State Token | protocol_tests/l402_harness.py:1290
-L4-020 | Force-Close Timing Exploitation | protocol_tests/l402_harness.py:1332
-L4-021 | HTLC Timeout Exploitation | protocol_tests/l402_harness.py:1370
-L4-022 | Preimage Hash Correlation | protocol_tests/l402_harness.py:1394
-L4-023 | Preimage Length Manipulation | protocol_tests/l402_harness.py:1468
-L4-024 | Invoice Amount Consistency | protocol_tests/l402_harness.py:1499
-L4-025 | Overpayment / Underpayment Edge Cases | protocol_tests/l402_harness.py:1566
-L4-026 | Invoice Expiry Bypass | protocol_tests/l402_harness.py:1589
-L4-027 | Multi-Hop Routing Header Injection | protocol_tests/l402_harness.py:1655
-L4-028 | Payment Replay Across Channels | protocol_tests/l402_harness.py:1682
-L4-029 | Large Payload DoS Resilience | protocol_tests/l402_harness.py:1770
-L4-030 | Header Injection DoS | protocol_tests/l402_harness.py:1826
-L4-031 | Concurrent Challenge Flood | protocol_tests/l402_harness.py:1867
-L4-032 | Protocol Downgrade (LSAT Compat) | protocol_tests/l402_harness.py:1911
-L4-033 | Information Disclosure in Errors | protocol_tests/l402_harness.py:1955
+L4-001 | 402 Challenge Header Present | protocol_tests/l402_harness.py:339
+L4-002 | Malformed Invoice Rejection | protocol_tests/l402_harness.py:381
+L4-003 | Unpaid / Expired Token Rejection | protocol_tests/l402_harness.py:419
+L4-004 | Tampered Macaroon Rejection | protocol_tests/l402_harness.py:445
+L4-005 | Unauthorized Caveat Injection | protocol_tests/l402_harness.py:496
+L4-006 | Stripped Macaroon Signature | protocol_tests/l402_harness.py:555
+L4-007 | Fake Preimage Rejection | protocol_tests/l402_harness.py:628
+L4-008 | Cross-Session Preimage Replay | protocol_tests/l402_harness.py:651
+L4-009 | Caveat Scope Widening | protocol_tests/l402_harness.py:704
+L4-010 | Permission Escalation via Caveats | protocol_tests/l402_harness.py:757
+L4-011 | Incomplete Authorization Header | protocol_tests/l402_harness.py:836
+L4-012 | Pre-Settlement Race Condition | protocol_tests/l402_harness.py:865
+L4-013 | Rapid Invoice Generation | protocol_tests/l402_harness.py:948
+L4-014 | Concurrent Invoice Uniqueness | protocol_tests/l402_harness.py:1010
+L4-015 | Forged Caveat HMAC | protocol_tests/l402_harness.py:1042
+L4-016 | Nested Caveat Depth Attack | protocol_tests/l402_harness.py:1100
+L4-017 | Third-Party Caveat Extension | protocol_tests/l402_harness.py:1157
+L4-018 | Caveat Unicode Smuggling | protocol_tests/l402_harness.py:1214
+L4-019 | Stale Channel State Token | protocol_tests/l402_harness.py:1295
+L4-020 | Force-Close Timing Exploitation | protocol_tests/l402_harness.py:1337
+L4-021 | HTLC Timeout Exploitation | protocol_tests/l402_harness.py:1375
+L4-022 | Preimage Hash Correlation | protocol_tests/l402_harness.py:1399
+L4-023 | Preimage Length Manipulation | protocol_tests/l402_harness.py:1473
+L4-024 | Invoice Amount Consistency | protocol_tests/l402_harness.py:1504
+L4-025 | Overpayment / Underpayment Edge Cases | protocol_tests/l402_harness.py:1571
+L4-026 | Invoice Expiry Bypass | protocol_tests/l402_harness.py:1594
+L4-027 | Multi-Hop Routing Header Injection | protocol_tests/l402_harness.py:1660
+L4-028 | Payment Replay Across Channels | protocol_tests/l402_harness.py:1687
+L4-029 | Large Payload DoS Resilience | protocol_tests/l402_harness.py:1775
+L4-030 | Header Injection DoS | protocol_tests/l402_harness.py:1831
+L4-031 | Concurrent Challenge Flood | protocol_tests/l402_harness.py:1872
+L4-032 | Protocol Downgrade (LSAT Compat) | protocol_tests/l402_harness.py:1916
+L4-033 | Information Disclosure in Errors | protocol_tests/l402_harness.py:1960
 ```
 
 ### MCP Protocol (`protocol_tests/mcp_harness.py`) — 32 tests
 
 ```
-MCP-001 | Tool List Integrity Check | protocol_tests/mcp_harness.py:811
-MCP-002 | Tool Registration via Call Injection | protocol_tests/mcp_harness.py:1590
-MCP-003 | Capability Escalation via Initialize | protocol_tests/mcp_harness.py:1649
-MCP-004 | Protocol Version Downgrade Attack | protocol_tests/mcp_harness.py:1732
-MCP-005 | Resource URI Path Traversal | protocol_tests/mcp_harness.py:1788
-MCP-006 | Prompt Template Injection via Get | protocol_tests/mcp_harness.py:1841
-MCP-007 | Sampling Request Context Exfiltration | protocol_tests/mcp_harness.py:1931
-MCP-008 | Malformed JSON-RPC Handling | protocol_tests/mcp_harness.py:2015
-MCP-009 | Batch Request DoS (1000 messages) | protocol_tests/mcp_harness.py:2108
-MCP-010 | Tool Call Argument Injection | protocol_tests/mcp_harness.py:2231
-MCP-011 | Tool Description Context Displacement DoS | protocol_tests/mcp_harness.py:2331
-MCP-012 | Tool Description Oversized Check | protocol_tests/mcp_harness.py:2436
-MCP-013 | Tool Description Padding / Repetition Detection | protocol_tests/mcp_harness.py:2490
-MCP-014 | Tool Description Injection Pattern Detection | protocol_tests/mcp_harness.py:2564
-MCP-015 | SSRF via URI Parameter | protocol_tests/mcp_harness.py:2906
-MCP-016 | SSRF via Resource URI | protocol_tests/mcp_harness.py:3019
-MCP-017 | STDIO Pre-Handshake Command Execution | protocol_tests/mcp_harness.py:3136
-MCP-018 | Unbounded Request Body DoS (CVE-2026-39313) | protocol_tests/mcp_harness.py:3227
-MCP-019 | Composite Cross-Tool Description Poisoning | protocol_tests/mcp_harness.py:2644
-MCP-020 | Mid-Session Tool Identity Rebinding | protocol_tests/mcp_harness.py:2798
-MCP-RC-001 | Stateless Header/Body Binding | protocol_tests/mcp_harness.py:862
-MCP-RC-002 | MRTR requestState Integrity | protocol_tests/mcp_harness.py:903
-MCP-RC-003 | MRTR requestState Replay Protection | protocol_tests/mcp_harness.py:967
-MCP-RC-004 | MRTR requestState Principal Binding | protocol_tests/mcp_harness.py:1042
-MCP-RC-005 | MRTR requestState Request Binding | protocol_tests/mcp_harness.py:1108
-MCP-RC-006 | Explicit Handle Cross-Principal Isolation | protocol_tests/mcp_harness.py:1173
-MCP-RC-007 | Cache Scope Metadata | protocol_tests/mcp_harness.py:1239
-MCP-RC-008 | Cached Capability Revocation | protocol_tests/mcp_harness.py:1279
-MCP-RC-009 | Resource Cache Metadata | protocol_tests/mcp_harness.py:1355
-MCP-RC-010 | Task Cross-Principal Isolation | protocol_tests/mcp_harness.py:1396
-MCP-RC-011 | Trace Context Request Binding | protocol_tests/mcp_harness.py:1481
-MCP-RC-012 | OAuth Issuer Request Binding | protocol_tests/mcp_harness.py:1535
+MCP-001 | Tool List Integrity Check | protocol_tests/mcp_harness.py:819
+MCP-002 | Tool Registration via Call Injection | protocol_tests/mcp_harness.py:1598
+MCP-003 | Capability Escalation via Initialize | protocol_tests/mcp_harness.py:1657
+MCP-004 | Protocol Version Downgrade Attack | protocol_tests/mcp_harness.py:1740
+MCP-005 | Resource URI Path Traversal | protocol_tests/mcp_harness.py:1796
+MCP-006 | Prompt Template Injection via Get | protocol_tests/mcp_harness.py:1849
+MCP-007 | Sampling Request Context Exfiltration | protocol_tests/mcp_harness.py:1939
+MCP-008 | Malformed JSON-RPC Handling | protocol_tests/mcp_harness.py:2023
+MCP-009 | Batch Request DoS (1000 messages) | protocol_tests/mcp_harness.py:2116
+MCP-010 | Tool Call Argument Injection | protocol_tests/mcp_harness.py:2239
+MCP-011 | Tool Description Context Displacement DoS | protocol_tests/mcp_harness.py:2339
+MCP-012 | Tool Description Oversized Check | protocol_tests/mcp_harness.py:2444
+MCP-013 | Tool Description Padding / Repetition Detection | protocol_tests/mcp_harness.py:2498
+MCP-014 | Tool Description Injection Pattern Detection | protocol_tests/mcp_harness.py:2572
+MCP-015 | SSRF via URI Parameter | protocol_tests/mcp_harness.py:2914
+MCP-016 | SSRF via Resource URI | protocol_tests/mcp_harness.py:3027
+MCP-017 | STDIO Pre-Handshake Command Execution | protocol_tests/mcp_harness.py:3144
+MCP-018 | Unbounded Request Body DoS (CVE-2026-39313) | protocol_tests/mcp_harness.py:3235
+MCP-019 | Composite Cross-Tool Description Poisoning | protocol_tests/mcp_harness.py:2652
+MCP-020 | Mid-Session Tool Identity Rebinding | protocol_tests/mcp_harness.py:2806
+MCP-RC-001 | Stateless Header/Body Binding | protocol_tests/mcp_harness.py:870
+MCP-RC-002 | MRTR requestState Integrity | protocol_tests/mcp_harness.py:911
+MCP-RC-003 | MRTR requestState Replay Protection | protocol_tests/mcp_harness.py:975
+MCP-RC-004 | MRTR requestState Principal Binding | protocol_tests/mcp_harness.py:1050
+MCP-RC-005 | MRTR requestState Request Binding | protocol_tests/mcp_harness.py:1116
+MCP-RC-006 | Explicit Handle Cross-Principal Isolation | protocol_tests/mcp_harness.py:1181
+MCP-RC-007 | Cache Scope Metadata | protocol_tests/mcp_harness.py:1247
+MCP-RC-008 | Cached Capability Revocation | protocol_tests/mcp_harness.py:1287
+MCP-RC-009 | Resource Cache Metadata | protocol_tests/mcp_harness.py:1363
+MCP-RC-010 | Task Cross-Principal Isolation | protocol_tests/mcp_harness.py:1404
+MCP-RC-011 | Trace Context Request Binding | protocol_tests/mcp_harness.py:1489
+MCP-RC-012 | OAuth Issuer Request Binding | protocol_tests/mcp_harness.py:1543
 ```
 
 ### MCP Supply-Chain (`protocol_tests/mcp_supplychain.py`) — 4 tests
@@ -554,72 +554,72 @@ CVE-010 | Channel Extension SSRF (CVE-2026-35629) | protocol_tests/mcp_tool_pois
 ### memory_harness.py (`protocol_tests/memory_harness.py`) — 12 tests
 
 ```
-MEM-001 | Cross-Session Context Leakage | protocol_tests/memory_harness.py:300
-MEM-002 | Memory Poisoning via Tool Output | protocol_tests/memory_harness.py:335
-MEM-003 | Context Window Overflow | protocol_tests/memory_harness.py:371
-MEM-004 | Conversation History Manipulation | protocol_tests/memory_harness.py:402
-MEM-005 | RAG Store Poisoning | protocol_tests/memory_harness.py:436
-MEM-006 | Memory-Based Privilege Escalation | protocol_tests/memory_harness.py:477
-MEM-007 | Selective Memory Erasure | protocol_tests/memory_harness.py:509
-MEM-008 | Cross-User Memory Contamination | protocol_tests/memory_harness.py:549
-MEM-009 | Temporal Consistency Attack | protocol_tests/memory_harness.py:588
-MEM-010 | Memory Extraction via Indirect Prompting | protocol_tests/memory_harness.py:631
-MEM-011 | Namespace Prefix Boundary Crossing | protocol_tests/memory_harness.py:690
-MEM-012 | Namespace Wildcard Metacharacter Injection | protocol_tests/memory_harness.py:753
+MEM-001 | Cross-Session Context Leakage | protocol_tests/memory_harness.py:309
+MEM-002 | Memory Poisoning via Tool Output | protocol_tests/memory_harness.py:344
+MEM-003 | Context Window Overflow | protocol_tests/memory_harness.py:380
+MEM-004 | Conversation History Manipulation | protocol_tests/memory_harness.py:411
+MEM-005 | RAG Store Poisoning | protocol_tests/memory_harness.py:445
+MEM-006 | Memory-Based Privilege Escalation | protocol_tests/memory_harness.py:486
+MEM-007 | Selective Memory Erasure | protocol_tests/memory_harness.py:518
+MEM-008 | Cross-User Memory Contamination | protocol_tests/memory_harness.py:558
+MEM-009 | Temporal Consistency Attack | protocol_tests/memory_harness.py:597
+MEM-010 | Memory Extraction via Indirect Prompting | protocol_tests/memory_harness.py:640
+MEM-011 | Namespace Prefix Boundary Crossing | protocol_tests/memory_harness.py:699
+MEM-012 | Namespace Wildcard Metacharacter Injection | protocol_tests/memory_harness.py:762
 ```
 
 ### Multi-Agent Interaction (`protocol_tests/multi_agent_harness.py`) — 19 tests
 
 ```
-MAG-001 | Delegation Chain Poisoning | protocol_tests/multi_agent_harness.py:333
-MAG-002 | Authority Impersonation in Multi-Agent Handoff | protocol_tests/multi_agent_harness.py:375
-MAG-003 | Consensus Manipulation in Multi-Agent Decision | protocol_tests/multi_agent_harness.py:411
-MAG-004 | Task Result Poisoning from Downstream Agent | protocol_tests/multi_agent_harness.py:454
-MAG-005 | Cross-Agent Privilege Escalation | protocol_tests/multi_agent_harness.py:504
-MAG-006 | Agent Collusion Detection | protocol_tests/multi_agent_harness.py:539
-MAG-007 | Orchestrator Trust Boundary Bypass | protocol_tests/multi_agent_harness.py:583
-MAG-008 | Recursive Delegation Attack | protocol_tests/multi_agent_harness.py:620
-MAG-009 | Capability Leakage Across Agent Boundaries | protocol_tests/multi_agent_harness.py:666
-MAG-010 | Shared Context Contamination | protocol_tests/multi_agent_harness.py:714
-MAG-011 | Split-Brain Decision Making | protocol_tests/multi_agent_harness.py:752
-MAG-012 | Agent Replacement/Substitution Attack | protocol_tests/multi_agent_harness.py:797
-MAG-013 | Message-Ordering Race Pretext | protocol_tests/multi_agent_harness.py:839
-MAG-014 | Recipient-Validation TOCTOU Pretext | protocol_tests/multi_agent_harness.py:882
-MAG-015 | Event-Signal Collision Pretext | protocol_tests/multi_agent_harness.py:925
-MAG-016 | Kill-vs-Complete Race Pretext | protocol_tests/multi_agent_harness.py:970
-MAG-017 | Stale-Status-After-Timeout Pretext | protocol_tests/multi_agent_harness.py:1016
-MAG-018 | Inbox-Append-to-Last-Call-Only Pretext | protocol_tests/multi_agent_harness.py:1061
-MAG-019 | Delegated Spend Bound Discrimination | protocol_tests/multi_agent_harness.py:1155
+MAG-001 | Delegation Chain Poisoning | protocol_tests/multi_agent_harness.py:351
+MAG-002 | Authority Impersonation in Multi-Agent Handoff | protocol_tests/multi_agent_harness.py:393
+MAG-003 | Consensus Manipulation in Multi-Agent Decision | protocol_tests/multi_agent_harness.py:429
+MAG-004 | Task Result Poisoning from Downstream Agent | protocol_tests/multi_agent_harness.py:472
+MAG-005 | Cross-Agent Privilege Escalation | protocol_tests/multi_agent_harness.py:522
+MAG-006 | Agent Collusion Detection | protocol_tests/multi_agent_harness.py:557
+MAG-007 | Orchestrator Trust Boundary Bypass | protocol_tests/multi_agent_harness.py:601
+MAG-008 | Recursive Delegation Attack | protocol_tests/multi_agent_harness.py:638
+MAG-009 | Capability Leakage Across Agent Boundaries | protocol_tests/multi_agent_harness.py:684
+MAG-010 | Shared Context Contamination | protocol_tests/multi_agent_harness.py:732
+MAG-011 | Split-Brain Decision Making | protocol_tests/multi_agent_harness.py:770
+MAG-012 | Agent Replacement/Substitution Attack | protocol_tests/multi_agent_harness.py:815
+MAG-013 | Message-Ordering Race Pretext | protocol_tests/multi_agent_harness.py:857
+MAG-014 | Recipient-Validation TOCTOU Pretext | protocol_tests/multi_agent_harness.py:900
+MAG-015 | Event-Signal Collision Pretext | protocol_tests/multi_agent_harness.py:943
+MAG-016 | Kill-vs-Complete Race Pretext | protocol_tests/multi_agent_harness.py:988
+MAG-017 | Stale-Status-After-Timeout Pretext | protocol_tests/multi_agent_harness.py:1034
+MAG-018 | Inbox-Append-to-Last-Call-Only Pretext | protocol_tests/multi_agent_harness.py:1079
+MAG-019 | Delegated Spend Bound Discrimination | protocol_tests/multi_agent_harness.py:1173
 ```
 
 ### Over-Refusal (`protocol_tests/over_refusal_harness.py`) — 25 tests
 
 ```
-OR-001 | Valid MCP Initialize Handshake | protocol_tests/over_refusal_harness.py:300
-OR-002 | Valid MCP Tools List | protocol_tests/over_refusal_harness.py:317
-OR-003 | Valid MCP Tool Call | protocol_tests/over_refusal_harness.py:337
-OR-004 | Valid MCP Prompts List | protocol_tests/over_refusal_harness.py:354
-OR-005 | Valid MCP Resources List | protocol_tests/over_refusal_harness.py:371
-OR-006 | Valid A2A Agent Card Discovery | protocol_tests/over_refusal_harness.py:391
-OR-007 | Valid A2A Task Delegation | protocol_tests/over_refusal_harness.py:413
-OR-008 | Valid A2A Task Status Check | protocol_tests/over_refusal_harness.py:432
-OR-009 | Valid A2A Message with Context | protocol_tests/over_refusal_harness.py:460
-OR-010 | Valid A2A Task Cancel | protocol_tests/over_refusal_harness.py:479
-OR-011 | Valid L402 Invoice Request | protocol_tests/over_refusal_harness.py:501
-OR-012 | Valid L402 Macaroon Format Presentation | protocol_tests/over_refusal_harness.py:538
-OR-013 | Valid L402 Preimage Presentation | protocol_tests/over_refusal_harness.py:574
-OR-014 | Valid L402 Resource-Specific Request | protocol_tests/over_refusal_harness.py:591
-OR-015 | Valid L402 Ask Endpoint | protocol_tests/over_refusal_harness.py:623
-OR-016 | Valid x402 Payment Challenge | protocol_tests/over_refusal_harness.py:644
-OR-017 | Valid x402 USDC Payment Header | protocol_tests/over_refusal_harness.py:682
-OR-018 | Valid x402 Receipt Verification | protocol_tests/over_refusal_harness.py:704
-OR-019 | Valid x402 Pricing Discovery | protocol_tests/over_refusal_harness.py:721
-OR-020 | Valid x402 Payment Options Request | protocol_tests/over_refusal_harness.py:753
-OR-021 | Long but Valid Parameters | protocol_tests/over_refusal_harness.py:779
-OR-022 | Special Characters in Valid Fields | protocol_tests/over_refusal_harness.py:803
-OR-023 | Unicode in Valid Content | protocol_tests/over_refusal_harness.py:829
-OR-024 | Rapid Sequential Legitimate Requests | protocol_tests/over_refusal_harness.py:851
-OR-025 | Large but Valid JSON Payload | protocol_tests/over_refusal_harness.py:875
+OR-001 | Valid MCP Initialize Handshake | protocol_tests/over_refusal_harness.py:310
+OR-002 | Valid MCP Tools List | protocol_tests/over_refusal_harness.py:327
+OR-003 | Valid MCP Tool Call | protocol_tests/over_refusal_harness.py:347
+OR-004 | Valid MCP Prompts List | protocol_tests/over_refusal_harness.py:364
+OR-005 | Valid MCP Resources List | protocol_tests/over_refusal_harness.py:381
+OR-006 | Valid A2A Agent Card Discovery | protocol_tests/over_refusal_harness.py:401
+OR-007 | Valid A2A Task Delegation | protocol_tests/over_refusal_harness.py:423
+OR-008 | Valid A2A Task Status Check | protocol_tests/over_refusal_harness.py:442
+OR-009 | Valid A2A Message with Context | protocol_tests/over_refusal_harness.py:470
+OR-010 | Valid A2A Task Cancel | protocol_tests/over_refusal_harness.py:489
+OR-011 | Valid L402 Invoice Request | protocol_tests/over_refusal_harness.py:511
+OR-012 | Valid L402 Macaroon Format Presentation | protocol_tests/over_refusal_harness.py:548
+OR-013 | Valid L402 Preimage Presentation | protocol_tests/over_refusal_harness.py:584
+OR-014 | Valid L402 Resource-Specific Request | protocol_tests/over_refusal_harness.py:601
+OR-015 | Valid L402 Ask Endpoint | protocol_tests/over_refusal_harness.py:633
+OR-016 | Valid x402 Payment Challenge | protocol_tests/over_refusal_harness.py:654
+OR-017 | Valid x402 USDC Payment Header | protocol_tests/over_refusal_harness.py:692
+OR-018 | Valid x402 Receipt Verification | protocol_tests/over_refusal_harness.py:714
+OR-019 | Valid x402 Pricing Discovery | protocol_tests/over_refusal_harness.py:731
+OR-020 | Valid x402 Payment Options Request | protocol_tests/over_refusal_harness.py:763
+OR-021 | Long but Valid Parameters | protocol_tests/over_refusal_harness.py:789
+OR-022 | Special Characters in Valid Fields | protocol_tests/over_refusal_harness.py:813
+OR-023 | Unicode in Valid Content | protocol_tests/over_refusal_harness.py:839
+OR-024 | Rapid Sequential Legitimate Requests | protocol_tests/over_refusal_harness.py:861
+OR-025 | Large but Valid JSON Payload | protocol_tests/over_refusal_harness.py:885
 ```
 
 ### Prompt Caching (`protocol_tests/prompt_caching_harness.py`) — 6 tests
@@ -636,32 +636,32 @@ PCH-006 | Cost/Latency Side Channel for Cache-Content Enumeration | protocol_tes
 ### Provenance & Attestation (`protocol_tests/provenance_harness.py`) — 15 tests
 
 ```
-PRV-001 | Fabricated Approval Headers | protocol_tests/provenance_harness.py:259
-PRV-002 | Self-Signed Tool Attestation | protocol_tests/provenance_harness.py:291
-PRV-003 | Expired Attestation Certificate | protocol_tests/provenance_harness.py:323
-PRV-004 | Trusted Publisher Provenance Spoof | protocol_tests/provenance_harness.py:356
-PRV-005 | Modified Description with Preserved Signature | protocol_tests/provenance_harness.py:391
-PRV-006 | Missing Intermediate Certificate Links | protocol_tests/provenance_harness.py:432
-PRV-007 | Tool Definition Change Between Discovery/Invocation | protocol_tests/provenance_harness.py:477
-PRV-008 | Namespace Confusion Attack | protocol_tests/provenance_harness.py:516
-PRV-009 | Exfiltration URL Embedded in Tool Schema | protocol_tests/provenance_harness.py:563
-PRV-010 | Forked Tool with Modified Parameters | protocol_tests/provenance_harness.py:603
-PRV-011 | Post-Scan Malicious Update | protocol_tests/provenance_harness.py:642
-PRV-012 | Registry Content Hash Mismatch | protocol_tests/provenance_harness.py:675
-PRV-013 | Downgraded Attestation with Stripped Constraints | protocol_tests/provenance_harness.py:713
-PRV-014 | Cross-Domain Attestation to Wrong Domain | protocol_tests/provenance_harness.py:744
-PRV-015 | Replay of Revoked Attestation | protocol_tests/provenance_harness.py:777
+PRV-001 | Fabricated Approval Headers | protocol_tests/provenance_harness.py:268
+PRV-002 | Self-Signed Tool Attestation | protocol_tests/provenance_harness.py:300
+PRV-003 | Expired Attestation Certificate | protocol_tests/provenance_harness.py:332
+PRV-004 | Trusted Publisher Provenance Spoof | protocol_tests/provenance_harness.py:365
+PRV-005 | Modified Description with Preserved Signature | protocol_tests/provenance_harness.py:400
+PRV-006 | Missing Intermediate Certificate Links | protocol_tests/provenance_harness.py:441
+PRV-007 | Tool Definition Change Between Discovery/Invocation | protocol_tests/provenance_harness.py:486
+PRV-008 | Namespace Confusion Attack | protocol_tests/provenance_harness.py:525
+PRV-009 | Exfiltration URL Embedded in Tool Schema | protocol_tests/provenance_harness.py:572
+PRV-010 | Forked Tool with Modified Parameters | protocol_tests/provenance_harness.py:612
+PRV-011 | Post-Scan Malicious Update | protocol_tests/provenance_harness.py:651
+PRV-012 | Registry Content Hash Mismatch | protocol_tests/provenance_harness.py:684
+PRV-013 | Downgraded Attestation with Stripped Constraints | protocol_tests/provenance_harness.py:722
+PRV-014 | Cross-Domain Attestation to Wrong Domain | protocol_tests/provenance_harness.py:753
+PRV-015 | Replay of Revoked Attestation | protocol_tests/provenance_harness.py:786
 ```
 
 ### Programmatic Tool Calling (`protocol_tests/ptc_harness.py`) — 6 tests
 
 ```
-PTC-001 | Destructive Tool Opted Into Code-Execution Context | protocol_tests/ptc_harness.py:235
-PTC-002 | Sandbox Exfiltration Before Model Visibility | protocol_tests/ptc_harness.py:323
-PTC-003 | Container State Leakage Across Sessions | protocol_tests/ptc_harness.py:403
-PTC-004 | Client-Asserted Caller-Type Spoofing | protocol_tests/ptc_harness.py:505
-PTC-005 | Unbounded Batch Execution of a Side-Effecting Tool | protocol_tests/ptc_harness.py:588
-PTC-006 | Expired Container Reuse | protocol_tests/ptc_harness.py:668
+PTC-001 | Destructive Tool Opted Into Code-Execution Context | protocol_tests/ptc_harness.py:244
+PTC-002 | Sandbox Exfiltration Before Model Visibility | protocol_tests/ptc_harness.py:332
+PTC-003 | Container State Leakage Across Sessions | protocol_tests/ptc_harness.py:412
+PTC-004 | Client-Asserted Caller-Type Spoofing | protocol_tests/ptc_harness.py:514
+PTC-005 | Unbounded Batch Execution of a Side-Effecting Tool | protocol_tests/ptc_harness.py:597
+PTC-006 | Expired Container Reuse | protocol_tests/ptc_harness.py:677
 ```
 
 ### receipt_claim_harness.py (`protocol_tests/receipt_claim_harness.py`) — 11 tests
@@ -683,14 +683,14 @@ RCL-011 | Wired MCP-019 check bound to wrong tool set rejected | protocol_tests/
 ### Return Channel (`protocol_tests/return_channel_harness.py`) — 8 tests
 
 ```
-RCP-001 | Prompt Injection in Code Output | protocol_tests/return_channel_harness.py:361
-RCP-002 | ANSI Escape Sequence Injection | protocol_tests/return_channel_harness.py:396
-RCP-003 | Fake System Message Formatting | protocol_tests/return_channel_harness.py:428
-RCP-004 | Context Window Overflow | protocol_tests/return_channel_harness.py:464
-RCP-005 | Encoded Payload Smuggling | protocol_tests/return_channel_harness.py:508
-RCP-006 | Multi-Turn Escalation via Output | protocol_tests/return_channel_harness.py:552
-RCP-007 | Structured Data Poisoning | protocol_tests/return_channel_harness.py:608
-RCP-008 | Output Provenance Spoofing | protocol_tests/return_channel_harness.py:649
+RCP-001 | Prompt Injection in Code Output | protocol_tests/return_channel_harness.py:371
+RCP-002 | ANSI Escape Sequence Injection | protocol_tests/return_channel_harness.py:406
+RCP-003 | Fake System Message Formatting | protocol_tests/return_channel_harness.py:438
+RCP-004 | Context Window Overflow | protocol_tests/return_channel_harness.py:474
+RCP-005 | Encoded Payload Smuggling | protocol_tests/return_channel_harness.py:518
+RCP-006 | Multi-Turn Escalation via Output | protocol_tests/return_channel_harness.py:562
+RCP-007 | Structured Data Poisoning | protocol_tests/return_channel_harness.py:618
+RCP-008 | Output Provenance Spoofing | protocol_tests/return_channel_harness.py:659
 ```
 
 ### Denial-of-Settlement / Finality (`protocol_tests/settlement_finality_harness.py`) — 8 tests
@@ -722,12 +722,12 @@ SS-008 | Skill Update Tampering | protocol_tests/skill_security_harness.py:1057
 ### Tool Search (Embeddings) (`protocol_tests/tool_search_harness.py`) — 6 tests
 
 ```
-TS-001 | Description-Based Ranking Manipulation | protocol_tests/tool_search_harness.py:275
-TS-002 | Unsigned Tool-Library Injection | protocol_tests/tool_search_harness.py:370
-TS-003 | Prompt Injection Riding Along in Tool Descriptions | protocol_tests/tool_search_harness.py:451
-TS-004 | Post-Discovery Access-Control Bypass | protocol_tests/tool_search_harness.py:535
-TS-005 | Top-K Ranking via Keyword Stuffing | protocol_tests/tool_search_harness.py:628
-TS-006 | Missing Permission Metadata on Search Results | protocol_tests/tool_search_harness.py:711
+TS-001 | Description-Based Ranking Manipulation | protocol_tests/tool_search_harness.py:283
+TS-002 | Unsigned Tool-Library Injection | protocol_tests/tool_search_harness.py:378
+TS-003 | Prompt Injection Riding Along in Tool Descriptions | protocol_tests/tool_search_harness.py:459
+TS-004 | Post-Discovery Access-Control Bypass | protocol_tests/tool_search_harness.py:543
+TS-005 | Top-K Ranking via Keyword Stuffing | protocol_tests/tool_search_harness.py:636
+TS-006 | Missing Permission Metadata on Search Results | protocol_tests/tool_search_harness.py:719
 ```
 
 ### UCP/ACP Merchant Journey (`protocol_tests/ucp_acp_harness.py`) — 12 tests
@@ -750,11 +750,11 @@ UCP-006 | Agent Profile Takeover (rebind) | protocol_tests/ucp_acp_harness.py:48
 ### watermark_harness.py (`protocol_tests/watermark_harness.py`) — 5 tests
 
 ```
-WM-001 | Watermark Presence Validation | protocol_tests/watermark_harness.py:160
-WM-002 | Watermark Forgery Resistance | protocol_tests/watermark_harness.py:180
-WM-003 | Watermark Stripping Resistance | protocol_tests/watermark_harness.py:236
-WM-004 | Watermark Parameter Extraction Resistance | protocol_tests/watermark_harness.py:293
-WM-005 | Multi-Language Watermark Compliance | protocol_tests/watermark_harness.py:359
+WM-001 | Watermark Presence Validation | protocol_tests/watermark_harness.py:171
+WM-002 | Watermark Forgery Resistance | protocol_tests/watermark_harness.py:191
+WM-003 | Watermark Stripping Resistance | protocol_tests/watermark_harness.py:247
+WM-004 | Watermark Parameter Extraction Resistance | protocol_tests/watermark_harness.py:304
+WM-005 | Multi-Language Watermark Compliance | protocol_tests/watermark_harness.py:370
 ```
 
 ### x402 Fireblocks Extension (`protocol_tests/x402_fireblocks_harness.py`) — 17 tests
@@ -782,60 +782,60 @@ FB-017 | Escrow Over-Redemption | protocol_tests/x402_fireblocks_harness.py:890
 ### x402 Payment (`protocol_tests/x402_harness.py`) — 54 tests
 
 ```
-X4-001 | 402 Payment Challenge Headers Present | protocol_tests/x402_harness.py:449
-X4-002 | Malformed Payment Authorization Rejection | protocol_tests/x402_harness.py:492
-X4-003 | Unsupported Currency Rejection | protocol_tests/x402_harness.py:529
-X4-004 | Recipient Address Consistency (Dynamic Routing) | protocol_tests/x402_harness.py:578
-X4-005 | Payment to Wrong Recipient Address | protocol_tests/x402_harness.py:613
-X4-006 | Invalid Recipient Address Rejection | protocol_tests/x402_harness.py:650
-X4-007 | Session Token Security Check | protocol_tests/x402_harness.py:710
-X4-008 | Fabricated Session Token Rejection | protocol_tests/x402_harness.py:755
-X4-009 | Expired Session Token Rejection | protocol_tests/x402_harness.py:796
-X4-010 | Session / Response Data Leakage Check | protocol_tests/x402_harness.py:856
-X4-011 | Rapid Payment Request Rate Limiting | protocol_tests/x402_harness.py:938
-X4-012 | Underpayment Attempt Rejection | protocol_tests/x402_harness.py:989
-X4-013 | Budget Exhaustion Burst Test | protocol_tests/x402_harness.py:1034
-X4-014 | Fake Facilitator Header Injection | protocol_tests/x402_harness.py:1255
-X4-015 | Non-Existent Facilitator Verification Claim | protocol_tests/x402_harness.py:1292
-X4-016 | Facilitator Timeout / Unreachable Handling | protocol_tests/x402_harness.py:1332
-X4-017 | 402 Response Information Leakage | protocol_tests/x402_harness.py:1391
-X4-018 | Error Message Information Disclosure | protocol_tests/x402_harness.py:1437
-X4-019 | Wrong Network Payment Rejection | protocol_tests/x402_harness.py:1481
-X4-020 | Wrong Token Type Payment Rejection | protocol_tests/x402_harness.py:1521
-X4-021 | Operator Attestation Presence (OATR) | protocol_tests/x402_harness.py:1629
-X4-022 | Attestation-Domain Binding (OATR) | protocol_tests/x402_harness.py:1682
-X4-023 | Attestation Revocation Check (OATR) | protocol_tests/x402_harness.py:1753
-X4-024 | Stale Manifest Acceptance (OATR) | protocol_tests/x402_harness.py:1810
-X4-025 | Forged Attestation Injection (OATR) | protocol_tests/x402_harness.py:1874
-X4-026 | Payment Amount Rounding Attack (IEEE 754) | protocol_tests/x402_harness.py:1925
-X4-027 | Stale Payment Session Replay | protocol_tests/x402_harness.py:1974
-X4-031 | Multi-Hop Redirect Chain Attack | protocol_tests/x402_harness.py:2023
-X4-032 | Currency Type Confusion | protocol_tests/x402_harness.py:2074
-X4-033 | Payment Deadline Bypass | protocol_tests/x402_harness.py:2118
-X4-034 | Zero-Amount Payment Acceptance | protocol_tests/x402_harness.py:2155
-X4-035 | Negative Amount Payment | protocol_tests/x402_harness.py:2193
-X4-036 | Max uint256 Overflow Attack | protocol_tests/x402_harness.py:2239
-X4-037 | Facilitator Impersonation | protocol_tests/x402_harness.py:2295
-X4-038 | Double-Spend Detection | protocol_tests/x402_harness.py:2349
-X4-039 | Payment Proof Format Injection | protocol_tests/x402_harness.py:2397
-X4-040 | Cross-Chain Payment Confusion | protocol_tests/x402_harness.py:2450
-X4-041 | Settlement Callback URL SSRF | protocol_tests/x402_harness.py:2505
-X4-042 | Payment Metadata Exfiltration | protocol_tests/x402_harness.py:2564
-X4-043 | Concurrent Payment Race Condition | protocol_tests/x402_harness.py:2625
-X4-044 | Payment Replay Against Different Endpoint | protocol_tests/x402_harness.py:2674
-X4-045 | Replay Same Payment Hash | protocol_tests/x402_harness.py:2734
-X4-046 | Duplicate Settlement Claim | protocol_tests/x402_harness.py:2785
-X4-047 | Expired Auth Token Reuse | protocol_tests/x402_harness.py:2843
-X4-048 | Scope Escalation in Payment Context | protocol_tests/x402_harness.py:2893
-X4-049 | Premature Finality Claim | protocol_tests/x402_harness.py:2949
-X4-050 | Settlement Race Condition | protocol_tests/x402_harness.py:3005
-X4-051 | L402-to-x402 Protocol Confusion | protocol_tests/x402_harness.py:3055
-X4-052 | Mixed Settlement Protocol Confusion | protocol_tests/x402_harness.py:3109
-X4-053 | Payment Metadata Side Channel | protocol_tests/x402_harness.py:3206
-X4-054 | Payment Correlation Attack | protocol_tests/x402_harness.py:3267
-X4-055 | Cascading Payment Approval Chain | protocol_tests/x402_harness.py:3333
-X4-056 | Payment Credential Accepted in URL (CWE-598) | protocol_tests/x402_harness.py:1122
-X4-057 | Delegated Allowance Overdraft via Verify/Settle Race | protocol_tests/x402_harness.py:1206
+X4-001 | 402 Payment Challenge Headers Present | protocol_tests/x402_harness.py:455
+X4-002 | Malformed Payment Authorization Rejection | protocol_tests/x402_harness.py:498
+X4-003 | Unsupported Currency Rejection | protocol_tests/x402_harness.py:535
+X4-004 | Recipient Address Consistency (Dynamic Routing) | protocol_tests/x402_harness.py:584
+X4-005 | Payment to Wrong Recipient Address | protocol_tests/x402_harness.py:619
+X4-006 | Invalid Recipient Address Rejection | protocol_tests/x402_harness.py:656
+X4-007 | Session Token Security Check | protocol_tests/x402_harness.py:716
+X4-008 | Fabricated Session Token Rejection | protocol_tests/x402_harness.py:761
+X4-009 | Expired Session Token Rejection | protocol_tests/x402_harness.py:802
+X4-010 | Session / Response Data Leakage Check | protocol_tests/x402_harness.py:862
+X4-011 | Rapid Payment Request Rate Limiting | protocol_tests/x402_harness.py:944
+X4-012 | Underpayment Attempt Rejection | protocol_tests/x402_harness.py:995
+X4-013 | Budget Exhaustion Burst Test | protocol_tests/x402_harness.py:1040
+X4-014 | Fake Facilitator Header Injection | protocol_tests/x402_harness.py:1261
+X4-015 | Non-Existent Facilitator Verification Claim | protocol_tests/x402_harness.py:1298
+X4-016 | Facilitator Timeout / Unreachable Handling | protocol_tests/x402_harness.py:1338
+X4-017 | 402 Response Information Leakage | protocol_tests/x402_harness.py:1397
+X4-018 | Error Message Information Disclosure | protocol_tests/x402_harness.py:1443
+X4-019 | Wrong Network Payment Rejection | protocol_tests/x402_harness.py:1487
+X4-020 | Wrong Token Type Payment Rejection | protocol_tests/x402_harness.py:1527
+X4-021 | Operator Attestation Presence (OATR) | protocol_tests/x402_harness.py:1635
+X4-022 | Attestation-Domain Binding (OATR) | protocol_tests/x402_harness.py:1688
+X4-023 | Attestation Revocation Check (OATR) | protocol_tests/x402_harness.py:1759
+X4-024 | Stale Manifest Acceptance (OATR) | protocol_tests/x402_harness.py:1816
+X4-025 | Forged Attestation Injection (OATR) | protocol_tests/x402_harness.py:1885
+X4-026 | Payment Amount Rounding Attack (IEEE 754) | protocol_tests/x402_harness.py:1936
+X4-027 | Stale Payment Session Replay | protocol_tests/x402_harness.py:1985
+X4-031 | Multi-Hop Redirect Chain Attack | protocol_tests/x402_harness.py:2034
+X4-032 | Currency Type Confusion | protocol_tests/x402_harness.py:2085
+X4-033 | Payment Deadline Bypass | protocol_tests/x402_harness.py:2129
+X4-034 | Zero-Amount Payment Acceptance | protocol_tests/x402_harness.py:2166
+X4-035 | Negative Amount Payment | protocol_tests/x402_harness.py:2204
+X4-036 | Max uint256 Overflow Attack | protocol_tests/x402_harness.py:2250
+X4-037 | Facilitator Impersonation | protocol_tests/x402_harness.py:2306
+X4-038 | Double-Spend Detection | protocol_tests/x402_harness.py:2360
+X4-039 | Payment Proof Format Injection | protocol_tests/x402_harness.py:2408
+X4-040 | Cross-Chain Payment Confusion | protocol_tests/x402_harness.py:2461
+X4-041 | Settlement Callback URL SSRF | protocol_tests/x402_harness.py:2516
+X4-042 | Payment Metadata Exfiltration | protocol_tests/x402_harness.py:2575
+X4-043 | Concurrent Payment Race Condition | protocol_tests/x402_harness.py:2636
+X4-044 | Payment Replay Against Different Endpoint | protocol_tests/x402_harness.py:2685
+X4-045 | Replay Same Payment Hash | protocol_tests/x402_harness.py:2745
+X4-046 | Duplicate Settlement Claim | protocol_tests/x402_harness.py:2796
+X4-047 | Expired Auth Token Reuse | protocol_tests/x402_harness.py:2854
+X4-048 | Scope Escalation in Payment Context | protocol_tests/x402_harness.py:2904
+X4-049 | Premature Finality Claim | protocol_tests/x402_harness.py:2960
+X4-050 | Settlement Race Condition | protocol_tests/x402_harness.py:3016
+X4-051 | L402-to-x402 Protocol Confusion | protocol_tests/x402_harness.py:3066
+X4-052 | Mixed Settlement Protocol Confusion | protocol_tests/x402_harness.py:3120
+X4-053 | Payment Metadata Side Channel | protocol_tests/x402_harness.py:3217
+X4-054 | Payment Correlation Attack | protocol_tests/x402_harness.py:3278
+X4-055 | Cascading Payment Approval Chain | protocol_tests/x402_harness.py:3344
+X4-056 | Payment Credential Accepted in URL (CWE-598) | protocol_tests/x402_harness.py:1128
+X4-057 | Delegated Allowance Overdraft via Verify/Settle Race | protocol_tests/x402_harness.py:1212
 ```
 
 ## Decision Behavior Benchmark corpus (`benchmarks/decision_behavior_corpus.py`) — 52 scenarios
