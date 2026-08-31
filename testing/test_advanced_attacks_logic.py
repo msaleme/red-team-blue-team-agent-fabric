@@ -5,7 +5,11 @@ import sys
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from protocol_tests.advanced_attacks import AdvancedTestResult, _err, _leak
+from protocol_tests.advanced_attacks import AdvancedTestResult, _leak
+# `_err` is tested at its definition rather than through a re-export.
+# advanced_attacks stopped importing it when POLY-001/002 stopped crediting a
+# bare 4xx as an observed block.
+from protocol_tests.http_helpers import _err
 
 
 class TestErrorDetection(unittest.TestCase):
