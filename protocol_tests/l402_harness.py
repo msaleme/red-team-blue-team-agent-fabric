@@ -64,7 +64,12 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
 
+from protocol_tests.agent_prose_outcome import (
+    DECLINE_OBSERVED,
+    classify_agent_prose,
+)
 from protocol_tests.http_helpers import (
+    agent_prose,
     is_inconclusive,
     instrument_transport,
     silence_detail,
@@ -1948,10 +1953,25 @@ class L402SecurityTests:
 
         for label, headers in probe_requests:
             resp = self.transport.get(self.PATH_INDEX, headers=headers)
-            body_lower = resp.get("body", "").lower()
-            for pattern in sensitive_patterns:
-                if pattern in body_lower:
-                    leaks_found.append(f"{label}: '{pattern}'")
+            body = resp.get("body", "")
+            body_lower = body.lower()
+            hits = [pat for pat in sensitive_patterns if pat in body_lower]
+            if not hits:
+                continue
+            # A keyword named in a refusal is not a disclosure. `api_key`,
+            # `secret` and `password` are bare keywords here with no value
+            # required, so an endpoint answering
+            #
+            #     "I will not disclose credentials such as API_KEY ..."
+            #
+            # was recorded as leaking one, in the sentence declining to.
+            #
+            # Graded per probe rather than once at the end: these are four
+            # separate requests, and a decline to one of them says nothing about
+            # what the other three returned.
+            if classify_agent_prose(agent_prose(body)).outcome == DECLINE_OBSERVED:
+                continue
+            leaks_found.extend(f"{label}: '{pat}'" for pat in hits)
 
         elapsed = time.monotonic() - t0
         passed = len(leaks_found) == 0
