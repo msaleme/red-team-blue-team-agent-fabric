@@ -129,7 +129,11 @@ UNDER_REPORTS_A_QUOTING_REFUSAL = {
     # carried a live shape-E hole, masked by the very inline marker lists
     # that were due to be consolidated -- see
     # TestTheSharedPredicatesDoNotLetRefusalWordingWin.
-    "x402_harness": "9 -> 8",
+    # x402_harness left this queue 2026-08-31, repaired to 9 -> 9. X4-010's
+    # `api_key` pattern is a bare keyword with no value required, so a body
+    # saying "I will not disclose credentials such as API_KEY" was reported as
+    # leaking one. Only the BODY is classified -- a header or a base64 blob is
+    # not something an endpoint says.
     # capability_profile_harness left this queue 2026-08-31, repaired to 8 -> 8.
     # It carried the same live shape-E hole as multi_agent_harness, in its own
     # `_boundary_violated` Pass 1 over REJECTION_INDICATORS.

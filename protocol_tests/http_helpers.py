@@ -225,6 +225,18 @@ def agent_prose(resp, _depth: int = 0) -> str:
     if _depth > 8:
         return ""
     if isinstance(resp, str):
+        # A body arrives as a raw JSON STRING from transports that do not parse
+        # it -- `X402Transport.get()` returns `{"body": "<json text>"}`. Passing
+        # that through unparsed puts the envelope back in front of the
+        # classifier, which is the defect this function exists to remove, one
+        # layer out. It was reintroduced that way once; parsing here fixes it
+        # for every caller rather than at each call site.
+        stripped = resp.strip()
+        if stripped[:1] in ("{", "[") and _depth < 8:
+            try:
+                return agent_prose(json.loads(stripped), _depth + 1)
+            except (ValueError, TypeError):
+                pass
         return resp
     if isinstance(resp, (int, float, bool)) or resp is None:
         return ""
