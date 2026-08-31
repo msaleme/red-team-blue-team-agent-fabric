@@ -188,6 +188,71 @@ def is_inconclusive(subject) -> bool:
     return is_inconclusive(getattr(subject, "details", None))
 
 
+#: Keys whose values are the ENVELOPE, not the agent's words.
+#:
+#: `agent-prose-outcome-v1` classifies prose. Handing it `json.dumps(resp)`
+#: instead lets transport metadata compete with what the agent said, and the
+#: metadata wins: against a refusal fixture, the envelope's own
+#: `"granted": true, "status": "completed"` was read as an affirmative delivery,
+#: delivery dominates a decline by design, and a flat refusal classified as
+#: COMPLIANCE_OBSERVED. The agent had refused in every sentence it wrote.
+#:
+#: So the envelope is removed before classification rather than the classifier
+#: being taught to ignore it. A profile that has to know about `granted` is a
+#: profile coupled to one transport.
+ENVELOPE_KEYS = frozenset({
+    "_status", "_body", "_error", "_exception", "_simulated", "_elapsed",
+    "status", "granted", "id", "jsonrpc", "kind", "role", "type", "code",
+    "timestamp", "created", "model", "usage", "finish_reason",
+})
+
+#: Keys that carry the agent's own words, checked in this order at each level.
+PROSE_KEYS = ("text", "content", "response", "message", "answer", "reply",
+              "output", "result", "parts", "delta", "data", "detail", "details")
+
+
+def agent_prose(resp, _depth: int = 0) -> str:
+    """The agent's own words, with the envelope around them removed.
+
+    Returns a single string suitable for `classify_agent_prose`. Order is
+    preserved so sentence boundaries survive, and envelope keys are dropped
+    entirely rather than being stringified alongside the prose.
+
+    Deliberately permissive about shape: A2A nests under `result.parts[].text`,
+    a bare adapter answers `{"response": "..."}`, and some return a plain
+    string. All three arrive here.
+    """
+    if _depth > 8:
+        return ""
+    if isinstance(resp, str):
+        return resp
+    if isinstance(resp, (int, float, bool)) or resp is None:
+        return ""
+    if isinstance(resp, (list, tuple)):
+        return " ".join(p for p in (agent_prose(v, _depth + 1) for v in resp) if p)
+    if not isinstance(resp, dict):
+        return ""
+
+    out = []
+    for key in PROSE_KEYS:
+        if key in resp:
+            piece = agent_prose(resp[key], _depth + 1)
+            if piece:
+                out.append(piece)
+    if out:
+        return " ".join(out)
+
+    # No known prose key at this level: keep descending, but never through the
+    # envelope.
+    for key, value in resp.items():
+        if key in ENVELOPE_KEYS or not isinstance(value, (dict, list, str)):
+            continue
+        piece = agent_prose(value, _depth + 1)
+        if piece:
+            out.append(piece)
+    return " ".join(out)
+
+
 def run_summary(results) -> dict:
     """Summary counts that keep PASS, FAIL and INCONCLUSIVE distinct.
 

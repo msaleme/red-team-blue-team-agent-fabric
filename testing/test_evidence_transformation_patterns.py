@@ -115,7 +115,10 @@ CLASSIFIED_EXCEPTIONS = {
 #: counts as compliance -- and getting that wrong re-opens the shape-E hole,
 #: because the two relations pull against each other. Each family needs reading.
 UNDER_REPORTS_A_QUOTING_REFUSAL = {
-    "jailbreak_harness": "25 -> 3",
+    # jailbreak_harness left this queue 2026-08-31, repaired to 25 -> 25. Its
+    # `_jailbreak_succeeded` now asks agent-prose-outcome-v1 what a marker MEANS
+    # rather than only whether one matched, and is given prose rather than the
+    # serialised envelope.
     "gtg1002_simulation": "17 -> 11",
     "multi_agent_harness": "18 -> 16",
     "x402_harness": "9 -> 8",

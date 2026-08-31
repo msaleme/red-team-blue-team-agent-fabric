@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `7197676`
+**Generated:** `scripts/generate_test_catalog.py` at commit `94f410d`
 **Test count:** 608 unique test IDs across 44 registered harness modules (43 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -416,31 +416,31 @@ INT-008 | Intent Ambiguity Exploitation | protocol_tests/intent_contract_harness
 ### Jailbreak (`protocol_tests/jailbreak_harness.py`) — 25 tests
 
 ```
-JB-001 | Classic DAN Jailbreak | protocol_tests/jailbreak_harness.py:266
-JB-002 | System Prompt Override | protocol_tests/jailbreak_harness.py:289
-JB-003 | Fictional Framing Bypass | protocol_tests/jailbreak_harness.py:313
-JB-004 | Gradual Persona Shift | protocol_tests/jailbreak_harness.py:341
-JB-005 | Base64-Encoded Instructions | protocol_tests/jailbreak_harness.py:367
-JB-006 | Unicode Homoglyph Bypass | protocol_tests/jailbreak_harness.py:394
-JB-007 | Zero-Width Character Insertion | protocol_tests/jailbreak_harness.py:416
-JB-008 | HTML Entity Encoded Jailbreak | protocol_tests/jailbreak_harness.py:438
-JB-009 | Mixed-Script Encoding Bypass | protocol_tests/jailbreak_harness.py:461
-JB-010 | Tokenizer Boundary Exploitation | protocol_tests/jailbreak_harness.py:485
-JB-011 | System Prompt Impersonation | protocol_tests/jailbreak_harness.py:523
-JB-012 | Developer Mode Activation | protocol_tests/jailbreak_harness.py:546
-JB-013 | Fake Tool Response Injection | protocol_tests/jailbreak_harness.py:577
-JB-014 | Multi-Agent Authority Claim | protocol_tests/jailbreak_harness.py:615
-JB-015 | Compliance/Legal Override | protocol_tests/jailbreak_harness.py:639
-JB-016 | Few-Shot Jailbreak | protocol_tests/jailbreak_harness.py:671
-JB-017 | Translation-Based Bypass | protocol_tests/jailbreak_harness.py:693
-JB-018 | Code Generation Bypass | protocol_tests/jailbreak_harness.py:719
-JB-019 | Hypothetical Framing | protocol_tests/jailbreak_harness.py:743
-JB-020 | Progressive Escalation | protocol_tests/jailbreak_harness.py:769
-JB-021 | Cross-Session Jailbreak Persistence | protocol_tests/jailbreak_harness.py:819
-JB-022 | State Leakage Between Agents | protocol_tests/jailbreak_harness.py:861
-JB-023 | Partial Compliance Detection | protocol_tests/jailbreak_harness.py:894
-JB-024 | Self-Reinforcing Jailbreak | protocol_tests/jailbreak_harness.py:919
-JB-025 | Recovery to Safe State | protocol_tests/jailbreak_harness.py:955
+JB-001 | Classic DAN Jailbreak | protocol_tests/jailbreak_harness.py:313
+JB-002 | System Prompt Override | protocol_tests/jailbreak_harness.py:336
+JB-003 | Fictional Framing Bypass | protocol_tests/jailbreak_harness.py:360
+JB-004 | Gradual Persona Shift | protocol_tests/jailbreak_harness.py:388
+JB-005 | Base64-Encoded Instructions | protocol_tests/jailbreak_harness.py:414
+JB-006 | Unicode Homoglyph Bypass | protocol_tests/jailbreak_harness.py:441
+JB-007 | Zero-Width Character Insertion | protocol_tests/jailbreak_harness.py:463
+JB-008 | HTML Entity Encoded Jailbreak | protocol_tests/jailbreak_harness.py:485
+JB-009 | Mixed-Script Encoding Bypass | protocol_tests/jailbreak_harness.py:508
+JB-010 | Tokenizer Boundary Exploitation | protocol_tests/jailbreak_harness.py:532
+JB-011 | System Prompt Impersonation | protocol_tests/jailbreak_harness.py:570
+JB-012 | Developer Mode Activation | protocol_tests/jailbreak_harness.py:593
+JB-013 | Fake Tool Response Injection | protocol_tests/jailbreak_harness.py:624
+JB-014 | Multi-Agent Authority Claim | protocol_tests/jailbreak_harness.py:662
+JB-015 | Compliance/Legal Override | protocol_tests/jailbreak_harness.py:686
+JB-016 | Few-Shot Jailbreak | protocol_tests/jailbreak_harness.py:718
+JB-017 | Translation-Based Bypass | protocol_tests/jailbreak_harness.py:740
+JB-018 | Code Generation Bypass | protocol_tests/jailbreak_harness.py:766
+JB-019 | Hypothetical Framing | protocol_tests/jailbreak_harness.py:790
+JB-020 | Progressive Escalation | protocol_tests/jailbreak_harness.py:816
+JB-021 | Cross-Session Jailbreak Persistence | protocol_tests/jailbreak_harness.py:866
+JB-022 | State Leakage Between Agents | protocol_tests/jailbreak_harness.py:908
+JB-023 | Partial Compliance Detection | protocol_tests/jailbreak_harness.py:941
+JB-024 | Self-Reinforcing Jailbreak | protocol_tests/jailbreak_harness.py:966
+JB-025 | Recovery to Safe State | protocol_tests/jailbreak_harness.py:1002
 ```
 
 ### kill_switch_harness.py (`protocol_tests/kill_switch_harness.py`) — 4 tests
