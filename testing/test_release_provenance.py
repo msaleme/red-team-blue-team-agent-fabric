@@ -160,30 +160,66 @@ class TestTheDigestComparison(unittest.TestCase):
 class TestTheScriptsRunAsCommands(unittest.TestCase):
     """They are invoked from workflow YAML, so the CLI path has to work too."""
 
-    def test_build_then_verify_end_to_end(self):
+    #: The GitHub variables `build_provenance.py` reads for CI identity. They are
+    #: scrubbed or injected explicitly below rather than inherited, because the
+    #: first version of this test asserted "no CI identity" and passed on a
+    #: laptop for that reason alone -- then failed on all four Pythons in CI,
+    #: where `GITHUB_RUN_ID` is set and the statement legitimately had one. A
+    #: test whose outcome depends on where it runs is measuring the runner.
+    CI_VARS = ("GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT", "GITHUB_REPOSITORY",
+               "GITHUB_WORKFLOW", "GITHUB_WORKFLOW_REF", "GITHUB_SERVER_URL",
+               "GITHUB_SHA", "GITHUB_REF_NAME", "RUNNER_OS", "RUNNER_ARCH",
+               "GITHUB_EVENT_NAME")
+
+    def _run(self, argv, env_overrides):
+        import os
+        env = {k: v for k, v in os.environ.items() if k not in self.CI_VARS}
+        env.update(env_overrides)
+        return subprocess.run(argv, capture_output=True, text=True, cwd=REPO, env=env)
+
+    def _build(self, tmp, env_overrides):
+        out = tmp / "provenance.json"
+        r = self._run([sys.executable, str(REPO / "scripts" / "build_provenance.py"),
+                       "--dist", str(_dist(tmp)), "--out", str(out)], env_overrides)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return out
+
+    def test_a_statement_built_outside_ci_is_refused(self):
         import tempfile
         tmp = Path(tempfile.mkdtemp())
-        d = _dist(tmp)
-        out = tmp / "provenance.json"
-        r = subprocess.run(
-            [sys.executable, str(REPO / "scripts" / "build_provenance.py"),
-             "--dist", str(d), "--out", str(out)],
-            capture_output=True, text=True, cwd=REPO)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertTrue(out.exists())
+        out = self._build(tmp, {})
+        self.assertEqual(json.loads(out.read_text())["package"]["version"], "9.9.9")
 
-        statement = json.loads(out.read_text())
-        self.assertEqual(statement["package"]["version"], "9.9.9")
-
-        r = subprocess.run(
-            [sys.executable, str(REPO / "scripts" / "verify_release_provenance.py"),
-             "--provenance", str(out), "--offline"],
-            capture_output=True, text=True, cwd=REPO)
-        # Locally there is no CI run id, so the verifier MUST refuse it.
+        r = self._run([sys.executable, str(REPO / "scripts" / "verify_release_provenance.py"),
+                       "--provenance", str(out), "--offline"], {})
         self.assertEqual(r.returncode, 1,
-                         "a locally built statement passed verification; the "
-                         "CI-identity check is not doing anything")
+                         "a statement built with no CI identity passed verification; "
+                         "the CI-identity check is not doing anything")
         self.assertIn("not produced by a workflow", r.stdout)
+
+    def test_a_statement_built_inside_ci_is_accepted(self):
+        """The positive control. A verifier that refuses everything is not one."""
+        import tempfile
+        tmp = Path(tempfile.mkdtemp())
+        ci = {"GITHUB_RUN_ID": "424242", "GITHUB_RUN_ATTEMPT": "1",
+              "GITHUB_REPOSITORY": "msaleme/red-team-blue-team-agent-fabric",
+              "GITHUB_WORKFLOW": "Publish to PyPI",
+              "GITHUB_SERVER_URL": "https://github.com",
+              "GITHUB_SHA": "d" * 40, "GITHUB_EVENT_NAME": "release"}
+        out = self._build(tmp, ci)
+        statement = json.loads(out.read_text())
+        self.assertEqual(statement["ci"]["run_id"], "424242")
+        self.assertEqual(statement["source"]["commit"], "d" * 40)
+
+        # The working tree of this repository may legitimately be dirty while
+        # someone is editing it; the release path never is. Assert the field is
+        # reported rather than pinning it.
+        statement["source"]["tree_is_dirty"] = False
+        out.write_text(json.dumps(statement))
+
+        r = self._run([sys.executable, str(REPO / "scripts" / "verify_release_provenance.py"),
+                       "--provenance", str(out), "--offline"], ci)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
 class TestTheWorkflowWiring(unittest.TestCase):
