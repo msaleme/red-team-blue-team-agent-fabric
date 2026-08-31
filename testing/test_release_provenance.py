@@ -151,6 +151,35 @@ class TestTheVerifier(unittest.TestCase):
         failures = verify_release_provenance.check(self.st, offline=True)
         self.assertTrue(any("unknown schema" in f for f in failures), failures)
 
+    def test_a_tag_naming_a_different_version_fails(self):
+        """v4.18.0rc2 shipped 4.18.0rc1 and every check passed.
+
+        The tag was cut, pyproject.toml was never bumped, and build, attestation,
+        offline verification, PyPI upload, release assets and the post-publish
+        digest comparison all agreed -- because none of them compared the tag to
+        the version. A tag is the name a release is cited by; if it names a
+        version the artifact does not carry, every later citation points at
+        something else.
+        """
+        self.st["source"]["ref_name"] = "v9.9.10"      # artifacts are 9.9.9
+        failures = verify_release_provenance.check(self.st, offline=True)
+        self.assertTrue(any("does not match the packaged version" in f
+                            for f in failures), failures)
+
+    def test_a_tag_naming_the_shipped_version_passes(self):
+        """The positive control. This must not reject a correct release."""
+        self.st["source"]["ref_name"] = "v9.9.9"
+        failures = [f for f in verify_release_provenance.check(self.st, offline=True)
+                    if "packaged version" in f]
+        self.assertEqual(failures, [])
+
+    def test_a_non_version_ref_is_not_checked_against_the_version(self):
+        """A branch name is not a claim about the version, so it is not one to break."""
+        self.st["source"]["ref_name"] = "main"
+        failures = [f for f in verify_release_provenance.check(self.st, offline=True)
+                    if "packaged version" in f]
+        self.assertEqual(failures, [])
+
     def test_a_statement_with_no_commit_fails(self):
         self.st["source"]["commit"] = None
         failures = verify_release_provenance.check(self.st, offline=True)
@@ -247,18 +276,24 @@ class TestTheScriptsRunAsCommands(unittest.TestCase):
         """The positive control. A verifier that refuses everything is not one."""
         import tempfile
         tmp = Path(tempfile.mkdtemp())
-        # GITHUB_REF_NAME is pinned to a tag that cannot exist. Left unset,
-        # `build_provenance.py` falls back to `git describe --exact-match` and
-        # picks up whatever tag this working copy happens to sit on -- which it
-        # did, the moment v4.18.0rc1 was cut on this commit. The verifier then
-        # correctly reported that the real tag disagrees with the fake SHA below.
-        # A fixture that reads the surrounding repository is testing the
+        # GITHUB_REF_NAME is pinned, and pinned to the version the synthetic
+        # dist actually carries. Two reasons, both learned the hard way:
+        #
+        # Left unset, `build_provenance.py` falls back to
+        # `git describe --exact-match` and picks up whatever tag this working
+        # copy sits on -- which it did, the moment v4.18.0rc1 was cut on this
+        # commit. A fixture that reads the surrounding repository is testing the
         # repository.
+        #
+        # Pinned to a placeholder like `v0.0.0-not-a-real-tag`, it then failed
+        # the tag-matches-version check added after v4.18.0rc2 shipped 4.18.0rc1.
+        # The check was right; a positive control has to be positive in every
+        # respect, not only the one under test.
         ci = {"GITHUB_RUN_ID": "424242", "GITHUB_RUN_ATTEMPT": "1",
               "GITHUB_REPOSITORY": "msaleme/red-team-blue-team-agent-fabric",
               "GITHUB_WORKFLOW": "Publish to PyPI",
               "GITHUB_SERVER_URL": "https://github.com",
-              "GITHUB_REF_NAME": "v0.0.0-not-a-real-tag",
+              "GITHUB_REF_NAME": "v9.9.9",   # matches _dist()
               "GITHUB_SHA": "d" * 40, "GITHUB_EVENT_NAME": "release"}
         out = self._build(tmp, ci)
         statement = json.loads(out.read_text())
