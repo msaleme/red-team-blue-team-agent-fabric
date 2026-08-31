@@ -5,8 +5,9 @@ on:
     types: [published]
 
 permissions:
-  contents: read
-  id-token: write  # Required for trusted publishing (PyPI OIDC)
+  contents: write       # attach the artifacts and the statement to the Release
+  id-token: write       # trusted publishing (PyPI OIDC) and Sigstore attestation
+  attestations: write   # actions/attest-build-provenance
 
 jobs:
   build:
@@ -68,6 +69,34 @@ jobs:
       - name: Build package
         run: python -m build
 
+      # Two independent reviews of v4.17.0 reached the same finding by different
+      # routes: the release was content-strong and identity-weak. A reviewer
+      # rebuilt from the exact tag and matched all 95 files inside both wheels,
+      # which establishes correspondence to the tagged source and nothing about
+      # who built it. The tag is annotated and unsigned; the Release carried no
+      # assets, so there was nothing release-attached to check.
+      #
+      # Two separate claims are made here and they should not be conflated:
+      #   the STATEMENT below binds digests to a commit, tag, run and toolchain;
+      #   the ATTESTATION signs those digests against this workflow's identity.
+      # A statement on its own is a text file anyone could write.
+      - name: Write the provenance statement
+        run: |
+          python scripts/build_provenance.py --dist dist/ --out provenance.json
+          cat provenance.json
+
+      - name: Attest the built artifacts
+        uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45 # v2
+        with:
+          subject-path: "dist/*"
+
+      # A statement nobody checks is a log, not a control -- the same argument
+      # this workflow already applied to the recorded build environment. This
+      # runs the checks that do not need PyPI; the digest comparison runs after
+      # publish, when there is something published to compare against.
+      - name: Verify the statement before publishing
+        run: python scripts/verify_release_provenance.py --provenance provenance.json --offline
+
       # Two artifacts, not one path list. upload-artifact@v4 roots a multi-path
       # artifact at the least common ancestor of its paths, so `dist/` plus a
       # file at the workspace root produced an artifact containing
@@ -97,6 +126,12 @@ jobs:
           name: build-environment
           path: build-environment.txt
 
+      - name: Upload the provenance statement
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: provenance
+          path: provenance.json
+
   publish:
     name: Publish to PyPI
     needs: build
@@ -105,6 +140,18 @@ jobs:
       name: pypi
       url: https://pypi.org/p/agent-security-harness
     steps:
+      # The publish job had no checkout, because nothing in it used the
+      # repository. It does now -- `verify_release_provenance.py` runs here,
+      # after PyPI has the files -- and a job that calls a script it never
+      # fetched fails at the last step of a release, which is the worst place
+      # for this workflow to fail.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
       - name: Download build artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -148,3 +195,40 @@ jobs:
           # would re-upload an existing version and fail. Same hazard applies to
           # any retroactive tag, re-published Release, or re-run of this job.
           skip-existing: true
+
+      - name: Download the provenance statement
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: provenance
+
+      - name: Download the build-environment record
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: build-environment
+
+      # The Release had no assets at all, which is why an outside reviewer had
+      # nothing release-attached to verify and had to rebuild from the tag to
+      # say anything. These three make the claim checkable from the Release page.
+      - name: Attach the artifacts and the statement to the Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release upload "$GITHUB_REF_NAME" \
+            dist/*.whl dist/*.tar.gz provenance.json build-environment.txt \
+            --clobber --repo "$GITHUB_REPOSITORY"
+
+      # Now PyPI has the files, so the digests can be compared against what was
+      # actually published rather than against what was built. This is the check
+      # the reviewer asked to be able to re-run; it now runs itself.
+      - name: Verify the published artifacts against the statement
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if python scripts/verify_release_provenance.py --provenance provenance.json; then
+              exit 0
+            fi
+            echo "::notice::PyPI has not caught up yet; retry $attempt"
+            sleep 20
+          done
+          echo "::error::published artifacts do not match the provenance statement"
+          exit 1

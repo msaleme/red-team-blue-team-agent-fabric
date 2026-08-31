@@ -225,23 +225,53 @@ def main() -> int:
             print(f"FAIL: {args.out} does not exist", file=sys.stderr)
             return 1
         current = args.out.read_text(encoding="utf-8")
-        # Compare test lines only; the commit stamp legitimately changes every commit.
-        def ids_in(t: str) -> set[str]:
-            return set(re.findall(r"^([A-Z][A-Z0-9]*(?:-[A-Z0-9]+[a-z]?)+) \|", t, re.MULTILINE))
-        have, want = ids_in(current), ids_in(content)
+
+        # Compare the WHOLE generated body, not just which IDs appear.
+        #
+        # This compared ID membership only, and that let everything else in the
+        # catalog rot while CI reported PASS. Measured 2026-08-31, immediately
+        # after a change that inserted a field into every result dataclass in
+        # the suite: IDs identical,
+        # names identical, and 456 of 660 rows -- 69% -- pointing at the wrong
+        # `file:line`. `--check` said "PASS: catalog matches source (608 test
+        # IDs)", which was true and useless.
+        #
+        # It matters because CLAUDE.md makes this file the ground truth for a
+        # hard anti-fabrication rule: cite only what appears here verbatim. A
+        # check that guarantees the IDs and nothing else guarantees the least
+        # interesting column.
+        #
+        # The commit stamp legitimately changes every commit, so that one line
+        # is excluded and nothing else is.
+        def body(t: str) -> list[str]:
+            return [ln for ln in t.split("\n")
+                    if not ln.startswith("**Generated:**")]
+
+        have, want = body(current), body(content)
         if have != want:
-            missing, extra = sorted(want - have), sorted(have - want)
-            print(f"FAIL: catalog drift. {len(missing)} missing, {len(extra)} stale.",
-                  file=sys.stderr)
+            import difflib
+            def ids_in(t: str) -> set[str]:
+                return set(re.findall(
+                    r"^([A-Z][A-Z0-9]*(?:-[A-Z0-9]+[a-z]?)+) \|", t, re.MULTILINE))
+            missing = sorted(ids_in(content) - ids_in(current))
+            extra = sorted(ids_in(current) - ids_in(content))
+            changed = sum(1 for line in difflib.unified_diff(have, want, n=0)
+                          if line.startswith("-") and not line.startswith("---"))
+            print(f"FAIL: catalog drift. {len(missing)} IDs missing, "
+                  f"{len(extra)} stale, {changed} line(s) differ.", file=sys.stderr)
             if missing:
                 print(f"  missing: {', '.join(missing[:15])}"
                       f"{' ...' if len(missing) > 15 else ''}", file=sys.stderr)
             if extra:
                 print(f"  stale:   {', '.join(extra[:15])}"
                       f"{' ...' if len(extra) > 15 else ''}", file=sys.stderr)
+            for line in list(difflib.unified_diff(
+                    have, want, "committed", "regenerated", n=0, lineterm=""))[:12]:
+                print(f"  {line}", file=sys.stderr)
             print("  run: python scripts/generate_test_catalog.py", file=sys.stderr)
             return 1
-        print(f"PASS: catalog matches source ({total} test IDs).")
+        print(f"PASS: catalog matches source, whole body ({total} test IDs, "
+              f"{len(want)} lines).")
         return 0
 
     args.out.write_text(content, encoding="utf-8")
