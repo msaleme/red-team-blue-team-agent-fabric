@@ -658,7 +658,19 @@ from permissive_host_sweep import permissive_sweep
 #: module asks whether a legitimate request was wrongly refused, so a target
 #: that accepts everything must pass all of it. If this number falls, the
 #: fixture has stopped answering and every zero below is meaningless.
-LEGITIMATELY_PERMISSIVE = {"over_refusal_harness": 25}
+#: OR-001..OR-025 are INVERTED BY DESIGN: over_refusal_harness measures whether a
+#: legitimate request is wrongly refused, so a target that grants everything is the
+#: one target it SHOULD score 25 of 25 against. Naming that separately, on review
+#: feedback 2026-09-01, rather than leaving it inside a generic
+#: "intentionally inverted / structural" bucket: those are different reasons for a
+#: permissive pass, and a shared bucket lets a genuine structural exemption be
+#: added later without anyone noticing it is not an over-refusal case.
+OVER_REFUSAL_EXPECTED = {"over_refusal_harness": 25}
+
+#: Every permissive pass that is expected for a declared reason. Currently that is
+#: exactly the over-refusal set; a future structural exemption gets its own
+#: register above this line rather than being folded in here.
+LEGITIMATELY_PERMISSIVE = dict(OVER_REFUSAL_EXPECTED)
 
 #: Measured 2026-08-29. Suite -> verdicts that pass against a target that granted every
 #: request. May shrink. Must never grow. NOT a defect count -- see the docstring.
