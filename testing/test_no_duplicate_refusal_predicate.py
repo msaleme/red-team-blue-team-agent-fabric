@@ -106,12 +106,7 @@ PERMANENT = {
 #: which is a DIFFERENT function from the one in `http_helpers` -- different
 #: default timeout, different SSE handling, different error-dict shape. The
 #: duplication this file guards is the matching rule, not the HTTP call.
-KNOWN_DUPLICATES = {
-    "multi_agent_harness.py": "a SECOND refusal predicate at :1125, missed when "
-                              "the first was routed through the shared helper",
-    "advanced_attacks.py": 'raw `and "refuse" not in resp_str` suppression at :330',
-    "autogen_harness.py": 'raw `and "denied" not in resp_str` suppression at :603',
-}
+KNOWN_DUPLICATES: dict[str, str] = {}
 
 #: Everything the guard will not report on.
 ALLOWED = {**PERMANENT, **KNOWN_DUPLICATES}
@@ -216,3 +211,117 @@ class TestOneCanonicalRefusalPredicate(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+#: Refusal-ish words whose ABSENCE was used to suppress a harm finding.
+_SUPPRESSION_VOCAB = (
+    "denied", "rejected", "forbidden", "unauthorized", "blocked", "refuse",
+    "cannot", "declin", "not permitted", "not allowed", "invalid", "reject",
+)
+
+#: `and "<word>" not in <haystack>` -- a harm finding cancelled by a substring.
+_RAW_SUPPRESSION = re.compile(r'and\s+"([^"]+)"\s+not\s+in\s+\w+')
+
+
+class TestNoRawRefusalSuppression(unittest.TestCase):
+    """A harm finding must not be cancelled by a bare substring test.
+
+    Six of these existed across three modules, all the same shape:
+
+        cooperated    = _recon_info(resp) and "refuse" not in resp_str
+        replayed      = any(...) and "denied" not in resp_str
+        hmac_bypassed = any(...) and "rejected" not in resp_str
+
+    Each is the shape-E hole in miniature. The word appears anywhere in the
+    reply -- including inside its own negation, and including in a reply that
+    goes on to deliver -- and the finding vanishes.
+
+    Only three were on KNOWN_DUPLICATES, because the membership-shape detector
+    above sees a LIST of refusal words and these are single ones. The other
+    three were found by deriving the list from source rather than working the
+    queue, and one of the modules had already been repaired that day for the
+    same defect somewhere else in the same file.
+
+    `http_helpers.declined(resp)` is the answer: it asks whether the agent's
+    words decline the requested action, rather than whether a word is present.
+    """
+
+    @staticmethod
+    def _prose_lines(path) -> set[int]:
+        """Line numbers belonging to a docstring or a comment.
+
+        Two wrong versions preceded this one, and both are worth recording.
+
+        The first read raw lines and flagged four hits, every one of them PROSE
+        ABOUT the defect -- a comment quoting the suppression it had just
+        removed, and the three examples in `http_helpers.declined`'s own
+        docstring. A check that fires on an accurate description of the thing it
+        forbids is a check that gets muted.
+
+        The second tokenised and dropped STRING tokens, which removed the string
+        literal the pattern needs to see. It passed against a deliberately
+        seeded suppression -- a guard that cannot fail, which is the defect this
+        repository names most often. Verified by seeding, not by reading.
+
+        So: exclude docstrings and comments by position, and read the real line
+        text everywhere else.
+        """
+        import ast
+        import io
+        import tokenize
+
+        source = path.read_text(encoding="utf-8", errors="replace")
+        prose: set[int] = set()
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return set(range(1, source.count("\n") + 2))
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Module, ast.ClassDef,
+                                     ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            body = getattr(node, "body", None)
+            if not body:
+                continue
+            first = body[0]
+            if (isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant)
+                    and isinstance(first.value.value, str)):
+                prose.update(range(first.lineno, (first.end_lineno or first.lineno) + 1))
+        try:
+            for tok in tokenize.generate_tokens(io.StringIO(source).readline):
+                if tok.type == tokenize.COMMENT:
+                    prose.add(tok.start[0])
+        except (tokenize.TokenError, IndentationError):
+            pass
+        return prose
+
+    def test_no_module_cancels_a_finding_with_a_substring(self) -> None:
+        offenders = []
+        for path in sorted(PROTOCOL_TESTS.glob("*.py")):
+            prose = self._prose_lines(path)
+            for lineno, line in enumerate(
+                    path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+                if lineno in prose or line.strip().startswith("#"):
+                    continue
+                m = _RAW_SUPPRESSION.search(line)
+                if m and any(v in m.group(1).lower() for v in _SUPPRESSION_VOCAB):
+                    offenders.append(f"{path.name}:{lineno}  {line.strip()[:70]}")
+        self.assertEqual(
+            offenders, [],
+            "a harm finding is cancelled by a bare substring test:\n  "
+            + "\n  ".join(offenders)
+            + "\n\nUse `http_helpers.declined(resp)`. A word is not a refusal; a "
+              "sentence that declines the requested action is.")
+
+    def test_the_guard_can_fire(self) -> None:
+        """A checker that cannot fail is not a checker.
+
+        Tokenising away strings is exactly the kind of narrowing that can make a
+        guard vacuous, so this asserts the pattern still matches real code.
+        """
+        self.assertTrue(
+            _RAW_SUPPRESSION.search('x = any(...) and "denied" not in resp_str'),
+            "the suppression pattern no longer matches the construction it forbids")
+        self.assertFalse(
+            _RAW_SUPPRESSION.search('x = any(...) and declined(resp)'),
+            "the pattern matches the correct form, which would forbid the remedy")
+
