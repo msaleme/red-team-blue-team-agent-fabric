@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `d24b26c`
+**Generated:** `scripts/generate_test_catalog.py` at commit `6d2a9f9`
 **Test count:** 608 unique test IDs across 44 registered harness modules (43 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -36,16 +36,16 @@ A2A-013 | Agent Card Limitations Field Verification | protocol_tests/a2a_harness
 ### Advanced Attacks (`protocol_tests/advanced_attacks.py`) — 10 tests
 
 ```
-CHAIN-001 | Credential → Identity → Cloud Pivot (3-Step Chain) | protocol_tests/advanced_attacks.py:500
-CHAIN-002 | SaaS Lateral Movement (Doc → Email → Finance) | protocol_tests/advanced_attacks.py:543
-JAIL-001 | Jailbreak Persistence (Same Session + Cross-Session) | protocol_tests/advanced_attacks.py:645
-JAIL-002 | Roleplay-Based Jailbreak (4 Personas) | protocol_tests/advanced_attacks.py:696
-POLY-001 | Polymorphic Injection (10 Unique Payloads) | protocol_tests/advanced_attacks.py:237
-POLY-002 | Encoding Evasion (8 Variants) | protocol_tests/advanced_attacks.py:274
-RECON-001 | Attack Surface Self-Mapping (5 Queries) | protocol_tests/advanced_attacks.py:589
-STATE-001 | Trust-Building → Escalation (8 turns) | protocol_tests/advanced_attacks.py:331
-STATE-002 | Playbook Injection Bypass (Mexico Breach Pattern) | protocol_tests/advanced_attacks.py:407
-STATE-003 | Guardrail Erosion (8-Step Progressive Escalation) | protocol_tests/advanced_attacks.py:449
+CHAIN-001 | Credential → Identity → Cloud Pivot (3-Step Chain) | protocol_tests/advanced_attacks.py:501
+CHAIN-002 | SaaS Lateral Movement (Doc → Email → Finance) | protocol_tests/advanced_attacks.py:544
+JAIL-001 | Jailbreak Persistence (Same Session + Cross-Session) | protocol_tests/advanced_attacks.py:646
+JAIL-002 | Roleplay-Based Jailbreak (4 Personas) | protocol_tests/advanced_attacks.py:697
+POLY-001 | Polymorphic Injection (10 Unique Payloads) | protocol_tests/advanced_attacks.py:238
+POLY-002 | Encoding Evasion (8 Variants) | protocol_tests/advanced_attacks.py:275
+RECON-001 | Attack Surface Self-Mapping (5 Queries) | protocol_tests/advanced_attacks.py:590
+STATE-001 | Trust-Building → Escalation (8 turns) | protocol_tests/advanced_attacks.py:332
+STATE-002 | Playbook Injection Bypass (Mexico Breach Pattern) | protocol_tests/advanced_attacks.py:408
+STATE-003 | Guardrail Erosion (8-Step Progressive Escalation) | protocol_tests/advanced_attacks.py:450
 ```
 
 ### AIUC-1 Compliance (`protocol_tests/aiuc1_compliance_harness.py`) — 12 tests
@@ -90,16 +90,16 @@ AP2-017 | vct Exact-Match Enforcement | protocol_tests/ap2_harness.py:814
 ### autogen_harness.py (`protocol_tests/autogen_harness.py`) — 10 tests
 
 ```
-AG-MS-001 | Agent Impersonation via Name Field | protocol_tests/autogen_harness.py:464
-AG-MS-002 | System Config Injection via Spoofed Assistant | protocol_tests/autogen_harness.py:509
-AG-MS-003 | HMAC Verification Bypass with Forged Signature | protocol_tests/autogen_harness.py:561
-AG-MS-004 | Cross-Conversation Message Replay Attack | protocol_tests/autogen_harness.py:608
-AG-NE-001 | Nested Conversation Escape via Fake Terminator | protocol_tests/autogen_harness.py:317
-AG-NE-002 | Shared State Poisoning via Nested Context | protocol_tests/autogen_harness.py:365
-AG-NE-003 | Local Executor Trust Boundary Bypass | protocol_tests/autogen_harness.py:411
-AG-SP-001 | Direct Speaker Override via Prompt Injection | protocol_tests/autogen_harness.py:179
-AG-SP-002 | Fake Task Completion to Skip Agents | protocol_tests/autogen_harness.py:225
-AG-SP-003 | Security Agent Exclusion via Fake Maintenance | protocol_tests/autogen_harness.py:268
+AG-MS-001 | Agent Impersonation via Name Field | protocol_tests/autogen_harness.py:467
+AG-MS-002 | System Config Injection via Spoofed Assistant | protocol_tests/autogen_harness.py:512
+AG-MS-003 | HMAC Verification Bypass with Forged Signature | protocol_tests/autogen_harness.py:564
+AG-MS-004 | Cross-Conversation Message Replay Attack | protocol_tests/autogen_harness.py:611
+AG-NE-001 | Nested Conversation Escape via Fake Terminator | protocol_tests/autogen_harness.py:320
+AG-NE-002 | Shared State Poisoning via Nested Context | protocol_tests/autogen_harness.py:368
+AG-NE-003 | Local Executor Trust Boundary Bypass | protocol_tests/autogen_harness.py:414
+AG-SP-001 | Direct Speaker Override via Prompt Injection | protocol_tests/autogen_harness.py:182
+AG-SP-002 | Fake Task Completion to Skip Agents | protocol_tests/autogen_harness.py:228
+AG-SP-003 | Security Agent Exclusion via Fake Maintenance | protocol_tests/autogen_harness.py:271
 ```
 
 ### benchmark_integrity_harness.py (`protocol_tests/benchmark_integrity_harness.py`) — 7 tests
@@ -571,25 +571,25 @@ MEM-012 | Namespace Wildcard Metacharacter Injection | protocol_tests/memory_har
 ### Multi-Agent Interaction (`protocol_tests/multi_agent_harness.py`) — 19 tests
 
 ```
-MAG-001 | Delegation Chain Poisoning | protocol_tests/multi_agent_harness.py:383
-MAG-002 | Authority Impersonation in Multi-Agent Handoff | protocol_tests/multi_agent_harness.py:424
-MAG-003 | Consensus Manipulation in Multi-Agent Decision | protocol_tests/multi_agent_harness.py:460
-MAG-004 | Task Result Poisoning from Downstream Agent | protocol_tests/multi_agent_harness.py:502
-MAG-005 | Cross-Agent Privilege Escalation | protocol_tests/multi_agent_harness.py:551
-MAG-006 | Agent Collusion Detection | protocol_tests/multi_agent_harness.py:586
-MAG-007 | Orchestrator Trust Boundary Bypass | protocol_tests/multi_agent_harness.py:629
-MAG-008 | Recursive Delegation Attack | protocol_tests/multi_agent_harness.py:666
-MAG-009 | Capability Leakage Across Agent Boundaries | protocol_tests/multi_agent_harness.py:711
-MAG-010 | Shared Context Contamination | protocol_tests/multi_agent_harness.py:758
-MAG-011 | Split-Brain Decision Making | protocol_tests/multi_agent_harness.py:796
-MAG-012 | Agent Replacement/Substitution Attack | protocol_tests/multi_agent_harness.py:840
-MAG-013 | Message-Ordering Race Pretext | protocol_tests/multi_agent_harness.py:881
-MAG-014 | Recipient-Validation TOCTOU Pretext | protocol_tests/multi_agent_harness.py:923
-MAG-015 | Event-Signal Collision Pretext | protocol_tests/multi_agent_harness.py:965
-MAG-016 | Kill-vs-Complete Race Pretext | protocol_tests/multi_agent_harness.py:1009
-MAG-017 | Stale-Status-After-Timeout Pretext | protocol_tests/multi_agent_harness.py:1054
-MAG-018 | Inbox-Append-to-Last-Call-Only Pretext | protocol_tests/multi_agent_harness.py:1098
-MAG-019 | Delegated Spend Bound Discrimination | protocol_tests/multi_agent_harness.py:1192
+MAG-001 | Delegation Chain Poisoning | protocol_tests/multi_agent_harness.py:398
+MAG-002 | Authority Impersonation in Multi-Agent Handoff | protocol_tests/multi_agent_harness.py:439
+MAG-003 | Consensus Manipulation in Multi-Agent Decision | protocol_tests/multi_agent_harness.py:475
+MAG-004 | Task Result Poisoning from Downstream Agent | protocol_tests/multi_agent_harness.py:517
+MAG-005 | Cross-Agent Privilege Escalation | protocol_tests/multi_agent_harness.py:566
+MAG-006 | Agent Collusion Detection | protocol_tests/multi_agent_harness.py:601
+MAG-007 | Orchestrator Trust Boundary Bypass | protocol_tests/multi_agent_harness.py:644
+MAG-008 | Recursive Delegation Attack | protocol_tests/multi_agent_harness.py:681
+MAG-009 | Capability Leakage Across Agent Boundaries | protocol_tests/multi_agent_harness.py:726
+MAG-010 | Shared Context Contamination | protocol_tests/multi_agent_harness.py:773
+MAG-011 | Split-Brain Decision Making | protocol_tests/multi_agent_harness.py:811
+MAG-012 | Agent Replacement/Substitution Attack | protocol_tests/multi_agent_harness.py:855
+MAG-013 | Message-Ordering Race Pretext | protocol_tests/multi_agent_harness.py:896
+MAG-014 | Recipient-Validation TOCTOU Pretext | protocol_tests/multi_agent_harness.py:938
+MAG-015 | Event-Signal Collision Pretext | protocol_tests/multi_agent_harness.py:980
+MAG-016 | Kill-vs-Complete Race Pretext | protocol_tests/multi_agent_harness.py:1024
+MAG-017 | Stale-Status-After-Timeout Pretext | protocol_tests/multi_agent_harness.py:1069
+MAG-018 | Inbox-Append-to-Last-Call-Only Pretext | protocol_tests/multi_agent_harness.py:1113
+MAG-019 | Delegated Spend Bound Discrimination | protocol_tests/multi_agent_harness.py:1208
 ```
 
 ### Over-Refusal (`protocol_tests/over_refusal_harness.py`) — 25 tests
