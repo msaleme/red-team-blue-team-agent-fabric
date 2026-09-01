@@ -221,6 +221,13 @@ DETECTORS = {
 #: exists to catch, one level up: a register built by a different instrument than
 #: the one that checks it.
 UNCONTROLLED = {
+    # Globs source to COMPUTE DENOMINATORS, not to detect a forbidden
+    # construction. A seeded violation is meaningless in that direction: there
+    # is nothing for it to fail to find. Added here the moment it was written,
+    # because this queue flagged it on its first run -- which is the queue
+    # working, and a reminder that "scans source" and "is a detector" are not
+    # the same property.
+    "test_evidence_integrity_registers.py",
     "test_harness_base_adoption.py",
     "test_inconclusive_summary.py",
     "test_json_stdout_purity.py",
