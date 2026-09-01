@@ -196,15 +196,82 @@ def _run_prefix_detector(directory: pathlib.Path) -> list[str]:
     return offenders
 
 
-#: detector name -> (runner, seeded violation, legitimate control)
+# --------------------------------------------------------------------------
+# Detector 4 - fabricated default endpoint
+#
+# The 2026-08-04 incident: three references to infrastructure this project has
+# never owned shipped as DEFAULTS, so every `agent-security publish` run without
+# an override posted a signed attestation, including a user-supplied contact
+# email, to a third party. The guard has stood green ever since, which is
+# precisely the state in which nobody knows whether it can still fire.
+# --------------------------------------------------------------------------
+
+# Assembled rather than written literally, for the same reason the guard's own
+# FORBIDDEN tuple is: a test file stating the host in one piece is a usable
+# reference to it.
+_BAD_HOST = "agentsecurity" + ".dev"
+
+_ENDPOINT_VIOLATION = (
+    '"""A module that hardcodes a default publish target."""\n'
+    "\n"
+    "DEFAULT_REGISTRY = \"https://registry." + _BAD_HOST + "/v1/attestation\"\n"
+    "\n"
+    "\n"
+    "def publish(payload, url=DEFAULT_REGISTRY):\n"
+    "    return url\n"
+)
+
+_ENDPOINT_CONTROL = (
+    '"""The correct form: no default, and no usable reference anywhere."""\n'
+    "\n"
+    "# Historical note, and the reason this line is a COMMENT. The guard exempts\n"
+    "# a Python comment or a Markdown blockquote, and nothing else -- a DOCSTRING\n"
+    "# naming registry." + _BAD_HOST + " still trips it, which was\n"
+    "# confirmed while writing this control. That is deliberate and is left\n"
+    "# strict: a docstring is user-facing documentation, and the 2026-08-04\n"
+    "# incident included a contact address in docs. Prose about the incident in\n"
+    "# package source belongs in a comment.\n"
+    "#\n"
+    "# The default used to point at registry." + _BAD_HOST + ".\n"
+    "\n"
+    "\n"
+    "def publish(payload, url):\n"
+    "    if not url:\n"
+    "        raise ValueError(\"publish requires an explicit --url\")\n"
+    "    return url\n"
+)
+
+
+def _run_endpoint_detector(directory: pathlib.Path) -> list[str]:
+    import test_no_default_endpoints as mod
+    case = mod.TestForbiddenHostsAreGone("test_no_forbidden_host_in_package_source")
+    return case._scan(sorted(directory.glob("*.py")))
+
+
+#: detector name -> (runner, seeded violation, legitimate control, guarded file)
+#:
+#: The fourth element is load-bearing. The queue's ratchet used to compare
+#: against a hand-written set of "already controlled" filenames, so adding a
+#: pair here left that literal stale and the ratchet rejected the improvement.
+#: A register checked by a different instrument than the one that fills it is
+#: the defect this file exists to catch, one level up -- for the second time.
 DETECTORS = {
     "raw refusal suppression": (
-        _run_suppression_detector, _SUPPRESSION_VIOLATION, _SUPPRESSION_CONTROL),
+        _run_suppression_detector, _SUPPRESSION_VIOLATION, _SUPPRESSION_CONTROL,
+        "test_no_duplicate_refusal_predicate.py"),
     "duplicated refusal predicate": (
-        _run_membership_detector, _MEMBERSHIP_VIOLATION, _MEMBERSHIP_CONTROL),
+        _run_membership_detector, _MEMBERSHIP_VIOLATION, _MEMBERSHIP_CONTROL,
+        "test_no_duplicate_refusal_predicate.py"),
     "inconclusive without a structural field": (
-        _run_prefix_detector, _PREFIX_VIOLATION, _PREFIX_CONTROL),
+        _run_prefix_detector, _PREFIX_VIOLATION, _PREFIX_CONTROL,
+        "test_inconclusive_is_structural.py"),
+    "fabricated default endpoint": (
+        _run_endpoint_detector, _ENDPOINT_VIOLATION, _ENDPOINT_CONTROL,
+        "test_no_default_endpoints.py"),
 }
+
+#: Derived, never written down: the files that have a seeded control pair.
+CONTROLLED = {entry[3] for entry in DETECTORS.values()}
 
 #: Source-scanning tests with no seeded positive/negative control pair yet.
 #: **May shrink. Must never grow.** A new static detector lands here or, better,
@@ -228,18 +295,38 @@ UNCONTROLLED = {
     # working, and a reminder that "scans source" and "is a detector" are not
     # the same property.
     "test_evidence_integrity_registers.py",
+
+    # The remaining five, read 2026-09-01. Every one of them globs source to
+    # DERIVE A POPULATION and then asserts something BEHAVIOURAL about the
+    # members -- it runs them, or inspects results they produced. None forbids a
+    # construction in source, so there is nothing for a seeded violation to
+    # fail to find. The discriminator is what the glob feeds, not that a glob
+    # exists.
+    #
+    # If any of these ever grows a "this pattern must not appear in source"
+    # assertion, it stops being a population derivation and needs a pair.
+
+    # Globs for `def _record` to enumerate modules, then RUNS each against the
+    # unserviced conditions and reads the verdicts.
     "test_harness_base_adoption.py",
+    # Globs to enumerate harnesses, then asserts on summary dicts those
+    # harnesses PRODUCE (inconclusive counted separately from failed).
     "test_inconclusive_summary.py",
+    # Globs to enumerate bare CLIs, then EXECUTES each with --json and parses
+    # stdout. The verdict is a property of the process, not of the text.
     "test_json_stdout_purity.py",
-    "test_no_default_endpoints.py",
+    # Globs for `def _record` to derive the prose-graded class as a
+    # DENOMINATOR for its ratchet.
     "test_refusal_establishes_a_pass.py",
+    # Globs for `_record` + `response_received` to enumerate harnesses, then
+    # FEEDS each the five unserviced conditions.
     "test_serviced_guard.py",
 }
 
 
 class TestEveryRegisteredDetectorDiscriminates(unittest.TestCase):
     def test_each_detector_flags_its_seeded_violation(self) -> None:
-        for name, (run, violation, _) in DETECTORS.items():
+        for name, (run, violation, _, _file) in DETECTORS.items():
             with self.subTest(detector=name):
                 offenders = run(_seed(violation))
                 self.assertTrue(
@@ -249,7 +336,7 @@ class TestEveryRegisteredDetectorDiscriminates(unittest.TestCase):
 
     def test_each_detector_clears_its_negative_control(self) -> None:
         """The other half. A detector that flags everything is equally useless."""
-        for name, (run, _, control) in DETECTORS.items():
+        for name, (run, _, control, _file) in DETECTORS.items():
             with self.subTest(detector=name):
                 offenders = run(_seed(control))
                 self.assertEqual(
@@ -281,14 +368,38 @@ class TestTheUncontrolledQueue(unittest.TestCase):
 
     def test_the_uncontrolled_list_may_shrink_and_must_never_grow(self) -> None:
         scanning = self._source_scanning_tests()
-        controlled = {"test_no_duplicate_refusal_predicate.py",
-                      "test_inconclusive_is_structural.py"}
-        grew = scanning - UNCONTROLLED - controlled
+        grew = scanning - UNCONTROLLED - CONTROLLED
         self.assertEqual(
             grew, set(),
             f"these scan source and have no seeded control pair, and are not on "
             f"the list: {sorted(grew)}. Add a pair to DETECTORS, or add the file "
             f"here with the reason a seeded violation would be meaningless for it.")
+
+    def test_every_controlled_file_is_real_and_scans_source(self) -> None:
+        """The fourth element of a DETECTORS entry must name a real scanner.
+
+        Without this, a detector could claim to control a file that does not
+        exist or does not scan source, and the ratchet above would silently
+        subtract a name that means nothing.
+        """
+        scanning = self._source_scanning_tests()
+        for name, entry in DETECTORS.items():
+            with self.subTest(detector=name):
+                guarded = entry[3]
+                self.assertTrue(
+                    (TESTING / guarded).exists(),
+                    f"{name!r} names {guarded}, which does not exist")
+                self.assertIn(
+                    guarded, scanning,
+                    f"{name!r} claims to control {guarded}, but that file does "
+                    f"not scan source, so the pair controls nothing")
+
+    def test_no_file_is_both_controlled_and_queued(self) -> None:
+        both = CONTROLLED & UNCONTROLLED
+        self.assertEqual(
+            both, set(),
+            f"{sorted(both)} are declared both controlled and uncontrolled. The "
+            f"queue and the registry disagree about the same file.")
 
     def test_the_uncontrolled_list_is_not_stale(self) -> None:
         scanning = self._source_scanning_tests()
