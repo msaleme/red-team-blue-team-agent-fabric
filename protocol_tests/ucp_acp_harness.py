@@ -81,6 +81,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from protocol_tests._utils import Severity, http_post_json, json_stdout_only, wilson_ci
+from protocol_tests.http_helpers import payment_outcome
 
 # ---------------------------------------------------------------------------
 # Canonical hashing
@@ -291,21 +292,7 @@ def _live_rejected(url: str, headers: dict, payload: dict) -> tuple[str, dict]:
     transport failure or 5xx is 'unreachable', never a pass.
     """
     resp = http_post_json(url, payload, headers, timeout=10)
-    if resp.get("_error"):
-        status = resp.get("_status", 0)
-        if status and 400 <= status < 500:
-            return ("rejected", resp)
-        return ("unreachable", resp)
-    status = resp.get("_status", 0)
-    if status >= 500 or status == 0:
-        return ("unreachable", resp)
-    text = json.dumps(resp).lower()
-    if any(w in text for w in ("reject", "denied", "invalid", "unauthorized",
-                               "forbidden", "not authorized", "mismatch", "expired")):
-        return ("rejected", resp)
-    if 200 <= status < 300:
-        return ("accepted", resp)
-    return ("unreachable", resp)
+    return payment_outcome(resp, extra=("not authorized", "mismatch", "expired"))
 
 
 # ---------------------------------------------------------------------------

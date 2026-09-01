@@ -265,6 +265,78 @@ def agent_prose(resp, _depth: int = 0) -> str:
     return " ".join(out)
 
 
+#: Words that mean a PAYMENT PROTOCOL rejected a request, as distinct from an
+#: agent declining in prose. Four payment modules each kept their own copy of
+#: this tuple, and none of them received the word-boundary or negation fixes
+#: made at the agent-prose seam -- which is the duplication claim, not a claim
+#: that any of them was wrong.
+#:
+#: Deliberately NOT merged into REFUSAL_INDICATORS. The independent reviewer's
+#: architecture note, 2026-08-30: one canonical helper PER EVIDENCE DOMAIN, not
+#: one helper. A 402 challenge and an agent saying "I cannot" are different
+#: kinds of evidence, and consolidating them would be false consolidation.
+#: `agent_prose_outcome` owns the agent-prose domain; this owns protocol
+#: rejection.
+PAYMENT_REJECTION_TERMS = (
+    "reject", "denied", "invalid", "unauthorized", "forbidden",
+)
+
+
+def payment_outcome(resp: dict, extra: tuple[str, ...] = ()) -> tuple[str, dict]:
+    """Classify a payment-protocol probe response. Returns (verdict, evidence).
+
+    verdict in {"rejected", "accepted", "unreachable"}.
+
+    Four modules held this classification with identical structure and a
+    different term tuple: `ap2_harness`, `card_token_harness`, `ucp_acp_harness`
+    and `x402_fireblocks_harness`, each spelling it inside `_live_rejected`.
+    Verified mechanically before consolidating -- with the tuple normalised
+    away, the four bodies differ only in two comments.
+
+    None of the four received the word-boundary or negation fixes made at the
+    agent-prose seam. That is the duplication claim: not that any copy was
+    wrong, but that a fix could never reach them.
+
+    **This takes a RESPONSE, not a URL.** The first version of it made the
+    request too, and that was wrong: the four callers import `http_post_json`
+    from `protocol_tests._utils`, which is a DIFFERENT function from the one in
+    this module -- different default timeout, different SSE handling, and a
+    different error-dict shape. Consolidating the request would have silently
+    swapped the transport under four payment modules. The duplication this
+    guards is the matching rule, not the HTTP call, so the cut is here.
+
+    *extra* carries the module's own vocabulary, so the shared core does not
+    grow a word that means rejection in one protocol only. `card_token_harness`
+    adds "expired" and "revoked"; `x402_fireblocks_harness` adds "policy" and
+    "blocked". Same idiom as `looks_like_refusal(text, extra=)`.
+
+    Order is preserved exactly from the originals, and each step matters:
+
+    - a transport error with a 4xx is a REAL rejection: the endpoint answered
+      and said no;
+    - a transport error otherwise is unreachable;
+    - a 5xx or status 0 is unreachable BEFORE the body is read, because an error
+      page can contain the word "invalid" while establishing nothing;
+    - only then do the rejection terms apply;
+    - a 2xx with no rejection term is an affirmative acceptance of the attack,
+      which means the control is absent.
+    """
+    if resp.get("_error"):
+        status = resp.get("_status", 0)
+        if status and 400 <= status < 500:
+            return ("rejected", resp)
+        return ("unreachable", resp)
+    status = resp.get("_status", 0)
+    if status >= 500 or status == 0:
+        return ("unreachable", resp)
+    text = json.dumps(resp).lower()
+    if any(w in text for w in PAYMENT_REJECTION_TERMS + tuple(extra)):
+        return ("rejected", resp)
+    if 200 <= status < 300:
+        return ("accepted", resp)
+    return ("unreachable", resp)
+
+
 def run_summary(results) -> dict:
     """Summary counts that keep PASS, FAIL and INCONCLUSIVE distinct.
 
