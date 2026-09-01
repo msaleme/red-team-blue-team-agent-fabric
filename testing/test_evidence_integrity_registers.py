@@ -1,0 +1,226 @@
+"""Every evidence-integrity register must report a numerator AND a denominator.
+
+The shared operating rule, agreed with the independent reviewer 2026-09-01:
+
+> Every evidence-integrity register must report its derived numerator and
+> surveyed denominator; every new detector must prove it can catch a seeded
+> violation; every D-and-E result is classified by evidence type before it is
+> treated as a candidate for change.
+
+This file enforces the first clause. `test_static_detectors_can_fire.py`
+enforces the second. The third is a classification discipline, written down in
+`docs/EVIDENCE-INTEGRITY-OPERATING-RULES.md`.
+
+## Why a bare count is not enough
+
+A register reported as a number cannot distinguish two opposite situations:
+
+    the debt shrank            good
+    the surveyed universe shrank   bad, and looks identical
+
+Both read as "7 -> 3". This repository has produced the second one: a queue
+listed three instances of a construction, deriving the population from source
+found six, and three of those sat in a file that had been repaired for that same
+defect hours earlier. The queue was a sample drawn by an instrument sharing the
+blind spot.
+
+`PREFIX_ONLY` shows the same thing from the other direction. Its denominator has
+moved from 21 to 28 as modules gained the structural field and so entered the
+surveyed class. The numerator stayed 0 throughout. Only the pair is legible.
+
+## What a register must expose
+
+A callable returning `(numerator, denominator, note)` where the denominator is
+DERIVED from source at call time, never a literal. A hard-coded denominator is
+the defect this file exists to prevent.
+"""
+from __future__ import annotations
+
+import pathlib
+import re
+import sys
+import unittest
+
+REPO = pathlib.Path(__file__).resolve().parents[1]
+TESTING = REPO / "testing"
+sys.path.insert(0, str(TESTING))
+sys.path.insert(0, str(REPO))
+
+
+def _under_reports() -> tuple[int, int, str]:
+    import test_evidence_transformation_patterns as m
+    import dead_host_sweep
+    suites = [r for r in dead_host_sweep.sweep() if r.get("status") == "ran"]
+    return (len(m.UNDER_REPORTS_A_QUOTING_REFUSAL), len(suites),
+            "suites losing a pass when a refusal quotes the request, of suites producing verdicts")
+
+
+def _known_duplicates() -> tuple[int, int, str]:
+    import test_no_duplicate_refusal_predicate as m
+    modules = list((REPO / "protocol_tests").glob("*.py"))
+    return (len(m.KNOWN_DUPLICATES), len(modules),
+            "modules re-implementing the refusal predicate, of all protocol modules")
+
+
+def _unread() -> tuple[int, int, str]:
+    import test_refusal_establishes_a_pass as m
+    return (len(m.UNREAD), len(m._prose_or_indicator_graded()),
+            "prose-graded modules not yet read, of the derived prose-graded class")
+
+
+def _prefix_only() -> tuple[int, int, str]:
+    import test_inconclusive_is_structural as m
+    return (len(m.PREFIX_ONLY), len(m._modules_that_can_be_inconclusive()),
+            "modules carrying INCONCLUSIVE only as prose, of inconclusive-capable modules")
+
+
+def _uncontrolled() -> tuple[int, int, str]:
+    import test_static_detectors_can_fire as m
+    scanning = m.TestTheUncontrolledQueue._source_scanning_tests()
+    return (len(m.UNCONTROLLED), len(scanning),
+            "source-scanning tests with no seeded control pair, of source-scanning tests")
+
+
+def _grandfathered() -> tuple[int, int, str]:
+    import test_harness_base_adoption as m
+    reg = getattr(m, "GRANDFATHERED", None)
+    modules = list((REPO / "protocol_tests").glob("*.py"))
+    return (len(reg) if reg is not None else 0, len(modules),
+            "modules not yet on the shared base, of all protocol modules")
+
+
+#: register name -> callable returning (numerator, denominator, note).
+#: The denominator must be derived at call time. A literal is the defect.
+REGISTERS = {
+    "UNDER_REPORTS_A_QUOTING_REFUSAL": _under_reports,
+    "KNOWN_DUPLICATES": _known_duplicates,
+    "UNREAD": _unread,
+    "PREFIX_ONLY": _prefix_only,
+    "UNCONTROLLED": _uncontrolled,
+    "GRANDFATHERED": _grandfathered,
+}
+
+
+class TestEveryRegisterReportsBothNumbers(unittest.TestCase):
+    def test_each_register_yields_a_numerator_and_a_denominator(self) -> None:
+        for name, fn in REGISTERS.items():
+            with self.subTest(register=name):
+                num, den, note = fn()
+                self.assertIsInstance(num, int)
+                self.assertIsInstance(den, int)
+                self.assertTrue(note, f"{name} has no description of what it counts")
+                self.assertGreater(
+                    den, 0,
+                    f"{name} reports a zero denominator. A register over an empty "
+                    f"surveyed set is not empty debt, it is an unrun measurement.")
+
+    def test_no_register_exceeds_its_own_denominator(self) -> None:
+        for name, fn in REGISTERS.items():
+            with self.subTest(register=name):
+                num, den, _ = fn()
+                self.assertLessEqual(
+                    num, den,
+                    f"{name} counts {num} of a surveyed {den}. Either the "
+                    f"derivation narrowed or the register is describing something "
+                    f"other than what it claims.")
+
+    def test_every_shrink_only_register_is_covered(self) -> None:
+        """Derived: a file declaring a must-never-grow register must appear here.
+
+        Kept derived rather than listed, because a register added tomorrow that
+        nobody wired into this file would be exactly the untracked debt the rule
+        exists to prevent.
+        """
+        import ast
+
+        # Derived by AST, not regex. A first version matched `^[A-Z_]+ *=` and
+        # collected REPO, TESTING, PROTOCOL_TESTS and CANONICAL -- path and string
+        # constants that are not registers at all. A loose derivation produces a
+        # register list that is itself wrong, which is the failure this file is
+        # about, arriving in the file about it.
+        declaring = set()
+        for path in sorted(TESTING.glob("test_*.py")):
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if not re.search(r"must never grow|MUST NEVER GROW", text):
+                continue
+            try:
+                tree = ast.parse(text)
+            except SyntaxError:                       # pragma: no cover
+                continue
+            for node in tree.body:                    # module level only
+                if isinstance(node, ast.Assign):
+                    targets, value = node.targets, node.value
+                elif isinstance(node, ast.AnnAssign) and node.value is not None:
+                    targets, value = [node.target], node.value
+                else:
+                    continue
+                names = [t.id for t in targets
+                         if isinstance(t, ast.Name) and t.id.isupper()]
+                if not names:
+                    continue
+                # A register holds a COLLECTION of members: a set/dict literal,
+                # or an explicitly empty one.
+                is_collection = isinstance(value, (ast.Set, ast.Dict)) or (
+                    isinstance(value, ast.Call) and isinstance(value.func, ast.Name)
+                    and value.func.id in ("set", "dict", "frozenset"))
+                if is_collection:
+                    declaring.update(names)
+
+        # Taxonomies and allowlists, not debt queues. They enumerate kinds or
+        # permanent exceptions, so there is no surveyed population to be a
+        # fraction of.
+        taxonomies = {"PATTERNS", "PERMANENT", "DETECTORS", "CLASSIFIED_EXCEPTIONS",
+                      "REGISTERS", "REFUSAL_VOCAB", "CALLER_EXTRA", "ALLOWED",
+                      "MODULE_TERMS", "HAS_THE_RULE", "DIFFERENT_REMEDY",
+                      "LEGITIMATELY_PERMISSIVE", "PASSING_AGAINST_YES",
+                      "RECOGNISES_A_REFUSAL", "RECOGNISES_NO_REFUSAL"}
+        expected = declaring - taxonomies
+        missing = expected - set(REGISTERS)
+        self.assertEqual(
+            missing, set(),
+            f"these declare a shrink-only register and report no denominator: "
+            f"{sorted(missing)}. Add a derivation to REGISTERS, or the register "
+            f"cannot be told apart from a narrowed measurement.")
+
+
+class TestThePermissiveReadListIsSplit(unittest.TestCase):
+    """53 permissive passes is not 53 candidates, and reporting it as one number hides that.
+
+    `LEGITIMATELY_PERMISSIVE` already exists and records that all 25
+    `over_refusal_harness` passes are the DESIRED outcome: for that family a
+    permissive target accepting the request is the healthy condition, not a
+    finding. The independent reviewer asked for this to be reported as its own
+    class so a future reader does not "repair" correct tests. It was already in
+    the source; what was missing is that neither side reported the split.
+    """
+
+    def test_the_expected_permissive_passes_are_declared_and_subtracted(self) -> None:
+        import test_permissive_host_state as m
+        total = sum(m.PASSING_AGAINST_YES.values())
+        expected = sum(m.LEGITIMATELY_PERMISSIVE.values())
+        self.assertGreater(expected, 0, "no permissive pass is declared expected")
+        self.assertLess(expected, total)
+        for module in m.LEGITIMATELY_PERMISSIVE:
+            with self.subTest(module=module):
+                self.assertIn(
+                    module, m.PASSING_AGAINST_YES,
+                    f"{module} is declared legitimately permissive but is not in "
+                    f"the measured map; the two have drifted apart")
+                self.assertEqual(
+                    m.LEGITIMATELY_PERMISSIVE[module], m.PASSING_AGAINST_YES[module],
+                    f"{module} is declared entirely expected, so its expected count "
+                    f"must equal its measured count")
+
+    def test_the_read_list_is_the_remainder(self) -> None:
+        import test_permissive_host_state as m
+        total = sum(m.PASSING_AGAINST_YES.values())
+        expected = sum(m.LEGITIMATELY_PERMISSIVE.values())
+        self.assertEqual(
+            total - expected, 28,
+            "the permissive read list changed size. That is fine, and it must be "
+            "restated here deliberately rather than drifting: report it as "
+            "`<read list> of <total> passes, <expected> declared expected`.")
+
+
+if __name__ == "__main__":
+    unittest.main()
