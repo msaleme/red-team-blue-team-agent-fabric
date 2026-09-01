@@ -95,6 +95,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 
 from protocol_tests._utils import Severity, http_post_json, json_stdout_only, wilson_ci
+from protocol_tests.http_helpers import payment_outcome
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -354,22 +355,7 @@ def _live_rejected(url: str, headers: dict, payload: dict) -> tuple[str, dict]:
     transport failure or 5xx is 'unreachable' (observe-failure), never a pass.
     """
     resp = http_post_json(url, payload, headers, timeout=10)
-    if resp.get("_error"):
-        status = resp.get("_status", 0)
-        if status and 400 <= status < 500:
-            return ("rejected", resp)   # a 4xx rejection is a real rejection
-        return ("unreachable", resp)
-    status = resp.get("_status", 0)
-    if status >= 500 or status == 0:
-        return ("unreachable", resp)
-    text = json.dumps(resp).lower()
-    if any(w in text for w in ("reject", "denied", "invalid", "unauthorized",
-                               "forbidden", "policy", "blocked")):
-        return ("rejected", resp)
-    # 2xx with an affirmative acceptance of the attack => the control is absent.
-    if 200 <= status < 300:
-        return ("accepted", resp)
-    return ("unreachable", resp)
+    return payment_outcome(resp, extra=("policy", "blocked"))
 
 
 # ---------------------------------------------------------------------------

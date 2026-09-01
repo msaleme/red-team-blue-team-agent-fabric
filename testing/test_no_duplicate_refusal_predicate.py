@@ -94,15 +94,23 @@ PERMANENT = {
 #: its two refusal predicates routed through the shared helper on 2026-08-30 and
 #: this one was missed in the same commit, which is the duplication risk
 #: demonstrating itself inside the repair for it.
+#: The four payment modules left this queue 2026-08-31. Their `_live_rejected`
+#: functions were structurally identical -- verified mechanically, with the term
+#: tuple normalised away the four bodies differed only in two comments -- and
+#: they now route through `http_helpers.payment_outcome`, keeping their own
+#: vocabulary via `extra=`.
+#:
+#: The consolidation deliberately took the RESPONSE and not the URL. The first
+#: attempt pulled the request in too, and that would have silently swapped the
+#: transport: these four import `http_post_json` from `protocol_tests._utils`,
+#: which is a DIFFERENT function from the one in `http_helpers` -- different
+#: default timeout, different SSE handling, different error-dict shape. The
+#: duplication this file guards is the matching rule, not the HTTP call.
 KNOWN_DUPLICATES = {
     "multi_agent_harness.py": "a SECOND refusal predicate at :1125, missed when "
                               "the first was routed through the shared helper",
     "advanced_attacks.py": 'raw `and "refuse" not in resp_str` suppression at :330',
     "autogen_harness.py": 'raw `and "denied" not in resp_str` suppression at :603',
-    "ap2_harness.py": "payment-protocol rejection tuple at :315",
-    "card_token_harness.py": "payment-protocol rejection tuple at :262",
-    "ucp_acp_harness.py": "payment-protocol rejection tuple at :303",
-    "x402_fireblocks_harness.py": "payment-protocol rejection tuple at :366",
 }
 
 #: Everything the guard will not report on.
