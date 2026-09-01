@@ -283,6 +283,7 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 | Release history & known gaps | [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) |
 | E1-E5 Evidence Class Taxonomy (canonical) | [docs/EVIDENCE-CLASS-TAXONOMY.md](docs/EVIDENCE-CLASS-TAXONOMY.md) |
 | Reproducing this harness (and disagreeing with it) | [docs/REPRODUCING.md](docs/REPRODUCING.md) |
+| The one external reproduction, written up (E2/I1 for the fixture corpus) | [docs/RCL-CROSS-IMPLEMENTATION-INTEROP.md](docs/RCL-CROSS-IMPLEMENTATION-INTEROP.md) |
 | The acceptance criterion that does not require the mechanism (5 recorded instances) | [docs/VERIFICATION-DESIGN-DEFECT.md](docs/VERIFICATION-DESIGN-DEFECT.md) |
 | Attestation registry (client, opt-in publishing) | [docs/attestation-registry.md](docs/attestation-registry.md) |
 | Attestation registry server contract (self-hosted; no registry is operated by this project) | [docs/ATTESTATION-REGISTRY-SERVER-CONTRACT.md](docs/ATTESTATION-REGISTRY-SERVER-CONTRACT.md) |
@@ -337,7 +338,9 @@ The only external check this project has received. [@VrtxOmega](https://github.c
 verifier** for the portable receipt-claim oracle fixtures and ran it against a pinned commit and fixture
 hash, matching all 11 RCL results including both acceptance controls — so it did not pass by rejecting
 everything. Reported in [#304](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/304);
-named here with their consent, granted 2026-08-31.
+named here with their consent, granted 2026-08-31. The result is written up in
+[docs/RCL-CROSS-IMPLEMENTATION-INTEROP.md](docs/RCL-CROSS-IMPLEMENTATION-INTEROP.md),
+with their own report and verifier runner linked as the primary artifacts.
 
 The exchange also produced two corrections to this repository: `signature_algorithm` now names the
 actual encoding and states plainly that it is **not** RFC 8785 JCS, and `coverage_gaps` now declares
