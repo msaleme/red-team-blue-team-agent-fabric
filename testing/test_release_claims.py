@@ -131,6 +131,47 @@ class TestAnUnresolvableTagIsNotSilentlyHead(unittest.TestCase):
     number is right and the provenance is false.
     """
 
+    def test_every_tagless_claim_regenerates_at_head(self):
+        """The REAL manifest, not a synthetic claim -- and it runs in CI.
+
+        REGENERATE was treated as unavailable in CI because `actions/checkout@v4`
+        clones at depth 1 and a tag-pinned claim needs the tag object. That is
+        true for tag-pinned claims and false for HEAD-pinned ones, which need no
+        history at all. The blanket assumption switched off a check that would
+        have worked, and SURFACE alone cannot catch a stale value: it only asks
+        whether the document agrees with the manifest, so a manifest and a
+        sentence that are stale in the same direction confirm each other.
+
+        That is exactly what happened on 2026-09-01. `main-test-count` said 608
+        after main moved to 611, README said "`main` is at **608**", SURFACE
+        reported PASS, and the stale-count guard in `test_code_quality.py` could
+        not see the sentence because its pattern requires the word "tests" after
+        the number. Two guards agreeing, both wrong.
+        """
+        manifest = verify_release_claims._load()
+        tagless = [c for c in manifest["claims"] if not c.get("release_tag")]
+        self.assertTrue(tagless, "no HEAD-pinned claim to regenerate -- if the "
+                                 "manifest stopped carrying one, this guard is "
+                                 "now vacuous and needs rewriting, not deleting")
+        for claim in tagless:
+            with self.subTest(claim=claim["id"]):
+                status, label, detail = verify_release_claims.regenerate(claim)
+                self.assertNotEqual(
+                    status, verify_release_claims.SKIP,
+                    f"{label}: a HEAD-pinned claim needs no tag and must not "
+                    f"skip in a shallow clone -- {detail}")
+                self.assertEqual(
+                    status, verify_release_claims.OK,
+                    f"{label}: {detail}")
+
+    def test_the_regenerate_guard_can_actually_fail(self):
+        """Seeded. A guard over the real manifest that cannot fail is decoration."""
+        claim = {"id": "seeded", "command": "python3 scripts/count_tests.py",
+                 "value": "1", "value_extraction": r"Definitive count:\s*(\d+)"}
+        status, label, detail = verify_release_claims.regenerate(claim)
+        self.assertEqual(status, verify_release_claims.BAD,
+                         f"a claim of 1 test reproduced as PASS: {label} {detail}")
+
     def test_a_missing_tag_skips_and_says_it_reproduced_nothing(self):
         claim = {"id": "synthetic", "release_tag": "v0.0.0-no-such-tag",
                  "command": "python3 scripts/count_tests.py",

@@ -311,10 +311,10 @@ mapping and the human-in-the-loop harness** · v4.13.1 a correctness fix to that
 endpoint provenance · v4.16.0 three target shapes: a verdict must be able to be wrong AND to be right · v4.17.0 eight modules could not tell a refusal from a compliance · **v4.18.0 INCONCLUSIVE became a field, and the read-list emptied** · v4.15.0 unserviced requests are no longer recorded as passes (see
 [CHANGELOG.md](CHANGELOG.md)).
 
-The release carries **608** tests; `main` is at **608**. They agree at v4.18.0 because the tag was cut
-from `main` with no test added or removed since. They do not always agree: at v4.15.0 the release carried
-603 while `main` was at 608, the difference being MAG-019, MEM-011, MEM-012, X4-056 and X4-057, all
-landing after the tag. Both numbers were correct for their own ref, which is why
+The release carries **608** tests; `main` is at **611**. They do not agree, and that is the normal
+state: the difference is ADI-001, ADI-002 and ADI-003, which landed after the tag was cut. It has
+happened before -- at v4.15.0 the release carried 603 while `main` was at 608, the difference being
+MAG-019, MEM-011, MEM-012, X4-056 and X4-057. Both numbers were correct for their own ref, which is why
 `scripts/check_public_metadata.py` compares public claims against the release rather than against `main`,
 and why `docs/release-claims.json` pins the release count to a commit where re-running the command
 reproduces it.
