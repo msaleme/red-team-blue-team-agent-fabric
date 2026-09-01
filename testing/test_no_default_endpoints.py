@@ -126,7 +126,16 @@ class TestForbiddenHostsAreGone(unittest.TestCase):
                     continue
                 for bad in FORBIDDEN:
                     if bad in line:
-                        hits.append(f"{path.relative_to(ROOT)}:{lineno}: {stripped[:90]}")
+                        # `relative_to` raises for any path outside the repo, and
+                        # the seeded control pair in test_static_detectors_can_fire
+                        # deliberately scans a throwaway directory in /tmp -- so
+                        # the REPORTING line, not the detection, is what used to
+                        # crash when this detector was exercised.
+                        try:
+                            where = path.relative_to(ROOT)
+                        except ValueError:
+                            where = path
+                        hits.append(f"{where}:{lineno}: {stripped[:90]}")
         return hits
 
     def test_no_forbidden_host_in_package_source(self) -> None:
