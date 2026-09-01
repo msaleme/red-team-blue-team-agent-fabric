@@ -230,7 +230,6 @@ def test_a_prefix_in_details_implies_the_field_on_every_module():
     different concept and used the prose prefix for this one, so a prefixed result
     there had neither field set.
     """
-    import dataclasses
     import importlib
 
     surveyed = _modules_that_can_be_inconclusive()
@@ -239,31 +238,64 @@ def test_a_prefix_in_details_implies_the_field_on_every_module():
     failures = []
     for name in sorted(surveyed):
         module = importlib.import_module(f"protocol_tests.{name}")
-        source = (PROTOCOL_TESTS / f"{name}.py").read_text(encoding="utf-8")
-        tree = ast.parse(source)
-        cls = next(n for n in ast.walk(tree)
-                   if isinstance(n, ast.ClassDef)
-                   and any(isinstance(b, ast.AnnAssign)
-                           and getattr(b.target, "id", "") == "passed" for b in n.body))
-        result_cls = getattr(module, cls.name)
-
-        required = {}
-        for f in dataclasses.fields(result_cls):
-            if (f.default is dataclasses.MISSING
-                    and f.default_factory is dataclasses.MISSING):
-                required[f.name] = (
-                    False if f.type in ("bool", bool)
-                    else {} if "dict" in str(f.type)
-                    else 0.0 if "float" in str(f.type)
-                    else "x")
-        required["details"] = INCONCLUSIVE_PREFIX + "the control was never exercised"
-
-        record = result_cls(**required)
-        if not getattr(record, INCONCLUSIVE_FIELDS[0], False):
-            failures.append(f"{name}: prefix in details but the field is False")
-        elif not is_inconclusive(record):
-            failures.append(f"{name}: field set but the predicate disagrees")
+        result_classes = _result_classes(module)
+        if not result_classes:
+            failures.append(f"{name}: no result dataclass with a `passed` field "
+                            f"was found; the derivation cannot see this module")
+            continue
+        for result_cls in result_classes:
+            _check_one(name, result_cls, failures)
 
     assert not failures, (
         "the prefix must imply the field everywhere, or a serialised record is "
         "still only readable as English:\n  " + "\n  ".join(failures))
+
+
+def _result_classes(module):
+    """Every result dataclass in `module`, found by FIELDS rather than by source text.
+
+    This used to walk the AST for a class that declared `passed` in its own body.
+    That premise broke the moment a module inherited `RecordingHarness`/`HarnessResult`
+    instead of redeclaring the field -- which is the direction
+    `test_harness_base_adoption` actively pushes every module toward. The two guards
+    were pulling against each other: adopting the base class made a module INVISIBLE
+    to this survey rather than failing it, so coverage would have quietly drained away
+    exactly as the repo did the thing it wants to do.
+
+    `dataclasses.fields()` follows inheritance, so a field is a field however it
+    arrived. Returns ALL matches, not the first: checking every result class is
+    strictly stronger than picking one, and "the first one in the file" was never a
+    meaningful selector.
+    """
+    import dataclasses
+    import inspect
+
+    found = []
+    for _, obj in inspect.getmembers(module, inspect.isclass):
+        if not dataclasses.is_dataclass(obj) or obj.__module__ != module.__name__:
+            continue
+        if any(f.name == "passed" for f in dataclasses.fields(obj)):
+            found.append(obj)
+    return found
+
+
+def _check_one(name, result_cls, failures):
+    import dataclasses
+
+    required = {}
+    for f in dataclasses.fields(result_cls):
+        if (f.default is dataclasses.MISSING
+                and f.default_factory is dataclasses.MISSING):
+            required[f.name] = (
+                False if f.type in ("bool", bool)
+                else {} if "dict" in str(f.type)
+                else 0.0 if "float" in str(f.type)
+                else "x")
+    required["details"] = INCONCLUSIVE_PREFIX + "the control was never exercised"
+
+    record = result_cls(**required)
+    label = f"{name}.{result_cls.__name__}"
+    if not getattr(record, INCONCLUSIVE_FIELDS[0], False):
+        failures.append(f"{label}: prefix in details but the field is False")
+    elif not is_inconclusive(record):
+        failures.append(f"{label}: field set but the predicate disagrees")

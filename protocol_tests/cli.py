@@ -347,6 +347,13 @@ HARNESSES = {
         "module": "protocol_tests.extended_thinking_harness",
         "description": "Extended thinking tamper-evidence conformance (6 tests, signature tampering + cross-conversation replay + redaction leakage)",
     },
+    "agent-data-injection": {
+        "module": "protocol_tests.agent_data_injection",
+        "description": (
+            "Agent data injection: forged provenance, fabricated tool history, "
+            "delimiter-shaped boundaries (3 tests, needs HARNESS_ADI_MODEL)"
+        ),
+    },
 }
 
 

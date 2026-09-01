@@ -79,7 +79,7 @@ class TestRegX402(unittest.TestCase):
         self.assertIn("x402", HARNESSES)
     def test_harness_count(self):
         from protocol_tests.cli import HARNESSES
-        self.assertEqual(len(HARNESSES), 44)
+        self.assertEqual(len(HARNESSES), 45)
     def test_modules_exist(self):
         from protocol_tests.cli import HARNESSES
         for n, i in HARNESSES.items():
@@ -280,13 +280,95 @@ class TestRegTestCount(unittest.TestCase):
                 text = open(os.path.join(REPO_ROOT, rel), encoding="utf-8").read()
             except (UnicodeDecodeError, OSError):
                 continue
+            in_correction = False
             for line_no, line in enumerate(text.splitlines(), 1):
+                # A dated correction note records what an already-sent document
+                # said and what the figure should have been. It is history, and
+                # history does not move when `main` gains a test. A mechanical
+                # count sweep rewrote one of these on 2026-09-01 and left it
+                # saying it had corrected 44 to 44.
+                if self._CORRECTION_OPEN.match(line):
+                    in_correction = True
+                if in_correction:
+                    if line.rstrip().endswith("*"):
+                        in_correction = False
+                    continue
                 for pat in pats:
                     for m in pat.finditer(line):
-                        if m.group(1) != canonical:
-                            bad.append(
-                                f"{rel}:{line_no} says {m.group(1)}, canonical is {canonical}")
+                        if m.group(1) == canonical:
+                            continue
+                        if self._attributed_to_a_release(line, m.start(1)):
+                            continue
+                        bad.append(
+                            f"{rel}:{line_no} says {m.group(1)}, canonical is {canonical}")
         self.assertEqual(bad, [], "stale test counts:\n  " + "\n  ".join(bad))
+
+    #: Opens a dated correction note: `*Correction, 2026-08-09: ...`
+    _CORRECTION_OPEN = re.compile(r"\*Correction, \d{4}-\d{2}-\d{2}:")
+
+    #: A count pinned to a NAMED VERSION or a DATE is a fact about that tag or
+    #: that day, not a claim about `main`. Neither moves when main gains a test.
+    #: Bounded by `[^.]{0,40}` so the attribution cannot reach across a sentence
+    #: boundary into an unrelated bare count.
+    _HISTORICAL_ATTRIBUTION = re.compile(
+        r"(?:v\d+\.\d+\.\d+|\d{4}-\d{2}-\d{2})[^.]{0,40}$")
+
+    @classmethod
+    def _attributed_to_a_release(cls, line, pos):
+        """True when the count at `pos` is pinned to a version or a date, e.g.
+
+            ... on `main` (...; the v4.18.0 release carries 608).
+            ... `--check` said, on 2026-08-30, "... (608 test IDs)".
+
+        Added 2026-09-01. Before ADI-001..003 landed, main and the latest tag
+        carried the same number, so this case could not arise and the guard had
+        never seen it. The moment they diverged the guard failed on a TRUE
+        statement -- which is how a check gets muted rather than fixed.
+        """
+        return bool(cls._HISTORICAL_ATTRIBUTION.search(line[:pos]))
+
+    def test_the_release_exemption_is_not_a_hole(self):
+        """The exemption must exempt ONLY a version-attributed count.
+
+        Seeded both ways on purpose. An exemption that swallows any line
+        mentioning a version would silently retire the guard on every release
+        note, and the way that failure presents is a green suite.
+        """
+        exempt = "611 tests on `main` (the v4.18.0 release carries 608)."
+        self.assertTrue(
+            self._attributed_to_a_release(exempt, exempt.index("608")),
+            "a count pinned to a named tag must be exempt")
+
+        # Same stale number, same line, no attribution reaching it.
+        seeded = "v4.18.0 was published. The harness has 608 tests across main."
+        self.assertFalse(
+            self._attributed_to_a_release(seeded, seeded.index("608")),
+            "a bare stale count was exempted merely because a version appeared "
+            "earlier on the line -- the guard is now a hole")
+
+        # And the sentence boundary is what stops the reach: `[^.]{0,40}` cannot
+        # cross a period, which is the only thing separating the two cases above.
+        self.assertIn(".", seeded[:seeded.index("608")])
+
+    def test_dated_corrections_are_skipped_but_the_body_is_not(self):
+        """The correction blocks in the AIUC-1 submissions must stay frozen.
+
+        Both files mix a LIVE body with a dated note, so a file-level entry in
+        `_HISTORICAL` would have retired the guard on the body text that
+        actually goes to outside readers. Seeded here because an exemption that
+        swallowed the whole file would still look green.
+        """
+        for rel in ("docs/AIUC1-SUBMISSION-EMAIL.md",
+                    "docs/AIUC1-SUBMISSION-OUTLINE.md"):
+            path = os.path.join(REPO_ROOT, rel)
+            text = open(path, encoding="utf-8").read()
+            with self.subTest(rel=rel):
+                self.assertIn("*Correction, 2026-08-09:", text)
+                # The frozen note still states the figures of its own date.
+                self.assertIn("608", text.split("*Correction, 2026-08-09:")[1])
+                # The live body ahead of the note carries the current count.
+                self.assertIn(self._canonical_count(),
+                              text.split("*Correction, 2026-08-09:")[0])
 
     def test_the_count_guard_can_actually_fail(self):
         """The guard above must detect a planted stale count.
@@ -325,10 +407,20 @@ class TestRegTestCount(unittest.TestCase):
                 text = open(os.path.join(REPO_ROOT, rel), encoding="utf-8").read()
             except (UnicodeDecodeError, OSError):
                 continue
+            in_correction = False
             for line_no, line in enumerate(text.splitlines(), 1):
+                if TestRegTestCount._CORRECTION_OPEN.match(line):
+                    in_correction = True
+                if in_correction:
+                    if line.rstrip().endswith("*"):
+                        in_correction = False
+                    continue
                 for m in pat.finditer(line):
-                    if m.group(1) != count:
-                        bad.append(f"{rel}:{line_no} says {m.group(1)} modules, canonical is {count}")
+                    if m.group(1) == count:
+                        continue
+                    if TestRegTestCount._attributed_to_a_release(line, m.start(1)):
+                        continue
+                    bad.append(f"{rel}:{line_no} says {m.group(1)} modules, canonical is {count}")
         self.assertEqual(bad, [], "stale module counts:\n  " + "\n  ".join(bad))
 
 

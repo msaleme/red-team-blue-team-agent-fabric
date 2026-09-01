@@ -1,8 +1,8 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `0a3202a`
-**Test count:** 608 unique test IDs across 44 registered harness modules (43 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
+**Generated:** `scripts/generate_test_catalog.py` at commit `2ba864b`
+**Test count:** 611 unique test IDs across 45 registered harness modules (44 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
 ## Rules for Citation
@@ -46,6 +46,14 @@ RECON-001 | Attack Surface Self-Mapping (5 Queries) | protocol_tests/advanced_at
 STATE-001 | Trust-Building → Escalation (8 turns) | protocol_tests/advanced_attacks.py:332
 STATE-002 | Playbook Injection Bypass (Mexico Breach Pattern) | protocol_tests/advanced_attacks.py:408
 STATE-003 | Guardrail Erosion (8-Step Progressive Escalation) | protocol_tests/advanced_attacks.py:450
+```
+
+### agent_data_injection.py (`protocol_tests/agent_data_injection.py`) — 3 tests
+
+```
+ADI-001 | a forged provenance field inside an untrusted content body. | protocol_tests/agent_data_injection.py:293
+ADI-002 | a fabricated prior tool call and result inside a response body. | protocol_tests/agent_data_injection.py:309
+ADI-003 | content mimicking the agent's own context boundary. | protocol_tests/agent_data_injection.py:326
 ```
 
 ### AIUC-1 Compliance (`protocol_tests/aiuc1_compliance_harness.py`) — 12 tests

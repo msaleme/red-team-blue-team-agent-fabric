@@ -3,7 +3,7 @@
 [![PyPI version](https://badge.fury.io/py/agent-security-harness.svg)](https://pypi.org/project/agent-security-harness/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/security%20tests-608-green.svg)](#three-layers-of-agent-decision-security)
+[![Tests](https://img.shields.io/badge/security%20tests-611-green.svg)](#three-layers-of-agent-decision-security)
 [![OWASP Agentic T1-T17](https://img.shields.io/badge/OWASP%20Agentic%20v1.1-13%2F17%20direct-blue.svg)](docs/OWASP-AGENTIC-V1.1-COVERAGE.md)
 [![ClawScan](https://img.shields.io/badge/ClawScan-Benign-brightgreen)](https://clawhub.ai/msaleme/agent-security-harness)
 [![Static Analysis](https://img.shields.io/badge/Static%20Analysis-Benign-brightgreen)](https://clawhub.ai/msaleme/agent-security-harness)
@@ -69,7 +69,7 @@ Results: 8/10 passed (80% pass rate) - see report.json
 > servicing the request, reports **INCONCLUSIVE** — never PASS. See
 > [v4.13.1](CHANGELOG.md) for why that distinction is enforced rather than assumed.
 
-608 executable security tests across 43 test-bearing modules on `main` (verified 2026-08-30 via `scripts/count_tests.py`; the v4.18.0 release carries 608). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
+611 executable security tests across 44 test-bearing modules on `main` (verified 2026-09-01 via `scripts/count_tests.py`; the v4.18.0 release carries 608). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
 
 If this evidence discipline is useful in your agent-security work, **star this
 repository to follow releases**.
@@ -210,7 +210,7 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 | **Research backing** | - | Cisco blog | Papers | **7 DOIs + 3 NIST submissions** (self-authored; see [Research](#research)) |
 | **MCP server mode** | - | - | - | **Yes - invoke from any AI agent** |
 | **Statistical testing** | - | - | - | **Wilson CIs, multi-trial** |
-| **Total tests** | Config checks | YARA rules | Model probes | **608 active tests across 43 test-bearing modules** |
+| **Total tests** | Config checks | YARA rules | Model probes | **611 active tests across 44 test-bearing modules** |
 
 Star counts verified 2026-08-02 via the GitHub API. Invariant Labs' `mcp-scan` now redirects to
 `snyk/agent-scan` and is listed once rather than as two separate projects. Competitor rows describe
@@ -277,7 +277,7 @@ The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutio
 | Resource | Link |
 |---|---|
 | Expanded Quick Start | [docs/QUICKSTART.md](docs/QUICKSTART.md) |
-| Full Test Inventory (608 tests) | [docs/TEST-INVENTORY.md](docs/TEST-INVENTORY.md) |
+| Full Test Inventory (611 tests) | [docs/TEST-INVENTORY.md](docs/TEST-INVENTORY.md) |
 | OWASP Agentic v1.1 Coverage (T1–T17) | [docs/OWASP-AGENTIC-V1.1-COVERAGE.md](docs/OWASP-AGENTIC-V1.1-COVERAGE.md) |
 | Canonical coverage mapping (source of truth) | [docs/coverage/owasp-agentic-v1.1.yaml](docs/coverage/owasp-agentic-v1.1.yaml) |
 | Release history & known gaps | [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) |
