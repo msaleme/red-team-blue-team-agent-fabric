@@ -1,15 +1,15 @@
 # Test Inventory
 
-**608 security tests across 43 test-bearing modules** on `main` (verified 2026-08-30 by `scripts/count_tests.py`)
+**611 security tests across 44 test-bearing modules** on `main` (verified 2026-09-01 by `scripts/count_tests.py`)
 
 See also: **[OWASP Agentic AI v1.1 Threat Coverage Report](OWASP-AGENTIC-V1.1-COVERAGE.md)** — per-threat T1–T17 evidence mapping with scenario coverage, mitigation-control validation and evidence classes, generated from `coverage/owasp-agentic-v1.1.yaml`. ([T1–T15 submission view](OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md))
 
-> **Canonical figures (verified 2026-08-30).** Main branch: 608 test IDs across
-> 43 test-bearing modules in `protocol_tests/` (files with no `test_id` — CLI,
+> **Canonical figures (verified 2026-09-01).** Main branch: 611 test IDs across
+> 44 test-bearing modules in `protocol_tests/` (files with no `test_id` — CLI,
 > helpers, telemetry, registry — are not counted as modules). `main`'s
-> `pyproject.toml` is at `agent-security-harness` v4.17.0 (608 tests); PyPI
-> itself will show this version once the release is published (see
-> `CHANGELOG.md`). Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: 19 of
+> `pyproject.toml` is at `agent-security-harness` v4.18.0 (608 tests), published
+> on PyPI; the 3 additional tests on `main` (ADI-001..003) are unreleased
+> (see `CHANGELOG.md`). Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: 19 of
 > 20 testable requirements (95%). Research: 7 public Zenodo preprints (not
 > peer-reviewed) + 3 NIST submissions. Regenerate with `python
 > scripts/count_tests.py`.
@@ -199,8 +199,8 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 
 ## Test Harness Modules (representative summary)
 
-> This table lists the largest modules; the full harness spans **43 test-bearing
-> modules / 608 tests** on `main` (verified 2026-08-11 via `scripts/count_tests.py`).
+> This table lists the largest modules; the full harness spans **44 test-bearing
+> modules / 611 tests** on `main` (verified 2026-09-01 via `scripts/count_tests.py`).
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|

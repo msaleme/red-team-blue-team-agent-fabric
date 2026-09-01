@@ -233,8 +233,8 @@ def main() -> int:
         # after a change that inserted a field into every result dataclass in
         # the suite: IDs identical,
         # names identical, and 456 of 660 rows -- 69% -- pointing at the wrong
-        # `file:line`. `--check` said "PASS: catalog matches source (608 test
-        # IDs)", which was true and useless.
+        # `file:line`. `--check` output, 2026-08-30: "PASS: catalog source (608
+        # test IDs)" -- true, and useless.
         #
         # It matters because CLAUDE.md makes this file the ground truth for a
         # hard anti-fabrication rule: cite only what appears here verbatim. A
