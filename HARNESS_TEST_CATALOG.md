@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `2ba864b`
+**Generated:** `scripts/generate_test_catalog.py` at commit `51b8aa1`
 **Test count:** 611 unique test IDs across 45 registered harness modules (44 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -200,16 +200,16 @@ WXO-005 | Multi-Tenant Isolation | protocol_tests/cloud_agent_harness.py:960
 ### CrewAI CVE Reproduction (`protocol_tests/crewai_cve_harness.py`) — 10 tests
 
 ```
-CREW-001 | Sandbox Fallback Detection | protocol_tests/crewai_cve_harness.py:389
-CREW-002 | Ctypes Payload Coverage (self-test, no target) | protocol_tests/crewai_cve_harness.py:502
-CREW-003 | Code Execution Config Audit | protocol_tests/crewai_cve_harness.py:562
-CREW-004 | Path Traversal in JSON Loader | protocol_tests/crewai_cve_harness.py:631
-CREW-005 | Sensitive File Read Detection | protocol_tests/crewai_cve_harness.py:712
-CREW-006 | SSRF Cloud Metadata Detection | protocol_tests/crewai_cve_harness.py:786
-CREW-007 | SSRF Internal Service Detection | protocol_tests/crewai_cve_harness.py:860
-CREW-008 | SSRF URL Validation Bypass | protocol_tests/crewai_cve_harness.py:975
-CREW-009 | Docker Availability Check Bypass | protocol_tests/crewai_cve_harness.py:1013
-CREW-010 | Fallback Sandbox RCE Chain | protocol_tests/crewai_cve_harness.py:1103
+CREW-001 | Sandbox Fallback Detection | protocol_tests/crewai_cve_harness.py:448
+CREW-002 | Ctypes Payload Coverage (self-test, no target) | protocol_tests/crewai_cve_harness.py:561
+CREW-003 | Code Execution Config Audit | protocol_tests/crewai_cve_harness.py:621
+CREW-004 | Path Traversal in JSON Loader | protocol_tests/crewai_cve_harness.py:699
+CREW-005 | Sensitive File Read Detection | protocol_tests/crewai_cve_harness.py:780
+CREW-006 | SSRF Cloud Metadata Detection | protocol_tests/crewai_cve_harness.py:858
+CREW-007 | SSRF Internal Service Detection | protocol_tests/crewai_cve_harness.py:932
+CREW-008 | SSRF URL Validation Bypass | protocol_tests/crewai_cve_harness.py:1047
+CREW-009 | Docker Availability Check Bypass | protocol_tests/crewai_cve_harness.py:1085
+CREW-010 | Fallback Sandbox RCE Chain | protocol_tests/crewai_cve_harness.py:1175
 ```
 
 ### Enterprise Platforms (core) (`protocol_tests/enterprise_adapters.py`) — 31 tests
@@ -411,14 +411,14 @@ IR-008 | Cascading Failure Containment | protocol_tests/incident_response_harnes
 ### intent_contract_harness.py (`protocol_tests/intent_contract_harness.py`) — 8 tests
 
 ```
-INT-001 | Intent Declaration Completeness | protocol_tests/intent_contract_harness.py:270
-INT-002 | Intent-Action Consistency | protocol_tests/intent_contract_harness.py:310
-INT-003 | Intent Scope Violation | protocol_tests/intent_contract_harness.py:345
-INT-004 | Intent Modification Mid-Execution | protocol_tests/intent_contract_harness.py:386
-INT-005 | Implicit Intent Escalation | protocol_tests/intent_contract_harness.py:434
-INT-006 | Intent Contract Forgery | protocol_tests/intent_contract_harness.py:475
-INT-007 | Multi-Step Intent Decomposition Attack | protocol_tests/intent_contract_harness.py:522
-INT-008 | Intent Ambiguity Exploitation | protocol_tests/intent_contract_harness.py:559
+INT-001 | Intent Declaration Completeness | protocol_tests/intent_contract_harness.py:307
+INT-002 | Intent-Action Consistency | protocol_tests/intent_contract_harness.py:346
+INT-003 | Intent Scope Violation | protocol_tests/intent_contract_harness.py:380
+INT-004 | Intent Modification Mid-Execution | protocol_tests/intent_contract_harness.py:420
+INT-005 | Implicit Intent Escalation | protocol_tests/intent_contract_harness.py:467
+INT-006 | Intent Contract Forgery | protocol_tests/intent_contract_harness.py:507
+INT-007 | Multi-Step Intent Decomposition Attack | protocol_tests/intent_contract_harness.py:553
+INT-008 | Intent Ambiguity Exploitation | protocol_tests/intent_contract_harness.py:589
 ```
 
 ### Jailbreak (`protocol_tests/jailbreak_harness.py`) — 25 tests
