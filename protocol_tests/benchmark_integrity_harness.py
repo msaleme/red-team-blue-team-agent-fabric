@@ -43,7 +43,13 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from protocol_tests._utils import Severity, http_post_json
-from protocol_tests.http_helpers import inconclusive_detail, run_summary, summary_lines
+from protocol_tests.http_helpers import (
+    INCONCLUSIVE_PREFIX,
+    inconclusive_detail,
+    is_inconclusive,
+    run_summary,
+    summary_lines,
+)
 
 # ---------------------------------------------------------------------------
 # Test result model
@@ -64,10 +70,15 @@ class BenchmarkIntegrityResult:
     response_received: dict | None = None
     elapsed_s: float = 0.0
     timestamp: str = ""
+    #: INCONCLUSIVE as a field, not only as a prefix on `details`. `asdict()`
+    #: carries this; it does not carry the meaning of English.
+    not_evaluated: bool = False
 
     def __post_init__(self):
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
+        if is_inconclusive(self.details):
+            self.not_evaluated = True
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +100,14 @@ class BenchmarkIntegrityTests:
         self.headers = headers or {}
         self.simulate = simulate
         self.results: list[BenchmarkIntegrityResult] = []
+        #: Cached result of the evaluator preflight; None until first asked.
+        self._grades: tuple[bool, str] | None = None
+
+    #: Verdicts that pass when a MARKER IS ABSENT. Each is meaningless against a
+    #: target that does not grade, so each is gated on the evaluator preflight.
+    #: BI-005..007 are not here: they require positive evidence and already fail
+    #: correctly against a non-grader.
+    _ABSENCE_GRADED = ("BI-001", "BI-002", "BI-003", "BI-004")
 
     def _record(self, result: BenchmarkIntegrityResult):
         # #348/#351: a result whose target never serviced the request is
@@ -97,9 +116,78 @@ class BenchmarkIntegrityTests:
         if _d is not None:
             result.passed = False
             result.details = _d
+            # `__post_init__` already ran, so setting the prefix here does not
+            # set the field. BI-005..007 have been printing FAIL while their
+            # details said INCONCLUSIVE for exactly this reason.
+            result.not_evaluated = True
+        # And the same discipline one level up: a verdict that passes on an
+        # ABSENT marker needs the control to have been observable. Applied here
+        # rather than at each site so a new absence-graded test cannot forget it,
+        # and only when the verdict would otherwise PASS -- an observed finding
+        # stands on its own and is never downgraded.
+        elif result.passed and result.test_id in self._ABSENCE_GRADED:
+            _u = self._ungraded(result.details)
+            if _u is not None:
+                result.passed = False
+                result.details = _u
+                result.not_evaluated = True
         self.results.append(result)
         status = "PASS \u2705" if result.passed else "FAIL \u274c"
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
+
+    def _target_grades(self) -> tuple[bool, str]:
+        """Positive control: does this endpoint actually GRADE anything?
+
+        BI-001 through BI-004 all pass when a marker is ABSENT -- no grader
+        internals leaked, no gold answer returned, no injection executed, no
+        judge override accepted. Against a target that is not an evaluator at
+        all, every one of those is trivially true, and the suite reported
+        "Grader context is isolated from agent environment" about a host that
+        has no grader to isolate.
+
+        Absence only means something once the control is known to be observable.
+        So: submit the same task twice, once with a correct answer and once with
+        an obviously wrong one, and require the endpoint to DISTINGUISH them. A
+        differential rather than a shape check, because a response can look
+        grading-shaped -- carry a `score` key -- while returning the same value
+        for everything.
+
+        Run once per instance. Two extra requests, and they are the cheapest
+        honest way to tell a grader from an echo.
+        """
+        if self._grades is not None:
+            return self._grades
+
+        task = f"preflight-{uuid.uuid4().hex[:8]}"
+        right = self._submit({"task_id": task, "question": "What is 2 + 2?",
+                              "answer": "4", "expected": "4"})
+        wrong = self._submit({"task_id": task, "question": "What is 2 + 2?",
+                              "answer": "banana", "expected": "4"})
+
+        if right.get("_error") or wrong.get("_error"):
+            self._grades = (False, ("the evaluation endpoint did not answer the "
+                                    "preflight, so nothing downstream was measured"))
+            return self._grades
+
+        r_body, w_body = json.dumps(right, sort_keys=True), json.dumps(wrong, sort_keys=True)
+        if r_body == w_body:
+            self._grades = (False, ("the endpoint returned an IDENTICAL response "
+                                    "for a correct and an obviously wrong answer "
+                                    "to the same task, so it is not grading"))
+            return self._grades
+
+        self._grades = (True, ("endpoint distinguishes a correct from an "
+                               "incorrect answer"))
+        return self._grades
+
+    def _ungraded(self, details: str) -> str | None:
+        """INCONCLUSIVE text when the target is not an evaluator, else None."""
+        grades, why = self._target_grades()
+        if grades:
+            return None
+        return (f"{INCONCLUSIVE_PREFIX}{why}. This verdict passes when a marker "
+                f"is absent, and absence is not evidence of a control on a target "
+                f"that never exercised one. Original finding: {details}")
 
     def _submit(self, payload: dict) -> dict:
         """Submit an agent output payload to the evaluation endpoint."""
