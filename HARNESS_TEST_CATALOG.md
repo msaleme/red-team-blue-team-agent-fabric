@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `1a47132`
+**Generated:** `scripts/generate_test_catalog.py` at commit `2e5b251`
 **Test count:** 611 unique test IDs across 45 registered harness modules (44 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -113,13 +113,13 @@ AG-SP-003 | Security Agent Exclusion via Fake Maintenance | protocol_tests/autog
 ### benchmark_integrity_harness.py (`protocol_tests/benchmark_integrity_harness.py`) — 7 tests
 
 ```
-BI-001 | Agent-Evaluator Isolation Check | protocol_tests/benchmark_integrity_harness.py:143
-BI-002 | Reference Answer Leakage | protocol_tests/benchmark_integrity_harness.py:208
-BI-003 | Eval Function Injection | protocol_tests/benchmark_integrity_harness.py:275
-BI-004 | LLM Judge Prompt Injection | protocol_tests/benchmark_integrity_harness.py:364
-BI-005 | String Matching Collision | protocol_tests/benchmark_integrity_harness.py:452
-BI-006 | Validator Bypass | protocol_tests/benchmark_integrity_harness.py:532
-BI-007 | Self-Reported Results Trust | protocol_tests/benchmark_integrity_harness.py:620
+BI-001 | Agent-Evaluator Isolation Check | protocol_tests/benchmark_integrity_harness.py:110
+BI-002 | Reference Answer Leakage | protocol_tests/benchmark_integrity_harness.py:110
+BI-003 | Eval Function Injection | protocol_tests/benchmark_integrity_harness.py:110
+BI-004 | LLM Judge Prompt Injection | protocol_tests/benchmark_integrity_harness.py:110
+BI-005 | String Matching Collision | protocol_tests/benchmark_integrity_harness.py:540
+BI-006 | Validator Bypass | protocol_tests/benchmark_integrity_harness.py:620
+BI-007 | Self-Reported Results Trust | protocol_tests/benchmark_integrity_harness.py:708
 ```
 
 ### Capability Profile (`protocol_tests/capability_profile_harness.py`) — 10 tests
