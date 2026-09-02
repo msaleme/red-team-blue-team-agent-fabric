@@ -99,8 +99,20 @@ def _permissive_read_list() -> tuple[int, int, str]:
     import test_permissive_host_state as m
     total = sum(m.PASSING_AGAINST_YES.values())
     expected = sum(m.LEGITIMATELY_PERMISSIVE.values())
-    return (total - expected, total,
+    # Read 2026-09-02 at verdict granularity: a module can hold both kinds, so a
+    # module-level count could not express it. Everything classified is read,
+    # whether it cleared or not; ABSENCE_AS_SUCCESS is debt of a different
+    # register, not unread debt of this one.
+    classified = len(m.POSITIVE_EVIDENCE_OR_LOCAL) + len(m.ABSENCE_AS_SUCCESS)
+    return (total - expected - classified, total,
             "permissive passes not yet read, of all passes against an allow-all host")
+
+
+def _absence_as_success() -> tuple[int, int, str]:
+    """Read, and NOT cleared: permissive passes whose condition is a missing marker."""
+    import test_permissive_host_state as m
+    return (len(m.ABSENCE_AS_SUCCESS), sum(m.PASSING_AGAINST_YES.values()),
+            "verdicts passing because a marker was absent, of all permissive passes")
 
 
 def _over_refusal_expected() -> tuple[int, int, str]:
@@ -126,6 +138,7 @@ REGISTERS = {
     "GRANDFATHERED": _grandfathered,
     "PERMISSIVE_READ_LIST": _permissive_read_list,
     "OVER_REFUSAL_EXPECTED": _over_refusal_expected,
+    "ABSENCE_AS_SUCCESS": _absence_as_success,
 }
 
 
@@ -245,11 +258,56 @@ class TestThePermissiveReadListIsSplit(unittest.TestCase):
         # counting as a pass against a target that grants everything.
         num, den, _ = _permissive_read_list()
         self.assertEqual(
-            (num, den), (27, 52),
+            (num, den), (0, 52),
             f"the permissive read list changed: now {num} of {den}. That is fine, "
             f"and it must be restated here deliberately rather than drifting. "
             f"Report BOTH numbers -- a numerator alone hides whether the list "
             f"shrank or the population did.")
+
+    def test_the_classification_covers_exactly_the_read_list(self) -> None:
+        """Both sets must describe verdicts that actually pass permissively.
+
+        Two failure directions. A verdict could be declared here and no longer
+        pass against the allow-all host, which makes the classification a claim
+        about a repository that has moved. Or a permissive pass could exist in
+        neither set, which is unread debt reported as zero.
+        """
+        import sys as _sys
+        _sys.path.insert(0, str(REPO / "scripts"))
+        import test_permissive_host_state as m
+        from test_permissive_host_state import permissive_sweep
+
+        measured = {tid
+                    for r in permissive_sweep() if r["status"] == "ran"
+                    for tid in (r.get("passing_ids") or [])
+                    if r["module"] not in m.LEGITIMATELY_PERMISSIVE}
+        classified = set(m.POSITIVE_EVIDENCE_OR_LOCAL) | set(m.ABSENCE_AS_SUCCESS)
+
+        self.assertEqual(
+            classified - measured, set(),
+            "declared as read but no longer passing permissively; the "
+            "classification describes a repository that has moved")
+        self.assertEqual(
+            measured - classified, set(),
+            "passes permissively and is in neither set: unread debt that the "
+            "read-list register is reporting as zero")
+
+    def test_no_verdict_is_in_both_classifications(self) -> None:
+        import test_permissive_host_state as m
+        both = set(m.POSITIVE_EVIDENCE_OR_LOCAL) & set(m.ABSENCE_AS_SUCCESS)
+        self.assertEqual(both, set(), f"{sorted(both)} classified as both")
+
+    def test_every_classification_records_its_predicate(self) -> None:
+        """A bare ID is a name, not a reading."""
+        import test_permissive_host_state as m
+        for name, reg in (("POSITIVE_EVIDENCE_OR_LOCAL", m.POSITIVE_EVIDENCE_OR_LOCAL),
+                          ("ABSENCE_AS_SUCCESS", m.ABSENCE_AS_SUCCESS)):
+            for tid, why in reg.items():
+                with self.subTest(register=name, verdict=tid):
+                    self.assertGreater(
+                        len(why), 20,
+                        f"{tid} carries no predicate; the next reader cannot "
+                        f"check the judgement without redoing it")
 
     def test_the_two_permissive_fixtures_are_not_diffed_as_one_metric(self) -> None:
         """An allow-all HTTP host and a bland-prose agent are different fixtures.
