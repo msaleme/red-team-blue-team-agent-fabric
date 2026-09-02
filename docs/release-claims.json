@@ -5,9 +5,9 @@
   "claims": [
     {
       "id": "release-test-count",
-      "fact": "The v4.19.0 release carries 611 unique test IDs.",
+      "fact": "The v4.20.0 release carries 611 unique test IDs.",
       "value": "611",
-      "release_tag": "v4.19.0",
+      "release_tag": "v4.20.0",
       "command": "python3 scripts/count_tests.py",
       "value_extraction": "Definitive count:\\s*(\\d+)",
       "generated_on": "2026-09-02",
@@ -18,7 +18,7 @@
       "surfaces": [
         {
           "path": "README.md",
-          "pattern": "the v4\\.19\\.0 release carries (\\d+)"
+          "pattern": "the v4\\.20\\.0 release carries (\\d+)"
         },
         {
           "path": "README.md",

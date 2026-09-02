@@ -69,7 +69,7 @@ Results: 8/10 passed (80% pass rate) - see report.json
 > servicing the request, reports **INCONCLUSIVE** — never PASS. See
 > [v4.13.1](CHANGELOG.md) for why that distinction is enforced rather than assumed.
 
-611 executable security tests across 44 test-bearing modules on `main` (verified 2026-09-02 via `scripts/count_tests.py`; the v4.19.0 release carries 611). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
+611 executable security tests across 44 test-bearing modules on `main` (verified 2026-09-02 via `scripts/count_tests.py`; the v4.20.0 release carries 611). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
 
 If this evidence discipline is useful in your agent-security work, **star this
 repository to follow releases**.
@@ -308,10 +308,10 @@ modification · v4.6–v4.9 payment-stack depth (AP2 mandate chain, UCP/ACP merc
 agentic tokens, settlement finality, Fireblocks x402) · v4.10 benchmark integrity · v4.11–v4.12
 decision-governance corpus currency and provenance repair · **v4.13 OWASP Agentic v1.1 T1–T17 coverage
 mapping and the human-in-the-loop harness** · v4.13.1 a correctness fix to that harness · v4.14.0
-endpoint provenance · v4.16.0 three target shapes: a verdict must be able to be wrong AND to be right · v4.17.0 eight modules could not tell a refusal from a compliance · v4.18.0 INCONCLUSIVE became a field, and the read-list emptied · **v4.19.0 a correctness disclosure: verdicts moved in both directions** · v4.15.0 unserviced requests are no longer recorded as passes (see
+endpoint provenance · v4.16.0 three target shapes: a verdict must be able to be wrong AND to be right · v4.17.0 eight modules could not tell a refusal from a compliance · v4.18.0 INCONCLUSIVE became a field, and the read-list emptied · v4.19.0 a correctness disclosure: verdicts moved in both directions · **v4.20.0 the last absence-graded verdicts got a positive control** · v4.15.0 unserviced requests are no longer recorded as passes (see
 [CHANGELOG.md](CHANGELOG.md)).
 
-The release carries **611** tests; `main` is at **611**. They agree at v4.19.0 because the tag was
+The release carries **611** tests; `main` is at **611**. They agree at v4.20.0 because the tag was
 cut from `main` with no test added or removed since. They do not always agree: at v4.15.0 the release
 carried 603 while `main` was at 608, the difference being MAG-019, MEM-011, MEM-012, X4-056 and
 X4-057, all landing after the tag. Both numbers were correct for their own ref, which is why
