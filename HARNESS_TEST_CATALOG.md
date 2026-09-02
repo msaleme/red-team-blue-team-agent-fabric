@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `2e5b251`
+**Generated:** `scripts/generate_test_catalog.py` at commit `aac931a`
 **Test count:** 611 unique test IDs across 45 registered harness modules (44 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -18,19 +18,19 @@
 ### A2A Protocol (`protocol_tests/a2a_harness.py`) — 13 tests
 
 ```
-A2A-001 | Agent Card Discovery | protocol_tests/a2a_harness.py:326
-A2A-002 | Agent Card Spoofing via Message Metadata | protocol_tests/a2a_harness.py:327
-A2A-003 | Agent Card Path Traversal | protocol_tests/a2a_harness.py:328
-A2A-004 | Unauthorized Task Access/Cancel | protocol_tests/a2a_harness.py:329
-A2A-005 | Task Message Injection (Prompt + Data + File) | protocol_tests/a2a_harness.py:330
-A2A-006 | Task State Manipulation | protocol_tests/a2a_harness.py:331
-A2A-007 | Push Notification URL Redirect | protocol_tests/a2a_harness.py:332
-A2A-008 | Unauthorized Skill Request | protocol_tests/a2a_harness.py:333
-A2A-009 | Artifact Content Type Abuse | protocol_tests/a2a_harness.py:334
-A2A-010 | Malformed Request Handling | protocol_tests/a2a_harness.py:335
-A2A-011 | Undocumented Method Enumeration | protocol_tests/a2a_harness.py:336
-A2A-012 | Cross-Context Data Leakage | protocol_tests/a2a_harness.py:337
-A2A-013 | Agent Card Limitations Field Verification | protocol_tests/a2a_harness.py:338
+A2A-001 | Agent Card Discovery | protocol_tests/a2a_harness.py:349
+A2A-002 | Agent Card Spoofing via Message Metadata | protocol_tests/a2a_harness.py:350
+A2A-003 | Agent Card Path Traversal | protocol_tests/a2a_harness.py:351
+A2A-004 | Unauthorized Task Access/Cancel | protocol_tests/a2a_harness.py:352
+A2A-005 | Task Message Injection (Prompt + Data + File) | protocol_tests/a2a_harness.py:353
+A2A-006 | Task State Manipulation | protocol_tests/a2a_harness.py:354
+A2A-007 | Push Notification URL Redirect | protocol_tests/a2a_harness.py:355
+A2A-008 | Unauthorized Skill Request | protocol_tests/a2a_harness.py:356
+A2A-009 | Artifact Content Type Abuse | protocol_tests/a2a_harness.py:357
+A2A-010 | Malformed Request Handling | protocol_tests/a2a_harness.py:358
+A2A-011 | Undocumented Method Enumeration | protocol_tests/a2a_harness.py:359
+A2A-012 | Cross-Context Data Leakage | protocol_tests/a2a_harness.py:360
+A2A-013 | Agent Card Limitations Field Verification | protocol_tests/a2a_harness.py:361
 ```
 
 ### Advanced Attacks (`protocol_tests/advanced_attacks.py`) — 10 tests
