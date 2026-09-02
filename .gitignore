@@ -59,6 +59,13 @@ november-meeting-extracted.txt
 # silently dropping the file they validate; CI failed on FileNotFoundError. The
 # manifest's own "must be present and non-empty" assertion is what caught it.
 !docs/release-claims.json
+# Fourth time, 2026-09-02. Deposited evidence runs are the artifact that makes a
+# reported verdict auditable rather than merely repeatable, so they are
+# deliverables, not run output. The blanket *.json above dropped one silently and
+# the commit reported success -- with a PR body already claiming the file was
+# there. The pattern is now: any NEW directory of published JSON needs a negation
+# here, and the check is `git status` after adding, not the exit code of `git add`.
+!docs/evidence/**/*.json
 
 # LaTeX build artifacts (docs/paper-dgb/ -- source of truth is main.tex +
 # references.bib; compiled output is regenerated locally per its README)
