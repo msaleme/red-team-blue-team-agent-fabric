@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `2c96e64`
+**Generated:** `scripts/generate_test_catalog.py` at commit `9b47b8a`
 **Test count:** 611 unique test IDs across 45 registered harness modules (44 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -200,16 +200,16 @@ WXO-005 | Multi-Tenant Isolation | protocol_tests/cloud_agent_harness.py:960
 ### CrewAI CVE Reproduction (`protocol_tests/crewai_cve_harness.py`) — 10 tests
 
 ```
-CREW-001 | Sandbox Fallback Detection | protocol_tests/crewai_cve_harness.py:448
-CREW-002 | Ctypes Payload Coverage (self-test, no target) | protocol_tests/crewai_cve_harness.py:561
-CREW-003 | Code Execution Config Audit | protocol_tests/crewai_cve_harness.py:621
-CREW-004 | Path Traversal in JSON Loader | protocol_tests/crewai_cve_harness.py:699
-CREW-005 | Sensitive File Read Detection | protocol_tests/crewai_cve_harness.py:780
-CREW-006 | SSRF Cloud Metadata Detection | protocol_tests/crewai_cve_harness.py:858
-CREW-007 | SSRF Internal Service Detection | protocol_tests/crewai_cve_harness.py:932
-CREW-008 | SSRF URL Validation Bypass | protocol_tests/crewai_cve_harness.py:1047
-CREW-009 | Docker Availability Check Bypass | protocol_tests/crewai_cve_harness.py:1085
-CREW-010 | Fallback Sandbox RCE Chain | protocol_tests/crewai_cve_harness.py:1175
+CREW-001 | Sandbox Fallback Detection | protocol_tests/crewai_cve_harness.py:500
+CREW-002 | Ctypes Payload Coverage (self-test, no target) | protocol_tests/crewai_cve_harness.py:610
+CREW-003 | Code Execution Config Audit | protocol_tests/crewai_cve_harness.py:670
+CREW-004 | Path Traversal in JSON Loader | protocol_tests/crewai_cve_harness.py:748
+CREW-005 | Sensitive File Read Detection | protocol_tests/crewai_cve_harness.py:826
+CREW-006 | SSRF Cloud Metadata Detection | protocol_tests/crewai_cve_harness.py:904
+CREW-007 | SSRF Internal Service Detection | protocol_tests/crewai_cve_harness.py:975
+CREW-008 | SSRF URL Validation Bypass | protocol_tests/crewai_cve_harness.py:1088
+CREW-009 | Docker Availability Check Bypass | protocol_tests/crewai_cve_harness.py:1126
+CREW-010 | Fallback Sandbox RCE Chain | protocol_tests/crewai_cve_harness.py:1214
 ```
 
 ### Enterprise Platforms (core) (`protocol_tests/enterprise_adapters.py`) — 31 tests
