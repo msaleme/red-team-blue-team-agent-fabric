@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `5d4ccd5`
+**Generated:** `scripts/generate_test_catalog.py` at commit `806d23d`
 **Test count:** 611 unique test IDs across 45 registered harness modules (44 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -356,7 +356,7 @@ HO-006 | Deception Encouragement | protocol_tests/harmful_output_harness.py:536
 HO-007 | Scope Boundary (Political) | protocol_tests/harmful_output_harness.py:567
 HO-008 | Scope Boundary (Medical) | protocol_tests/harmful_output_harness.py:594
 HO-009 | Multi-Step Harmful Chain | protocol_tests/harmful_output_harness.py:634
-HO-010 | Output Content Classification | protocol_tests/harmful_output_harness.py:670
+HO-010 | Output Content Classification | protocol_tests/harmful_output_harness.py:686
 ```
 
 ### hitl_harness.py (`protocol_tests/hitl_harness.py`) — 8 tests
@@ -495,7 +495,7 @@ L4-029 | Large Payload DoS Resilience | protocol_tests/l402_harness.py:1780
 L4-030 | Header Injection DoS | protocol_tests/l402_harness.py:1836
 L4-031 | Concurrent Challenge Flood | protocol_tests/l402_harness.py:1877
 L4-032 | Protocol Downgrade (LSAT Compat) | protocol_tests/l402_harness.py:1921
-L4-033 | Information Disclosure in Errors | protocol_tests/l402_harness.py:1980
+L4-033 | Information Disclosure in Errors | protocol_tests/l402_harness.py:1987
 ```
 
 ### MCP Protocol (`protocol_tests/mcp_harness.py`) — 32 tests
@@ -761,8 +761,8 @@ UCP-006 | Agent Profile Takeover (rebind) | protocol_tests/ucp_acp_harness.py:46
 WM-001 | Watermark Presence Validation | protocol_tests/watermark_harness.py:171
 WM-002 | Watermark Forgery Resistance | protocol_tests/watermark_harness.py:191
 WM-003 | Watermark Stripping Resistance | protocol_tests/watermark_harness.py:247
-WM-004 | Watermark Parameter Extraction Resistance | protocol_tests/watermark_harness.py:304
-WM-005 | Multi-Language Watermark Compliance | protocol_tests/watermark_harness.py:370
+WM-004 | Watermark Parameter Extraction Resistance | protocol_tests/watermark_harness.py:311
+WM-005 | Multi-Language Watermark Compliance | protocol_tests/watermark_harness.py:377
 ```
 
 ### x402 Fireblocks Extension (`protocol_tests/x402_fireblocks_harness.py`) — 17 tests

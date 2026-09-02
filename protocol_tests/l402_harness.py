@@ -1951,8 +1951,10 @@ class L402SecurityTests:
             "lnd", "c-lightning", "eclair",  # Lightning implementation details
         ]
 
+        probe_bodies = []
         for label, headers in probe_requests:
             resp = self.transport.get(self.PATH_INDEX, headers=headers)
+            probe_bodies.append((label, resp))
             body = resp.get("body", "")
             body_lower = body.lower()
             hits = [pat for pat in sensitive_patterns if pat in body_lower]
@@ -1974,7 +1976,12 @@ class L402SecurityTests:
             leaks_found.extend(f"{label}: '{pat}'" for pat in hits)
 
         elapsed = time.monotonic() - t0
-        passed = len(leaks_found) == 0
+        # Consistent with X4-010 and X4-017: this scans content the target
+        # actually returned, so finding nothing is an observation and a pass is
+        # legitimate. What it must not do is call an EMPTY scan clean.
+        scanned = any(r.get("body", "").strip() for _, r in probe_bodies)
+        not_evaluated = not leaks_found and not scanned
+        passed = not not_evaluated and len(leaks_found) == 0
 
         self._record(L402TestResult(
             test_id="L4-033",
