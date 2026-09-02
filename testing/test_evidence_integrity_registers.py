@@ -256,9 +256,14 @@ class TestThePermissiveReadListIsSplit(unittest.TestCase):
         # 28 -> 27 on 2026-09-01: CREW-005's leak check gained a third state, so
         # "the agent answered and never mentioned a passwd signature" stopped
         # counting as a pass against a target that grants everything.
+        # 2026-09-02: denominator 52 -> 47, numerator stays 0. The POPULATION
+        # shrank, which is the outcome this guard exists to make visible: five
+        # x402 verdicts stopped passing against an allow-all host because their
+        # absence_as_success condition was repaired. A numerator alone would have
+        # read as "no change".
         num, den, _ = _permissive_read_list()
         self.assertEqual(
-            (num, den), (0, 52),
+            (num, den), (0, 47),
             f"the permissive read list changed: now {num} of {den}. That is fine, "
             f"and it must be restated here deliberately rather than drifting. "
             f"Report BOTH numbers -- a numerator alone hides whether the list "
