@@ -39,6 +39,28 @@ test_code_quality.py already records it as a file that went stale on counts
 while CI passed. It was fixed for counts and went stale on the release date
 instead, which is why the date is checked and not only the numbers.
 
+## Release sequencing, and --apply
+
+The workflow also runs on `release: published`. That run compares the description
+against the tree at the tag that was just published, and it fails whenever the
+description is edited AFTER the release is created, because at that instant the
+description still names the previous version. It failed that way on four
+consecutive releases (v4.18.0, v4.19.0rc1, v4.19.0, v4.20.0), each time correctly,
+and each time the description was fixed by hand a few minutes later. A red run
+that is always right and always stale is a process defect, not a checker defect.
+
+The Actions token cannot edit the description (that needs repository
+administration), so the edit has to happen on the releasing side, BEFORE
+`gh release create`:
+
+    python3 scripts/check_public_metadata.py --apply
+
+`--apply` reads the live description, rewrites every release-facing figure to
+what the tree at HEAD implies (`rewrite_description`, pure and tested offline),
+PATCHes it with the caller's token, then runs the normal comparison so the
+output ends in OK or DRIFT rather than in "applied". It refuses to write a
+description the checker itself would still reject.
+
 ## What it compares
 
 The description is a claim about a *published release*, not about `main`, because
@@ -181,6 +203,22 @@ def fetch_description(repo: str) -> str:
     return json.loads(_api(f"https://api.github.com/repos/{repo}")).get("description") or ""
 
 
+def _patch_description(repo: str, description: str) -> None:
+    """PATCH the repository description. Needs a token with admin rights."""
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if not token:
+        raise PermissionError("GITHUB_TOKEN or GH_TOKEN is required to edit the description")
+    body = json.dumps({"description": description}).encode("utf-8")
+    req = urllib.request.Request(
+        f"https://api.github.com/repos/{repo}", data=body, method="PATCH",
+        headers={"Accept": "application/vnd.github+json",
+                 "Content-Type": "application/json",
+                 "Authorization": f"Bearer {token}",
+                 "User-Agent": "agent-security-harness-metadata-check"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        r.read()
+
+
 # Strings that identify a line as being about THIS project. Used to scope the
 # version check, because every package has a version and these pages legitimately
 # mention other packages' versions.
@@ -286,12 +324,79 @@ def extract(description: str) -> tuple[str | None, str | None]:
     return (c.group(1) if c else None, v.group(1) if v else None)
 
 
+def _swap_group1(m: re.Match[str], value: str) -> str:
+    """The whole match with group 1 replaced, everything else untouched."""
+    start, end = m.start(1) - m.start(0), m.end(1) - m.start(0)
+    whole = m.group(0)
+    return whole[:start] + value + whole[end:]
+
+
+def rewrite_description(description: str, want: dict[str, str]) -> str:
+    """Return the description with every release-facing figure set to the tree's.
+
+    Pure: no network, no side effects, safe to unit-test. Three rewrites:
+
+      1. the release phrase, "<N> [executable tests] in the vX.Y.Z release",
+         gets the tree's count AND version;
+      2. any bare "<N> executable tests" gets the tree's count. This runs at
+         release time, when main and the tag are the same tree, so a main
+         figure and a release figure are legitimately equal;
+      3. every "vX.Y.Z" token becomes the tree's version. extract() reads the
+         FIRST version token, so leaving any stale one is leaving the check
+         red. Historical "measured at vA.B.C" pins belong on the READMEs
+         (see check_surface), not in the one-line description.
+    """
+    count, version = want["count"], want["version"]
+    text = RELEASE_COUNT_RE.sub(lambda m: _swap_group1(m, count), description)
+    text = BARE_COUNT_RE.sub(lambda m: _swap_group1(m, count), text)
+    text = re.sub(r"\bv\d+\.\d+\.\d+\b", f"v{version}", text)
+    return text
+
+
+def apply_description(repo: str, want: dict[str, str]) -> int:
+    """Rewrite the live description to match the tree, or explain why not.
+
+    Exit codes follow main(): 0 written (or already matching), 1 the rewrite
+    would still fail the check so nothing was written, 2 unreachable or no
+    token. A write that the checker would reject is not applied; that is the
+    positive control on the rewrite itself.
+    """
+    try:
+        current = fetch_description(repo)
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:
+        print(f"UNREACHABLE: could not read the description for {repo}: "
+              f"{type(e).__name__}: {e}")
+        return 2
+    proposed = rewrite_description(current, want)
+    if extract(proposed) != (want["count"], want["version"]):
+        print("REFUSED: the rewritten description would still fail this check, "
+              "so it was not written.")
+        print(f"\ncurrent  : {current}\nproposed : {proposed}")
+        return 1
+    if proposed == current:
+        print("description already matches the tree; nothing written")
+        return 0
+    try:
+        _patch_description(repo, proposed)
+    except PermissionError as e:
+        print(f"UNREACHABLE: {e}")
+        return 2
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:
+        print(f"UNREACHABLE: could not write the description for {repo}: "
+              f"{type(e).__name__}: {e}")
+        return 2
+    print(f"applied  : {repo} description updated\nbefore   : {current}\nafter    : {proposed}\n")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--repo", default=os.environ.get("METADATA_REPO", DEFAULT_REPO))
     ap.add_argument("--print-expected", action="store_true",
                     help="print the description fields the tree implies, then exit 0")
+    ap.add_argument("--apply", action="store_true",
+                    help="rewrite the live description to the tree's figures, then check")
     args = ap.parse_args()
 
     want = {"count": canonical_count(),
@@ -303,6 +408,11 @@ def main() -> int:
         return 0
 
     want_count, want_version = want["count"], want["version"]
+
+    if args.apply:
+        rc = apply_description(args.repo, want)
+        if rc:
+            return rc
 
     try:
         description = fetch_description(args.repo)

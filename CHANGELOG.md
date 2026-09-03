@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — `check_public_metadata.py --apply`, so the release run can pass
+
+`Public metadata drift` runs on `release: published` and compares the
+description against the tree at the new tag. It failed on four consecutive
+releases (v4.18.0, v4.19.0rc1, v4.19.0, v4.20.0), correctly each time, because
+the description was edited a few minutes *after* the release was created and
+still named the previous version when the event fired. The Actions token cannot
+edit the description, so the edit moves to the releasing side and before the
+release exists:
+
+```bash
+python3 scripts/check_public_metadata.py --apply   # then gh release create ...
+```
+
+`rewrite_description` is pure and tested offline. `--apply` refuses to write a
+description the checker would still reject, and always runs the normal
+comparison afterwards, so its last line is OK or DRIFT, never "applied".
+
 ## [4.20.0] - 2026-09-02
 
 Second release today. v4.19.0 shipped the correctness disclosure; this finishes

@@ -87,6 +87,113 @@ class TestExtract(unittest.TestCase):
         self.assertEqual(cpm.extract(dual)[0], STALE_COUNT)
 
 
+class TestRewrite(unittest.TestCase):
+    """rewrite_description is the --apply path with the network removed.
+
+    The release-event run of the workflow failed on four consecutive releases
+    because the description was edited AFTER the release was published. The
+    fix is to edit it BEFORE, from the releasing side, and this is the pure
+    function that decides what that edit says.
+    """
+
+    WANT = {"count": FRESH_COUNT, "modules": "44", "version": "4.15.0"}
+
+    def _ok(self, text: str) -> None:
+        """Whatever the rewrite produces must satisfy the checker's own reader."""
+        self.assertEqual(cpm.extract(text), (FRESH_COUNT, "4.15.0"))
+
+    def test_release_phrase_gets_count_and_version(self) -> None:
+        stale = f"harness: {STALE_COUNT} {_TESTS} in the v4.13.1 release, across MCP."
+        out = cpm.rewrite_description(stale, self.WANT)
+        self.assertEqual(out, f"harness: {FRESH_COUNT} {_TESTS} in the v4.15.0 release, across MCP.")
+        self._ok(out)
+
+    def test_dual_count_shape_sets_both_counts(self) -> None:
+        """At release time main and the tag are one tree, so both figures agree."""
+        stale = (f"{STALE_COUNT} {_TESTS} on main, {STALE_COUNT} in the "
+                 f"v4.13.1 release. v4.13.1")
+        out = cpm.rewrite_description(stale, self.WANT)
+        self.assertEqual(out, f"{FRESH_COUNT} {_TESTS} on main, {FRESH_COUNT} in the "
+                              f"v4.15.0 release. v4.15.0")
+        self._ok(out)
+
+    def test_the_real_2026_08_08_description(self) -> None:
+        out = cpm.rewrite_description(REAL, self.WANT)
+        self.assertIn(f"{FRESH_COUNT} {_TESTS}", out)
+        self.assertTrue(out.endswith("v4.15.0"))
+        self.assertNotIn(STALE_COUNT, out)
+        self.assertNotIn("4.13.1", out)
+        self._ok(out)
+
+    def test_everything_else_is_untouched(self) -> None:
+        """Only the figures move. The prose around them is the maintainer's."""
+        stale = f"A, B, C: {STALE_COUNT} {_TESTS} in the v4.13.1 release; T1-T17 (13 direct). v4.13.1"
+        out = cpm.rewrite_description(stale, self.WANT)
+        self.assertTrue(out.startswith("A, B, C: "))
+        self.assertIn("T1-T17 (13 direct)", out)
+
+    def test_idempotent(self) -> None:
+        once = cpm.rewrite_description(REAL, self.WANT)
+        self.assertEqual(cpm.rewrite_description(once, self.WANT), once)
+
+    def test_a_description_with_no_figures_is_returned_unchanged(self) -> None:
+        """Nothing to rewrite means nothing rewritten; --apply then REFUSES,
+        because extract() on the result still finds no count."""
+        self.assertEqual(cpm.rewrite_description("A harness.", self.WANT), "A harness.")
+
+
+class TestApply(unittest.TestCase):
+    WANT = {"count": FRESH_COUNT, "modules": "44", "version": "4.15.0"}
+
+    def _apply(self, current, patch=None, token="t"):
+        patch = patch or mock.Mock()
+        env = {"GITHUB_TOKEN": token} if token else {}
+        with mock.patch.object(cpm, "fetch_description", lambda repo: current), \
+             mock.patch.object(cpm, "_patch_description", patch), \
+             mock.patch.dict(cpm.os.environ, env, clear=True):
+            return cpm.apply_description("o/r", self.WANT), patch
+
+    def test_writes_the_rewritten_description(self) -> None:
+        rc, patch = self._apply(f"{STALE_COUNT} {_TESTS} in the v4.13.1 release. v4.13.1")
+        self.assertEqual(rc, 0)
+        patch.assert_called_once_with("o/r", f"{FRESH_COUNT} {_TESTS} in the v4.15.0 release. v4.15.0")
+
+    def test_already_matching_writes_nothing(self) -> None:
+        rc, patch = self._apply(f"{FRESH_COUNT} {_TESTS} in the v4.15.0 release. v4.15.0")
+        self.assertEqual(rc, 0)
+        patch.assert_not_called()
+
+    def test_refuses_a_rewrite_the_checker_would_still_fail(self) -> None:
+        """A description with no figures cannot be repaired by substitution.
+        Writing it back unchanged and reporting success would be the muted
+        check this file exists to prevent."""
+        rc, patch = self._apply("A security harness with no figures at all.")
+        self.assertEqual(rc, 1)
+        patch.assert_not_called()
+
+    def test_no_token_is_unreachable_not_success(self) -> None:
+        def _raise(repo, text):
+            raise PermissionError("GITHUB_TOKEN or GH_TOKEN is required")
+        rc, _ = self._apply(f"{STALE_COUNT} {_TESTS} in the v4.13.1 release. v4.13.1",
+                            patch=mock.Mock(side_effect=_raise), token=None)
+        self.assertEqual(rc, 2)
+
+    def test_apply_flag_runs_the_check_afterwards(self) -> None:
+        """--apply is not its own verdict. main() still compares and reports."""
+        argv = ["check_public_metadata.py", "--repo", "o/r", "--apply"]
+        with mock.patch.object(sys, "argv", argv), \
+             mock.patch.object(cpm, "apply_description", lambda repo, want: 0) as _, \
+             mock.patch.object(cpm, "fetch_description",
+                               lambda repo: f"{STALE_COUNT} {_TESTS} in the v4.15.0 release. v4.15.0"), \
+             mock.patch.object(cpm, "canonical_count", lambda: FRESH_COUNT), \
+             mock.patch.object(cpm, "canonical_version", lambda: "4.15.0"), \
+             mock.patch.object(cpm, "canonical_modules", lambda: "44"), \
+             mock.patch.object(cpm, "citation_fields", lambda repo=None: ("4.15.0", "2026-08-07")), \
+             mock.patch.object(cpm, "fetch_release_date", lambda r, tag: "2026-08-07"), \
+             mock.patch.object(cpm, "REMOTE_READMES", ()):
+            self.assertEqual(cpm.main(), 1, "a stale description after apply must still read as DRIFT")
+
+
 class TestExitCodes(unittest.TestCase):
     def _run(self, description=None, exc=None, count=None, version="4.15.0"):
         """Run main() with every outside call stubbed.
