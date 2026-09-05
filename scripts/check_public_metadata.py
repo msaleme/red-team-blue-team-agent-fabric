@@ -126,9 +126,11 @@ REMOTE_READMES = (
 #     passes, and a pass that scanned nothing is the failure mode this whole
 #     file exists to prevent.
 #
-# pubpoint.com/facts-evidence was five releases behind (v4.16.0, 608 tests,
-# 43 modules) on 2026-09-05 while this check reported OK, because it was not
-# in either list.
+# pubpoint.com/facts-evidence was five releases behind on 2026-09-05 -- its
+# version, test count and module count all named an earlier release -- while
+# this check reported OK, because the page was in neither list. (Figures are
+# described rather than quoted, so this comment does not itself become a stale
+# count for test_no_stale_test_count_anywhere to find.)
 REMOTE_PAGES = (
     ("PubPoint facts & evidence", "https://pubpoint.com/facts-evidence/"),
 )
@@ -340,7 +342,7 @@ SURFACE_PATTERNS = (
     # "modules" and so matched nothing at all on "44 test-bearing modules" --
     # the canonical wording on start-here and on the PubPoint page. The module
     # count was therefore unchecked on every surface that stated it correctly,
-    # and PubPoint's stale "43 test-bearing modules" passed on 2026-09-05.
+    # and PubPoint's stale module count passed unread on 2026-09-05.
     ("module count", re.compile(r"(\d{2,3})\s+(?:test-bearing\s+)?modules?\b"), "modules", False),
     ("version", re.compile(r"\bv(\d+\.\d+\.\d+)\b"), "version", True),
 )
