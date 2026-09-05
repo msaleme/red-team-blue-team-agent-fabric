@@ -293,6 +293,57 @@ class PolicyEngine:
 
 
 # ---------------------------------------------------------------------------
+# Reference approval quorum (Fireblocks Policy Engine, above-threshold path)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class ActionRef:
+    """The exact action an approval is granted for.
+
+    Frozen so equality is structural: an approval carries the action it
+    approved, and a quorum compares that against the action being evaluated.
+    """
+    pay_to: str
+    amount: int
+    nonce: str
+
+
+@dataclass
+class ApprovalQuorum:
+    """Collects approvals for ONE above-threshold action.
+
+    A count of approvals is not a quorum. Two properties have to hold that
+    cardinality alone does not give you:
+
+      * approvals come from **distinct approver identities** — the same
+        approver signing twice is one approver, not two;
+      * each approval **binds to the exact action** under evaluation — an
+        approval for a different destination, amount or nonce does not
+        count toward this action's quorum.
+
+    Dropping either one lets a degenerate input satisfy the control: N copies
+    of one approval, or N approvals for some other action, both reach the
+    threshold while nobody has approved *this* transfer.
+    """
+    threshold: int
+    action: ActionRef
+    _approvers: dict = field(default_factory=dict)
+
+    def approve(self, approver: str, action: ActionRef) -> tuple[bool, str]:
+        """Record one approval. Returns (accepted, reason)."""
+        if action != self.action:
+            return (False, "approval not bound to the action under evaluation")
+        if approver in self._approvers:
+            return (False, f"duplicate approval from {approver} — one approver is one approval")
+        self._approvers[approver] = action
+        return (True, f"approval {len(self._approvers)}/{self.threshold} recorded")
+
+    @property
+    def satisfied(self) -> bool:
+        return len(self._approvers) >= self.threshold
+
+
+# ---------------------------------------------------------------------------
 # Reference batch-settlement channel (x402 V2)
 # ---------------------------------------------------------------------------
 
@@ -757,21 +808,77 @@ class X402FireblocksTests:
     # -- FB-013: approval quorum ------------------------------------------
 
     def test_fb_013_approval_quorum(self) -> None:
-        """FB-013: Above-threshold spend requires manual approval (MEDIUM)."""
+        """FB-013: Above-threshold spend requires a bound, distinct-approver quorum (MEDIUM).
+
+        Routing an above-threshold spend to manual approval is necessary and
+        not sufficient. The quorum that follows must require distinct approver
+        identities, each bound to the exact action, or a degenerate input
+        satisfies it: N copies of one approval, or N approvals for some other
+        transfer, both reach the threshold while nobody has approved *this* one.
+
+        Four properties, each independently falsifiable:
+
+          1. above-threshold spend routes to ``require_approval``;
+          2. two DISTINCT approvers, both bound to the action, satisfy it;
+          3. the same approver twice does NOT — cardinality is not identity;
+          4. an approval bound to a DIFFERENT action does NOT count.
+
+        Properties 2-4 were absent before 2026-09-05: the test asserted only
+        property 1 while carrying the name "Approval Quorum". Found by applying
+        the lens VrtxOmega used on the authority-execution replay verifier
+        (msaleme/authority-execution-replay#1) back over this catalog.
+        """
         t0 = time.monotonic()
         engine = PolicyEngine(SpendPolicy(
             allowlist=frozenset({"0xM"}), per_tx_cap=100_000_000,
             auto_sign_threshold=1_000_000))
         decision, reason = engine.evaluate("0xM", 5_000_000, self._now())
+        routed = (decision == "require_approval")
+
+        action = ActionRef(pay_to="0xM", amount=5_000_000, nonce="tx-1")
+        other = ActionRef(pay_to="0xM", amount=5_000_000, nonce="tx-2")
+
+        # (2) two distinct approvers, both bound to this action
+        q_ok = ApprovalQuorum(threshold=2, action=action)
+        a1, _ = q_ok.approve("approver-a", action)
+        a2, _ = q_ok.approve("approver-b", action)
+        distinct_satisfies = a1 and a2 and q_ok.satisfied
+
+        # (3) the SAME approver twice must not reach a threshold of two
+        q_dup = ApprovalQuorum(threshold=2, action=action)
+        d1, _ = q_dup.approve("approver-a", action)
+        d2, dup_reason = q_dup.approve("approver-a", action)
+        duplicate_rejected = d1 and (not d2) and (not q_dup.satisfied)
+
+        # (4) an approval for a different action must not count toward this one
+        q_bind = ApprovalQuorum(threshold=1, action=action)
+        b1, bind_reason = q_bind.approve("approver-a", other)
+        unbound_rejected = (not b1) and (not q_bind.satisfied)
+
+        model_pass = (routed and distinct_satisfies
+                      and duplicate_rejected and unbound_rejected)
+        if model_pass:
+            model_reason = (
+                f"above-threshold spend routed to manual approval ({reason}); "
+                "quorum requires distinct approvers bound to the exact action "
+                f"(duplicate: {dup_reason}; unbound: {bind_reason})")
+        else:
+            gaps = []
+            if not routed:
+                gaps.append("POLICY GAP — above-threshold spend auto-signed without approval")
+            if not distinct_satisfies:
+                gaps.append("two distinct bound approvals did not satisfy the quorum")
+            if not duplicate_rejected:
+                gaps.append("QUORUM GAP — one approver counted twice toward the threshold")
+            if not unbound_rejected:
+                gaps.append("BINDING GAP — an approval for a different action counted toward this one")
+            model_reason = "; ".join(gaps)
         self._finish(
             test_id="FB-013", name="Approval Quorum Above Threshold",
             category="spend_governance", control="policy_approval_quorum",
             owasp="ASI03", stride="Elevation of Privilege", severity=Severity.MEDIUM.value,
             ref="Fireblocks Policy Engine — approver quorum above auto-sign threshold",
-            model_pass=(decision == "require_approval"),
-            model_reason=(f"above-threshold spend routed to manual approval ({reason})"
-                          if decision == "require_approval" else
-                          "POLICY GAP — above-threshold spend auto-signed without approval"),
+            model_pass=model_pass, model_reason=model_reason,
             attack_payload=None,
             t0=t0)
 
