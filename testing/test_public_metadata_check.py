@@ -190,7 +190,8 @@ class TestApply(unittest.TestCase):
              mock.patch.object(cpm, "canonical_modules", lambda: "44"), \
              mock.patch.object(cpm, "citation_fields", lambda repo=None: ("4.15.0", "2026-08-07")), \
              mock.patch.object(cpm, "fetch_release_date", lambda r, tag: "2026-08-07"), \
-             mock.patch.object(cpm, "REMOTE_READMES", ()):
+             mock.patch.object(cpm, "REMOTE_READMES", ()), \
+             mock.patch.object(cpm, "REMOTE_PAGES", ()):
             self.assertEqual(cpm.main(), 1, "a stale description after apply must still read as DRIFT")
 
 
@@ -213,7 +214,8 @@ class TestExitCodes(unittest.TestCase):
              mock.patch.object(cpm, "canonical_modules", lambda: "44"), \
              mock.patch.object(cpm, "citation_fields", lambda repo=None: (version, "2026-08-07")), \
              mock.patch.object(cpm, "fetch_release_date", lambda r, tag: "2026-08-07"), \
-             mock.patch.object(cpm, "REMOTE_READMES", ()):
+             mock.patch.object(cpm, "REMOTE_READMES", ()), \
+             mock.patch.object(cpm, "REMOTE_PAGES", ()):
             return cpm.main()
 
     def test_agreement_exits_zero(self) -> None:
@@ -344,6 +346,87 @@ class TestCitationFields(unittest.TestCase):
         version, _ = cpm.citation_fields()
         self.assertEqual(version, cpm.canonical_version())
 
+
+
+# --- page surfaces (REMOTE_PAGES) ------------------------------------------
+#
+# Added 2026-09-05. pubpoint.com/facts-evidence was five releases behind while
+# this check reported OK, because a published page in a PRIVATE repo is
+# reachable by neither the README API nor the HARNESS_TOKENS line-scoping.
+#
+# Figures are split from their units for the same reason the header of this file
+# gives: test_no_stale_test_count_anywhere and test_no_stale_module_count_anywhere
+# scan this file, and a literal "<stale count> executable tests" on one line is
+# exactly what they exist to catch. Composing them keeps the guard honest instead
+# of carving out an exemption for the test that needed one.
+_WANT_COUNT = "611"
+_WANT_MODULES = "44"
+_WANT_VERSION = "4.20.0"
+_PAGE_STALE_COUNT = "608"
+_PAGE_STALE_MODULES = "43"
+_PAGE_STALE_VERSION = "4.16.0"
+_PINNED_COUNT = "604"
+_MODULES = "test-bearing modules"
+
+_WANT = {"count": _WANT_COUNT, "modules": _WANT_MODULES, "version": _WANT_VERSION}
+
+_CURRENT_LINE = (f"Released harness {_WANT_COUNT} {_TESTS} across "
+                 f"{_WANT_MODULES} {_MODULES} v{_WANT_VERSION}")
+_STALE_LINE = (f"Released harness {_PAGE_STALE_COUNT} {_TESTS} across "
+               f"{_PAGE_STALE_MODULES} {_MODULES} v{_PAGE_STALE_VERSION}")
+_PINNED_LINE = (f"Historical snapshot {_PINNED_COUNT} {_TESTS} at 75e941d6f4f2. "
+                "Retained as a dated record, not as a current inventory claim.")
+
+
+class TestPageSurface(unittest.TestCase):
+    def test_current_figures_pass(self) -> None:
+        self.assertEqual(cpm.check_page("page", _CURRENT_LINE, _WANT), [])
+
+    def test_stale_figures_are_caught(self) -> None:
+        problems = cpm.check_page("page", _STALE_LINE, _WANT)
+        self.assertEqual(len(problems), 3, problems)
+        joined = " ".join(problems)
+        for figure in ("test count", "module count", "version"):
+            self.assertIn(figure, joined)
+
+    def test_a_dated_record_is_not_drift(self) -> None:
+        """The line pins a figure to a past revision and says so. Punishing that
+        would make the honest text worse, which is how a check gets muted."""
+        page = _CURRENT_LINE + "\n" + _PINNED_LINE
+        self.assertEqual(cpm.check_page("page", page, _WANT), [])
+
+    def test_a_marker_does_not_excuse_the_whole_page(self) -> None:
+        """Only the marked line is exempt; drift elsewhere still reports."""
+        page = _STALE_LINE + "\n" + _PINNED_LINE
+        self.assertTrue(cpm.check_page("page", page, _WANT))
+
+    def test_a_page_stating_nothing_is_not_a_pass(self) -> None:
+        """Silence here means the page stopped restating the figures or the
+        fetch returned the wrong thing. Either way it was not verified."""
+        problems = cpm.check_page("page", "About this project. Contact us.", _WANT)
+        self.assertTrue(problems)
+        self.assertIn("Silence here is not agreement", problems[0])
+
+
+class TestModuleCountPhrasing(unittest.TestCase):
+    def test_test_bearing_modules_is_matched(self) -> None:
+        """The canonical phrasing. Before 2026-09-05 the pattern required the
+        number adjacent to "modules", so this matched nothing and the module
+        count went unchecked on every surface that stated it correctly."""
+        pattern = dict((f, p) for f, p, _k, _l in cpm.SURFACE_PATTERNS)["module count"]
+        self.assertEqual(pattern.findall(f"{_WANT_MODULES} {_MODULES}"), [_WANT_MODULES])
+        self.assertEqual(pattern.findall(f"{_WANT_MODULES} modules"), [_WANT_MODULES])
+
+
+class TestReadmeSurfaceRespectsDatedRecords(unittest.TestCase):
+    def test_marked_line_is_dropped_for_readmes_too(self) -> None:
+        readme = (f"agent-security-harness v4.15.0 has {_PINNED_COUNT} {_TESTS} across "
+                  f"{_PAGE_STALE_MODULES} {_MODULES}. Retained as a dated record.")
+        self.assertEqual(cpm.check_surface("readme", readme, _WANT), [])
+
+    def test_unmarked_stale_line_still_reports(self) -> None:
+        readme = f"agent-security-harness v4.15.0: {_PAGE_STALE_MODULES} {_MODULES}"
+        self.assertTrue(cpm.check_surface("readme", readme, _WANT))
 
 if __name__ == "__main__":
     unittest.main()
