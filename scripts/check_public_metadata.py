@@ -89,6 +89,7 @@ defect class this repository keeps finding (see #348).
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import os
 import re
@@ -111,6 +112,36 @@ DEFAULT_REPO = "msaleme/red-team-blue-team-agent-fabric"
 REMOTE_READMES = (
     ("profile README", "msaleme/msaleme"),
     ("start-here", "msaleme/start-here"),
+)
+
+# Public PAGES that restate the same figures. Separate from REMOTE_READMES for
+# two reasons, both of which would have made a naive addition report nothing:
+#
+#   * the source repo is PRIVATE, so the README API the surfaces above use
+#     cannot read it with the default Actions token. The published page is the
+#     surface the public actually sees, so the page is what gets checked.
+#   * the page states its figures in prose that never names the repo or the
+#     PyPI package, so the HARNESS_TOKENS line-scoping that check_surface
+#     applies to versions matches zero lines there. A check that scans nothing
+#     passes, and a pass that scanned nothing is the failure mode this whole
+#     file exists to prevent.
+#
+# pubpoint.com/facts-evidence was five releases behind (v4.16.0, 608 tests,
+# 43 modules) on 2026-09-05 while this check reported OK, because it was not
+# in either list.
+REMOTE_PAGES = (
+    ("PubPoint facts & evidence", "https://pubpoint.com/facts-evidence/"),
+)
+
+# A page may deliberately retain a figure it has PINNED to a past revision. That
+# is the honesty this check protects, not a defect -- the same reasoning that
+# made the version check presence-scoped rather than exclusive. Lines carrying
+# one of these markers are dropped before the figures are read, so a dated
+# record does not have to get worse to keep the check green.
+HISTORICAL_MARKERS = (
+    "historical snapshot",
+    "dated record",
+    "not as a current inventory claim",
 )
 
 
@@ -151,6 +182,63 @@ def canonical_modules() -> str:
 def fetch_readme(repo: str) -> str:
     return _api(f"https://api.github.com/repos/{repo}/readme",
                 accept="application/vnd.github.raw")
+
+
+def fetch_page(url: str) -> str:
+    """A published HTML page, reduced to text one claim per line.
+
+    Block-level closers become newlines before tags are stripped, so a figure
+    and the sentence qualifying it stay on the same line. Without that the
+    historical-marker filter below cannot tell a pinned record from a current
+    claim, because both collapse into one run of text.
+    """
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "agent-security-harness-metadata-check",
+        "Accept": "text/html",
+    })
+    with urllib.request.urlopen(req, timeout=30) as r:
+        raw = r.read().decode("utf-8", errors="replace")
+    raw = re.sub(r"(?is)<(script|style)\b.*?</\1>", " ", raw)
+    raw = re.sub(r"(?i)<(?:br|/p|/div|/li|/h[1-6]|/tr|/td)\s*/?>", "\n", raw)
+    raw = re.sub(r"(?s)<[^>]+>", " ", raw)
+    raw = html.unescape(raw)
+    return "\n".join(re.sub(r"[ \t]+", " ", ln).strip()
+                     for ln in raw.splitlines())
+
+
+def check_page(label: str, text: str, want: dict[str, str]) -> list[str]:
+    """Same figures as check_surface, scoped for a page rather than a README.
+
+    Two differences, both forced by what these pages actually look like:
+
+      * lines explicitly marked as a dated record are dropped (see
+        HISTORICAL_MARKERS), so a pinned historical count is not punished;
+      * every figure, version included, is read across the remaining text
+        rather than only on lines naming the repo. The prose on these pages
+        says "harness" in English and never states a canonical token, so
+        token-scoping would silently match nothing.
+
+    Exclusivity is therefore the right rule here: once dated records are gone,
+    what is left is a claim about the current release, and a figure that is not
+    the current one is drift.
+    """
+    live = "\n".join(ln for ln in text.splitlines()
+                      if not any(m in ln.lower() for m in HISTORICAL_MARKERS))
+    problems = []
+    for figure, pattern, key, _line_scoped in SURFACE_PATTERNS:
+        found = {m.group(1) for m in pattern.finditer(live)}
+        wrong = sorted(f for f in found if f != want[key])
+        if wrong:
+            problems.append(
+                f"{label}: {figure} says {', '.join(wrong)}, tree says {want[key]}")
+    if not problems and not any(
+            pattern.search(live) for _f, pattern, _k, _l in SURFACE_PATTERNS):
+        problems.append(
+            f"{label}: no figure of any kind was found on the page. Either it "
+            "stopped restating them -- in which case remove it from "
+            "REMOTE_PAGES -- or the fetch returned something other than the "
+            "page. Silence here is not agreement.")
+    return problems
 
 
 def fetch_release_date(repo: str, tag: str) -> str:
@@ -247,7 +335,13 @@ HARNESS_TOKENS = ("red-team-blue-team-agent-fabric", "agent-security-harness")
 # these READMEs, that assumption breaks and this needs the same treatment.
 SURFACE_PATTERNS = (
     ("test count", re.compile(r"(\d{3,4})\s+(?:executable\s+)?(?:security\s+)?tests?\b"), "count", False),
-    ("module count", re.compile(r"(\d{2,3})\s+modules?\b"), "modules", False),
+    # "test-bearing" is optional because it is the phrasing this project
+    # actually uses. Without it the pattern needed the number adjacent to
+    # "modules" and so matched nothing at all on "44 test-bearing modules" --
+    # the canonical wording on start-here and on the PubPoint page. The module
+    # count was therefore unchecked on every surface that stated it correctly,
+    # and PubPoint's stale "43 test-bearing modules" passed on 2026-09-05.
+    ("module count", re.compile(r"(\d{2,3})\s+(?:test-bearing\s+)?modules?\b"), "modules", False),
     ("version", re.compile(r"\bv(\d+\.\d+\.\d+)\b"), "version", True),
 )
 
@@ -255,6 +349,12 @@ SURFACE_PATTERNS = (
 def check_surface(label: str, text: str, want: dict[str, str]) -> list[str]:
     """Every figure the text states about this project must match the tree."""
     problems = []
+    # A line that marks itself as a dated record is dropped here for the same
+    # reason check_page drops one: pinning a measurement to the revision it was
+    # taken at is the honesty this check protects. Applied to READMEs and pages
+    # alike, so the rule does not depend on which kind of surface states it.
+    text = "\n".join(ln for ln in text.splitlines()
+                     if not any(m in ln.lower() for m in HISTORICAL_MARKERS))
     harness_lines = "\n".join(
         ln for ln in text.splitlines()
         if any(tok in ln for tok in HARNESS_TOKENS))
@@ -457,6 +557,12 @@ def main() -> int:
         except Exception as e:                    # noqa: BLE001
             unreachable.append(f"{label} at {repo} ({type(e).__name__})")
 
+    for label, url in REMOTE_PAGES:
+        try:
+            problems.extend(check_page(label, fetch_page(url), want))
+        except Exception as e:                    # noqa: BLE001
+            unreachable.append(f"{label} at {url} ({type(e).__name__})")
+
     if unreachable:
         print("UNREACHABLE: " + "; ".join(unreachable))
         print("This is not a pass. Those surfaces were not checked.")
@@ -464,8 +570,9 @@ def main() -> int:
             return 2
 
     if not problems:
-        print(f"OK  {args.repo} description, CITATION.cff and "
-              f"{len(REMOTE_READMES)} remote READMEs match the tree "
+        print(f"OK  {args.repo} description, CITATION.cff, "
+              f"{len(REMOTE_READMES)} remote READMEs and "
+              f"{len(REMOTE_PAGES)} published pages match the tree "
               f"({want_count} tests, {want['modules']} modules, v{want_version})")
         return 0
 
