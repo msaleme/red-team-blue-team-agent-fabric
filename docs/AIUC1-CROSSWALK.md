@@ -14,7 +14,7 @@ material no matter how many requirements it covers. Executed evidence requires a
 stated target and a pinned revision; independent review requires a qualified
 outside party.
 
-> **Standard currency:** this mapping was built against **v2026-Q1** (reviewed March 2026). AIUC-1 now revises quarterly — **Q2 (April 2026)** added MCP/A2A protocol-security and agent-identity controls; **Q3 (released 2026-07-15)** modified 8 requirements / 41 controls. Requirement-level rows below remain valid (renumbering happened at sub-control level), but see the **Q3-2026 Currency Note** near the end of this document before citing this crosswalk against the current standard. Last currency review: 2026-07-16. **Next review due on the Q4-2026 release, 2026-10-15**; AIUC-1 ships on a fixed quarterly cadence (Jan/Apr/Jul/Oct 15), so the review date is knowable in advance rather than event-driven.
+> **Standard currency:** this mapping was built against **v2026-Q1** (reviewed March 2026). AIUC-1 now revises quarterly — **Q2 (April 2026)** added MCP/A2A protocol-security and agent-identity controls; **Q3 (released 2026-07-15)** modified 8 requirements / 41 controls. Requirement-level rows below remain valid (renumbering happened at sub-control level), but see the **Q3-2026 Currency Note** near the end of this document before citing this crosswalk against the current standard. Last currency review: 2026-07-16. **Requirement titles verified verbatim against the published pillar pages on 2026-09-05** (`/security`, `/safety`, `/reliability`, `/data-and-privacy`, `/accountability`, `/society`); four had drifted from the standard's wording and were corrected, most consequentially A003, which this document called *data collection* where the standard says *data access*. **Next review due on the Q4-2026 release, 2026-10-15**; AIUC-1 ships on a fixed quarterly cadence (Jan/Apr/Jul/Oct 15), so the review date is knowable in advance rather than event-driven.
 
 ---
 
@@ -24,9 +24,9 @@ outside party.
 
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
-| **B001** | Third-party adversarial robustness testing | Harness test vectors may support evidence collection for prompt injection, jailbreaks, polymorphic attacks, multi-step chains, and CVE reproduction. See the [test inventory](TEST-INVENTORY.md) and run the count script for the current test-ID total. |
+| **B001** | Third-party testing of adversarial robustness | Harness test vectors may support evidence collection for prompt injection, jailbreaks, polymorphic attacks, multi-step chains, and CVE reproduction. See the [test inventory](TEST-INVENTORY.md) and run the count script for the current test-ID total. |
 | **B002** | Detect adversarial input | MCP tool injection (MCP-001-010), A2A message spoofing (A2A-001-012), prompt injection via operational data (APP-001-030) |
-| **B005** | Real-time input filtering | Filter bypass via encoding tricks, nested injection, polymorphic payloads, context displacement (ADV-001-010) |
+| **B005** | Implement real-time input filtering | Filter bypass via encoding tricks, nested injection, polymorphic payloads, context displacement (ADV-001-010) |
 | **B009** | Limit output over-exposure | Information leakage detection, output exfiltration tests, API key regex scanning |
 
 ### D. Reliability (all listed requirements mapped)
@@ -49,7 +49,7 @@ outside party.
 
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
-| **A003** | Limit AI agent data collection | MCP capability escalation, A2A cross-session leakage, enterprise platform data access boundary tests |
+| **A003** | Limit AI agent data access | MCP capability escalation, A2A cross-session leakage, enterprise platform data access boundary tests |
 | **A004** | Protect IP & trade secrets | Tool discovery poisoning (exfiltration), context displacement DoS, API key leak detection |
 
 ### E. Accountability (complementary)
@@ -58,7 +58,7 @@ outside party.
 |---|---|---|
 | **E004** | Assign accountability | [CSG paper](https://doi.org/10.5281/zenodo.19162104) defines 3-tier governance with explicit accountability. 12 mechanisms, 77 days production evidence. |
 | **E006** | Conduct vendor due diligence | A bounded, authorized harness run may contribute technical evidence to a vendor-due-diligence review. It does not replace the review or establish a vendor conclusion on its own. |
-| **E015** | Log model activity | JSON reports with full request/response transcripts serve as audit evidence |
+| **E015** | Log AI system activity | JSON reports with full request/response transcripts serve as audit evidence |
 
 ### F. Society (mapped subset)
 
