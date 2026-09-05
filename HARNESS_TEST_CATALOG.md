@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `6f6536e`
+**Generated:** `scripts/generate_test_catalog.py` at commit `733aaef`
 **Test count:** 611 unique test IDs across 45 registered harness modules (44 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -768,23 +768,23 @@ WM-005 | Multi-Language Watermark Compliance | protocol_tests/watermark_harness.
 ### x402 Fireblocks Extension (`protocol_tests/x402_fireblocks_harness.py`) — 17 tests
 
 ```
-FB-001 | Recipient Tamper (payTo swap) | protocol_tests/x402_fireblocks_harness.py:494
-FB-002 | Amount Tamper (overcharge) | protocol_tests/x402_fireblocks_harness.py:518
-FB-003 | Network/Asset Tamper (cross-chain swap) | protocol_tests/x402_fireblocks_harness.py:542
-FB-004 | Expired Integrity Envelope | protocol_tests/x402_fireblocks_harness.py:567
-FB-005 | Future-Dated Envelope (skew abuse) | protocol_tests/x402_fireblocks_harness.py:592
-FB-006 | Integrity Downgrade (strip envelope) | protocol_tests/x402_fireblocks_harness.py:618
-FB-007 | Signed-Field Boundary (resource.url SSRF) | protocol_tests/x402_fireblocks_harness.py:655
-FB-008 | Canonicalization Bypass Attempt | protocol_tests/x402_fireblocks_harness.py:686
-FB-009 | did:web Resolution SSRF | protocol_tests/x402_fireblocks_harness.py:723
-FB-010 | Destination Allowlist Enforcement | protocol_tests/x402_fireblocks_harness.py:749
-FB-011 | Per-Transaction Amount Cap | protocol_tests/x402_fireblocks_harness.py:769
-FB-012 | Velocity / Window Budget Limit | protocol_tests/x402_fireblocks_harness.py:797
-FB-013 | Approval Quorum Above Threshold | protocol_tests/x402_fireblocks_harness.py:877
-FB-014 | Batch Voucher Replay / Monotonicity | protocol_tests/x402_fireblocks_harness.py:905
-FB-015 | Voucher Resource-Hash Binding | protocol_tests/x402_fireblocks_harness.py:932
-FB-016 | Expired Voucher Rejection | protocol_tests/x402_fireblocks_harness.py:953
-FB-017 | Escrow Over-Redemption | protocol_tests/x402_fireblocks_harness.py:983
+FB-001 | Recipient Tamper (payTo swap) | protocol_tests/x402_fireblocks_harness.py:506
+FB-002 | Amount Tamper (overcharge) | protocol_tests/x402_fireblocks_harness.py:530
+FB-003 | Network/Asset Tamper (cross-chain swap) | protocol_tests/x402_fireblocks_harness.py:554
+FB-004 | Expired Integrity Envelope | protocol_tests/x402_fireblocks_harness.py:579
+FB-005 | Future-Dated Envelope (skew abuse) | protocol_tests/x402_fireblocks_harness.py:604
+FB-006 | Integrity Downgrade (strip envelope) | protocol_tests/x402_fireblocks_harness.py:630
+FB-007 | Signed-Field Boundary (resource.url SSRF) | protocol_tests/x402_fireblocks_harness.py:667
+FB-008 | Canonicalization Bypass Attempt | protocol_tests/x402_fireblocks_harness.py:698
+FB-009 | did:web Resolution SSRF | protocol_tests/x402_fireblocks_harness.py:735
+FB-010 | Destination Allowlist Enforcement | protocol_tests/x402_fireblocks_harness.py:761
+FB-011 | Per-Transaction Amount Cap | protocol_tests/x402_fireblocks_harness.py:781
+FB-012 | Velocity / Window Budget Limit | protocol_tests/x402_fireblocks_harness.py:809
+FB-013 | Approval Quorum Above Threshold | protocol_tests/x402_fireblocks_harness.py:898
+FB-014 | Batch Voucher Replay / Monotonicity | protocol_tests/x402_fireblocks_harness.py:926
+FB-015 | Voucher Resource-Hash Binding | protocol_tests/x402_fireblocks_harness.py:953
+FB-016 | Expired Voucher Rejection | protocol_tests/x402_fireblocks_harness.py:974
+FB-017 | Escrow Over-Redemption | protocol_tests/x402_fireblocks_harness.py:1004
 ```
 
 ### x402 Payment (`protocol_tests/x402_harness.py`) — 54 tests
