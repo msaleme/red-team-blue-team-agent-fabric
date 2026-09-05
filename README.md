@@ -239,11 +239,11 @@ Seven public preprints and notes deposited on Zenodo (not represented as peer-re
 
 | Publication | DOI |
 |---|---|
-| **Constitutional Self-Governance for Autonomous AI Agents** — 12 governance mechanisms, 77 days production data, 56 agents | [10.5281/zenodo.19162104](https://doi.org/10.5281/zenodo.19162104) |
-| **Detecting Normalization of Deviance in Multi-Agent Systems** — First empirical demonstration that automated harnesses detect behavioral drift | [10.5281/zenodo.19195516](https://doi.org/10.5281/zenodo.19195516) |
-| **Decision Load Index (DLI): A Quantitative Framework for Agent Autonomy Risk** — Measuring cognitive burden of AI agent oversight | [10.5281/zenodo.18217577](https://doi.org/10.5281/zenodo.18217577) |
-| **Beyond Identity Governance: A Protocol-Level Security Testing Framework for Multi-Agent Systems** | [10.5281/zenodo.19343034](https://doi.org/10.5281/zenodo.19343034) |
-| **Community-Driven Security for AI Agents: Evolution of an Adversarial Test Corpus** | [10.5281/zenodo.19343108](https://doi.org/10.5281/zenodo.19343108) |
+| **Constitutional Self-Governance for Autonomous AI Agents** — 12 governance mechanisms, 85 days production data, 48 agents | [10.5281/zenodo.19162103](https://doi.org/10.5281/zenodo.19162103) |
+| **Detecting Normalization of Deviance in Multi-Agent Systems** — First empirical demonstration that automated harnesses detect behavioral drift | [10.5281/zenodo.19195515](https://doi.org/10.5281/zenodo.19195515) |
+| **Decision Load Index (DLI): A Quantitative Framework for Agent Autonomy Risk** — Measuring cognitive burden of AI agent oversight | [10.5281/zenodo.18207847](https://doi.org/10.5281/zenodo.18207847) |
+| **Beyond Identity Governance: A Protocol-Level Security Testing Framework for Multi-Agent Systems** | [10.5281/zenodo.19343033](https://doi.org/10.5281/zenodo.19343033) |
+| **Community-Driven Security for AI Agents: Evolution of an Adversarial Test Corpus** | [10.5281/zenodo.19343107](https://doi.org/10.5281/zenodo.19343107) |
 | **Claim-Level Negative Testing for Agent-Governance Evidence** — Receipt-claim decomposition; the RCL-001..011 receipt-verification module in this harness | [10.5281/zenodo.21418701](https://doi.org/10.5281/zenodo.21418701) |
 | **Signing Is Not Authorization: Claim-Level Negative Vectors for Agent-Payment Receipts** — payment-authority application of the receipt-claim decomposition; RCL-001..011 under adversarial payment receipts | [10.5281/zenodo.21535452](https://doi.org/10.5281/zenodo.21535452) |
 
@@ -269,6 +269,17 @@ under [Used By](#used-by).
 ### Constitutional Governance (WHY layer)
 
 The [constitutional-agent](https://github.com/CognitiveThoughtEngine/constitutional-agent-governance) package provides the governance gates and hard constraints that complement this test harness. Six gates, 12 hard constraints, amendment protocol — enforced in code, not YAML policy files. `pip install constitutional-agent`.
+
+### Architecture context (why this layer exists)
+
+This harness tests whether a control *holds*. It does not say which controls an agent workforce
+should have in the first place — that is an architecture question, and it is written up as
+**Enterprise Agent Architecture**: the case for treating autonomous agents as a fifth architecture
+domain alongside Business, Information, Application and Technology.
+
+[cognitivethoughtengine.com/eaa](https://cognitivethoughtengine.com/eaa?utm_source=github&utm_medium=readme&utm_campaign=harness)
+— the four-layer model (Agent/Workforce, Capability/Tool, Control Plane, Governance), a maturity
+model, a standards landscape, and the live reference environment the telemetry above comes from.
 
 ---
 
