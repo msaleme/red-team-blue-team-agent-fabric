@@ -80,7 +80,7 @@ export PATH="$HOME/.local/bin:$PATH"
 | Jailbreak / Over-Refusal | 25 jailbreak + 25 false-positive rate tests | 50 |
 | GTG-1002 APT Simulation | 17 nation-state pattern reproductions | 17 |
 | Enterprise Platforms | 25 cloud + 20 enterprise platform tests | 45+ |
-| AIUC-1 Compliance | Maps to 19 of 20 testable AIUC-1 requirements | 12 |
+| AIUC-1 Compliance | Maps to 19 of 20 testable AIUC-1 requirements (2026-Q1/Q2 set; see the [crosswalk](docs/AIUC1-CROSSWALK.md) for the Q3-2026 delta) | 12 |
 
 Full inventory: [docs/TEST-INVENTORY.md](docs/TEST-INVENTORY.md)
 

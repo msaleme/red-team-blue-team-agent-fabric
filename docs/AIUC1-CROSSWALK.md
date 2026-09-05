@@ -14,7 +14,7 @@ material no matter how many requirements it covers. Executed evidence requires a
 stated target and a pinned revision; independent review requires a qualified
 outside party.
 
-> **Standard currency:** this mapping was built against **v2026-Q1** (reviewed March 2026). AIUC-1 now revises quarterly — **Q2 (April 2026)** added MCP/A2A protocol-security and agent-identity controls; **Q3 (released 2026-07-15)** modified 8 requirements / 41 controls. Requirement-level rows below remain valid (renumbering happened at sub-control level), but see the **Q3-2026 Currency Note** near the end of this document before citing this crosswalk against the current standard. Last currency review: 2026-07-16.
+> **Standard currency:** this mapping was built against **v2026-Q1** (reviewed March 2026). AIUC-1 now revises quarterly — **Q2 (April 2026)** added MCP/A2A protocol-security and agent-identity controls; **Q3 (released 2026-07-15)** modified 8 requirements / 41 controls. Requirement-level rows below remain valid (renumbering happened at sub-control level), but see the **Q3-2026 Currency Note** near the end of this document before citing this crosswalk against the current standard. Last currency review: 2026-07-16. **Next review due on the Q4-2026 release, 2026-10-15**; AIUC-1 ships on a fixed quarterly cadence (Jan/Apr/Jul/Oct 15), so the review date is knowable in advance rather than event-driven.
 
 ---
 
