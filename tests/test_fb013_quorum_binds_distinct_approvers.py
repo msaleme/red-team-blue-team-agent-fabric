@@ -35,19 +35,24 @@ def action():
     return ActionRef(pay_to="0xM", amount=5_000_000, nonce="tx-1")
 
 
-def test_distinct_approvers_satisfy_the_quorum(action):
+@pytest.fixture
+def eligible():
+    return frozenset({"approver-a", "approver-b"})
+
+
+def test_distinct_approvers_satisfy_the_quorum(action, eligible):
     """The positive control. A quorum that rejects everything has not enforced
     anything -- it must still accept the case it exists to allow."""
-    q = ApprovalQuorum(threshold=2, action=action)
+    q = ApprovalQuorum(threshold=2, action=action, eligible_approvers=eligible)
     assert q.approve("approver-a", action)[0]
     assert not q.satisfied, "one of two approvals must not satisfy a threshold of two"
     assert q.approve("approver-b", action)[0]
     assert q.satisfied
 
 
-def test_one_approver_twice_is_not_a_quorum_of_two(action):
+def test_one_approver_twice_is_not_a_quorum_of_two(action, eligible):
     """Cardinality is not identity. This is the defect class itself."""
-    q = ApprovalQuorum(threshold=2, action=action)
+    q = ApprovalQuorum(threshold=2, action=action, eligible_approvers=eligible)
     assert q.approve("approver-a", action)[0]
     accepted, reason = q.approve("approver-a", action)
     assert not accepted
@@ -55,15 +60,31 @@ def test_one_approver_twice_is_not_a_quorum_of_two(action):
     assert not q.satisfied, "the same approver counted twice reached the threshold"
 
 
-def test_approval_for_a_different_action_does_not_count(action):
+def test_approval_for_a_different_action_does_not_count(action, eligible):
     """Binding. An approval is granted for one action, not for the approver's
     general willingness to approve."""
     other = ActionRef(pay_to="0xM", amount=5_000_000, nonce="tx-2")
-    q = ApprovalQuorum(threshold=1, action=action)
+    q = ApprovalQuorum(threshold=1, action=action, eligible_approvers=eligible)
     accepted, reason = q.approve("approver-a", other)
     assert not accepted
     assert "not bound" in reason
     assert not q.satisfied
+
+
+def test_an_ineligible_principal_does_not_count(action, eligible):
+    """Identity is not authority. A well-formed approval from outside the
+    authorized set is not an approval, and distinctness does not rescue it:
+    two ineligible strangers are still two strangers."""
+    q = ApprovalQuorum(threshold=1, action=action, eligible_approvers=eligible)
+    accepted, reason = q.approve("approver-z", action)
+    assert not accepted
+    assert "not in the authorized approver set" in reason
+    assert not q.satisfied
+
+    q2 = ApprovalQuorum(threshold=2, action=action, eligible_approvers=eligible)
+    assert not q2.approve("stranger-1", action)[0]
+    assert not q2.approve("stranger-2", action)[0]
+    assert not q2.satisfied, "two distinct ineligible parties formed a quorum"
 
 
 @pytest.mark.parametrize("field,value", [
@@ -71,10 +92,10 @@ def test_approval_for_a_different_action_does_not_count(action):
     ("amount", 50_000_000),
     ("nonce", "tx-replay"),
 ])
-def test_binding_is_checked_on_every_field(action, field, value):
+def test_binding_is_checked_on_every_field(action, eligible, field, value):
     """Each field of the action is load-bearing: an approval that differs on any
     one of destination, amount or nonce is an approval for a different action."""
-    q = ApprovalQuorum(threshold=1, action=action)
+    q = ApprovalQuorum(threshold=1, action=action, eligible_approvers=eligible)
     mutated = ActionRef(**{**action.__dict__, field: value})
     assert not q.approve("approver-a", mutated)[0]
     assert not q.satisfied

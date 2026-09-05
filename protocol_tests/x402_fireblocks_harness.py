@@ -312,25 +312,37 @@ class ActionRef:
 class ApprovalQuorum:
     """Collects approvals for ONE above-threshold action.
 
-    A count of approvals is not a quorum. Two properties have to hold that
+    A count of approvals is not a quorum. Three properties have to hold that
     cardinality alone does not give you:
 
-      * approvals come from **distinct approver identities** — the same
-        approver signing twice is one approver, not two;
+      * each approver is **eligible** — a signature from someone outside the
+        authorized approver set is not an approval, however well-formed;
+      * approvals come from **distinct identities** — the same approver
+        signing twice is one approver, not two;
       * each approval **binds to the exact action** under evaluation — an
-        approval for a different destination, amount or nonce does not
-        count toward this action's quorum.
+        approval for a different destination, amount or nonce does not count
+        toward this action's quorum.
 
-    Dropping either one lets a degenerate input satisfy the control: N copies
-    of one approval, or N approvals for some other action, both reach the
-    threshold while nobody has approved *this* transfer.
+    Dropping any one lets a degenerate input satisfy the control: N approvals
+    from parties with no authority, N copies of one approval, or N approvals
+    for some other action. Each reaches the threshold while nobody entitled to
+    approve *this* transfer has done so.
+
+    Eligibility was missing from the first version of this class (2026-09-05)
+    and added the same day. The class had been written to fix a test that
+    counted without checking identity, and it checked identity without
+    checking authority -- the same defect one level in. A quorum of two
+    arbitrary strings satisfied it.
     """
     threshold: int
     action: ActionRef
+    eligible_approvers: frozenset
     _approvers: dict = field(default_factory=dict)
 
     def approve(self, approver: str, action: ActionRef) -> tuple[bool, str]:
         """Record one approval. Returns (accepted, reason)."""
+        if approver not in self.eligible_approvers:
+            return (False, f"{approver} is not in the authorized approver set")
         if action != self.action:
             return (False, "approval not bound to the action under evaluation")
         if approver in self._approvers:
@@ -837,31 +849,38 @@ class X402FireblocksTests:
 
         action = ActionRef(pay_to="0xM", amount=5_000_000, nonce="tx-1")
         other = ActionRef(pay_to="0xM", amount=5_000_000, nonce="tx-2")
+        eligible = frozenset({"approver-a", "approver-b"})
 
-        # (2) two distinct approvers, both bound to this action
-        q_ok = ApprovalQuorum(threshold=2, action=action)
+        # (2) two distinct eligible approvers, both bound to this action
+        q_ok = ApprovalQuorum(threshold=2, action=action, eligible_approvers=eligible)
         a1, _ = q_ok.approve("approver-a", action)
         a2, _ = q_ok.approve("approver-b", action)
         distinct_satisfies = a1 and a2 and q_ok.satisfied
 
         # (3) the SAME approver twice must not reach a threshold of two
-        q_dup = ApprovalQuorum(threshold=2, action=action)
+        q_dup = ApprovalQuorum(threshold=2, action=action, eligible_approvers=eligible)
         d1, _ = q_dup.approve("approver-a", action)
         d2, dup_reason = q_dup.approve("approver-a", action)
         duplicate_rejected = d1 and (not d2) and (not q_dup.satisfied)
 
         # (4) an approval for a different action must not count toward this one
-        q_bind = ApprovalQuorum(threshold=1, action=action)
+        q_bind = ApprovalQuorum(threshold=1, action=action, eligible_approvers=eligible)
         b1, bind_reason = q_bind.approve("approver-a", other)
         unbound_rejected = (not b1) and (not q_bind.satisfied)
 
-        model_pass = (routed and distinct_satisfies
-                      and duplicate_rejected and unbound_rejected)
+        # (5) a well-formed approval from outside the authorized set is not an approval
+        q_elig = ApprovalQuorum(threshold=1, action=action, eligible_approvers=eligible)
+        e1, elig_reason = q_elig.approve("approver-z", action)
+        ineligible_rejected = (not e1) and (not q_elig.satisfied)
+
+        model_pass = (routed and distinct_satisfies and duplicate_rejected
+                      and unbound_rejected and ineligible_rejected)
         if model_pass:
             model_reason = (
                 f"above-threshold spend routed to manual approval ({reason}); "
-                "quorum requires distinct approvers bound to the exact action "
-                f"(duplicate: {dup_reason}; unbound: {bind_reason})")
+                "quorum requires eligible, distinct approvers bound to the exact action "
+                f"(duplicate: {dup_reason}; unbound: {bind_reason}; "
+                f"ineligible: {elig_reason})")
         else:
             gaps = []
             if not routed:
@@ -872,6 +891,8 @@ class X402FireblocksTests:
                 gaps.append("QUORUM GAP — one approver counted twice toward the threshold")
             if not unbound_rejected:
                 gaps.append("BINDING GAP — an approval for a different action counted toward this one")
+            if not ineligible_rejected:
+                gaps.append("ELIGIBILITY GAP — a party outside the authorized set counted toward the quorum")
             model_reason = "; ".join(gaps)
         self._finish(
             test_id="FB-013", name="Approval Quorum Above Threshold",
