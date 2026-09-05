@@ -232,6 +232,20 @@ def test_submitter_cannot_assert_an_independence_level():
     assert exc.value.status == 422
 
 
+def test_test_only_acceptance_fault_is_explicit_and_narrow():
+    """The soak's seeded control can prove its unexpected-acceptance path.
+
+    This is not a contract mode: it must be explicitly selected and only
+    bypasses the one rejection class named by the control.
+    """
+    env = _envelope()
+    env["independence_level"] = "I2"
+    record = validate_and_build(
+        env, REQUIRED, test_only_accept_invalid_class="claimed_independence"
+    )
+    assert record["independence_level"] == "I0"
+
+
 def test_record_is_always_i0_with_a_named_system_under_test():
     """1. An I-level with no named system under test is not a claim."""
     record = validate_and_build(_envelope(), REQUIRED)

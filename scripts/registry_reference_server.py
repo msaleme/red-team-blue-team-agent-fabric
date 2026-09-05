@@ -50,6 +50,11 @@ REGISTRY_ID_RE = re.compile(r"^[A-Za-z0-9\-]+$")
 
 CLAIM_LABEL = "Tested with Agent Security Harness"
 
+# This is deliberately narrow.  It exists solely to let the separate soak
+# runner prove it reports an unexpected acceptance; normal invocations cannot
+# select it, and it never affects the reference contract by default.
+TEST_ONLY_ACCEPT_INVALID_CLASSES = ("claimed_independence",)
+
 # Contract section 4.1. Default separators, NOT compact. Changing this silently
 # invalidates every signature ever produced by the shipping client.
 def canonical_bytes(payload: dict) -> bytes:
@@ -116,7 +121,12 @@ class Rejected(Exception):
         self.reason = reason
 
 
-def validate_and_build(submission: dict, required_keys: list[str]) -> dict:
+def validate_and_build(
+    submission: dict,
+    required_keys: list[str],
+    *,
+    test_only_accept_invalid_class: str | None = None,
+) -> dict:
     """Contract section 5. Eight checks, in order. Raises Rejected."""
     # 1. Shape
     if not isinstance(submission, dict):
@@ -191,7 +201,8 @@ def validate_and_build(submission: dict, required_keys: list[str]) -> dict:
         signature_verifiable = True
 
     # 7. Classification. I0 always; never submitter-supplied.
-    if submission.get("independence_level") not in (None, "I0"):
+    if (submission.get("independence_level") not in (None, "I0")
+            and test_only_accept_invalid_class != "claimed_independence"):
         raise Rejected(
             422,
             "a submitted record is I0 by construction; the registry does not accept a "
@@ -247,6 +258,7 @@ BADGE_SVG = (
 class Handler(BaseHTTPRequestHandler):
     store: Store
     required_keys: list[str]
+    test_only_accept_invalid_class: str | None = None
     server_version = "agent-security-registry-reference/1.0"
 
     def log_message(self, fmt, *args):  # quieter default logging
@@ -272,7 +284,11 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         try:
-            record = validate_and_build(submission, self.required_keys)
+            record = validate_and_build(
+                submission,
+                self.required_keys,
+                test_only_accept_invalid_class=self.test_only_accept_invalid_class,
+            )
         except Rejected as rej:
             self._json(rej.status, {"error": rej.reason})
             return
@@ -316,18 +332,32 @@ class Handler(BaseHTTPRequestHandler):
         self._json(404, {"error": "not found"})
 
 
-def build_server(port: int) -> ThreadingHTTPServer:
+def build_server(
+    port: int, *, test_only_accept_invalid_class: str | None = None
+) -> ThreadingHTTPServer:
+    if test_only_accept_invalid_class not in (None, *TEST_ONLY_ACCEPT_INVALID_CLASSES):
+        raise ValueError("unsupported test-only invalid-acceptance class")
     Handler.store = Store()
     Handler.required_keys = load_schema_required()
+    Handler.test_only_accept_invalid_class = test_only_accept_invalid_class
     return ThreadingHTTPServer(("127.0.0.1", port), Handler)
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--port", type=int, default=8787)
+    ap.add_argument(
+        "--test-only-accept-invalid-class",
+        choices=TEST_ONLY_ACCEPT_INVALID_CLASSES,
+        help=("intentionally violate one rejection rule for a labelled, "
+              "loopback-only soak control; never use for conformance evidence"),
+    )
     args = ap.parse_args()
 
-    httpd = build_server(args.port)
+    httpd = build_server(
+        args.port,
+        test_only_accept_invalid_class=args.test_only_accept_invalid_class,
+    )
     base = f"http://127.0.0.1:{args.port}"
     print(f"reference registry on {base}")
     print(f"  export AGENT_SECURITY_REGISTRY_URL=\"{base}\"")
