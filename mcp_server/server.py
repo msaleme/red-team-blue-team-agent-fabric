@@ -163,7 +163,7 @@ def create_server(
         "Agent Security Harness",
         instructions=(
             "Security testing tools for AI agent systems. "
-            "611 tests across MCP, A2A, L402, x402, and identity protocols."
+            "612 tests across MCP, A2A, L402, x402, and identity protocols."
         ),
     )
 

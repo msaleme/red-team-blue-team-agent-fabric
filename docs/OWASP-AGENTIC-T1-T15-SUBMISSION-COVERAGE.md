@@ -14,7 +14,7 @@
 | Harness version | `4.20.0` |
 | Assessed commit | [`8d8bc08933637381a32fc32041f139d34eb6271f`](https://github.com/msaleme/red-team-blue-team-agent-fabric/commit/8d8bc08933637381a32fc32041f139d34eb6271f) |
 | Assessed at | 2026-08-02T18:30:00Z |
-| Repository tests | 611 (`python scripts/count_tests.py`) |
+| Repository tests | 612 (`python scripts/count_tests.py`) |
 | Unique tests mapped in this view | 83 |
 | OWASP source | *Agentic AI - Threats and Mitigations*, **v1.1**, 2025-12 |
 | Source landing page | [https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/](https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/) |
@@ -753,6 +753,7 @@ Per-test rerun commands are in the `Rerun` column of each evidence table.
 | 1.2 | v1.1 `65e3bd59f99c` | 4.14.0 | `19dbfb871d13` | 2026-08-05 | Re-pinned to the v4.14.0 release. No threat, scenario or control verdict changed, and no test was added or removed. v4.14.0 removes fabricated default network endpoints and corrects an attestation independence claim; the harness exercises neither. commit and assessed_at are deliberately unchanged from 1.1, because the adjudication was not redone. |
 | 1.3 | v1.1 `65e3bd59f99c` | 4.15.0 | `19dbfb871d13` | 2026-08-07 | Re-pinned to the v4.15.0 release. No threat, scenario or control verdict changed, and no test was added or removed. Unlike 1.2, this release does change runtime behaviour. Issues 348 and 350 stop seven modules recording a pass when the target never serviced the request, so those results now read INCONCLUSIVE. This mapping adjudicates coverage rather than run output, so its verdicts are unaffected and were not redone. Stated plainly for readers who rely on run output instead. Any earlier run of multi_agent_harness, identity_harness, advanced_attacks, memory_harness, intent_contract_harness, enterprise_adapters or extended_enterprise_adapters against an unresponsive target reported more passes than it measured. commit and assessed_at are deliberately unchanged from 1.1. |
 | 1.4 | v1.1 `65e3bd59f99c` | 4.16.0 | `19dbfb871d13` | 2026-08-29 | Re-pinned to the v4.16.0 release. No threat, scenario or control verdict changed, and no test was added or removed. Like 4.15.0, this release changes runtime behaviour, and in both directions. More verdicts report INCONCLUSIVE, and some that previously reported FAIL now report PASS because ten modules could not recognise a target visibly refusing an attack. This mapping adjudicates coverage rather than run output, so its verdicts are unaffected and were not redone. Stated plainly for readers who rely on run output instead. commit and assessed_at are deliberately unchanged from 1.1. |
+| 1.5 | v1.1 `65e3bd59f99c` | 4.20.0 | `19dbfb871d13` | 2026-09-05 | Repository test total 611 -> 612 on the addition of MCP-021, the MCP authentication fail-open differential (#503, CVE-2026-59822 shape). No threat, scenario or control verdict changed and no adjudication was redone; MCP-021 is an ASI02 test on a surface this mapping already adjudicates, so unique_mapped_tests is unchanged. Recorded because r15_total compares the stated total against a live count, so a total left stale would fail rather than mislead. commit and assessed_at are deliberately unchanged from 1.1. |
 
 A status changes only through a reviewed mapping change.
 

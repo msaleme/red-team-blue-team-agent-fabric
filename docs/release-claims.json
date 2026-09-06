@@ -29,7 +29,7 @@
     {
       "id": "main-test-count",
       "fact": "main carries 611 unique test IDs.",
-      "value": "611",
+      "value": "612",
       "release_tag": null,
       "commit": "HEAD",
       "command": "python3 scripts/count_tests.py",
