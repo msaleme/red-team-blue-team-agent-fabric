@@ -12,3 +12,27 @@ patterns:
   trust: verified
   reviewed_by: msaleme
   reviewed_at: '2026-09-05'
+- file: contrib/semantic_constraint_preserved.yaml
+  id: CP-0003
+  sha256: 60c6e9f5ac65aa2afabd71cb5a048603970cff2a9224afe5cd8a27d4dcc1c2de
+  trust: community
+  reviewed_by: msaleme
+  reviewed_at: '2026-09-06'
+- file: contrib/semantic_constraint_safely_narrowed.yaml
+  id: CP-0004
+  sha256: ea63aecc051f398718823510cc35058fe6327684a8b2cf0218821b2226b9bf2a
+  trust: community
+  reviewed_by: msaleme
+  reviewed_at: '2026-09-06'
+- file: contrib/semantic_constraint_dropped.yaml
+  id: CP-0005
+  sha256: 816b25fe0c4e3411a24bcab9468c5770e1560ebba128a10e95e046666cceeb49
+  trust: community
+  reviewed_by: msaleme
+  reviewed_at: '2026-09-06'
+- file: contrib/semantic_constraint_widened.yaml
+  id: CP-0006
+  sha256: f4087650b0ee03f4b346ae5d134d49fcc799c27dd20a83b30a4f6526045ed701
+  trust: community
+  reviewed_by: msaleme
+  reviewed_at: '2026-09-06'
