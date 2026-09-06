@@ -288,6 +288,29 @@ def jsonrpc_notification(method: str, params: dict | None = None) -> dict:
     return msg
 
 
+def _auth_outcome(response: dict | None) -> str:
+    """Classify one authentication probe as served / rejected / indeterminate.
+
+    Deliberately three-valued. A transport failure, a 5xx, or a response that is
+    neither a result nor a client-side refusal is *indeterminate*: the control was
+    not exercised, and folding that into either "rejected" or "served" would let a
+    broken route masquerade as an enforced one. MCP-021 grades any indeterminate
+    leg as INCONCLUSIVE rather than guessing.
+    """
+    if not response or response.get("_exception"):
+        return "indeterminate"
+    status = response.get("_status", 200)
+    if status in (401, 403):
+        return "rejected"
+    if status >= 500:
+        return "indeterminate"
+    if "result" in response:
+        return "served"
+    if "error" in response or response.get("_error"):
+        return "rejected" if 400 <= status < 500 else "indeterminate"
+    return "indeterminate"
+
+
 def _probe_failed(response: dict | None) -> bool:
     """Whether a configured probe failed before it could yield a valid result."""
     return not response or bool(
@@ -425,13 +448,22 @@ class StreamableHTTPTransport(MCPTransport):
         Header overrides are intentionally available to security probes so the
         harness can verify that gateways reject routing fields which disagree
         with the JSON-RPC body. Production callers should not use them.
+
+        An override value of ``None`` REMOVES that header. MCP-021 needs to send
+        a request carrying no ``Authorization`` at all in order to establish that
+        the server evaluates authentication before asking whether a token is
+        valid; an update-only override cannot express absence.
         """
         if self.is_modern:
             message = self._prepare_modern_message(message)
         data = json.dumps(message).encode("utf-8")
         headers = self._request_headers(message)
         if header_overrides:
-            headers.update(header_overrides)
+            for key, value in header_overrides.items():
+                if value is None:
+                    headers.pop(key, None)
+                else:
+                    headers[key] = value
 
         req = urllib.request.Request(self.url, data=data, headers=headers, method="POST")
         try:
@@ -2885,6 +2917,138 @@ class MCPSecurityTests:
         ))
 
     # ------------------------------------------------------------------
+    # Category 8b: Authentication Fail-Open (ASI02) — CVE-2026-59822 shape
+    # ------------------------------------------------------------------
+
+    def test_mcp_021_auth_fail_open(self):
+        """MCP-021: Token validation must reject, not fall open (#503).
+
+        LiteLLM's MCP Gateway (CVE-2026-59822, CWE-287/306, fixed 1.84.0; CISA KEV
+        2026-09-02) returned an empty ``UserAPIKeyAuth()`` on the failure branch of
+        token validation, so ``Authorization: Bearer x`` granted full MCP access. The
+        defect is not missing auth. It is auth that is present, evaluated, and falls
+        open, producing a structurally valid empty principal that every downstream
+        check accepts because nothing downstream asks whether a principal was ever
+        established.
+
+        Four legs, because two rejections cannot tell the interesting cases apart:
+
+        ==========================  ========  =========  ==========  =================
+        request                     holding   fails-open  no auth     refuses all
+        ==========================  ========  =========  ==========  =================
+        no ``Authorization``        rejected  rejected    served      rejected
+        ``Authorization: Bearer x`` rejected  **served**  served      rejected
+        unsigned/expired JWT        rejected  **served**  served      rejected
+        the configured credential   served    served      served      **rejected**
+        ==========================  ========  =========  ==========  =================
+
+        * **PASS** needs all four: header-less rejected, both garbage tokens
+          rejected, and the configured credential *accepted*. The last leg is the
+          positive control; without it a route that is simply unavailable, or a
+          gateway that refuses everything, grades PASS on two rejections.
+        * **FAIL** when the header-less request is rejected but a garbage token is
+          served. Fail-open is only visible as a differential against that rejection.
+        * **INCONCLUSIVE** when the header-less request is served (nothing is
+          authenticating, so token behaviour says nothing), when the configured
+          credential is rejected (the control was never exercised), when no
+          credential is configured, or when any leg is indeterminate.
+
+        Scope. The differential runs on ``tools/list`` only. ``tools/call`` would add
+        side effects on a live target and its error surface conflates tool-not-found
+        with an auth refusal, which is the kind of ambiguity this verdict exists to
+        avoid. A PASS says two garbage shapes are rejected while a valid credential
+        is honoured; it does not say validation is correct for every malformed token,
+        nor that a valid token yields a correctly restricted principal.
+        """
+        t0 = time.monotonic()
+        msg = jsonrpc_request("tools/list", {})
+        name = "Authentication Fail-Open (token validation)"
+
+        if self.simulate:
+            self._record(MCPTestResult(
+                test_id="MCP-021", name=name, category="authentication",
+                owasp_asi="ASI02", severity=Severity.CRITICAL.value, passed=True,
+                details="[simulate] Compiled four-leg auth differential; no HTTP call made",
+                mcp_method="tools/list", request_sent=msg,
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        configured = {k: v for k, v in getattr(self.transport, "headers", {}).items()
+                      if k.lower() == "authorization"}
+        if not configured:
+            self._record(MCPTestResult(
+                test_id="MCP-021", name=name, category="authentication",
+                owasp_asi="ASI02", severity=Severity.CRITICAL.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "no Authorization credential is configured for "
+                         "this target, so the accept-the-valid-token control cannot run. Two "
+                         "rejections without it would not distinguish enforcement from a route "
+                         "that refuses everything."),
+                mcp_method="tools/list", request_sent=msg,
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        header_name = next(iter(configured))
+        # A well-formed JWT shape that is unsigned and long expired: alg=none,
+        # exp=2001. Structurally parseable, never valid.
+        dead_jwt = ("eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0."
+                    "eyJzdWIiOiJtY3AtMDIxIiwiZXhwIjoxMDAwMDAwMDAwfQ.")
+        legs = {
+            "no_header": {header_name: None},
+            "garbage_bearer": {header_name: "Bearer x"},
+            "garbage_jwt": {header_name: f"Bearer {dead_jwt}"},
+            "valid": None,
+        }
+        outcomes, responses = {}, {}
+        for leg, override in legs.items():
+            resp = self.transport.send(msg, header_overrides=override)
+            responses[leg] = resp
+            outcomes[leg] = _auth_outcome(resp)
+
+        elapsed = time.monotonic() - t0
+        garbage = ("garbage_bearer", "garbage_jwt")
+        indeterminate = [k for k, v in outcomes.items() if v == "indeterminate"]
+
+        def record(passed, details):
+            self._record(MCPTestResult(
+                test_id="MCP-021", name=name, category="authentication",
+                owasp_asi="ASI02", severity=Severity.CRITICAL.value,
+                passed=passed, details=details, mcp_method="tools/list",
+                request_sent=msg, response_received={"outcomes": outcomes},
+                elapsed_s=round(elapsed, 3),
+            ))
+
+        if indeterminate:
+            record(False, INCONCLUSIVE_PREFIX + (
+                f"leg(s) {indeterminate} returned neither a result nor a client-side "
+                f"refusal, so the differential was not established: {outcomes}"))
+            return
+        if outcomes["no_header"] == "served":
+            record(False, INCONCLUSIVE_PREFIX + (
+                "the server served a request carrying no Authorization header, so it is "
+                "not authenticating on this route. Token-validation behaviour says nothing "
+                "here; an unauthenticated endpoint is a different finding."))
+            return
+        if outcomes["valid"] == "rejected":
+            record(False, INCONCLUSIVE_PREFIX + (
+                "the configured credential was rejected, so the accept control never "
+                "passed. The two rejections below are consistent with enforcement and "
+                "equally consistent with a route that refuses everything: " + str(outcomes)))
+            return
+
+        served_garbage = [k for k in garbage if outcomes[k] == "served"]
+        if served_garbage:
+            record(False, (
+                f"AUTH FAILS OPEN — header-less request rejected and the configured "
+                f"credential accepted, but {served_garbage} was SERVED. Token validation "
+                f"is not refusing on its failure branch (CVE-2026-59822 shape): {outcomes}"))
+            return
+        record(True, (
+            "token validation rejects both garbage shapes while the configured credential "
+            f"is accepted and the header-less request is refused: {outcomes}"))
+
+    # ------------------------------------------------------------------
     # Category 9: SSRF via Tool Call URI Parameter (ASI02)
     # ------------------------------------------------------------------
 
@@ -3372,6 +3536,9 @@ class MCPSecurityTests:
             ],
             "runtime_identity": [
                 self.test_mcp_midsession_tool_identity_rebinding,
+            ],
+            "authentication": [
+                self.test_mcp_021_auth_fail_open,
             ],
             "ssrf": [
                 self.test_mcp_ssrf_via_uri_parameter,

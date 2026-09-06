@@ -1,10 +1,10 @@
 # Test Inventory
 
-**611 security tests across 44 test-bearing modules** on `main` (verified 2026-09-01 by `scripts/count_tests.py`)
+**612 security tests across 44 test-bearing modules** on `main` (verified 2026-09-01 by `scripts/count_tests.py`)
 
 See also: **[OWASP Agentic AI v1.1 Threat Coverage Report](OWASP-AGENTIC-V1.1-COVERAGE.md)** — per-threat T1–T17 evidence mapping with scenario coverage, mitigation-control validation and evidence classes, generated from `coverage/owasp-agentic-v1.1.yaml`. ([T1–T15 submission view](OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md))
 
-> **Canonical figures (verified 2026-09-02).** Main branch: 611 test IDs across
+> **Canonical figures (verified 2026-09-02).** Main branch: 612 test IDs across
 > 44 test-bearing modules in `protocol_tests/` (files with no `test_id` — CLI,
 > helpers, telemetry, registry — are not counted as modules). `main`'s
 > `pyproject.toml` is at `agent-security-harness` v4.20.0 (611 tests); `main` and
@@ -199,7 +199,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 ## Test Harness Modules (representative summary)
 
 > This table lists the largest modules; the full harness spans **44 test-bearing
-> modules / 611 tests** on `main` (verified 2026-09-01 via `scripts/count_tests.py`).
+> modules / 612 tests** on `main` (verified 2026-09-01 via `scripts/count_tests.py`).
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|

@@ -35,7 +35,14 @@ from mcp_reference_calibration import REFERENCE_SERVER, calibrate, server_comman
 
 #: Measured 2026-08-30 against @modelcontextprotocol/server-everything@2026.8.18
 #: over stdio. Independently reproduced by a reviewer on the same day.
-EXPECTED = {"PASS": 16, "FAIL": 2, "INCONCLUSIVE": 14}
+#:
+#: 2026-09-05: INCONCLUSIVE 14 -> 15 on the addition of MCP-021. The reference
+#: server is run over stdio with no Authorization credential configured, so the
+#: auth differential cannot run its accept-the-valid-token control and says so.
+#: That is the intended verdict for this target, not a regression: an auth test
+#: that graded a credential-less stdio server would be reporting on something it
+#: never exercised.
+EXPECTED = {"PASS": 16, "FAIL": 2, "INCONCLUSIVE": 15}
 
 #: The two FAILs are findings about this reference server in this configuration.
 #: MCP-008: it ignores malformed messages without reporting a parse error.

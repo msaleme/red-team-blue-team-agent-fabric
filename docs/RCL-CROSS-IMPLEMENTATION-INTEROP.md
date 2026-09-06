@@ -6,7 +6,7 @@ repository, not certification, endorsement, or adoption.
 *corpus*, not to the harness: a second implementation reproducing recorded
 verdicts establishes that the fixtures encode what they claim to encode. It
 establishes nothing about the security of any target, and nothing about the
-remaining 611 tests in this repository, which stay I0.
+remaining 612 tests in this repository, which stay I0.
 
 ---
 
