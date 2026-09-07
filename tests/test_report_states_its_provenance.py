@@ -316,11 +316,45 @@ def test_no_hostname_username_or_working_directory_is_recorded():
     import socket
 
     with mock.patch.object(sys, "argv", ["agent-security", "test", "mcp"]):
-        blob = json.dumps(run_provenance())
-    for leak in (socket.gethostname(), getpass.getuser(), os.getcwd(),
-                 str(Path.home())):
-        if leak and len(leak) > 3:
-            assert leak not in blob, f"{leak!r} reached the provenance block"
+        block = run_provenance()
+
+    # Check VALUES, not a substring of the serialised blob. A blob-wide grep
+    # collides with legitimate key names: on GitHub Actions the username is
+    # literally "runner", and the CI block correctly carries the fields
+    # `runner_os` and `runner_arch`. That is a field name, not a leaked
+    # identity, and a substring assertion cannot tell the two apart -- it
+    # failed CI on #525 for exactly that reason.
+    #
+    # The `ci` block is exempt: its contents are GitHub-supplied public
+    # identifiers (repository, workflow ref, run url) that are emitted on
+    # purpose and pinned by their own schema. `not_claimed` is exempt because
+    # it is prose that names these very fields in order to say they are absent.
+    forbidden_keys = {"hostname", "host", "user", "username", "cwd",
+                      "working_directory", "home"}
+
+    def values(node, path="", skip=("ci", "not_claimed")):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                assert k not in forbidden_keys, (
+                    f"provenance emitted a forbidden key {k!r} at {path}"
+                )
+                if k in skip:
+                    continue
+                yield from values(v, f"{path}.{k}", skip)
+        elif isinstance(node, list):
+            for i, v in enumerate(node):
+                yield from values(v, f"{path}[{i}]", skip)
+        elif isinstance(node, str):
+            yield path, node
+
+    leaks = [leak for leak in (socket.gethostname(), getpass.getuser(),
+                               os.getcwd(), str(Path.home()))
+             if leak and len(leak) > 3]
+    for path, value in values(block):
+        for leak in leaks:
+            assert leak not in value, (
+                f"{leak!r} reached the provenance block at {path} = {value!r}"
+            )
 
 
 # --- 3. the report carries both blocks -------------------------------------
