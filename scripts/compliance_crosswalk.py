@@ -20,7 +20,17 @@ from typing import Any
 
 import yaml
 
-CONFIGS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "configs")
+# Prefer the copy shipped inside the package (protocol_tests/configs is a
+# symlink to the canonical configs/ at the repo root, so this resolves in both
+# a source checkout and an installed wheel); fall back to the repo root.
+_PKG_CONFIGS = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "protocol_tests", "configs",
+)
+_ROOT_CONFIGS = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "configs"
+)
+CONFIGS_DIR = _PKG_CONFIGS if os.path.isdir(_PKG_CONFIGS) else _ROOT_CONFIGS
 
 FRAMEWORK_FILES = {
     "eu-ai-act": "eu_ai_act_mapping.yaml",
