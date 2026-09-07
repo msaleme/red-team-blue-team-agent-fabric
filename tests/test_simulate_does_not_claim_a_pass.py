@@ -59,6 +59,18 @@ class SimulateIsInconclusive(unittest.TestCase):
         self.assertEqual(report["status"], "inconclusive")
 
 
+class TheConsoleAgreesWithTheJson(unittest.TestCase):
+    """The JSON said every row was unevaluated; the console line said N/N
+    passed. Same run, two answers -- and the console is the one a human reads.
+    Found on the installed 4.21.0 package by the third external review."""
+
+    def test_simulate_console_does_not_say_passed(self):
+        done = run_cli("test", "mcp", "--simulate")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertNotIn("passed (simulated)", done.stdout)
+        self.assertIn("INCONCLUSIVE", done.stdout)
+
+
 class TheRenderedPageMakesNoClaim(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

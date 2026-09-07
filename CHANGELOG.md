@@ -60,6 +60,24 @@ outcome-dependence the per-row table could not see. `docs/COMPARISON.md` no
 longer says "Complete ASI01-ASI10"; it says what is mapped and what is thin
 (ASI10 Rogue Agents: 13; ASI08 Cascading Failures: 19).
 
+### Correction, same day, after the third external review ran the installed package
+
+The paragraph above says the residual bucket was removed "in three separate
+files". It was removed in one. `scripts/evidence_pack.py` (three sites) and
+`scripts/top10_failures.py` were still two-state at the tag and turned an
+explicitly INCONCLUSIVE report into published failure claims; neither file
+contained the word `inconclusive`. Corrected after release (see the PR that
+follows v4.21.0). Also at the tag: the AIUC-1 harness's native `--simulate`
+fakes the target's answer and then runs the real check, so it reported 12 of 12
+passed with the HTML rendering them as passes -- the CLI's generic simulate had
+been fixed, this module handles its own and was not. The simulate console line
+still said "N/N passed" while its JSON said unevaluated. And the sample report
+every document cites was never in the public tree (the blanket `*.json` ignore,
+sixth instance). A survey of the 24 harnesses declaring `--simulate` found 11 that
+label every simulated PASS on the row and 8 that label only the report; those 8
+are grandfathered in `testing/test_simulated_passes_are_scoped.py` and named
+there as debt, not fixed.
+
 ### The practice
 
 Fault injection with one added step: **verify the injection changed the

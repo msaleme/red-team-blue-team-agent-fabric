@@ -65,6 +65,11 @@ november-meeting-extracted.txt
 # `git add -A` commits the validator and its test and silently drops the
 # declaration they validate.
 !docs/result-semantics.json
+# Sixth time. The one sample report the evidence-pack docs, the review briefs
+# and every "regenerated against the real report" verification used was never
+# in the public tree -- an external reviewer got a 404 from the tag. It carries
+# no target URL and no credential (checked); it is the reproducibility fixture.
+!reports/mcpstandard-dev-20260327.json
 # Fourth time, 2026-09-02. Deposited evidence runs are the artifact that makes a
 # reported verdict auditable rather than merely repeatable, so they are
 # deliverables, not run output. The blanket *.json above dropped one silently and

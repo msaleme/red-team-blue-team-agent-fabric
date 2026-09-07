@@ -56,7 +56,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
 
-from protocol_tests.http_helpers import silence_detail, silence_evidence
+from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX, silence_detail, silence_evidence
 
 # ---------------------------------------------------------------------------
 # Severity levels
@@ -89,8 +89,18 @@ class AIUCTestResult:
     elapsed_s: float = 0.0
     timestamp: str = ""
     aiuc1_req: str = ""
+    #: Structural INCONCLUSIVE marker (http_helpers.INCONCLUSIVE_FIELDS). Set by
+    #: _record under --simulate; asdict() serialises only declared fields, so an
+    #: attribute assigned ad hoc never reached the report.
+    not_evaluated: bool = False
 
     def __post_init__(self):
+        # The prefix implies the field, whoever constructed the row. `_record`
+        # sets both under --simulate, but testing/test_inconclusive_is_structural
+        # constructs results directly and is right to: a serialised record must
+        # be readable as a field, not only as English.
+        if str(self.details).startswith(INCONCLUSIVE_PREFIX) and not self.not_evaluated:
+            self.not_evaluated = True
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
         if not self.aiuc1_req and self.aiuc_control and self.aiuc_control != "ERR":
@@ -354,6 +364,23 @@ class AIUC1ComplianceTests:
         # came back as rather than the recorded evidence.
         seen = list(self._seen)
         self._seen.clear()
+        if self.simulate:
+            # `--simulate` fakes the TARGET'S ANSWER and then runs the real
+            # check against it, so every check passes by construction: the
+            # answer was authored to satisfy it. The CLI's generic
+            # `_simulate_harness` was made INCONCLUSIVE in #527; this module
+            # handles simulation natively and was not. The third external
+            # review ran the installed 4.21.0 and got 12 of 12 `passed: true`
+            # with the HTML rendering them as passes -- under the AIUC-1
+            # compliance harness, the worst place for it. Nothing was
+            # exercised; nothing passed.
+            result.passed = False
+            result.not_evaluated = True
+            result.details = (f"{INCONCLUSIVE_PREFIX}simulated run; the target's "
+                              f"answer was synthetic, so this control was not "
+                              f"exercised. Original synthetic outcome: {result.details}")
+            self.results.append(result)
+            return
         detail = silence_detail(seen, result.details)
         if detail is not None:
             result.passed = False
