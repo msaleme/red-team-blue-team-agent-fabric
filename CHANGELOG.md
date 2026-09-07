@@ -69,6 +69,52 @@ at 0.
 Tests: `testing/test_live_unreached_is_inconclusive.py` runs the five through
 the CLI against a closed port; `testing/test_sweep_covers_the_registry.py`
 pins the candidate set to the registry minus the excuse list, with floors.
+### Fixed — a mixed requirement aggregated to PASS, and the installed registry checked nothing (third external review, R3-03 and R3-04)
+
+**R3-03.** A requirement with every mapped test present, one PASS and four
+INCONCLUSIVE, published as PASS. `scripts/evidence_pack.py` ruled
+`FAIL if any failed; INCONCLUSIVE only if nothing passed; PARTIAL only if a
+mapped test was absent; else PASS` -- so presence was enough, and one
+established member carried four that established nothing. `scripts/html_report.py`
+had no PARTIAL state at all: two of five mapped tests present and green
+rendered PASS. Four private rules across two files, for AIUC-1 and OWASP each.
+
+Now one rule, `protocol_tests/aggregate.py::aggregate_state`, called at all
+four sites. PASS asserts every mapped member ran and held. PARTIAL means at
+least one member passed and at least one other is absent or inconclusive, and
+the row names which (`tests_absent`, `tests_inconclusive`). INCONCLUSIVE means
+members ran and none was established. FAIL still wins over everything. The
+markdown and HTML tables gained an Inconclusive column; the HTML badge for
+PARTIAL is its own colour with the member IDs printed under it, and the
+markdown "Under-Exercised Requirements" section lists inconclusive members
+alongside absent ones. `NO_RESULTS` (AIUC-1) and `NOT_TESTED` (OWASP) are kept
+as the two consumers' names for "nothing present".
+
+**R3-04.** `scripts/registry_reference_server.py` resolved its schema through
+a repo-root join -- a checkout-only path. On the installed wheel the file did
+not exist, `load_schema_required()` returned `[]` on the `OSError`, and a
+submission whose `payload.report` was `{}` came back 201 with a record
+labelled "Tested with Agent Security Harness". The same input in a checkout
+was rejected 422 for five missing keys. Now resolved through
+`protocol_tests.package_data.data_path`, and a schema that cannot be loaded
+raises `SchemaUnavailable`: the loader never returns an empty list,
+`validate_and_build` refuses an empty requirement list rather than accepting,
+`build_server` will not start without the schema, and a running handler
+answers 503, never 201. Missing validation configuration is a refusal, not
+"no requirements".
+
+Tests: `tests/test_aggregate_state_is_shared.py` (the review's fixture through
+both consumers and both tables, a source-level check that no site re-grows its
+own rule, and the rendered artifacts naming the members) and
+`tests/test_registry_refuses_without_schema.py` (nonexistent path, empty
+requirement list, server refuses to start, handler 503, and the installed
+wheel -- built with `python -m build`, no flags, called from outside the
+checkout -- rejecting `{}` with 422).
+
+What this does not establish: the aggregate rule is applied to the two
+report consumers only; harness-level `run_summary` and per-module summaries
+are unchanged. The registry server still performs a required-key check, not
+full JSON Schema validation, as its docstring has always said.
 
 ## [4.21.0] - 2026-09-07
 

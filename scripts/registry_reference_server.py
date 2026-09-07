@@ -33,8 +33,20 @@ try:  # optional: only needed to actually verify a signature
 except ImportError:  # pragma: no cover - environment dependent
     _CRYPTO = False
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_PATH = REPO_ROOT / "schemas" / "attestation-report.json"
+# A checkout puts the repo root on sys.path only when run as a module; run
+# as a script (`python3 scripts/registry_reference_server.py`) it is not.
+# Harmless on an installed copy, where parents[1] is site-packages.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from protocol_tests.package_data import data_path as _data_path  # noqa: E402
+
+# Resolved through the one resolver every other consumer uses. This was a
+# repo-root join to `schemas/attestation-report.json`, a checkout-only path.
+# In an installed wheel it did not exist, the loader below returned `[]` on
+# the OSError, and the server accepted a submission whose report was `{}` and
+# returned a record labelled "Tested with Agent Security Harness". The same
+# input in a checkout was rejected 422. Found by the third external review
+# (2026-09-07, R3-04).
+SCHEMA_PATH = _data_path("schemas", "attestation-report.json")
 
 # Mirrors protocol_tests/attestation_registry.py. Duplicated deliberately: a
 # server must not import the client to decide whether the client behaved.
@@ -82,18 +94,40 @@ def find_sensitive_keys(obj, path="report") -> list[str]:
     return found
 
 
-def load_schema_required() -> list[str]:
+class SchemaUnavailable(RuntimeError):
+    """The attestation schema could not be loaded, so nothing can be validated.
+
+    This is an explicit refusal, never an empty requirement list. "Missing
+    validation configuration" must never mean "no requirements": with `[]`
+    the required-key check passed everything, silently, and the server issued
+    the claim label on an empty report.
+    """
+
+
+def load_schema_required(schema_path: "Path | str | None" = None) -> list[str]:
     """Required top-level keys of the attestation report.
 
     Deliberately a required-key check, not full JSON Schema validation: the repo
     has no jsonschema dependency and a server that claims schema validation it
     does not perform is the same class of defect as claiming a signature check it
     skipped. A production server SHOULD validate fully.
+
+    Raises SchemaUnavailable when the schema cannot be read, does not parse, or
+    declares no required keys. It never returns an empty list.
     """
+    path = Path(schema_path) if schema_path is not None else Path(SCHEMA_PATH)
     try:
-        return json.loads(SCHEMA_PATH.read_text()).get("required", [])
-    except (OSError, json.JSONDecodeError):
-        return []
+        required = json.loads(path.read_text()).get("required")
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SchemaUnavailable(
+            f"cannot load the attestation schema at {path}: {exc}; refusing to "
+            f"validate submissions without it") from exc
+    if not isinstance(required, list) or not required \
+            or not all(isinstance(k, str) for k in required):
+        raise SchemaUnavailable(
+            f"the attestation schema at {path} declares no required keys; refusing "
+            f"to treat an absent requirement list as no requirements")
+    return list(required)
 
 
 class Store:
@@ -127,7 +161,16 @@ def validate_and_build(
     *,
     test_only_accept_invalid_class: str | None = None,
 ) -> dict:
-    """Contract section 5. Eight checks, in order. Raises Rejected."""
+    """Contract section 5. Eight checks, in order. Raises Rejected.
+
+    Raises SchemaUnavailable, not Rejected, when `required_keys` is empty: that
+    is a server misconfiguration, not a defect in the submission, and it must
+    not be answered with either an acceptance or a 4xx that blames the client.
+    """
+    if not required_keys:
+        raise SchemaUnavailable(
+            "no schema-required keys were loaded; the required-key check (contract "
+            "5.5) cannot run and the submission is not accepted")
     # 1. Shape
     if not isinstance(submission, dict):
         raise Rejected(400, "submission must be a JSON object")
@@ -291,6 +334,9 @@ class Handler(BaseHTTPRequestHandler):
             )
         except Rejected as rej:
             self._json(rej.status, {"error": rej.reason})
+            return
+        except SchemaUnavailable as exc:
+            self._json(503, {"error": f"validation configuration unavailable: {exc}"})
             return
 
         existing = self.store.existing_id_for(record["verification_hash"])
