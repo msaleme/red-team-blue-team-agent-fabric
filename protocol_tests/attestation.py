@@ -25,24 +25,9 @@ __all__ = [
 
 SCHEMA_VERSION = "1.0.0"
 def _resolve_data(*parts: str) -> Path:
-    """Find a data file in the installed package, then in the source tree.
-
-    `Path(__file__).parent.parent / "schemas"` resolved to `site-packages/schemas`
-    on an installed wheel -- a directory that does not exist and that this project
-    has no business creating. Every pip user calling
-    `validate_attestation_report` got an uncaught FileNotFoundError.
-
-    `protocol_tests/schemas` is a symlink to the canonical `schemas/` at the repo
-    root, so the package-local path below is correct in a source checkout and in
-    a wheel alike, and there is still only one copy of the file. The repo-root
-    fallback covers a checkout predating that symlink.
-    """
-    here = Path(__file__).parent
-    for base in (here, here.parent):
-        candidate = base.joinpath(*parts)
-        if candidate.exists():
-            return candidate
-    return here.joinpath(*parts)  # canonical location, for the error message
+    """Kept as a name; the resolution lives in one place now (package_data)."""
+    from .package_data import data_path
+    return data_path(*parts)
 
 
 SCHEMA_PATH = _resolve_data("schemas", "attestation-report.json")

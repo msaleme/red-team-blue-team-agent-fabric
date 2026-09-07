@@ -33,6 +33,7 @@ from typing import Any
 # Ensure repo root is on path so protocol_tests is importable
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
+from protocol_tests.package_data import data_path as _data_path  # noqa: E402
 
 from protocol_tests.version import get_harness_version
 
@@ -62,7 +63,7 @@ def _try_load_aiuc1_mapping() -> dict[str, Any] | None:
     """Attempt to load the AIUC-1 mapping; return None if unavailable."""
     try:
         import yaml
-        mapping_path = os.path.join(REPO_ROOT, "configs", "aiuc1_mapping.yaml")
+        mapping_path = str(_data_path("configs", "aiuc1_mapping.yaml"))
         with open(mapping_path) as f:
             return yaml.safe_load(f)
     except Exception:

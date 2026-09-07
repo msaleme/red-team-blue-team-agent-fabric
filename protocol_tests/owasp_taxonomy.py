@@ -22,11 +22,10 @@ _REL = ("coverage", "owasp-agentic-v1.1.yaml")
 
 
 def _candidates() -> list[Path]:
-    here = Path(__file__).resolve().parent
-    return [
-        here.joinpath(*_REL),                    # installed wheel / symlinked checkout
-        here.parent / "docs" / "coverage" / _REL[-1],  # repo root
-    ]
+    """One candidate: whatever the shared resolver found. Kept as a list so
+    the test that swaps it for a nonexistent path still works."""
+    from .package_data import data_path
+    return [data_path(*_REL)]
 
 
 def load_owasp_categories() -> dict[str, str]:
