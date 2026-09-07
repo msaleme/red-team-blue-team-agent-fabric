@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/msaleme/red-team-blue-team-agent-fabric/main/schemas/result-semantics.schema.json",
+  "title": "Predeclared Result Semantics",
+  "description": "Shape of docs/result-semantics.json: the meaning of each test outcome, fixed in a versioned artifact BEFORE a run rather than inferred afterwards from prose. Closed at every level (additionalProperties: false) for the same reason schemas/attestation-report.json is: a field nobody declared is a field nobody checked, and an undeclared aggregation flag would be read as a default rather than as an omission.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version",
+    "declared_on",
+    "purpose",
+    "not_established",
+    "authorities",
+    "rate_denominator",
+    "outcomes",
+    "invariants"
+  ],
+  "properties": {
+    "manifest_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Version of this declaration. Semantics are predeclared only if the version that was in force at run time can be named, so this moves when a meaning changes and a report should cite it."
+    },
+    "declared_on": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "The date this version of the meanings was fixed. Predeclaration is a claim about ordering; without a date it is not checkable."
+    },
+    "purpose": { "type": "string", "minLength": 1 },
+    "not_established": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What this declaration does NOT establish. Required, not optional: a document that states only what it proves is the shape this repository keeps having to correct (docs/EVIDENCE-CLASS-TAXONOMY.md gives every level a 'Does not establish' column)."
+    },
+    "authorities": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The code and documents this declaration describes. These meanings are DECLARED here and IMPLEMENTED there; if the two disagree, one of them is a defect and neither is silently authoritative.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "symbol", "role"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "symbol": { "type": "string", "minLength": 1 },
+          "role": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "rate_denominator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "definition", "excluded_outcomes", "when_empty", "rationale"],
+      "description": "The denominator every rate and interval is computed over, declared once so that a report cannot quietly divide by something larger.",
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "definition": { "type": "string", "minLength": 1 },
+        "excluded_outcomes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/outcome_name" },
+          "uniqueItems": true,
+          "description": "Outcome names excluded from the denominator. Cross-checked against each outcome's aggregation.counts_as_serviced, so this list cannot drift away from the per-outcome flags."
+        },
+        "when_empty": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What is reported when the denominator is zero. Must not be a number: a rate of zero is a claim, and absence is not."
+        },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    },
+    "outcomes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/outcome" },
+      "description": "One entry per outcome name. The set of names is cross-checked against the attestation schema's result enum by scripts/validate_result_semantics.py, so a state that exists in the serialization vocabulary but has no declared meaning is a failure rather than an omission."
+    },
+    "invariants": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/invariant" }
+    }
+  },
+  "$defs": {
+    "outcome_name": {
+      "type": "string",
+      "enum": ["pass", "fail", "inconclusive", "error", "skip"]
+    },
+    "bucket_name": {
+      "type": "string",
+      "enum": ["total", "passed", "failed", "inconclusive", "errored", "skipped", "serviced"],
+      "description": "A summary bucket. 'serviced' is emitted by run_summary() and not by the attestation summary; the rest are attestation summary properties."
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "asserts",
+        "does_not_establish",
+        "observation_required",
+        "determined_by",
+        "aggregation"
+      ],
+      "properties": {
+        "name": { "$ref": "#/$defs/outcome_name" },
+        "asserts": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What a reader is entitled to conclude from this outcome, and nothing beyond it."
+        },
+        "does_not_establish": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The bound on that conclusion, stated in the artifact rather than left for the reader to infer."
+        },
+        "observation_required": {
+          "type": "boolean",
+          "description": "Whether this outcome requires a positive observation of the target. False for every outcome that may be reached from absence; true for the outcomes that assert something about a control."
+        },
+        "determined_by": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "The code that decides this outcome, as path::symbol. Names where the meaning is implemented, so a disagreement has an address."
+        },
+        "aggregation": { "$ref": "#/$defs/aggregation" }
+      }
+    },
+    "aggregation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary_buckets",
+        "pass_numerator",
+        "rate_denominator",
+        "counts_as_serviced",
+        "emitted_when"
+      ],
+      "properties": {
+        "summary_buckets": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/bucket_name" },
+          "description": "Every bucket this outcome increments. Must include 'total' and exactly one non-total, non-serviced bucket, so the buckets partition the run and no outcome can be counted as a residual."
+        },
+        "pass_numerator": {
+          "type": "boolean",
+          "description": "Whether this outcome enters the numerator of any pass rate. True for 'pass' alone."
+        },
+        "rate_denominator": {
+          "type": "boolean",
+          "description": "Whether this outcome enters the denominator of any rate or interval."
+        },
+        "counts_as_serviced": {
+          "type": "boolean",
+          "description": "Whether this outcome increments the 'serviced' bucket, i.e. whether reaching it required the target to process the request."
+        },
+        "emitted_when": {
+          "type": "string",
+          "enum": ["always", "non-zero"],
+          "description": "'always' means the bucket appears even at zero, so a reader cannot infer it from the others. 'inconclusive' is always-emitted for exactly that reason; 'errored' and 'skipped' are currently non-zero-only, which is recorded here rather than smoothed over."
+        }
+      }
+    },
+    "invariant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "check", "statement", "rationale", "prevents"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "^[a-z0-9-]+$" },
+        "check": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Name of the executable check in scripts/validate_result_semantics.py that enforces this invariant against the outcomes table. An invariant with no executable check is prose, and prose is what predeclaration exists to replace."
+        },
+        "statement": { "type": "string", "minLength": 1 },
+        "rationale": { "type": "string", "minLength": 1 },
+        "prevents": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The concrete, measured defect this invariant prevents. Required: an invariant that cannot name what goes wrong without it has not been shown to be load-bearing."
+        }
+      }
+    }
+  }
+}

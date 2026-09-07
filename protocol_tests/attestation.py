@@ -339,7 +339,13 @@ def validate_attestation_report(report: dict[str, Any]) -> list[str]:
                     if req not in entry:
                         errors.append(f"entries[{i}]: missing required field '{req}'")
 
-                if "result" in entry and entry["result"] not in ("pass", "fail", "error", "skip"):
+                if "result" in entry and entry["result"] not in (
+                    "pass",
+                    "fail",
+                    "inconclusive",
+                    "error",
+                    "skip",
+                ):
                     errors.append(f"entries[{i}]: invalid result '{entry['result']}'")
 
                 if "scope" in entry:

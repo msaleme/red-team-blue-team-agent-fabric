@@ -59,6 +59,12 @@ november-meeting-extracted.txt
 # silently dropping the file they validate; CI failed on FileNotFoundError. The
 # manifest's own "must be present and non-empty" assertion is what caught it.
 !docs/release-claims.json
+# Fifth time (see PR #299, #316, and the two above). The result-semantics
+# declaration is the file scripts/validate_result_semantics.py and
+# tests/test_result_semantics_predeclared.py both read; without this negation
+# `git add -A` commits the validator and its test and silently drops the
+# declaration they validate.
+!docs/result-semantics.json
 # Fourth time, 2026-09-02. Deposited evidence runs are the artifact that makes a
 # reported verdict auditable rather than merely repeatable, so they are
 # deliverables, not run output. The blanket *.json above dropped one silently and
