@@ -346,7 +346,12 @@ def generate_html(report_data: dict[str, Any]) -> str:
     risk_data = report_data.get("risk", {})
     # None, not 0.0. A risk score of zero rendered as "LOW" for a run that
     # contacted nothing -- the same claim-from-absence the pass rate had.
-    risk_score = risk_data.get("score")
+    # An imported score bypassed the zero-serviced guard: only the COMPUTED
+    # fallback was gated on `serviced`, so an all-INCONCLUSIVE report carrying
+    # `"risk": {"score": 0}` from an earlier or external computation still
+    # rendered LOW. Found by an external review (2026-09-07). Nothing was
+    # measured; no score is rendered, whatever its origin.
+    risk_score = risk_data.get("score") if serviced else None
     if risk_score is None and serviced:
         risk_score = round(failed / serviced * 40, 2)
 
