@@ -41,7 +41,7 @@ The methodology is documented in five public preprints deposited on Zenodo (not 
 - Detecting Normalization of Deviance in Multi-Agent Systems (DOI: 10.5281/zenodo.19195516)
 - Decision Load Index: A Quantitative Framework for Agent Autonomy Risk (DOI: 10.5281/zenodo.18217577)
 
-The framework also aligns with NIST AI 800-2 evaluation methodology, the OWASP Top 10 for Agentic Applications (complete ASI01-ASI10 coverage), and the NIST AI Agent Standards Initiative.
+The framework also aligns with NIST AI 800-2 evaluation methodology, the OWASP Top 10 for Agentic Applications (tests mapped to ASI01–ASI10 with per-category counts and stated limits (see docs/COMPARISON.md)), and the NIST AI Agent Standards Initiative.
 
 **Links**
 

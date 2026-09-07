@@ -371,7 +371,7 @@ class MCPSupplyChainTests:
         passed = not flagged
         self._record(MCPTestResult(
             test_id="MCP-F-001", name="Launcher Binary Resolution",
-            category="framework_binary_resolution", owasp_asi="ASI06",
+            category="framework_binary_resolution", owasp_asi="ASI04",
             severity=Severity.HIGH.value, passed=passed,
             details=("; ".join(details_lines) or "no launchers to resolve")
                     + (f" | FLAGGED: {flagged}" if flagged else ""),
@@ -426,7 +426,7 @@ class MCPSupplyChainTests:
         passed = not risky and not uninspectable
         self._record(MCPTestResult(
             test_id="MCP-F-002", name="Install-Script Inspection",
-            category="framework_install_scripts", owasp_asi="ASI06",
+            category="framework_install_scripts", owasp_asi="ASI04",
             severity=Severity.CRITICAL.value, passed=passed,
             details=("; ".join(details_lines) or "no installed packages to inspect")
                     + (f" | RISKY INSTALL SCRIPTS: {risky}" if risky else "")
@@ -445,7 +445,7 @@ class MCPSupplyChainTests:
         if not self.allow_network:
             self._record(MCPTestResult(
                 test_id="MCP-F-003", name="Dependency-Confusion Resolvability",
-                category="framework_dependency_confusion", owasp_asi="ASI06",
+                category="framework_dependency_confusion", owasp_asi="ASI04",
                 severity=Severity.HIGH.value, passed=True,
                 details="skipped — network required (re-run with --allow-network)",
                 mcp_method="N/A (static pre-flight)",
@@ -467,7 +467,7 @@ class MCPSupplyChainTests:
         passed = not flagged
         self._record(MCPTestResult(
             test_id="MCP-F-003", name="Dependency-Confusion Resolvability",
-            category="framework_dependency_confusion", owasp_asi="ASI06",
+            category="framework_dependency_confusion", owasp_asi="ASI04",
             severity=Severity.HIGH.value, passed=passed,
             details=("; ".join(details_lines) or "no packages to check")
                     + (f" | INTERNAL-LOOKING NAMES ON PUBLIC REGISTRY: {flagged}" if flagged else ""),
@@ -509,7 +509,7 @@ class MCPSupplyChainTests:
         passed = not unpinned
         self._record(MCPTestResult(
             test_id="MCP-F-004", name="Launcher Version Pinning",
-            category="framework_pinning", owasp_asi="ASI06",
+            category="framework_pinning", owasp_asi="ASI04",
             severity=Severity.MEDIUM.value, passed=passed,
             details=("; ".join(details_lines) or "no package launchers to check")
                     + (f" | UNPINNED: {unpinned}" if unpinned else ""),

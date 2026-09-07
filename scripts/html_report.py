@@ -81,7 +81,6 @@ def _build_requirement_index(mapping: dict[str, Any]) -> dict[str, dict]:
                 "title": req_def.get("title", ""),
                 "category": cat_name,
                 "test_ids": req_def.get("test_ids", []),
-                "owasp_asi": req_def.get("owasp_asi", ""),
                 "status": req_def.get("status", "UNKNOWN"),
                 "gap_notes": req_def.get("gap_notes") or "",
             }
@@ -145,14 +144,14 @@ def _compute_aiuc1(results: list[dict], req_index: dict[str, dict]) -> dict[str,
 
 def _compute_owasp(results: list[dict], req_index: dict[str, dict]) -> dict[str, Any]:
     """Map test results to OWASP Agentic categories."""
-    asi_tests: dict[str, list[str]] = {}
-    for req_def in req_index.values():
-        asi = req_def.get("owasp_asi", "")
-        if asi:
-            for tid in req_def["test_ids"]:
-                asi_tests.setdefault(asi, [])
-                if tid not in asi_tests[asi]:
-                    asi_tests[asi].append(tid)
+    # Membership comes from the inline tag on each test, read from source by
+    # asi_inventory -- the ONE assignment path. This used to be built from a
+    # requirement-level `owasp_asi` in configs/aiuc1_mapping.yaml, a second
+    # path that disagreed with the tags (F002 said ASI05; the CBRN rows' own
+    # tags said ASI06) and let a test sit under different categories in
+    # different views. Found by an external review, 2026-09-07.
+    from protocol_tests.asi_inventory import by_category as _by_category
+    asi_tests: dict[str, list[str]] = {k: v for k, v in _by_category().items() if k}
 
     result_by_id = {r.get("test_id", ""): r for r in results if r.get("test_id")}
     owasp: dict[str, Any] = {}

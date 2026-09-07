@@ -1826,7 +1826,7 @@ class MCPSecurityTests:
                 jsonrpc_request("resources/read", {"uri": uri})
             self._record(MCPTestResult(
                 test_id="MCP-005", name="Resource URI Path Traversal",
-                category="resource_traversal", owasp_asi="ASI04",
+                category="resource_traversal", owasp_asi="",
                 severity=Severity.CRITICAL.value, passed=True,
                 details=f"[simulate] {len(traversal_uris)} traversal payloads compiled; no HTTP call made",
                 mcp_method="resources/read",
@@ -1849,7 +1849,7 @@ class MCPSecurityTests:
             test_id="MCP-005",
             name="Resource URI Path Traversal",
             category="resource_traversal",
-            owasp_asi="ASI04",
+            owasp_asi="",
             severity=Severity.CRITICAL.value,
             passed=passed,
             details=f"{blocked_count}/{len(traversal_uris)} traversal attempts blocked",

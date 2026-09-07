@@ -500,7 +500,7 @@ class CrewAICVETests:
                 test_id="CREW-001",
                 name="Sandbox Fallback Detection",
                 cve="CVE-2026-2275",
-                owasp_asi="ASI09",
+                owasp_asi="ASI05",
                 severity=Severity.CRITICAL.value,
                 passed=passed,
                 details=(f"Detected {len(detected)}/{len(SANDBOX_FALLBACK_PAYLOADS)} "
@@ -534,7 +534,7 @@ class CrewAICVETests:
             test_id="CREW-001",
             name="Sandbox Fallback Detection",
             cve="CVE-2026-2275",
-            owasp_asi="ASI09",
+            owasp_asi="ASI05",
             severity=Severity.CRITICAL.value,
             passed=passed,
             details=("Server rejected ctypes sandbox escape attempt" if passed
@@ -610,7 +610,7 @@ class CrewAICVETests:
             test_id="CREW-002",
             name="Ctypes Payload Coverage (self-test, no target)",
             cve="CVE-2026-2275",
-            owasp_asi="ASI09",
+            owasp_asi="ASI05",
             severity=Severity.CRITICAL.value,
             passed=passed,
             details=(f"Harness self-test: check_code_safety detected "
@@ -670,7 +670,7 @@ class CrewAICVETests:
                 test_id="CREW-003",
                 name="Code Execution Config Audit",
                 cve="CVE-2026-2275",
-                owasp_asi="ASI09",
+                owasp_asi="ASI05",
                 severity=Severity.HIGH.value,
                 passed=passed,
                 details=(f"Config audit: {flagged_correctly}/{len(config_scenarios)} "
@@ -705,7 +705,7 @@ class CrewAICVETests:
             test_id="CREW-003",
             name="Code Execution Config Audit",
             cve="CVE-2026-2275",
-            owasp_asi="ASI09",
+            owasp_asi="ASI05",
             severity=Severity.HIGH.value,
             passed=passed,
             details=("Agent refused to expose its code-execution config" if passed
@@ -748,7 +748,7 @@ class CrewAICVETests:
                 test_id="CREW-004",
                 name="Path Traversal in JSON Loader",
                 cve="CVE-2026-2285",
-                owasp_asi="ASI01",
+                owasp_asi="",
                 severity=Severity.CRITICAL.value,
                 passed=passed,
                 details=(f"Detected {len(detected)}/{len(FILE_READ_PAYLOADS)} "
@@ -783,7 +783,7 @@ class CrewAICVETests:
             test_id="CREW-004",
             name="Path Traversal in JSON Loader",
             cve="CVE-2026-2285",
-            owasp_asi="ASI01",
+            owasp_asi="",
             severity=Severity.CRITICAL.value,
             passed=passed,
             details=("All sensitive file reads were rejected" if passed
@@ -826,7 +826,7 @@ class CrewAICVETests:
                 test_id="CREW-005",
                 name="Sensitive File Read Detection",
                 cve="CVE-2026-2285",
-                owasp_asi="ASI01",
+                owasp_asi="",
                 severity=Severity.HIGH.value,
                 passed=passed,
                 details=(f"Path validation would block {len(would_be_blocked)}/"
@@ -860,7 +860,7 @@ class CrewAICVETests:
             test_id="CREW-005",
             name="Sensitive File Read Detection",
             cve="CVE-2026-2285",
-            owasp_asi="ASI01",
+            owasp_asi="",
             severity=Severity.HIGH.value,
             passed=passed,
             details=("Agent refused to read the sensitive path" if passed
@@ -904,7 +904,7 @@ class CrewAICVETests:
                 test_id="CREW-006",
                 name="SSRF Cloud Metadata Detection",
                 cve="CVE-2026-2286",
-                owasp_asi="ASI07",
+                owasp_asi="ASI02",
                 severity=Severity.CRITICAL.value,
                 passed=passed,
                 details=(f"Detected {len(detected)}/{len(cloud_targets)} cloud "
@@ -939,7 +939,7 @@ class CrewAICVETests:
             test_id="CREW-006",
             name="SSRF Cloud Metadata Detection",
             cve="CVE-2026-2286",
-            owasp_asi="ASI07",
+            owasp_asi="ASI02",
             severity=Severity.CRITICAL.value,
             passed=passed,
             details=("All cloud metadata SSRF attempts were blocked" if passed
@@ -975,7 +975,7 @@ class CrewAICVETests:
                 test_id="CREW-007",
                 name="SSRF Internal Service Detection",
                 cve="CVE-2026-2286",
-                owasp_asi="ASI07",
+                owasp_asi="ASI02",
                 severity=Severity.HIGH.value,
                 passed=passed,
                 details=(f"Detected {len(detected)}/{len(internal_targets)} internal "
@@ -1010,7 +1010,7 @@ class CrewAICVETests:
             test_id="CREW-007",
             name="SSRF Internal Service Detection",
             cve="CVE-2026-2286",
-            owasp_asi="ASI07",
+            owasp_asi="ASI02",
             severity=Severity.HIGH.value,
             passed=passed,
             details=("All internal SSRF attempts were blocked" if passed
@@ -1088,7 +1088,7 @@ class CrewAICVETests:
             test_id="CREW-008",
             name="SSRF URL Validation Bypass",
             cve="CVE-2026-2286",
-            owasp_asi="ASI07",
+            owasp_asi="ASI02",
             severity=Severity.HIGH.value,
             passed=passed,
             details=(f"Detected {len(detected)}/{len(evasion_urls)} URL evasion "
@@ -1126,7 +1126,7 @@ class CrewAICVETests:
                 test_id="CREW-009",
                 name="Docker Availability Check Bypass",
                 cve="CVE-2026-2287",
-                owasp_asi="ASI09",
+                owasp_asi="ASI05",
                 severity=Severity.CRITICAL.value,
                 passed=passed,
                 details=(f"Identified {len(flagged)}/{len(DOCKER_BYPASS_SCENARIOS)} "
@@ -1160,7 +1160,7 @@ class CrewAICVETests:
             test_id="CREW-009",
             name="Docker Availability Check Bypass",
             cve="CVE-2026-2287",
-            owasp_asi="ASI09",
+            owasp_asi="ASI05",
             severity=Severity.CRITICAL.value,
             passed=passed,
             details=("Docker probe command was rejected" if passed
@@ -1214,7 +1214,7 @@ class CrewAICVETests:
                 test_id="CREW-010",
                 name="Fallback Sandbox RCE Chain",
                 cve="CVE-2026-2287",
-                owasp_asi="ASI09",
+                owasp_asi="ASI05",
                 severity=Severity.CRITICAL.value,
                 passed=passed,
                 details=(f"Detected {len(detected)}/{len(rce_payloads)} RCE "
@@ -1242,7 +1242,7 @@ class CrewAICVETests:
             test_id="CREW-010",
             name="Fallback Sandbox RCE Chain",
             cve="CVE-2026-2287",
-            owasp_asi="ASI09",
+            owasp_asi="ASI05",
             severity=Severity.CRITICAL.value,
             passed=passed,
             details=("RCE attempt was rejected" if passed

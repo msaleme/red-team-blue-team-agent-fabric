@@ -140,7 +140,7 @@ def _load_aiuc1_index() -> dict[str, dict[str, Any]]:
     categories = data.get("categories", {})
     for _cat_key, cat_data in categories.items():
         for req_id, req_def in cat_data.get("requirements", {}).items():
-            owasp_asi = req_def.get("owasp_asi", "")
+            owasp_asi = ""  # the requirement index is not an ASI source; see asi_inventory
             for tid in req_def.get("test_ids", []):
                 index[tid] = {
                     "req_id": req_id,
@@ -225,8 +225,11 @@ def analyze_failures(
         if aiuc1:
             fd["aiuc1_req"] = aiuc1.get("req_id", "")
             fd["aiuc1_title"] = aiuc1.get("title", "")
-            if not fd["owasp_asi"] and aiuc1.get("owasp_asi"):
-                fd["owasp_asi"] = aiuc1["owasp_asi"]
+            if not fd["owasp_asi"]:
+                # A row with no inline tag falls back to the SAME source the
+                # tag came from -- never to the requirement index.
+                from protocol_tests.asi_inventory import corpus_asi as _corpus_asi
+                fd["owasp_asi"] = _corpus_asi().get(fd.get("test_id", ""), "")
         else:
             fd["aiuc1_req"] = ""
             fd["aiuc1_title"] = ""
