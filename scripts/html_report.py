@@ -34,6 +34,7 @@ from typing import Any
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 from protocol_tests.package_data import data_path as _data_path  # noqa: E402
+from protocol_tests.aggregate import aggregate_state, partial_reason  # noqa: E402
 
 from protocol_tests.version import get_harness_version
 
@@ -123,20 +124,14 @@ def _compute_aiuc1(results: list[dict], req_index: dict[str, dict]) -> dict[str,
             }
             continue
 
-        inconc = sum(1 for t in matched if _is_inconclusive(result_by_id[t]))
-        passed = sum(1 for t in matched
-                     if result_by_id[t].get("passed", False)
-                     and not _is_inconclusive(result_by_id[t]))
-        # Not a residual. `len(matched) - passed` counted every unexercised
-        # control as a failing one, which asserts the control did not hold --
-        # the same defect fixed in scripts/evidence_pack.py (#522).
-        failed = len(matched) - passed - inconc
+        # ONE rule, shared with scripts/evidence_pack.py (protocol_tests/aggregate.py).
+        # This renderer had no PARTIAL state: 2 of 5 mapped tests present and
+        # green rendered PASS, and so did 1 PASS + 4 INCONCLUSIVE. A
+        # requirement is PASS only when every mapped test ran and held.
         covered += 1
         coverage[req_id] = {
             "title": req_def["title"], "category": req_def["category"],
-            "status": ("FAIL" if failed else
-                       "PASS" if passed else "INCONCLUSIVE"),
-            "passed": passed, "failed": failed, "total": len(matched),
+            **aggregate_state(test_ids, result_by_id, absent_status="NO_RESULTS"),
         }
 
     return {"covered": covered, "total": len(req_index), "gaps": gaps, "requirements": coverage}
@@ -157,28 +152,8 @@ def _compute_owasp(results: list[dict], req_index: dict[str, dict]) -> dict[str,
     owasp: dict[str, Any] = {}
     for asi_id, asi_name in OWASP_AGENTIC_CATEGORIES.items():
         test_ids = asi_tests.get(asi_id, [])
-        matched = [t for t in test_ids if t in result_by_id]
-        inconc = sum(1 for t in matched if _is_inconclusive(result_by_id[t]))
-        passed = sum(1 for t in matched
-                     if result_by_id[t].get("passed", False)
-                     and not _is_inconclusive(result_by_id[t]))
-        # Not a residual. `len(matched) - passed` counted every unexercised
-        # control as a failing one, which asserts the control did not hold --
-        # the same defect fixed in scripts/evidence_pack.py (#522).
-        failed = len(matched) - passed - inconc
-        if failed > 0:
-            status = "FAIL"
-        elif passed:
-            status = "PASS"
-        elif inconc:
-            status = "INCONCLUSIVE"
-        else:
-            status = "NOT_TESTED"
-        owasp[asi_id] = {
-            "name": asi_name, "tests_mapped": len(test_ids),
-            "tests_run": len(matched), "passed": passed, "failed": failed,
-            "status": status,
-        }
+        # Same shared rule as the AIUC-1 path and as scripts/evidence_pack.py.
+        owasp[asi_id] = {"name": asi_name, **aggregate_state(test_ids, result_by_id)}
     return owasp
 
 
@@ -216,6 +191,7 @@ h3{font-size:15px;font-weight:600;margin:20px 0 8px}
 .badge-fail{background:#fee2e2;color:#991b1b}
 .badge-inconclusive{background:#e5e7eb;color:#374151}
 .badge-gap{background:#fef3c7;color:#92400e}
+.badge-partial{background:#ffedd5;color:#9a3412}
 .badge-na{background:#f3f4f6;color:#6b7280}
 
 /* Tables */
@@ -302,7 +278,22 @@ def _status_badge(status: str) -> str:
                 'not exercised">INCONCLUSIVE</span>')
     if s == "GAP":
         return '<span class="badge badge-gap">GAP</span>'
+    if s == "PARTIAL":
+        return ('<span class="badge badge-partial" title="some mapped tests passed; '
+                'others are absent or were not exercised -- not established">'
+                'PARTIAL</span>')
     return f'<span class="badge badge-na">{_esc(s)}</span>'
+
+
+def _partial_note(state: dict) -> str:
+    """The members that keep a PARTIAL row from PASS, printed on the row.
+
+    A badge alone collapses "2 of 5 ran" and "1 passed, 4 not exercised"
+    into one word. The IDs are what an auditor needs to go and look."""
+    if str(state.get("status", "")).upper() != "PARTIAL":
+        return ""
+    return (f'<div style="color:#9a3412;font-size:11px;margin-top:2px">'
+            f'{_esc(partial_reason(state))}</div>')
 
 
 def _risk_class(score: float) -> str:
@@ -505,7 +496,8 @@ def generate_html(report_data: dict[str, Any]) -> str:
         parts.append("<h2>OWASP Agentic Top 10 Coverage</h2>")
         parts.append("<table>")
         parts.append("<tr><th>ID</th><th>Category</th><th>Mapped</th>"
-                     "<th>Run</th><th>Passed</th><th>Failed</th><th>Status</th></tr>")
+                     "<th>Run</th><th>Passed</th><th>Failed</th><th>Inconclusive</th>"
+                     "<th>Status</th></tr>")
         for asi_id, asi_data in sorted(owasp.items()):
             parts.append(
                 f"<tr><td><strong>{_esc(asi_id)}</strong></td>"
@@ -514,7 +506,8 @@ def generate_html(report_data: dict[str, Any]) -> str:
                 f"<td>{asi_data['tests_run']}</td>"
                 f"<td>{asi_data['passed']}</td>"
                 f"<td>{asi_data['failed']}</td>"
-                f"<td>{_status_badge(asi_data['status'])}</td></tr>"
+                f"<td>{asi_data.get('inconclusive', 0)}</td>"
+                f"<td>{_status_badge(asi_data['status'])}{_partial_note(asi_data)}</td></tr>"
             )
         parts.append("</table>")
 
@@ -528,7 +521,8 @@ def generate_html(report_data: dict[str, Any]) -> str:
         )
         parts.append("<table>")
         parts.append("<tr><th>Requirement</th><th>Title</th><th>Category</th>"
-                     "<th>Passed</th><th>Failed</th><th>Status</th></tr>")
+                     "<th>Mapped</th><th>Run</th><th>Passed</th><th>Failed</th>"
+                     "<th>Inconclusive</th><th>Status</th></tr>")
         for req_id, rd in sorted(reqs.items()):
             notes = rd.get("notes", "")
             title_text = _esc(rd["title"])
@@ -538,9 +532,12 @@ def generate_html(report_data: dict[str, Any]) -> str:
                 f"<tr><td><strong>{_esc(req_id)}</strong></td>"
                 f"<td>{title_text}</td>"
                 f"<td>{_esc(rd['category'])}</td>"
+                f"<td>{rd.get('tests_mapped', 0)}</td>"
+                f"<td>{rd.get('tests_run', 0)}</td>"
                 f"<td>{rd.get('passed', 0)}</td>"
                 f"<td>{rd.get('failed', 0)}</td>"
-                f"<td>{_status_badge(rd['status'])}</td></tr>"
+                f"<td>{rd.get('inconclusive', 0)}</td>"
+                f"<td>{_status_badge(rd['status'])}{_partial_note(rd)}</td></tr>"
             )
         parts.append("</table>")
 

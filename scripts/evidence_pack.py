@@ -34,6 +34,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 from protocol_tests.package_data import data_path as _data_path  # noqa: E402
 from protocol_tests.http_helpers import is_inconclusive as _inconc  # noqa: E402
+from protocol_tests.aggregate import aggregate_state, partial_reason  # noqa: E402
 
 from protocol_tests.version import get_harness_version
 
@@ -143,41 +144,19 @@ def compute_aiuc1_coverage(
             }
             continue
 
-        inconc = sum(1 for tid in matched if _inconc(result_by_id[tid]))
-        passed = sum(1 for tid in matched
-                     if result_by_id[tid].get("passed", False) and not _inconc(result_by_id[tid]))
-        # Not a residual. `len(matched) - passed` counted every unexercised
-        # control as a failing one -- a FAIL asserts the control did not hold,
-        # which an INCONCLUSIVE row cannot establish. Found on the installed
-        # 4.21.0 package by the third external review (2026-09-07): an
-        # explicitly INCONCLUSIVE report became a published failure claim.
-        failed = len(matched) - passed - inconc
-        # A requirement is only PASS when every test mapped to it actually ran.
-        # Reporting PASS on a strict subset lets "2 of 5 ran, both green" render
-        # identically to "all 5 ran, all green" -- the reader cannot tell a
-        # satisfied requirement from an under-exercised one.
-        if failed > 0:
-            status = "FAIL"
-        elif passed == 0:
-            status = "INCONCLUSIVE"   # everything that ran was unexercised
-        elif len(matched) < len(test_ids):
-            status = "PARTIAL"
-        else:
-            status = "PASS"
+        # ONE rule, shared with scripts/html_report.py (protocol_tests/aggregate.py).
+        # This site's own rule treated "nothing passed" as the only INCONCLUSIVE case,
+        # so 1 PASS + 4 INCONCLUSIVE with every member present was PASS. A
+        # requirement is PASS only when every mapped test ran and held;
+        # PARTIAL names the members that are absent or inconclusive.
+        state = aggregate_state(test_ids, result_by_id, absent_status="NO_RESULTS")
         covered_count += 1
 
         coverage[req_id] = {
             "title": req_def["title"],
             "category": req_def["category"],
-            "status": status,
+            **state,
             "test_ids": test_ids,
-            "tests_mapped": len(test_ids),
-            "tests_run": len(matched),
-            "tests_absent": [tid for tid in test_ids if tid not in result_by_id],
-            "passed": passed,
-            "failed": failed,
-            "inconclusive": inconc,
-            "total": len(matched),
         }
 
     return {
@@ -227,32 +206,8 @@ def compute_owasp_coverage(
     owasp: dict[str, Any] = {}
     for asi_id, asi_name in OWASP_AGENTIC_CATEGORIES.items():
         test_ids = list(dict.fromkeys(asi_tests.get(asi_id, [])))  # deduplicate preserving order
-        matched = [tid for tid in test_ids if tid in result_by_id]
-        inconc = sum(1 for tid in matched if _inconc(result_by_id[tid]))
-        passed = sum(1 for tid in matched
-                     if result_by_id[tid].get("passed", False) and not _inconc(result_by_id[tid]))
-        # Not a residual. `len(matched) - passed` counted every unexercised
-        # control as a failing one -- a FAIL asserts the control did not hold,
-        # which an INCONCLUSIVE row cannot establish. Found on the installed
-        # 4.21.0 package by the third external review (2026-09-07): an
-        # explicitly INCONCLUSIVE report became a published failure claim.
-        failed = len(matched) - passed - inconc
-
-        owasp[asi_id] = {
-            "name": asi_name,
-            "tests_mapped": len(test_ids),
-            "tests_run": len(matched),
-            "passed": passed,
-            "failed": failed,
-            "inconclusive": inconc,
-            "status": (
-                "FAIL" if failed > 0
-                else "NOT_TESTED" if not matched
-                else "INCONCLUSIVE" if passed == 0
-                else "PASS" if len(matched) == len(test_ids)
-                else "PARTIAL"
-            ),
-        }
+        # Same shared rule as the AIUC-1 path and as scripts/html_report.py.
+        owasp[asi_id] = {"name": asi_name, **aggregate_state(test_ids, result_by_id)}
 
     return owasp
 
@@ -333,8 +288,8 @@ def generate_markdown(
         "",
         "## AIUC-1 Requirement Coverage",
         "",
-        "| Requirement | Title | Category | Status | Tests Mapped | Tests Run | Passed | Failed |",
-        "|-------------|-------|----------|--------|--------------|-----------|--------|--------|",
+        "| Requirement | Title | Category | Status | Tests Mapped | Tests Run | Passed | Failed | Inconclusive |",
+        "|-------------|-------|----------|--------|--------------|-----------|--------|--------|--------------|",
     ]
 
     for req_id, req_data in sorted(aiuc1.get("requirements", {}).items()):
@@ -343,7 +298,8 @@ def generate_markdown(
             f"| {req_id} | {req_data['title']} | {req_data['category']} "
             f"| **{status}** | {req_data.get('tests_mapped', 0)} "
             f"| {req_data.get('tests_run', 0)} "
-            f"| {req_data.get('passed', 0)} | {req_data.get('failed', 0)} |"
+            f"| {req_data.get('passed', 0)} | {req_data.get('failed', 0)} "
+            f"| {req_data.get('inconclusive', 0)} |"
         )
 
     lines.extend([
@@ -352,15 +308,16 @@ def generate_markdown(
         "",
         "## OWASP Agentic Security Initiative Coverage",
         "",
-        "| ID | Category | Tests Mapped | Tests Run | Passed | Failed | Status |",
-        "|----|----------|-------------|-----------|--------|--------|--------|",
+        "| ID | Category | Tests Mapped | Tests Run | Passed | Failed | Inconclusive | Status |",
+        "|----|----------|-------------|-----------|--------|--------|--------------|--------|",
     ])
 
     for asi_id, asi_data in sorted(owasp.items()):
         lines.append(
             f"| {asi_id} | {asi_data['name']} | {asi_data['tests_mapped']} "
             f"| {asi_data['tests_run']} | {asi_data['passed']} "
-            f"| {asi_data['failed']} | **{asi_data['status']}** |"
+            f"| {asi_data['failed']} | {asi_data.get('inconclusive', 0)} "
+            f"| **{asi_data['status']}** |"
         )
 
     # Gaps and recommendations
@@ -407,17 +364,18 @@ def generate_markdown(
         lines.append("### Under-Exercised Requirements")
         lines.append("")
         lines.append(
-            "Every test that ran for these requirements passed, but not every test "
-            "mapped to them was present in this report. A passing subset does not "
-            "establish the requirement: the tests that did not run assert nothing."
+            "At least one test mapped to each of these requirements passed, but "
+            "the requirement is not established: another mapped test was absent "
+            "from this report, or ran and was INCONCLUSIVE (the control was not "
+            "exercised). A passing subset does not establish the requirement; "
+            "the members named here assert nothing."
         )
         lines.append("")
         for req_id, req_data in sorted(partial_reqs.items()):
-            absent = ", ".join(req_data.get("tests_absent", [])) or "unrecorded"
             lines.append(
                 f"- **{req_id} ({req_data['title']}):** "
-                f"{req_data['tests_run']}/{req_data['tests_mapped']} mapped tests ran; "
-                f"absent from this report: {absent}"
+                f"{req_data.get('passed', 0)} of {req_data['tests_mapped']} mapped "
+                f"tests passed ({req_data['tests_run']} ran); {partial_reason(req_data)}"
             )
         lines.append("")
 
