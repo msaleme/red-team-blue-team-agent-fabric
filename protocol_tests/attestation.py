@@ -24,7 +24,28 @@ __all__ = [
 ]
 
 SCHEMA_VERSION = "1.0.0"
-SCHEMA_PATH = Path(__file__).parent.parent / "schemas" / "attestation-report.json"
+def _resolve_data(*parts: str) -> Path:
+    """Find a data file in the installed package, then in the source tree.
+
+    `Path(__file__).parent.parent / "schemas"` resolved to `site-packages/schemas`
+    on an installed wheel -- a directory that does not exist and that this project
+    has no business creating. Every pip user calling
+    `validate_attestation_report` got an uncaught FileNotFoundError.
+
+    `protocol_tests/schemas` is a symlink to the canonical `schemas/` at the repo
+    root, so the package-local path below is correct in a source checkout and in
+    a wheel alike, and there is still only one copy of the file. The repo-root
+    fallback covers a checkout predating that symlink.
+    """
+    here = Path(__file__).parent
+    for base in (here, here.parent):
+        candidate = base.joinpath(*parts)
+        if candidate.exists():
+            return candidate
+    return here.joinpath(*parts)  # canonical location, for the error message
+
+
+SCHEMA_PATH = _resolve_data("schemas", "attestation-report.json")
 
 # docs/EVIDENCE-CLASS-TAXONOMY.md. Kept here so a report can state its own class
 # rather than having a server assign one outside the signature (#384).
@@ -344,6 +365,15 @@ def validate_attestation_report(report: dict[str, Any]) -> list[str]:
             path = ".".join(str(p) for p in error.absolute_path) or "(root)"
             errors.append(f"{path}: {error.message}")
 
+    except FileNotFoundError:
+        # Same discipline as the ImportError branch below: a criterion that
+        # cannot run must say so rather than raising into the caller, and must
+        # never return an empty error list, which would read as "valid".
+        errors.append(
+            f"NOT SCHEMA-VALIDATED: the schema was not found at {SCHEMA_PATH}. "
+            f"This usually means an installed copy that predates the packaging "
+            f"fix; reinstall agent-security-harness. No structural checks ran."
+        )
     except ImportError:
         # #384: this fallback is weaker than the schema, and before this change it
         # returned the same empty list, so "no errors" meant either "validated" or

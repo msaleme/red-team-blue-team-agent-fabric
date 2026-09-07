@@ -67,3 +67,13 @@ ash = "protocol_tests.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["protocol_tests*", "scripts*", "mcp_server*"]
+
+# `protocol_tests/schemas` and `protocol_tests/configs` are symlinks to the
+# canonical directories at the repo root. The root paths are load-bearing:
+# the schema's `$id` is a public identifier that existing documents
+# reference, so the files cannot move. The wheel builder follows the links
+# and writes real files into the distribution, which is what makes
+# attestation.SCHEMA_PATH resolve on an installed copy.
+[tool.setuptools.package-data]
+"protocol_tests.schemas" = ["*.json"]
+"protocol_tests.configs" = ["*.yaml"]
