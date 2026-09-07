@@ -132,6 +132,9 @@ def compute_aiuc1_coverage(
                 "category": req_def["category"],
                 "status": "NO_RESULTS",
                 "test_ids": test_ids,
+                "tests_mapped": len(test_ids),
+                "tests_run": 0,
+                "tests_absent": list(test_ids),
                 "passed": 0,
                 "failed": 0,
                 "total": 0,
@@ -141,7 +144,16 @@ def compute_aiuc1_coverage(
 
         passed = sum(1 for tid in matched if result_by_id[tid].get("passed", False))
         failed = len(matched) - passed
-        status = "PASS" if failed == 0 else "FAIL"
+        # A requirement is only PASS when every test mapped to it actually ran.
+        # Reporting PASS on a strict subset lets "2 of 5 ran, both green" render
+        # identically to "all 5 ran, all green" -- the reader cannot tell a
+        # satisfied requirement from an under-exercised one.
+        if failed > 0:
+            status = "FAIL"
+        elif len(matched) < len(test_ids):
+            status = "PARTIAL"
+        else:
+            status = "PASS"
         covered_count += 1
 
         coverage[req_id] = {
@@ -149,6 +161,9 @@ def compute_aiuc1_coverage(
             "category": req_def["category"],
             "status": status,
             "test_ids": test_ids,
+            "tests_mapped": len(test_ids),
+            "tests_run": len(matched),
+            "tests_absent": [tid for tid in test_ids if tid not in result_by_id],
             "passed": passed,
             "failed": failed,
             "total": len(matched),
@@ -215,7 +230,12 @@ def compute_owasp_coverage(
             "tests_run": len(matched),
             "passed": passed,
             "failed": failed,
-            "status": "PASS" if (matched and failed == 0) else ("FAIL" if failed > 0 else "NOT_TESTED"),
+            "status": (
+                "FAIL" if failed > 0
+                else "NOT_TESTED" if not matched
+                else "PASS" if len(matched) == len(test_ids)
+                else "PARTIAL"
+            ),
         }
 
     return owasp
@@ -297,15 +317,17 @@ def generate_markdown(
         "",
         "## AIUC-1 Requirement Coverage",
         "",
-        "| Requirement | Title | Category | Status | Passed | Failed |",
-        "|-------------|-------|----------|--------|--------|--------|",
+        "| Requirement | Title | Category | Status | Tests Mapped | Tests Run | Passed | Failed |",
+        "|-------------|-------|----------|--------|--------------|-----------|--------|--------|",
     ]
 
     for req_id, req_data in sorted(aiuc1.get("requirements", {}).items()):
         status = req_data["status"]
         lines.append(
             f"| {req_id} | {req_data['title']} | {req_data['category']} "
-            f"| **{status}** | {req_data.get('passed', 0)} | {req_data.get('failed', 0)} |"
+            f"| **{status}** | {req_data.get('tests_mapped', 0)} "
+            f"| {req_data.get('tests_run', 0)} "
+            f"| {req_data.get('passed', 0)} | {req_data.get('failed', 0)} |"
         )
 
     lines.extend([
@@ -334,6 +356,10 @@ def generate_markdown(
         rid: rd for rid, rd in aiuc1.get("requirements", {}).items()
         if rd["status"] == "FAIL"
     }
+    partial_reqs = {
+        rid: rd for rid, rd in aiuc1.get("requirements", {}).items()
+        if rd["status"] == "PARTIAL"
+    }
 
     lines.extend([
         "",
@@ -361,8 +387,26 @@ def generate_markdown(
             )
         lines.append("")
 
-    if not gap_reqs and not fail_reqs:
-        lines.append("No gaps or failures identified.")
+    if partial_reqs:
+        lines.append("### Under-Exercised Requirements")
+        lines.append("")
+        lines.append(
+            "Every test that ran for these requirements passed, but not every test "
+            "mapped to them was present in this report. A passing subset does not "
+            "establish the requirement: the tests that did not run assert nothing."
+        )
+        lines.append("")
+        for req_id, req_data in sorted(partial_reqs.items()):
+            absent = ", ".join(req_data.get("tests_absent", [])) or "unrecorded"
+            lines.append(
+                f"- **{req_id} ({req_data['title']}):** "
+                f"{req_data['tests_run']}/{req_data['tests_mapped']} mapped tests ran; "
+                f"absent from this report: {absent}"
+            )
+        lines.append("")
+
+    if not gap_reqs and not fail_reqs and not partial_reqs:
+        lines.append("No gaps, failures, or under-exercised requirements identified.")
         lines.append("")
 
     lines.extend([
