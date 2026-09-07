@@ -156,6 +156,8 @@ def generate_attestation_report(
     evidence_class: str | None = None,
     independence_level: str | None = None,
     system_under_test: str | None = None,
+    provenance: dict[str, Any] | None = None,
+    subject: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a complete attestation report dict.
 
@@ -173,6 +175,18 @@ def generate_attestation_report(
     and an operator-invented system under test is the same manufactured claim this
     change removes from the server. A record that makes no claim should be visibly
     silent; verify_attestation_record.py reports the absence explicitly.
+
+    `provenance` and `subject` (from `protocol_tests.run_provenance`) travel
+    TOGETHER or not at all. A subject with no provenance is a statement about
+    what was tested with nothing saying what produced the statement -- the same
+    shape as an I-level with no system under test, rejected for the same reason.
+    So a `subject` without a `provenance` raises, and a `provenance` without a
+    `subject` emits `subject_none()`: "this run reached no subject" is a fact,
+    and an omitted key is not.
+
+    Both stay OPTIONAL at the schema level. Records published before these
+    fields existed are still valid and still hash to what they hashed to;
+    invalidating them would add no information.
     """
     if independence_level is not None and independence_level not in INDEPENDENCE_LEVELS:
         raise ValueError(
@@ -187,6 +201,13 @@ def generate_attestation_report(
             "system_under_test is required whenever independence_level is set. "
             "An I-level with no named system under test is not a claim "
             "(docs/EVIDENCE-CLASS-TAXONOMY.md)."
+        )
+    if subject is not None and provenance is None:
+        raise ValueError(
+            "provenance is required whenever subject is set. A statement about "
+            "what was tested, with nothing saying what produced the statement, "
+            "is the hand-assembled-header shape run_provenance.py exists to "
+            "remove."
         )
     passed = sum(1 for e in entries if e.get("result") == "pass")
     failed = sum(1 for e in entries if e.get("result") == "fail")
@@ -227,6 +248,11 @@ def generate_attestation_report(
         report["system_under_test"] = system_under_test
     if evidence_class is not None:
         report["evidence_class"] = evidence_class
+    if provenance is not None:
+        # Both, always, once either is asked for.
+        from .run_provenance import subject_none
+        report["provenance"] = provenance
+        report["subject"] = subject if subject is not None else subject_none()
 
     return report
 
@@ -370,6 +396,29 @@ def validate_attestation_report(report: dict[str, Any]) -> list[str]:
     ec = report.get("evidence_class")
     if ec is not None and ec not in EVIDENCE_CLASSES:
         errors.append(f"evidence_class: invalid value {ec!r}")
+
+    # Same placement, same reason: a rule that only the jsonschema path enforces
+    # is a rule that stops existing on the machine where jsonschema is missing,
+    # and that machine gets told "NOT SCHEMA-VALIDATED" and nothing else. The
+    # schema ALSO carries this as an if/then, so a document that reaches a
+    # third-party validator is caught there too; the duplication is the same
+    # one `dependentRequired` already has for independence_level.
+    subject = report.get("subject")
+    if isinstance(subject, dict):
+        kind = subject.get("kind")
+        if kind == "model" and subject.get("model") is None:
+            errors.append(
+                "subject.kind is 'model' but subject.model is null. A verdict "
+                "about a model that names no model is not a verdict about a "
+                "model -- state kind 'none' instead."
+            )
+    # Outside the isinstance guard on purpose: a subject of the wrong TYPE with
+    # no provenance is still a subject with no provenance.
+    if "subject" in report and "provenance" not in report:
+        errors.append(
+            "subject is present but provenance is missing. What was tested "
+            "and what produced the statement travel together."
+        )
 
     return errors
 
