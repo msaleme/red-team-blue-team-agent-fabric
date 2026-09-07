@@ -115,6 +115,45 @@ What this does not establish: the aggregate rule is applied to the two
 report consumers only; harness-level `run_summary` and per-module summaries
 are unchanged. The registry server still performs a required-key check, not
 full JSON Schema validation, as its docstring has always said.
+### Found by the third external review, second pass (R3-05, R3-06, R3-10, R3-13)
+
+Four defects in the two places this project says it is most careful: what
+leaves in a published record, and what a live verdict is allowed to read.
+
+- **A credential in a URL query survived redaction** (High).
+  `--url=http://host/?api_key=<secret>` reached the publication copy with
+  `argv_redacted=False`: the userinfo strip never looks past the netloc, and
+  the flag's own `=` hid the query's from the inline matcher. URLs are now
+  parsed as URLs, bare or after `--flag=`. Inside a query (and fragment) every
+  value is replaced unless the parameter NAME is on a short allowlist of
+  protocol/format selectors (`transport`, `protocol`, `version`,
+  `api-version`, `api_version`, `v`, `format`, `mode`, `stream`, `model`) --
+  an allowlist rather than a longer name list, because a query name is chosen
+  by the target, and `?sig=`, `?k=`, `?code=` are not on anyone's list.
+  Scheme, host, port and path are kept as sent. The allowlist is stated in the
+  block's `not_claimed`, so a `[REDACTED]` query value reads as "not on the
+  allowlist", not as "a credential was here".
+- **Windows equals-form and UNC paths contradicted the privacy statement.**
+  `--report=C:\Users\<user>\...` and `\\host\share\...` both survived while
+  `not_claimed` promised no absolute path is recorded. Path reduction now
+  applies to the value half of `--flag=value` and recognises `\\host\share`,
+  `X:/`, `X:\` and `~user/` forms, as data, on every host.
+- **Two decision parsers disagreed on a contradictory response.**
+  `_target_decision` (read by DCA-005) stopped at the first key and called
+  `{"allowed": false, "granted": true}` a deny; `_target_allowed` (read by
+  every other live row) accepted any true alias and called it an allow. So
+  DCA-009/010 PASSED on a body DCA-005 called a refusal. One parser now.
+  Precedence, stated: none -- every boolean present must agree, and a
+  contradiction (or a non-boolean under a decision key) is undecided, named
+  on the row as INCONCLUSIVE. Fixtures pin both orderings: every row
+  INCONCLUSIVE, no finding, no pass.
+- **`--simulate --report x.json` exited 0 and wrote nothing.** The dispatcher
+  exits before the module would see `--report`. The simulate path now writes
+  the same document `--json` prints to the requested path, and an unwritable
+  path is a non-zero exit with the reason -- silent success was the defect.
+
+Every fix was fault-injected: the defect reintroduced, the new tests confirmed
+failing for that reason, the fix restored.
 
 ## [4.21.0] - 2026-09-07
 

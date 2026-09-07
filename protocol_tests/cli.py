@@ -95,11 +95,29 @@ def _extract_test_catalog(module_path: str) -> list[dict]:
     return catalog
 
 
+def _report_path_from(args: list[str]) -> str | None:
+    """`--report PATH` or `--report=PATH` from the harness-bound argv, else None."""
+    for i, a in enumerate(args):
+        if a == "--report" and i + 1 < len(args):
+            return args[i + 1]
+        if a.startswith("--report="):
+            return a.partition("=")[2]
+    return None
+
+
 def _simulate_harness(harness_name: str, info: dict,
-                      json_output: bool, html_output: str | None) -> None:
+                      json_output: bool, html_output: str | None,
+                      report_path: str | None = None) -> None:
     """Generate synthetic results for a harness without a live target.
 
     Every row is INCONCLUSIVE, not passed.
+
+    `report_path` is honoured here because the dispatcher exits before the
+    module would ever see `--report`. `agent-security test mcp --simulate
+    --report x.json` exited 0 and wrote nothing -- silent success on a request
+    that was not performed, which is the same shape as a pass that was not
+    earned. Found by the third external review, 2026-09-07. The file carries
+    the same dict `--json` prints; a write failure is a non-zero exit.
 
     This previously emitted `"passed": True` for every test, so a simulated run
     produced 100% pass, risk score 0, AUROC 1.0000 -- a clean bill of health for
@@ -176,6 +194,17 @@ def _simulate_harness(harness_name: str, info: dict,
         # passed. Same run, two answers; the one a human reads was the wrong one.
         print(f"Result: {len(results)}/{len(results)} INCONCLUSIVE "
               f"(simulated; no target contacted, nothing exercised)")
+
+    # --report: the same document --json prints, at the path that was asked for.
+    if report_path:
+        try:
+            with open(report_path, "w", encoding="utf-8") as _rf:
+                _json.dump(report, _rf, indent=2)
+        except OSError as e:
+            print(f"error: could not write --report {report_path}: {e}",
+                  file=sys.stderr)
+            sys.exit(1)
+        print(f"Report written to {report_path}", file=sys.stderr)
 
     # --html support
     if html_output:
@@ -700,7 +729,8 @@ def main():
         # For aiuc1, pass --simulate through (it handles simulation natively).
         # For all other harnesses, intercept here and produce synthetic JSON.
         if simulate and harness_name != "aiuc1":
-            _simulate_harness(harness_name, info, json_output, html_output)
+            _simulate_harness(harness_name, info, json_output, html_output,
+                              report_path=_report_path_from(filtered_args))
             sys.exit(0)
 
         # For aiuc1 with --simulate, pass the flag through to the module

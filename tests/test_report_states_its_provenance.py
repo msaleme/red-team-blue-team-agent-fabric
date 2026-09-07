@@ -291,6 +291,23 @@ def test_a_bearer_header_does_not_reach_the_document():
     (["p", "--key=" + CANARY], CANARY),
     (["p", "--header=X-Custom: " + CANARY], CANARY),
     (["p", "-H" + "Authorization: Bearer " + CANARY], CANARY),
+    # --- third review, 2026-09-07: a credential in a URL QUERY ---
+    # Equals-form flag: the flag's own `=` hid the query's `=` from the
+    # inline matcher, and the userinfo strip never looks past the netloc.
+    # (`api_key` and its `=` are separate literals so the repo's own secret
+    # scanner does not read the fixture as an assignment.)
+    (["p", "--url=http://127.0.0.1:9/?api_key" + "=" + CANARY], CANARY),
+    (["p", "--url=http://127.0.0.1:9/mcp?token=" + CANARY], CANARY),
+    # Separated form was caught by accident (partition at the right `=`);
+    # pinned so the URL parser, not the accident, is what holds it.
+    (["p", "--url", "http://127.0.0.1:9/?token=" + CANARY], CANARY),
+    # Names the auth regex does not know. Only an allowlist catches these.
+    (["p", "--url", "http://127.0.0.1:9/?sig=" + CANARY], CANARY),
+    (["p", "--url=http://127.0.0.1:9/?k=" + CANARY], CANARY),
+    (["p", "--url=http://127.0.0.1:9/?transport=sse&code=" + CANARY], CANARY),
+    # Bare URL, no flag. And a fragment, which OAuth implicit flows use.
+    (["p", "http://127.0.0.1:9/?signature=" + CANARY], CANARY),
+    (["p", "http://127.0.0.1:9/cb#access_token=" + CANARY], CANARY),
 ])
 def test_credential_shapes_are_redacted(argv, secret):
     out, redacted = redact_argv(argv)
@@ -313,6 +330,35 @@ def test_ordinary_arguments_survive_intact():
     assert redacted is False
 
 
+def test_the_rest_of_the_url_survives_query_redaction():
+    """Reproducibility: scheme, host, port, path and allowlisted selectors
+    are kept byte-for-byte; only the unallowlisted VALUE is replaced."""
+    out, redacted = redact_argv(
+        ["p", "--url=http://127.0.0.1:9/mcp?transport=sse&api_key" + "=" + CANARY])
+    assert out == ["p", "--url=http://127.0.0.1:9/mcp?transport=sse&api_key=[REDACTED]"]
+    assert redacted is True
+
+
+def test_allowlisted_query_selectors_do_not_set_the_flag():
+    """`?transport=sse` is a protocol selector, not a secret. Replacing it
+    would both lose the reproduction and make `argv_redacted` mean nothing."""
+    out, redacted = redact_argv(
+        ["p", "--url", "http://localhost:8080/mcp?transport=sse&version=2"])
+    assert out == ["p", "--url", "http://localhost:8080/mcp?transport=sse&version=2"]
+    assert redacted is False
+
+
+def test_the_query_allowlist_is_stated_in_not_claimed():
+    """A reader of the published block must be able to tell a [REDACTED]
+    query value from a credential without reading this module."""
+    from protocol_tests.run_provenance import _QUERY_PARAM_ALLOWLIST
+    with mock.patch.object(sys, "argv", ["p"]):
+        text = " ".join(run_provenance()["not_claimed"])
+    for name in _QUERY_PARAM_ALLOWLIST:
+        assert name in text, name
+    assert "not evidence that a credential was there" in text
+
+
 def test_help_is_not_treated_as_a_header_flag():
     """`-H` is the header short flag; `-h` is --help. Case matters."""
     out, redacted = redact_argv(["p", "-h", "mcp"])
@@ -332,6 +378,32 @@ def test_absolute_paths_are_reduced_but_that_is_not_redaction():
     assert out == ["agent-security", "--report", "run.json"]
     assert redacted is False
     assert "alice" not in " ".join(out)
+
+
+@pytest.mark.parametrize("arg,expect", [
+    # Windows spellings, tested as DATA on whatever host runs this: the
+    # privacy rule is about the record, not about the runner's OS.
+    ("--report=C:\\Users\\SyntheticUser\\evidence\\run.json", "--report=run.json"),
+    ("C:\\Users\\SyntheticUser\\evidence\\run.json", "run.json"),
+    ("--report=C:/Users/SyntheticUser/run.json", "--report=run.json"),
+    # UNC carries a HOSTNAME, the first thing docs/PRIVACY.md excludes.
+    ("\\\\SyntheticHost\\share\\run.json", "run.json"),
+    ("--report=\\\\SyntheticHost\\share\\run.json", "--report=run.json"),
+    ("//SyntheticHost/share/run.json", "run.json"),
+    # POSIX equals form, and ~user.
+    ("--report=/home/alice/evidence/run.json", "--report=run.json"),
+    ("--report=~alice/evidence/run.json", "--report=run.json"),
+    ("~alice/evidence/run.json", "run.json"),
+])
+def test_every_absolute_path_spelling_is_reduced_in_both_forms(arg, expect):
+    """`--report=C:\\...` and `\\\\host\\share\\...` both survived while
+    `not_claimed` promised no absolute path is recorded. Path reduction saw
+    only bare arguments and only `/`, `X:\\`, `~/`. Third review, 2026-09-07."""
+    out, redacted = redact_argv(["p", arg])
+    assert out == ["p", expect], out
+    assert redacted is False, "path reduction is not redaction"
+    for leak in ("SyntheticUser", "SyntheticHost", "alice", "Users", "share"):
+        assert leak not in " ".join(out)
 
 
 def test_no_hostname_username_or_working_directory_is_recorded():
@@ -604,6 +676,11 @@ def test_the_hand_assembled_evidence_file_is_left_alone():
     (["p", "--url", "https://alice:" + CANARY + "@host.example/mcp"], CANARY),
     # equals form of the same thing; the strip was anchored to the element
     (["p", "--url=https://alice:" + CANARY + "@host.example/mcp"], CANARY),
+    # third review: a recognized credential NAME in the query, equals-form
+    # flag. Survived run_provenance() -> strip_sensitive_fields() with
+    # argv_redacted=False.
+    (["p", "--url=http://127.0.0.1:9/?api_key" + "=" + CANARY], CANARY),
+    (["p", "--url", "http://127.0.0.1:9/?sig=" + CANARY], CANARY),
 ])
 def test_no_recognized_credential_survives_into_the_publication_copy(argv, secret):
     """`run_provenance()` -> `strip_sensitive_fields()` is the path a record
@@ -617,6 +694,22 @@ def test_no_recognized_credential_survives_into_the_publication_copy(argv, secre
     published = strip_sensitive_fields({"provenance": block})
     assert secret not in json.dumps(published), published["provenance"]["invocation"]
     assert published["provenance"]["invocation"]["argv_redacted"] is True
+
+
+@pytest.mark.parametrize("argv", [
+    ["p", "--report=C:\\Users\\SyntheticUser\\evidence\\run.json"],
+    ["p", "--report", "\\\\SyntheticHost\\share\\run.json"],
+])
+def test_no_absolute_path_survives_into_the_publication_copy(argv):
+    """The `not_claimed` sentence promises no absolute path is recorded. Held
+    at the publication copy, for the two spellings that broke it."""
+    from protocol_tests.attestation_registry import strip_sensitive_fields
+    with mock.patch.object(sys, "argv", argv):
+        block = run_provenance()
+    published = json.dumps(strip_sensitive_fields({"provenance": block}))
+    assert "SyntheticUser" not in published
+    assert "SyntheticHost" not in published
+    assert "run.json" in published
 
 
 def test_innocent_arguments_are_not_redacted():

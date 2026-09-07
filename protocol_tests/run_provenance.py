@@ -59,6 +59,13 @@ Redaction is best-effort and says so: it recognises a list of auth-shaped
 names, and a credential passed under a name not on that list survives. That is
 why the field is `argv_redacted` (something was replaced) and not
 `argv_is_safe` (a claim about what remains).
+
+URLs are the exception to name-matching. A query parameter's NAME is chosen by
+the target, so inside a URL query (and fragment) every value is replaced unless
+the name is on `_QUERY_PARAM_ALLOWLIST` -- a short list of protocol/format
+selectors. Scheme, host, port and path are kept as sent. The allowlist is
+stated in the block's `not_claimed`, so a `[REDACTED]` query value is read as
+"not on the allowlist", not as "a credential was here".
 """
 from __future__ import annotations
 
@@ -68,6 +75,7 @@ import platform
 import re
 import subprocess
 import sys
+import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -247,6 +255,27 @@ def _split_attached_short(arg: str) -> tuple[str, str] | None:
 
 
 _URL_USERINFO_RE = re.compile(r"^([a-zA-Z][a-zA-Z0-9+.-]*://)([^/@\s]+)@")
+_URL_SHAPED_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
+
+#: Query-parameter NAMES whose value survives into the record verbatim.
+#:
+#: This is an allowlist, and the only one in this module, because a URL query
+#: is the one place in argv where the NAME of a credential is chosen by the
+#: target rather than by the harness. `?api_key=` was caught by the name
+#: regex; `?sig=`, `?k=`, `?access=`, `?code=` were not, and no name list can
+#: be complete against a vocabulary someone else controls. Everything else in
+#: argv (subcommands, model tags, counts, flag names) is the harness's own
+#: vocabulary, where a deny-list of auth-shaped names is checkable and an
+#: allowlist would eat the command.
+#:
+#: The names here select a protocol or format variant. None of them can carry
+#: an authority, and none of them matches `_AUTH_NAME_RE` -- asserted below so
+#: a later edit cannot quietly allow one that does.
+_QUERY_PARAM_ALLOWLIST = frozenset({
+    "transport", "protocol", "version", "api-version", "api_version", "v",
+    "format", "mode", "stream", "model",
+})
+assert not any(_AUTH_NAME_RE.search(n) for n in _QUERY_PARAM_ALLOWLIST)
 
 
 def _strip_url_userinfo(arg: str) -> str:
@@ -256,6 +285,57 @@ def _strip_url_userinfo(arg: str) -> str:
     flag-name paths never see them because the argument is a URL, not a flag.
     """
     return _URL_USERINFO_RE.sub(rf"\1{REDACTED}@", arg)
+
+
+def _redact_query_params(query: str) -> tuple[str, bool]:
+    """Replace the value of every query parameter not on the allowlist.
+
+    Operates on the raw `name=value&name=value` text rather than through
+    `parse_qsl`/`urlencode`, so the parameters that survive are byte-for-byte
+    what was sent -- a re-encoded query is a different reproduction step.
+    Names are percent-decoded and lower-cased ONLY for the allowlist test.
+    """
+    if not query:
+        return query, False
+    out, replaced = [], False
+    for part in query.split("&"):
+        name, sep, value = part.partition("=")
+        key = urllib.parse.unquote(name).strip().lower()
+        if sep and value and key not in _QUERY_PARAM_ALLOWLIST:
+            out.append(f"{name}={REDACTED}")
+            replaced = True
+        else:
+            out.append(part)
+    return "&".join(out), replaced
+
+
+def _redact_url(arg: str) -> tuple[str, bool]:
+    """Scrub the credential-bearing parts of a URL, keep the rest.
+
+    Scheme, host, port and path survive: they are what makes a run
+    reproducible. Userinfo is replaced whole. Query and fragment values are
+    replaced unless the parameter name is on `_QUERY_PARAM_ALLOWLIST`.
+
+    `--url=http://host/?api_key=<secret>` survived the previous version with
+    `argv_redacted=False`: the userinfo strip does not look at the query, and
+    the equals-form flag hid the query's own `=` from the inline matcher (the
+    separated form `--url http://host/?api_key=...` was caught by that matcher
+    only because `partition("=")` happened to split at the right place).
+    Found by the third external review, 2026-09-07.
+    """
+    stripped = _strip_url_userinfo(arg)
+    replaced = stripped != arg
+    try:
+        parts = urllib.parse.urlsplit(stripped)
+    except ValueError:
+        return stripped, replaced
+    query, q_replaced = _redact_query_params(parts.query)
+    fragment, f_replaced = _redact_query_params(parts.fragment)
+    if not (q_replaced or f_replaced):
+        return stripped, replaced
+    rebuilt = urllib.parse.urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, query, fragment))
+    return rebuilt, True
 
 
 def _split_flag(arg: str) -> tuple[str, str] | None:
@@ -297,9 +377,24 @@ def _basename_if_absolute(arg: str) -> str:
     version of this function only cleaned `argv[0]` -- which read as a rule
     about paths while enforcing one about position.
     """
-    if arg.startswith("/") or re.match(r"^[A-Za-z]:[\\/]", arg) or arg.startswith("~/"):
+    if _ABSOLUTE_PATH_RE.match(arg):
         return os.path.basename(arg.replace("\\", "/")) or arg
     return arg
+
+
+#: Every absolute-path spelling, on every host, tested as data so a Linux
+#: runner reduces a Windows path the same way a Windows runner would. The
+#: previous test knew `/`, `X:\` and `~/`; a UNC path (`\\host\share\...`)
+#: carries a HOSTNAME -- the first thing docs/PRIVACY.md says never travels --
+#: and survived. Found by the third external review, 2026-09-07.
+_ABSOLUTE_PATH_RE = re.compile(
+    r"^(?:"
+    r"/"                      # POSIX absolute
+    r"|[A-Za-z]:[\\/]"        # drive-letter absolute, either separator
+    r"|\\\\[^\\/]+[\\/]"      # UNC: \\host\share\...
+    r"|~[^/\\]*[/\\]"         # ~/ and ~user/
+    r")"
+)
 
 
 def redact_argv(argv: list[str]) -> tuple[list[str], bool]:
@@ -362,22 +457,36 @@ def redact_argv(argv: list[str]) -> tuple[list[str], bool]:
             out.append(f"{split[0]}={REDACTED}")
             redacted = True
             continue
-        # A NON-auth flag's equals value can still be a URL with userinfo:
-        # `--url=https://u:p@host/`. The userinfo strip was anchored to the
-        # start of the whole element, so the bare form was scrubbed and this
-        # form was not. Found by an external second review, 2026-09-07.
+        # A NON-auth flag's equals value is still a value: a URL gets the URL
+        # treatment (userinfo, query, fragment) and an absolute path gets the
+        # basename treatment. Both used to see only the BARE form, so
+        # `--url=https://u:p@host/` (second review) and then
+        # `--url=http://host/?api_key=...` and `--report=C:\\Users\\<user>\\...`
+        # (third review) walked through untouched while the separated
+        # spellings of the same arguments were scrubbed.
         if split and split[1]:
-            value = _strip_url_userinfo(split[1])
-            if value != split[1]:
-                out.append(f"{split[0]}={value}")
-                redacted = True
-                continue
+            value = split[1]
+            if _URL_SHAPED_RE.match(value):
+                value, replaced = _redact_url(value)
+                redacted = redacted or replaced
+            else:
+                value = _basename_if_absolute(value)
+            out.append(f"{split[0]}={value}")
+            continue
+
+        # A bare URL is parsed as one, not matched as `key=value` text. The
+        # inline matcher caught `http://host/?token=x` only because the first
+        # `=` happened to follow an auth word; `?sig=x` it would have kept.
+        if _URL_SHAPED_RE.match(arg):
+            value, replaced = _redact_url(arg)
+            redacted = redacted or replaced
+            out.append(value)
+            continue
 
         cleaned = _redact_inline(arg)
-        cleaned2 = _strip_url_userinfo(cleaned)
-        if cleaned2 != arg:
+        if cleaned != arg:
             redacted = True
-        out.append(_basename_if_absolute(cleaned2))
+        out.append(_basename_if_absolute(cleaned))
 
     # A trailing auth flag with no value after it. Nothing to redact, and
     # dropping the flag would misreport the command that was run.
@@ -608,9 +717,16 @@ def run_provenance(**overrides: Any) -> dict[str, Any]:
             "names and a credential passed under another name survives.",
             "No hostname, username, working directory or absolute path is "
             "recorded, by the rule in docs/PRIVACY.md. Every absolute path in "
-            "argv is reduced to its basename, unconditionally and without "
+            "argv -- POSIX, drive-letter, UNC and ~user forms, bare or after "
+            "--flag= -- is reduced to its basename, unconditionally and without "
             "setting argv_redacted, so a bare filename here was never a full "
             "path in this record. Their absence is a decision, not an omission.",
+            "URL query and fragment values are replaced unless the parameter "
+            "name is on a short allowlist of protocol/format selectors "
+            f"({', '.join(sorted(_QUERY_PARAM_ALLOWLIST))}). A [REDACTED] "
+            "query value is therefore not evidence that a credential was "
+            "there; it is evidence that the name was not on the allowlist. "
+            "Scheme, host, port and path are kept as sent.",
         ],
     }
     statement.update(overrides)
