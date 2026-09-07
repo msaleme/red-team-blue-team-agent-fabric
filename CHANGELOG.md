@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+**A live target that was never reached inherited the reference model's PASS
+(R3-01, Critical; third external review, 2026-09-07).** Five payment
+conformance modules -- `ap2`, `x402-fireblocks`, `ucp-acp`, `card-token`,
+`settlement-finality` -- fold a reference-model verdict with a live probe of
+the target. Each `_finish` started from `passed = model_pass` and, when the
+probe came back `unreachable`, rewrote only the prose: *"live verifier
+unreachable -- verdict from reference model"*. So against a port nobody was
+listening on, the published 4.21.0 reported 17/17, 17/17, 12/12, 12/12 and 8/8
+passed, under `mode: live`, with `pass_rate: 1.0` and a Wilson interval, and
+`migrate_legacy_report` turned that into a 17-pass attestation. The reference
+verifier had been asked about itself and the answer was filed under the target.
+
+The fold is now one function, `http_helpers.fold_live_verdict`, and the five
+`_finish` bodies call it. When live mode was requested and nothing live was
+observed -- unreachable, or a row that defines no live probe -- the row is
+INCONCLUSIVE: `passed: false`, a declared `not_evaluated: true` field, the
+`INCONCLUSIVE - ` prefix on `details`, and the reference model's verdict kept
+SEPARATELY under `reference_verdict: {passed, reason, scope}` with a scope
+statement that says it is about the verifier in the file. It never enters
+`passed`. The five report writers now use `run_summary`, so a run that
+observed nothing carries `serviced: 0`, `pass_rate: null` and no interval, and
+each report gains a `verdict_scope` block that says what was REACHED beside the
+`mode` that says what was requested. Against the closed port all five now read
+0 passed / N inconclusive, and migration yields `inconclusive: N, passed: 0`.
+
+One consequence is deliberate and worth reading: none of the five rows sends a
+legitimate variant, so none carries a positive control, and a live `rejected`
+is now recorded under `live_evidence` but not scored as a pass -- a verifier
+that rejects everything produces the same observation. A module that adds a
+positive control passes `positive_control=True` to the same fold and gets its
+PASS back. Simulate-mode rows are unchanged apart from the two new fields at
+their defaults; the `--simulate` grandfather list in
+`testing/test_simulated_passes_are_scoped.py` is still accurate.
+
+This does not establish that the five grade a live verifier correctly in any
+other respect. It establishes that an absent target can no longer be reported
+as a passing one.
+
+**The host sweeps discovered harnesses by source text and omitted 11 of 46
+(R3-02, High).** `scripts/dead_host_sweep.py::_candidate_modules` -- shared by
+`permissive_host_sweep.py` and `refusing_host_sweep.py` -- took a module as a
+candidate if its source contained the literal `def _record` and the literal
+`response_received`. That found 36 of 46 registered harnesses and said nothing
+about the rest, which included all five modules above; nothing ran them, so
+nothing caught R3-01. The set is now derived from `protocol_tests.cli.HARNESSES`.
+Every registration is either exercised or carries a reasoned `NOT_APPLICABLE`
+entry (four: `mcp-supplychain`, `receipt-claim`, `agent-data-injection` have no
+`--url`; `community` has no suite class), the registry denominator and the
+exercised set are floored (46 / 42), and a registered harness that produces no
+row makes the sweep raise rather than shrink. `delegation-chain` and `hitl`
+enter the sweeps for the first time as well. Both read 0 against the closed
+port and the refusing host; `hitl` reads 4 of 8 against the allow-all host
+(HITL-005..008, one verdict: `passed = refused or not lure`), which is recorded
+in the permissive read-list register as absence-as-success -- read, not
+repaired -- and the register's denominator moves 37 -> 41 with the numerator
+at 0.
+
+Tests: `testing/test_live_unreached_is_inconclusive.py` runs the five through
+the CLI against a closed port; `testing/test_sweep_covers_the_registry.py`
+pins the candidate set to the registry minus the excuse list, with floors.
+
 ## [4.21.0] - 2026-09-07
 
 **The instrument was the thing under test.** This release is what happened when

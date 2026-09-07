@@ -85,8 +85,9 @@ argument ("every subclass inherits it") and the guard suite verified it for four
 of them with synthetic fixtures. It is now measured for all of them.
 
 Discovery is by capability: a non-abstract class defined in the module with a
-callable `run_all` or `run_tests`. `harness_base` legitimately has neither; that
-row now means what it says.
+callable `run_all` or `run_tests`. The MODULE set is the CLI registry
+(`protocol_tests.cli.HARNESSES`) minus `NOT_APPLICABLE`, and a registered
+harness that produces no row makes the sweep raise -- see `registry_coverage`.
 
     python3 scripts/dead_host_sweep.py            # table, ordered worst first
     python3 scripts/dead_host_sweep.py --json     # machine-readable
@@ -110,14 +111,108 @@ sys.path.insert(0, str(REPO_ROOT))
 CLOSED_PORT = "http://127.0.0.1:9"
 
 
+#: Registered harnesses this sweep deliberately does not run, each with the
+#: reason. A registration is either exercised or on this list; anything else
+#: makes `sweep()` raise rather than shrink. A reason has to be about the
+#: harness -- what it would need before pointing it at a target means anything
+#: -- and never about the sweep's convenience.
+#:
+#: Until 2026-09-07 the candidate set was a source-text match: a module was a
+#: candidate if it contained the literal text `def _record` AND
+#: `response_received`. That found 36 of 46 registered harnesses and said
+#: nothing about the other ten. Among the ten were all five payment
+#: conformance modules (ap2, x402_fireblocks, ucp_acp, card_token,
+#: settlement_finality), which against a closed port reported 17/17, 17/17,
+#: 12/12, 12/12 and 8/8 -- the reference model's PASS, under `mode: live`,
+#: with a Wilson interval. Nothing caught it because nothing ran them. The
+#: finder was a naming convention again, one abstraction down from the one
+#: this file's docstring already describes replacing.
+NOT_APPLICABLE = {
+    "mcp-supplychain": (
+        "no --url: a pre-flight over a local command, config file and project "
+        "root; there is no network target to point at nothing"),
+    "receipt-claim": (
+        "no --url: a claim-level verifier run over local fixtures in --simulate "
+        "only; no target is contacted in any mode"),
+    "agent-data-injection": (
+        "no --url: drives a model adapter named by HARNESS_ADI_MODEL rather than "
+        "an HTTP target; a dead-host reading needs a model-specific adapter"),
+    "community": (
+        "YAML-driven runner with no suite class of its own; it needs a pattern "
+        "corpus and a per-protocol adapter before a target means anything"),
+}
+
+#: Floors on the denominator and the exercised set, so a registry that shrinks
+#: or a derivation that stops matching fails here rather than reading as clean.
+REGISTRY_FLOOR = 46
+EXERCISED_FLOOR = 42
+
+
+class SweepCoverageError(RuntimeError):
+    """A registered harness was neither exercised nor explicitly excused."""
+
+
+def registry_coverage() -> dict:
+    """The registry, split into what this sweep exercises and what it excuses.
+
+    Derived from `protocol_tests.cli.HARNESSES` -- the one list a harness has
+    to be on to be runnable from the CLI -- rather than from a property of the
+    module's source. Raises rather than returning a smaller set when the
+    floors are not met or an excuse names something not in the registry.
+    """
+    from protocol_tests.cli import HARNESSES
+
+    unknown = sorted(set(NOT_APPLICABLE) - set(HARNESSES))
+    if unknown:
+        raise SweepCoverageError(
+            f"NOT_APPLICABLE names harnesses that are not registered: {unknown}. "
+            f"An excuse for something that does not exist is a stale entry.")
+    if len(HARNESSES) < REGISTRY_FLOOR:
+        raise SweepCoverageError(
+            f"{len(HARNESSES)} registered harnesses, floor is {REGISTRY_FLOOR}; "
+            f"the registry shrank or the import found the wrong module")
+    exercised = {name: info["module"].rsplit(".", 1)[1]
+                 for name, info in HARNESSES.items() if name not in NOT_APPLICABLE}
+    if len(exercised) < EXERCISED_FLOOR:
+        raise SweepCoverageError(
+            f"{len(exercised)} harnesses would be exercised, floor is "
+            f"{EXERCISED_FLOOR}; NOT_APPLICABLE grew or the registry shrank")
+    return {
+        "registry": sorted(HARNESSES),
+        "exercised": exercised,
+        "not_applicable": dict(NOT_APPLICABLE),
+    }
+
+
 def _candidate_modules() -> list[str]:
-    """Same rule the guard suite uses, so the two cannot drift apart."""
-    out = []
-    for path in sorted((REPO_ROOT / "protocol_tests").glob("*.py")):
-        src = path.read_text(encoding="utf-8")
-        if "def _record" in src and "response_received" in src:
-            out.append(path.stem)
+    """Module stems to run: every registered harness not explicitly excused."""
+    out: list[str] = []
+    for stem in registry_coverage()["exercised"].values():
+        if stem not in out:
+            out.append(stem)
     return out
+
+
+def _assert_every_candidate_exercised(candidates, rows) -> None:
+    """Raise if any candidate produced no `ran` / `ran-no-verdicts` row.
+
+    A module that will not import, has no suite class, or cannot be constructed
+    used to become a row and a smaller denominator. It is now a failure of the
+    sweep, because a registered harness the sweep says nothing about is exactly
+    the gap the five payment modules sat in.
+    """
+    exercised = {r["module"].split("::")[0] for r in rows
+                 if r["status"] in ("ran", "ran-no-verdicts")}
+    missing = {}
+    for name in candidates:
+        if name in exercised:
+            continue
+        missing[name] = sorted({r["status"] for r in rows
+                                if r["module"].split("::")[0] == name}) or ["no row"]
+    if missing:
+        raise SweepCoverageError(
+            f"registered harnesses neither exercised nor excused: {missing}. "
+            f"Fix the module, or add a reasoned NOT_APPLICABLE entry.")
 
 
 def _suites(mod_name: str):
@@ -203,7 +298,8 @@ def sweep(target: str = CLOSED_PORT) -> list[dict]:
     the opposite pole: a server that accepts every request.
     """
     rows = []
-    for name in _candidate_modules():
+    candidates = _candidate_modules()
+    for name in candidates:
         _, suites = _suites(name)
         if not suites:
             rows.append({"module": name, "status": "no-suite-class"})
@@ -242,6 +338,16 @@ def sweep(target: str = CLOSED_PORT) -> list[dict]:
                 "errors": len(errored),
                 "passing_ids": passed,
             })
+    # Fail, not shrink: a registered harness the sweep says nothing about is
+    # the gap that hid R3-01, and a table is not allowed to omit it quietly.
+    _assert_every_candidate_exercised(candidates, rows)
+    # The excused registrations appear as rows too, so the table shows the
+    # whole registry and a reader can see the reason beside each gap.
+    from protocol_tests.cli import HARNESSES
+    for reg_name, reason in NOT_APPLICABLE.items():
+        rows.append({"module": HARNESSES[reg_name]["module"].rsplit(".", 1)[1],
+                     "registry_name": reg_name,
+                     "status": f"not-applicable: {reason}"})
     # worst first: most passes against nothing
     rows.sort(key=lambda r: (-(r.get("passed") or 0), r["module"]))
     return rows
@@ -277,7 +383,9 @@ def main() -> int:
                   f"{r['errors']:>4}  {ids}")
         ran = [r for r in rows if r["status"] == "ran"]
         silent = [r for r in rows if r["status"] == "ran-no-verdicts"]
-        skipped = [r for r in rows if r["status"] not in ("ran", "ran-no-verdicts")]
+        excused = [r for r in rows if r["status"].startswith("not-applicable")]
+        skipped = [r for r in rows if r["status"] not in ("ran", "ran-no-verdicts")
+                   and r not in excused]
         dirty = [r for r in ran if r["passed"]]
         print("-" * 96)
         print(f"{len(ran)} suites produced verdicts, {len(dirty)} still pass "
@@ -290,6 +398,10 @@ def main() -> int:
         if skipped:
             print(f"{len(skipped)} could not be run "
                   f"({', '.join(r['module'] for r in skipped)}).")
+        cov = registry_coverage()
+        print(f"Registry: {len(cov['registry'])} harnesses; "
+              f"{len(cov['exercised'])} exercised, {len(excused)} excused with a "
+              f"stated reason ({', '.join(r['module'] for r in excused)}).")
     return 0
 
 

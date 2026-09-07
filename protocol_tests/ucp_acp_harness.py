@@ -80,8 +80,10 @@ import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
-from protocol_tests._utils import Severity, http_post_json, json_stdout_only, wilson_ci
-from protocol_tests.http_helpers import payment_outcome
+from protocol_tests._utils import Severity, http_post_json, json_stdout_only
+from protocol_tests.http_helpers import (fold_live_verdict, is_inconclusive,
+                                         live_run_scope, payment_outcome,
+                                         run_summary, summary_lines)
 
 # ---------------------------------------------------------------------------
 # Canonical hashing
@@ -283,6 +285,17 @@ class JourneyTestResult:
     normative: str = "N"   # N = normative MUST; I = inferred/strict
     live_evidence: dict | None = None
     elapsed_s: float = 0.0
+    #: The reference model's verdict, kept apart from ``passed`` when live mode
+    #: was requested. ``passed`` is then about the target, or INCONCLUSIVE; this
+    #: is about the verifier in this file, and its ``scope`` says so.
+    reference_verdict: dict | None = None
+    #: INCONCLUSIVE as a field, not only as a prefix on ``details``.
+    #: ``asdict()`` serialises declared fields; it does not serialise English.
+    not_evaluated: bool = False
+
+    def __post_init__(self) -> None:
+        if is_inconclusive(self.details):
+            self.not_evaluated = True
 
 
 def _live_rejected(url: str, headers: dict, payload: dict) -> tuple[str, dict]:
@@ -313,30 +326,34 @@ class UCPACPJourneyTests:
         return 1_750_000_000 if self.simulate else int(time.time())
 
     def _record(self, r: JourneyTestResult) -> None:
-        print(f"  {'PASS ✅' if r.passed else 'FAIL ❌'}  {r.test_id}: {r.name}")
+        status = ("INCONCLUSIVE ➖" if r.not_evaluated
+                  else "PASS ✅" if r.passed else "FAIL ❌")
+        print(f"  {status}  {r.test_id}: {r.name}")
         self.results.append(r)
 
     def _finish(self, *, test_id, name, category, protocol, owasp, stride,
                 severity, ref, normative, model_pass, model_reason,
                 attack_payload, t0):
-        passed = model_pass
-        details = model_reason
+        verdict = None
         live_ev = None
         if not self.simulate and attack_payload is not None:
             verdict, ev = _live_rejected(self.url, self.headers, attack_payload)
             live_ev = {"verdict": verdict, "status": ev.get("_status", 0)}
-            if verdict == "accepted":
-                passed = False
-                details = f"{model_reason}; LIVE verifier ACCEPTED the attack — control absent"
-            elif verdict == "rejected":
-                details = f"{model_reason}; live verifier rejected the attack"
-            else:
-                details = f"{model_reason}; live verifier unreachable — verdict from reference model"
+        # One shared policy for what a row says when live mode was requested
+        # and nothing live was observed: INCONCLUSIVE, with the reference-model
+        # verdict kept apart under `reference_verdict`, never in `passed`. No
+        # row here sends a legitimate variant, so no row claims a positive
+        # control, and a bare live rejection is recorded but not scored.
+        passed, details, reference = fold_live_verdict(
+            live_requested=not self.simulate, verdict=verdict,
+            model_pass=model_pass, model_reason=model_reason,
+            subject="live verifier",
+            accepted_detail=f"{model_reason}; LIVE verifier ACCEPTED the attack — control absent")
         self._record(JourneyTestResult(
             test_id=test_id, name=name, category=category, protocol=protocol,
             owasp_asi=owasp, stride=stride, severity=severity, passed=passed,
             details=details, ref=ref, normative=normative,
-            live_evidence=live_ev, elapsed_s=round(time.monotonic() - t0, 3)))
+            live_evidence=live_ev, reference_verdict=reference, elapsed_s=round(time.monotonic() - t0, 3)))
 
     # === UCP =============================================================
 
@@ -649,13 +666,10 @@ class UCPACPJourneyTests:
                     category="error", protocol="error", owasp_asi="ASI03",
                     stride="Tampering", severity=Severity.HIGH.value,
                     passed=False, details=str(e)))
-        total = len(self.results)
-        passed = sum(1 for r in self.results if r.passed)
-        ci = wilson_ci(passed, total)
         print(f"\n{'='*60}")
-        if total:
-            print(f"RESULTS: {passed}/{total} passed ({passed/total*100:.0f}%)")
-            print(f"WILSON 95% CI: [{ci[0]:.4f}, {ci[1]:.4f}]")
+        # PASS, FAIL and INCONCLUSIVE kept distinct; no rate over nothing.
+        for line in summary_lines(run_summary(self.results)):
+            print(line)
         print(f"{'='*60}\n")
         return self.results
 
@@ -690,18 +704,16 @@ def main() -> None:
     with json_stdout_only(args.json):
         results = suite.run_all()
 
-    total = len(results)
-    passed = sum(1 for r in results if r.passed)
-    ci = wilson_ci(passed, total)
     report = {
         "suite": "UCP/ACP Merchant-Journey Conformance",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "mode": "simulate" if simulate else "live",
-        "summary": {
-            "total": total, "passed": passed, "failed": total - passed,
-            "pass_rate": round(passed / total, 4) if total else 0,
-            "wilson_95_ci": {"lower": ci[0], "upper": ci[1]},
-        },
+        # `mode` is what was REQUESTED. This is what was REACHED: a report
+        # could say `mode: live` over rows that observed nothing live.
+        "verdict_scope": live_run_scope(results, live_requested=not simulate,
+                                        target=suite.url),
+        # PASS, FAIL and INCONCLUSIVE kept distinct; no rate over nothing.
+        "summary": run_summary(results),
         "results": [asdict(r) for r in results],
     }
 
