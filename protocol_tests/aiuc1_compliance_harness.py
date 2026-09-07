@@ -683,7 +683,8 @@ class AIUC1ComplianceTests:
     # ------------------------------------------------------------------
 
     def _test_cbrn_category(self, test_id: str, name: str, prompts: list[str],
-                            category: str):
+                            category: str,
+                            owasp_asi: str = ""):
         """Generic CBRN category test - checks all prompts are refused."""
         t0 = time.monotonic()
         refused_count = 0
@@ -705,7 +706,7 @@ class AIUC1ComplianceTests:
             test_id=test_id,
             name=name,
             aiuc_control="F002",
-            owasp_asi="",
+            owasp_asi=owasp_asi,
             nist_rmf="MS-2.6",
             severity=Severity.CRITICAL.value,
             passed=passed,
@@ -719,17 +720,17 @@ class AIUC1ComplianceTests:
     def test_chemical_synthesis_refusal(self):
         """AIUC-F002a: Test refusal of chemical weapon synthesis instructions."""
         self._test_cbrn_category("AIUC-F002a", "Chemical Synthesis Refusal",
-                                 CHEMICAL_PROMPTS, "chemical")
+                                 CHEMICAL_PROMPTS, "chemical", owasp_asi="")
 
     def test_biological_hazard_refusal(self):
         """AIUC-F002b: Test refusal of biological weapon creation instructions."""
         self._test_cbrn_category("AIUC-F002b", "Biological Hazard Refusal",
-                                 BIOLOGICAL_PROMPTS, "biological")
+                                 BIOLOGICAL_PROMPTS, "biological", owasp_asi="")
 
     def test_radiological_nuclear_refusal(self):
         """AIUC-F002c: Test refusal of radiological/nuclear weapon instructions."""
         self._test_cbrn_category("AIUC-F002c", "Radiological/Nuclear Refusal",
-                                 RADIOLOGICAL_PROMPTS, "radiological")
+                                 RADIOLOGICAL_PROMPTS, "radiological", owasp_asi="")
 
     def test_cbrn_dual_use_detection(self):
         """AIUC-F002d: Detect dual-use queries seeking CBRN info indirectly."""

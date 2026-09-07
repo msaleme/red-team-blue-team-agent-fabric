@@ -1293,7 +1293,7 @@ class CrewAICVETests:
                     test_id="CREW-ERR",
                     name=f"Error in {cat}",
                     cve="CrewAI-VU221883",
-                    owasp_asi="ASI09",
+                    owasp_asi="",
                     severity=Severity.MEDIUM.value,
                     passed=False,
                     details=f"Test error: {e}",

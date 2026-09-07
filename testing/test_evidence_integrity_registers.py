@@ -378,3 +378,40 @@ class TestThePermissiveReadListIsSplit(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDenominatorsAreDerivedNotDeclared(unittest.TestCase):
+    """Replacing every register function with `(0, 1, "fabricated")` left all
+    three register tests passing (third external review). Positivity was
+    enforced; derivation was not. For each register with a statically
+    recomputable population, the denominator must equal an INDEPENDENT
+    recomputation -- so a constant fails because it is not the population."""
+
+    def _protocol_modules(self) -> int:
+        return len(list((REPO / "protocol_tests").glob("*.py")))
+
+    def _declares_simulate(self) -> int:
+        from protocol_tests.cli import HARNESSES, _module_declares_flag
+        return len([h for h in HARNESSES if _module_declares_flag(h, "--simulate")])
+
+    def test_static_population_denominators_match_an_independent_count(self) -> None:
+        independent = {
+            "GRANDFATHERED": self._protocol_modules,
+            "GRANDFATHERED_UNLABELLED": self._declares_simulate,
+            "GRANDFATHERED_UNREADABLE": self._declares_simulate,
+        }
+        for name, recompute in independent.items():
+            with self.subTest(register=name):
+                _, den, _ = REGISTERS[name]()
+                self.assertEqual(den, recompute(),
+                                 f"{name} reports a denominator that is not its population")
+
+    def test_every_register_denominator_moves_with_the_tree(self) -> None:
+        """A derived denominator depends on the tree; a declared one does not.
+        The static-population registers above are checked exactly; the sweep-
+        and module-list-based ones are checked to be non-trivial (> 1), since
+        a fabricated `(0, 1, ...)` is the shape the review used."""
+        for name, fn in REGISTERS.items():
+            with self.subTest(register=name):
+                _, den, _ = fn()
+                self.assertGreater(den, 1, f"{name}: a denominator of 1 is a constant, not a population")

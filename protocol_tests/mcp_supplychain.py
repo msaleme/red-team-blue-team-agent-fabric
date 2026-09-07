@@ -546,7 +546,7 @@ class MCPSupplyChainTests:
                 except Exception as e:  # never let one check abort the suite
                     self._record(MCPTestResult(
                         test_id="MCP-F-ERR", name="framework check error",
-                        category="error", owasp_asi="ASI06",
+                        category="error", owasp_asi="",  # an error sentinel asserts nothing about any category
                         severity=Severity.LOW.value, passed=False,
                         details=f"{type(e).__name__}: {e}",
                         mcp_method="N/A (static pre-flight)"))

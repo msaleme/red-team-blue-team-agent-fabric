@@ -154,6 +154,29 @@ leaves in a published record, and what a live verdict is allowed to read.
 
 Every fix was fault-injected: the defect reintroduced, the new tests confirmed
 failing for that reason, the fix restored.
+### Fixed — three detectors that could not tell "nothing found" from "nothing looked", and what they found once they could (third external review, R3-08 / R3-09 / register derivation)
+
+`testing/test_harness_base_adoption.py` stayed green with its detector replaced
+by `return set()`, even with a new module defining its own `_record` seeded
+beside it. It now requires every grandfathered module to remain visible to
+discovery and floors the detected population.
+
+`protocol_tests/asi_inventory.unattributed_literals()` recorded a helper
+literal only when the id was a Name; `test_id=str(row_id)` was ignored and
+the ASI test file passed. Every ASI-bearing call the locator cannot attribute
+is now recorded. Once it was, it found two error-path sentinels still carrying
+the category their modules were remapped away from (`CREW-ERR` ASI09,
+`MCP-F-ERR` ASI06) -- the outcome-dependent shape, twice more -- and a locator
+defect of our own: the inventory's ID regex could not read `AIUC-E001`-shaped
+IDs, so all twelve AIUC-1 tests had been classified as untagged. They carry
+ASI01/02/07. The untagged register shrinks from 22 to the ten RCL rows.
+
+`testing/test_evidence_integrity_registers.py` accepted a fabricated constant
+`(0, 1, ...)` for every register. Static-population denominators must now
+equal an independent recomputation.
+
+None of this establishes that the detectors are complete; it establishes that
+each fails when switched off, which they did not before.
 
 ## [4.21.0] - 2026-09-07
 
