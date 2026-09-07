@@ -181,19 +181,9 @@ def compute_aiuc1_coverage(
 # OWASP Agentic Top 10 mapping
 # ---------------------------------------------------------------------------
 
-# OWASP Agentic Security Initiative categories
-OWASP_AGENTIC_CATEGORIES: dict[str, str] = {
-    "ASI01": "Prompt Injection & Input Manipulation",
-    "ASI02": "Privilege Escalation & Authorization Bypass",
-    "ASI03": "Capability & Task Hijacking",
-    "ASI04": "Tool Poisoning & Supply Chain",
-    "ASI05": "Data Leakage & Context Isolation",
-    "ASI06": "Protocol & Transport Security",
-    "ASI07": "Identity, Authentication & Trust",
-    "ASI08": "Observability & Monitoring Gaps",
-    "ASI09": "Unsafe Agent Autonomy",
-    "ASI10": "Multi-Agent Trust & Delegation",
-}
+from protocol_tests.owasp_taxonomy import (  # noqa: E402
+    OWASP_AGENTIC_CATEGORIES,
+)
 
 
 def compute_owasp_coverage(

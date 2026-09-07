@@ -43,18 +43,9 @@ HARNESS_VERSION = get_harness_version()
 # OWASP Agentic Security Initiative categories (shared with evidence_pack.py)
 # ---------------------------------------------------------------------------
 
-OWASP_AGENTIC_CATEGORIES: dict[str, str] = {
-    "ASI01": "Prompt Injection & Input Manipulation",
-    "ASI02": "Privilege Escalation & Authorization Bypass",
-    "ASI03": "Capability & Task Hijacking",
-    "ASI04": "Tool Poisoning & Supply Chain",
-    "ASI05": "Data Leakage & Context Isolation",
-    "ASI06": "Protocol & Transport Security",
-    "ASI07": "Identity, Authentication & Trust",
-    "ASI08": "Observability & Monitoring Gaps",
-    "ASI09": "Unsafe Agent Autonomy",
-    "ASI10": "Multi-Agent Trust & Delegation",
-}
+from protocol_tests.owasp_taxonomy import OWASP_AGENTIC_CATEGORIES
+
+OWASP_AGENTIC_CATEGORIES = OWASP_AGENTIC_CATEGORIES
 
 
 # ---------------------------------------------------------------------------
