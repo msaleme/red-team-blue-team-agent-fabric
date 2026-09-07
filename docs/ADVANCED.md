@@ -32,6 +32,25 @@ agent-security test mcp --url http://localhost:8080/mcp --trials 10
 # Pass Rate: 80% (95% CI: 55%-93%)
 ```
 
+The rate and the interval are over **serviced** trials, and are omitted -- not
+reported as zero -- when no trial was serviced.
+
+A test's verdict across N trials follows one named rule, published in the report
+as `aggregation.rule`:
+
+| Trials for one test | Verdict |
+|---------------------|---------|
+| every serviced trial passed | PASS |
+| any serviced trial failed | FAIL — a control that gave way once did not hold |
+| no trial was serviced | INCONCLUSIVE — never FAIL |
+
+Tests that passed some serviced trials and failed others are listed in
+`aggregation.unstable_tests`, and every trial's state is in
+`statistical_summary.per_test[].per_trial_state`.
+
+`results` carries one representative result per `test_id` — the trial that
+carries the verdict — so it always agrees with `summary.total`.
+
 ---
 
 ## Advanced Attack Patterns
