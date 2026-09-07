@@ -49,7 +49,13 @@ WRITES_A_REPORT = re.compile(
     r"^\s*def generate_report|add_argument\(\s*[\"']--report", re.M)
 
 #: The property: the report says what produced the run.
-STATES_ITS_PROVENANCE = re.compile(r"\brun_provenance\b")
+#:
+#: This must match a CALL, not the name. `\brun_provenance\b` also matched the
+#: import line and the module path `protocol_tests.run_provenance`, so a module
+#: that imported the builder and never called it satisfied the ratchet. Caught
+#: by deleting the call from `delegation_chain_harness` while leaving its
+#: import: the suite stayed green.
+STATES_ITS_PROVENANCE = re.compile(r"\brun_provenance\s*\(")
 
 #: Not report writers, for stated reasons rather than because they were
 #: inconvenient.
@@ -97,6 +103,9 @@ GRANDFATHERED: set[str] = {
 #: empty set is not a detector.
 KNOWN_REPORT_WRITERS = 27
 
+# Frozen at the seed. May shrink as modules are migrated; must never grow.
+SEEDED_GRANDFATHER_COUNT = 42
+
 
 def _affected() -> set[str]:
     return {
@@ -127,11 +136,34 @@ class TestTheDetectionStillDetects(unittest.TestCase):
         self.assertIn(MIGRATED, _affected())
 
     def test_the_ratchet_has_something_to_check(self):
-        self.assertEqual(
-            _affected() - GRANDFATHERED, {MIGRATED},
-            "the checked set is not exactly the migrated module; either a "
-            "module was migrated without shrinking GRANDFATHERED, or the "
-            "grandfather list has drifted from the derived set")
+        """The checked set must be non-empty and must contain the migrated one.
+
+        This asserted equality with `{MIGRATED}` when exactly one module
+        complied. That was too strict in the direction that matters: a NEW
+        module which states its provenance correctly is the outcome this
+        ratchet exists to produce, and equality reported it as a failure.
+        `delegation_chain_harness` (#524) was the first such module.
+
+        The property being defended is that the scan is checking something and
+        is checking the module that was migrated -- not that the compliant set
+        never grows. Growth of GRANDFATHERED is what must not happen, and
+        `test_the_grandfather_list_never_grew` pins that separately.
+        """
+        checked = _affected() - GRANDFATHERED
+        self.assertIn(MIGRATED, checked)
+        self.assertTrue(checked, "the ratchet is checking nothing")
+
+    def test_the_grandfather_list_never_grew(self):
+        """Debt may be paid down; it may not be taken on.
+
+        A module that writes a report without provenance must be fixed, not
+        added here. This is the assertion that makes the ratchet a ratchet.
+        """
+        self.assertLessEqual(
+            len(GRANDFATHERED), SEEDED_GRANDFATHER_COUNT,
+            f"GRANDFATHERED grew past its seed of "
+            f"{SEEDED_GRANDFATHER_COUNT}; a new report writer was excused "
+            f"instead of made to state what produced it")
 
     def test_grandfathered_names_all_exist(self):
         """A stale name silently shrinks the checked set to nothing."""

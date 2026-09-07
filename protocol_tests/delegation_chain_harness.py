@@ -85,6 +85,11 @@ from datetime import datetime, timezone
 
 from protocol_tests._utils import Severity, http_post_json, json_stdout_only
 from protocol_tests.harness_base import HarnessResult, RecordingHarness
+from protocol_tests.run_provenance import (
+    run_provenance,
+    subject_http,
+    subject_none,
+)
 from protocol_tests.http_helpers import (
     INCONCLUSIVE_PREFIX,
     is_inconclusive,
@@ -1643,6 +1648,12 @@ def main() -> None:
         "suite": "Multi-Hop Delegated-Authority Attenuation",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "mode": "simulate" if simulate else "live",
+        # In simulate mode the verdicts are about the reference model in this
+        # file, so there is no subject to name -- `subject_none()` says that
+        # rather than leaving the field absent, which would be indistinguishable
+        # from a live run whose target went unrecorded.
+        "provenance": run_provenance(),
+        "subject": subject_none() if simulate else subject_http(args.url),
         "status": summary["status"],
         "summary": summary,
         "results": [asdict(r) for r in results],
