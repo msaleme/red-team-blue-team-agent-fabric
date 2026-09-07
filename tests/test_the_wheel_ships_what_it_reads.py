@@ -206,3 +206,33 @@ class InstalledConsumersCanReadTheirMapping(unittest.TestCase):
                              f"an installed consumer could not read its mapping:\n"
                              f"{done.stdout}\n{done.stderr[-800:]}")
             self.assertIn("OK", done.stdout)
+
+
+class TheDefaultBuildRouteWorks(unittest.TestCase):
+    """`python -m build` with no flags: sdist, then wheel FROM the sdist. This
+    is the route .github/workflows/publish-pypi.yml takes. The --wheel tests
+    above never exercised it, and the build_py hook's canonical-root
+    requirement failed it from a clean worktree (second external review,
+    2026-09-07). The release would have failed at publish time."""
+
+    def test_sdist_then_wheel_from_a_clean_copy(self):
+        try:
+            import build  # noqa: F401
+        except ImportError:
+            raise unittest.SkipTest("the `build` package is not installed")
+        with tempfile.TemporaryDirectory(prefix="default-build-") as tmp:
+            src = Path(tmp) / "src"
+            shutil.copytree(REPO, src, symlinks=True,
+                            ignore=shutil.ignore_patterns(".git", ".venv", "build",
+                                                          "*.egg-info", "__pycache__", "dist"))
+            out = Path(tmp) / "dist"
+            done = subprocess.run([sys.executable, "-m", "build", "-o", str(out)],
+                                  cwd=src, capture_output=True, text=True)
+            self.assertEqual(done.returncode, 0,
+                             f"default build failed:\n{done.stdout[-1500:]}\n{done.stderr[-1500:]}")
+            wheels = list(out.glob("*.whl")); sdists = list(out.glob("*.tar.gz"))
+            self.assertEqual(len(wheels), 1, wheels); self.assertEqual(len(sdists), 1, sdists)
+            names = zipfile.ZipFile(wheels[0]).namelist()
+            for parts in RUNTIME_DATA:
+                with self.subTest(data="/".join(parts)):
+                    self.assertIn("protocol_tests/" + "/".join(parts), names)

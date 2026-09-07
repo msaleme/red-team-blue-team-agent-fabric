@@ -602,6 +602,8 @@ def test_the_hand_assembled_evidence_file_is_left_alone():
     (["p", "--header=X-Custom: " + CANARY], CANARY),
     (["p", "-H" + "Authorization: Bearer " + CANARY], CANARY),
     (["p", "--url", "https://alice:" + CANARY + "@host.example/mcp"], CANARY),
+    # equals form of the same thing; the strip was anchored to the element
+    (["p", "--url=https://alice:" + CANARY + "@host.example/mcp"], CANARY),
 ])
 def test_no_recognized_credential_survives_into_the_publication_copy(argv, secret):
     """`run_provenance()` -> `strip_sensitive_fields()` is the path a record

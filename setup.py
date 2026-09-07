@@ -37,9 +37,17 @@ class build_py(_build_py):
         for local, source, pattern in _DATA:
             files = sorted(source.glob(pattern))
             if not files:
+                # Building from an sdist: the canonical roots are grafted in by
+                # MANIFEST.in, but if an older sdist lacks them the package-
+                # local copies it carries ARE the shipped files. Use those;
+                # refuse only when neither exists.
+                local_src = ROOT / "protocol_tests" / local
+                files = sorted(local_src.glob(pattern)) if local_src.is_dir() else []
+            if not files:
                 raise SystemExit(
-                    f"setup.py: no {pattern} under canonical {source}; refusing to "
-                    f"build a wheel that would ship without runtime data")
+                    f"setup.py: no {pattern} under canonical {source} nor under "
+                    f"protocol_tests/{local}; refusing to build a wheel that would "
+                    f"ship without runtime data")
             dest = pkg_dir / local
             # Whatever the symlink became -- a link, a dir, or a placeholder
             # file -- is replaced by real files from the canonical root.

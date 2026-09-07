@@ -695,6 +695,28 @@ class DelegationChainTests(RecordingHarness):
     _DECISION_KEYS = ("allowed", "granted")
 
     @classmethod
+    def _target_decision(cls, resp: dict) -> str:
+        """'allow' | 'deny' | 'undecided'. Three states, because two conflate.
+
+        `_target_allowed` returned False for an explicit `{"allowed": false}`
+        AND for `{}`, `{"allowed": "true"}`, a JSON-RPC error, or a transport
+        error. `_live_replay` read that False as "the replay was refused" and
+        graded PASS. A second response that established NOTHING was counted as
+        the control holding. Found by an external second review, 2026-09-07,
+        with a real HTTP fixture. 'deny' now requires a boolean False under a
+        decision key; anything else that is not a boolean True is undecided.
+        """
+        if not isinstance(resp, dict) or resp.get("_error") or "error" in resp:
+            return "undecided"
+        for k in cls._DECISION_KEYS:
+            v = resp.get(k)
+            if v is True:
+                return "allow"
+            if v is False:
+                return "deny"
+        return "undecided"
+
+    @classmethod
     def _target_allowed(cls, resp: dict) -> bool:
         """Structural read of the decision. Booleans only, on the parsed dict.
 
@@ -1181,29 +1203,39 @@ class DelegationChainTests(RecordingHarness):
         INCONCLUSIVE, stated. The first allow is never a finding: it is the
         legitimate request this row exists to replay.
         """
-        first, first_ok = self._probe_live(chain, req)
-        second, second_ok = self._probe_live(chain, req)
+        first, _ = self._probe_live(chain, req)
+        second, _ = self._probe_live(chain, req)
+        d1, d2 = self._target_decision(first), self._target_decision(second)
         sent = {"delegation_chain": [p.as_json() for p in chain],
                 "request": req.as_json(), "sent_times": 2}
-        # The shared serviced guard reads `_status` off `response_received`
-        # and downgrades to INCONCLUSIVE when it is absent. The verdict here is
-        # about the SECOND presentation, so its status is the composite's.
-        response = {"_status": second.get("_status", 0), "first": first, "second": second}
+        # Both observations must have been serviced for ANY verdict here. The
+        # composite carries the WORSE of the two statuses so the shared guard
+        # sees a failed first request, not only a failed second one.
+        s1, s2 = int(first.get("_status") or 0), int(second.get("_status") or 0)
+        worst = min(s1, s2) if (s1 and s2) else 0
+        response = {"_status": worst, "first": first, "second": second}
         r1, r2 = first.get("receipt"), second.get("receipt")
-        if not first_ok:
+        if d1 != "allow":
             return (False, f"{INCONCLUSIVE_PREFIX}the target did not allow the "
                     "legitimate first request, so there is nothing to replay. "
                     "Replay handling is not exercised by this run.",
                     response, sent)
-        if not second_ok:
+        if d2 == "undecided":
+            return (False, f"{INCONCLUSIVE_PREFIX}the second presentation produced no "
+                    "decision (empty body, non-boolean decision, or an application "
+                    "error). That is not a refusal; nothing about replay handling "
+                    "is established.", response, sent)
+        if d2 == "deny":
             return (True, "replay REFUSED by the live target: the second presentation "
-                    "of one request identifier was not allowed", response, sent)
-        if r1 is not None and r1 == r2:
+                    "of one request identifier was explicitly denied", response, sent)
+        # d2 == "allow": a receipt is evidence only if it is a nonempty string.
+        if isinstance(r1, str) and r1 and r1 == r2:
             return (True, f"replay was IDEMPOTENT: the live target returned the same "
                     f"receipt ({r1}) for both presentations", response, sent)
         return (False, f"{INCONCLUSIVE_PREFIX}the live target allowed both "
                 "presentations" + (f" with different receipts ({r1} vs {r2})"
-                                   if r1 is not None else " and returned no receipt")
+                                   if isinstance(r1, str) and r1 else
+                                   " and returned no usable receipt")
                 + ". Whether a second EFFECT occurred cannot be established over "
                 "this wire -- there is no effect counter -- so this is not graded "
                 "as a replay finding. Run --simulate for the reference-model verdict.",
