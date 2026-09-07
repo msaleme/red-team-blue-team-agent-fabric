@@ -32,6 +32,7 @@ from typing import Any
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 from protocol_tests.package_data import data_path as _data_path  # noqa: E402
+from protocol_tests.http_helpers import is_inconclusive as _inconc  # noqa: E402
 
 from protocol_tests.version import get_harness_version
 
@@ -201,7 +202,10 @@ def analyze_failures(
         for r in results:
             if not isinstance(r, dict):
                 continue
-            if r.get("passed", False):
+            # An INCONCLUSIVE row is not a failure: it established nothing.
+            # Listing it among "top failures" published an unexercised control
+            # as a defect (third external review, 2026-09-07).
+            if r.get("passed", False) or _inconc(r):
                 continue
 
             tid = r.get("test_id", "unknown")
@@ -406,7 +410,7 @@ def build_top10(
     all_failures: set[str] = set()
     for report in reports:
         for r in report.get("results", []):
-            if isinstance(r, dict) and not r.get("passed", False):
+            if isinstance(r, dict) and not r.get("passed", False) and not _inconc(r):
                 all_failures.add(r.get("test_id", "unknown"))
     total_failures = len(all_failures)
 

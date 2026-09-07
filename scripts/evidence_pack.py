@@ -33,6 +33,7 @@ from typing import Any
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 from protocol_tests.package_data import data_path as _data_path  # noqa: E402
+from protocol_tests.http_helpers import is_inconclusive as _inconc  # noqa: E402
 
 from protocol_tests.version import get_harness_version
 
@@ -142,14 +143,23 @@ def compute_aiuc1_coverage(
             }
             continue
 
-        passed = sum(1 for tid in matched if result_by_id[tid].get("passed", False))
-        failed = len(matched) - passed
+        inconc = sum(1 for tid in matched if _inconc(result_by_id[tid]))
+        passed = sum(1 for tid in matched
+                     if result_by_id[tid].get("passed", False) and not _inconc(result_by_id[tid]))
+        # Not a residual. `len(matched) - passed` counted every unexercised
+        # control as a failing one -- a FAIL asserts the control did not hold,
+        # which an INCONCLUSIVE row cannot establish. Found on the installed
+        # 4.21.0 package by the third external review (2026-09-07): an
+        # explicitly INCONCLUSIVE report became a published failure claim.
+        failed = len(matched) - passed - inconc
         # A requirement is only PASS when every test mapped to it actually ran.
         # Reporting PASS on a strict subset lets "2 of 5 ran, both green" render
         # identically to "all 5 ran, all green" -- the reader cannot tell a
         # satisfied requirement from an under-exercised one.
         if failed > 0:
             status = "FAIL"
+        elif passed == 0:
+            status = "INCONCLUSIVE"   # everything that ran was unexercised
         elif len(matched) < len(test_ids):
             status = "PARTIAL"
         else:
@@ -166,6 +176,7 @@ def compute_aiuc1_coverage(
             "tests_absent": [tid for tid in test_ids if tid not in result_by_id],
             "passed": passed,
             "failed": failed,
+            "inconclusive": inconc,
             "total": len(matched),
         }
 
@@ -184,6 +195,11 @@ def compute_aiuc1_coverage(
 from protocol_tests.owasp_taxonomy import (  # noqa: E402
     OWASP_AGENTIC_CATEGORIES,
 )
+
+
+def _fmt_rate(rate) -> str:
+    """A rate over nothing is not 0.0%; it is absent, and it says why."""
+    return "n/a (nothing serviced)" if rate is None else f"{rate:.1%}"
 
 
 def compute_owasp_coverage(
@@ -212,8 +228,15 @@ def compute_owasp_coverage(
     for asi_id, asi_name in OWASP_AGENTIC_CATEGORIES.items():
         test_ids = list(dict.fromkeys(asi_tests.get(asi_id, [])))  # deduplicate preserving order
         matched = [tid for tid in test_ids if tid in result_by_id]
-        passed = sum(1 for tid in matched if result_by_id[tid].get("passed", False))
-        failed = len(matched) - passed
+        inconc = sum(1 for tid in matched if _inconc(result_by_id[tid]))
+        passed = sum(1 for tid in matched
+                     if result_by_id[tid].get("passed", False) and not _inconc(result_by_id[tid]))
+        # Not a residual. `len(matched) - passed` counted every unexercised
+        # control as a failing one -- a FAIL asserts the control did not hold,
+        # which an INCONCLUSIVE row cannot establish. Found on the installed
+        # 4.21.0 package by the third external review (2026-09-07): an
+        # explicitly INCONCLUSIVE report became a published failure claim.
+        failed = len(matched) - passed - inconc
 
         owasp[asi_id] = {
             "name": asi_name,
@@ -221,9 +244,11 @@ def compute_owasp_coverage(
             "tests_run": len(matched),
             "passed": passed,
             "failed": failed,
+            "inconclusive": inconc,
             "status": (
                 "FAIL" if failed > 0
                 else "NOT_TESTED" if not matched
+                else "INCONCLUSIVE" if passed == 0
                 else "PASS" if len(matched) == len(test_ids)
                 else "PARTIAL"
             ),
@@ -289,7 +314,7 @@ def generate_markdown(
         "",
         f"The Agent Security Harness v{HARNESS_VERSION} executed {total} tests "
         f"against `{target}`. {passed} tests passed and {failed} failed, yielding "
-        f"an overall pass rate of {pass_rate:.1%}. AIUC-1 requirement coverage "
+        f"an overall pass rate of {_fmt_rate(pass_rate)}. AIUC-1 requirement coverage "
         f"stands at {aiuc1['covered']}/{aiuc1['total']} requirements with "
         f"{aiuc1['gaps']} known gaps.",
         "",
@@ -302,7 +327,7 @@ def generate_markdown(
         f"| Total Tests | {total} |",
         f"| Passed | {passed} |",
         f"| Failed | {failed} |",
-        f"| Pass Rate | {pass_rate:.1%} |",
+        f"| Pass Rate | {_fmt_rate(pass_rate)} |",
         "",
         "---",
         "",
@@ -435,9 +460,12 @@ def build_evidence_pack(
 
     # Summary stats
     total_tests = len(results)
-    passed = sum(1 for r in results if r.get("passed", False))
-    failed = total_tests - passed
-    pass_rate = passed / total_tests if total_tests > 0 else 0.0
+    inconclusive = sum(1 for r in results if _inconc(r))
+    passed = sum(1 for r in results if r.get("passed", False) and not _inconc(r))
+    failed = total_tests - passed - inconclusive
+    serviced = passed + failed
+    # A rate over nothing is a claim; absence is not (http_helpers.run_summary).
+    pass_rate = passed / serviced if serviced > 0 else None
 
     timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -445,7 +473,9 @@ def build_evidence_pack(
         "total_tests": total_tests,
         "passed": passed,
         "failed": failed,
-        "pass_rate": round(pass_rate, 4),
+        "inconclusive": inconclusive,
+        "serviced": serviced,
+        "pass_rate": None if pass_rate is None else round(pass_rate, 4),
         "aiuc1_coverage": {
             "covered": aiuc1_coverage["covered"],
             "total": aiuc1_coverage["total"],
@@ -544,7 +574,7 @@ def build_evidence_pack(
     print("EVIDENCE PACK SUMMARY")
     print(f"{'='*50}")
     print(f"  Tests:        {total_tests} total, {passed} passed, {failed} failed")
-    print(f"  Pass rate:    {pass_rate:.1%}")
+    print(f"  Pass rate:    {_fmt_rate(pass_rate)}")
     print(f"  AIUC-1:       {aiuc1_coverage['covered']}/{aiuc1_coverage['total']} covered, {aiuc1_coverage['gaps']} gaps")
     print(f"  Signed:       {'Yes' if attestation.get('signed') else 'No'}")
     print(f"  Hash:         {evidence_hash}")

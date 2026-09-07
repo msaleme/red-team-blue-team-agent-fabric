@@ -70,7 +70,14 @@ CLOSED_PORT = "http://127.0.0.1:9"
 #: Measured against main, so a guard that quietly downgrades a module's own
 #: simulation cannot read as progress on the dead-host sweep.
 SIMULATE_BASELINE = {"PTCTests": 6, "ExtendedThinkingTests": 6,
-                     "AIUC1ComplianceTests": 12}
+                     "AIUC1ComplianceTests": 0}
+#: Rows that must be INCONCLUSIVE under --simulate, not passes. AIUC-1's native
+#: simulate fakes the target's answer and runs the real check, which passes by
+#: construction; the third external review ran the installed 4.21.0 and got 12
+#: of 12 rendered as passes. PTC and ExtendedThinking are the other kind: they
+#: run a reference check and label every row `_simulated`/`verdict_scope`, so
+#: a row consumer can see the scope. Their passes stay.
+SIMULATE_INCONCLUSIVE = {"AIUC1ComplianceTests": 12}
 
 #: A target that answers 404 to the introspection method: up, reachable, and
 #: without the capability under test.
@@ -138,12 +145,24 @@ class TestNothingPassesAgainstSilence(unittest.TestCase):
             f"the latency claim still leads the finding: {e001.details!r}")
 
     def test_simulate_mode_is_unchanged(self):
-        """The false-negative direction, against main's counts."""
+        """The false-negative direction: the silence guard must not touch a
+        simulated row. It pinned pass COUNTS to prove that, which also pinned
+        AIUC-1's fake-the-answer passes as correct. The invariant is narrower:
+        every expected row is still produced, none carries the silence guard's
+        text, scoped self-tests keep their passes, and fake-the-answer rows are
+        INCONCLUSIVE with the structural field set."""
         for cls in (PTCTests, ExtendedThinkingTests, AIUC1ComplianceTests):
             with self.subTest(module=cls.__name__):
                 results = _run(cls(None, simulate=True))
+                expected_rows = SIMULATE_BASELINE[cls.__name__] + SIMULATE_INCONCLUSIVE.get(cls.__name__, 0)
+                self.assertEqual(len(results), expected_rows, "a simulated row went missing")
                 self.assertEqual(
-                    len(_passing(results)), SIMULATE_BASELINE[cls.__name__])
+                    [r.test_id for r in results if "did not service" in str(r.details)], [],
+                    "the silence guard downgraded a simulated row; nothing was sent, so nothing was unserviced")
+                self.assertEqual(len(_passing(results)), SIMULATE_BASELINE[cls.__name__])
+                inconc = [r for r in results if getattr(r, "not_evaluated", False)]
+                self.assertEqual(len(inconc), SIMULATE_INCONCLUSIVE.get(cls.__name__, 0),
+                                 "fake-the-answer rows must be INCONCLUSIVE with the field set")
 
 
 class TestTheRefusalDetectorReadsTheAnswerNotTheEnvelope(unittest.TestCase):

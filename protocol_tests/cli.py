@@ -172,7 +172,10 @@ def _simulate_harness(harness_name: str, info: dict,
         for r in results:
             print(f"  [SIM] {r['test_id']:12s} {r['name']}")
         print()
-        print(f"Result: {len(results)}/{len(results)} passed (simulated)")
+        # The JSON said every row was unevaluated and this line said they all
+        # passed. Same run, two answers; the one a human reads was the wrong one.
+        print(f"Result: {len(results)}/{len(results)} INCONCLUSIVE "
+              f"(simulated; no target contacted, nothing exercised)")
 
     # --html support
     if html_output:

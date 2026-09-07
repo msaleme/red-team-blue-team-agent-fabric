@@ -129,6 +129,28 @@ def _over_refusal_expected() -> tuple[int, int, str]:
 
 #: register name -> callable returning (numerator, denominator, note).
 #: The denominator must be derived at call time. A literal is the defect.
+
+def _simulate_unlabelled():
+    """Modules whose simulated PASS rows carry no row-level scope marker, over
+    the modules that declare --simulate at all."""
+    from protocol_tests.cli import HARNESSES, _module_declares_flag
+    from testing import test_simulated_passes_are_scoped as m
+    declared = [h for h in HARNESSES if _module_declares_flag(h, "--simulate")]
+    return (len(m.GRANDFATHERED_UNLABELLED), len(declared),
+            "native --simulate modules whose PASS rows say nothing about being simulated; "
+            "a row consumer publishes them as target passes")
+
+
+def _simulate_unreadable():
+    """Modules that declare --simulate and write no report the ratchet can read,
+    over the modules that declare --simulate at all."""
+    from protocol_tests.cli import HARNESSES, _module_declares_flag
+    from testing import test_simulated_passes_are_scoped as m
+    declared = [h for h in HARNESSES if _module_declares_flag(h, "--simulate")]
+    return (len(m.GRANDFATHERED_UNREADABLE), len(declared),
+            "native --simulate modules whose simulated run yields no readable report, "
+            "so the scope ratchet cannot see their rows at all")
+
 REGISTERS = {
     "UNDER_REPORTS_A_QUOTING_REFUSAL": _under_reports,
     "KNOWN_DUPLICATES": _known_duplicates,
@@ -139,6 +161,8 @@ REGISTERS = {
     "PERMISSIVE_READ_LIST": _permissive_read_list,
     "OVER_REFUSAL_EXPECTED": _over_refusal_expected,
     "ABSENCE_AS_SUCCESS": _absence_as_success,
+    "GRANDFATHERED_UNLABELLED": _simulate_unlabelled,
+    "GRANDFATHERED_UNREADABLE": _simulate_unreadable,
 }
 
 
