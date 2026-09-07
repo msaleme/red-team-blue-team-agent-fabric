@@ -28,11 +28,34 @@ import hashlib
 import json
 import os
 import platform
-import subprocess
 import sys
 from pathlib import Path
 
+# `git()`, `ci_identity()` and `tool_versions()` used to be defined here. They
+# now live in `protocol_tests/run_provenance.py`, which needs the same three
+# answers for a RUN statement. Two implementations of "what commit is this"
+# that can disagree is not a thing a provenance feature may contain, so this
+# script imports the one. They are re-exported by name because
+# `testing/test_release_provenance.py` reaches for `build_provenance.git` and
+# `build_provenance.tool_versions` directly.
+#
+# The path insert is load-bearing: this file is invoked as
+# `python scripts/build_provenance.py` from `publish-pypi.yml`, so sys.path[0]
+# is `scripts/` and the repository root is not on the path at all.
+_REPO_ROOT = str(Path(__file__).resolve().parents[1])
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from protocol_tests.run_provenance import (  # noqa: E402
+    ci_identity,
+    git,
+    tool_versions,
+)
+
 SCHEMA = "agent-security-harness/release-provenance/v1"
+
+__all__ = ["SCHEMA", "build", "ci_identity", "git", "main", "sha256_file",
+           "tool_versions"]
 
 
 def sha256_file(path: Path) -> str:
@@ -41,53 +64,6 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: fh.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
-
-
-def tool_versions(names=("setuptools", "wheel", "build", "pip")) -> dict:
-    """Versions of the tools that govern what the artifact contains.
-
-    setuptools is the build backend, so its version is part of what shipped.
-    A tool that is absent is recorded as absent rather than omitted: a missing
-    key and a tool that was not installed are different facts.
-    """
-    from importlib.metadata import PackageNotFoundError, version
-    out = {}
-    for name in names:
-        try:
-            out[name] = version(name)
-        except PackageNotFoundError:
-            out[name] = None
-    return out
-
-
-def git(*args: str, cwd: Path | None = None) -> str | None:
-    try:
-        return subprocess.run(("git", *args), cwd=cwd, capture_output=True,
-                              text=True, check=True).stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-
-
-def ci_identity() -> dict:
-    """The workflow run that produced this, from the environment GitHub sets.
-
-    Every value is None outside CI. That is deliberate: a locally built
-    statement must not look like a CI-built one, and the verifier can tell.
-    """
-    env = os.environ.get
-    run_id, repo = env("GITHUB_RUN_ID"), env("GITHUB_REPOSITORY")
-    return {
-        "repository": repo,
-        "workflow": env("GITHUB_WORKFLOW"),
-        "workflow_ref": env("GITHUB_WORKFLOW_REF"),
-        "run_id": run_id,
-        "run_attempt": env("GITHUB_RUN_ATTEMPT"),
-        "run_url": (f"{env('GITHUB_SERVER_URL', 'https://github.com')}/{repo}"
-                    f"/actions/runs/{run_id}") if (run_id and repo) else None,
-        "runner_os": env("RUNNER_OS"),
-        "runner_arch": env("RUNNER_ARCH"),
-        "event": env("GITHUB_EVENT_NAME"),
-    }
 
 
 def build(dist: Path, source_date: str | None = None) -> dict:

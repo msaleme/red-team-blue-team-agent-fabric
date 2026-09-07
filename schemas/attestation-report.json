@@ -136,6 +136,14 @@
       "type": "string",
       "minLength": 1,
       "description": "The system the independence_level is relative to. Required whenever independence_level is present."
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance",
+      "description": "What produced this run. OPTIONAL, so records published before this field existed stay valid and keep the hashes they were published under."
+    },
+    "subject": {
+      "$ref": "#/$defs/subject",
+      "description": "What this run was run against. OPTIONAL, and requires `provenance`: a statement about what was tested with nothing saying what produced it is the shape this pair exists to remove."
     }
   },
   "additionalProperties": false,
@@ -395,6 +403,682 @@
         }
       },
       "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "started_at",
+        "tool",
+        "source",
+        "runtime",
+        "invocation",
+        "ci",
+        "ci_absent_reason",
+        "not_claimed"
+      ],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "agent-security-harness/run-provenance/v1"
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "tool": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "version",
+            "version_absent_reason"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "Version of the producing implementation. Null rather than the string get_harness_version() returns on failure."
+            },
+            "version_absent_reason": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                null,
+                "not_queried",
+                "not_supplied",
+                "not_applicable",
+                "not_running_in_ci",
+                "not_a_git_checkout",
+                "git_unavailable",
+                "no_matching_tag",
+                "version_not_discoverable",
+                "package_not_installed",
+                "not_readable",
+                "unsupported_by_target",
+                "redacted_for_publication"
+              ],
+              "description": "Why the paired field is null, from a closed vocabulary (protocol_tests/run_provenance.py::ABSENT_REASONS). Exactly one of a field and its `_absent_reason` sibling is non-null. The string \"unknown\" is never a value here: it cannot be told apart from a model literally tagged `unknown` or from a stringified None."
+            }
+          }
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "commit",
+            "commit_absent_reason",
+            "ref_name",
+            "ref_name_absent_reason",
+            "tree_is_dirty",
+            "tree_is_dirty_absent_reason"
+          ],
+          "properties": {
+            "commit": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "Commit the run was produced from."
+            },
+            "commit_absent_reason": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                null,
+                "not_queried",
+                "not_supplied",
+                "not_applicable",
+                "not_running_in_ci",
+                "not_a_git_checkout",
+                "git_unavailable",
+                "no_matching_tag",
+                "version_not_discoverable",
+                "package_not_installed",
+                "not_readable",
+                "unsupported_by_target",
+                "redacted_for_publication"
+              ],
+              "description": "Why the paired field is null, from a closed vocabulary (protocol_tests/run_provenance.py::ABSENT_REASONS). Exactly one of a field and its `_absent_reason` sibling is non-null. The string \"unknown\" is never a value here: it cannot be told apart from a model literally tagged `unknown` or from a stringified None."
+            },
+            "ref_name": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "Tag or ref on that commit, if any. A checkout with no tag on HEAD still knows its commit, which is why each field carries its own reason rather than the block."
+            },
+            "ref_name_absent_reason": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                null,
+                "not_queried",
+                "not_supplied",
+                "not_applicable",
+                "not_running_in_ci",
+                "not_a_git_checkout",
+                "git_unavailable",
+                "no_matching_tag",
+                "version_not_discoverable",
+                "package_not_installed",
+                "not_readable",
+                "unsupported_by_target",
+                "redacted_for_publication"
+              ],
+              "description": "Why the paired field is null, from a closed vocabulary (protocol_tests/run_provenance.py::ABSENT_REASONS). Exactly one of a field and its `_absent_reason` sibling is non-null. The string \"unknown\" is never a value here: it cannot be told apart from a model literally tagged `unknown` or from a stringified None."
+            },
+            "tree_is_dirty": {
+              "type": [
+                "boolean",
+                "null"
+              ],
+              "description": "Whether tracked SOURCE differs from that commit. Untracked files are excluded: build output is not source and a real run always has some."
+            },
+            "tree_is_dirty_absent_reason": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                null,
+                "not_queried",
+                "not_supplied",
+                "not_applicable",
+                "not_running_in_ci",
+                "not_a_git_checkout",
+                "git_unavailable",
+                "no_matching_tag",
+                "version_not_discoverable",
+                "package_not_installed",
+                "not_readable",
+                "unsupported_by_target",
+                "redacted_for_publication"
+              ],
+              "description": "Why the paired field is null, from a closed vocabulary (protocol_tests/run_provenance.py::ABSENT_REASONS). Exactly one of a field and its `_absent_reason` sibling is non-null. The string \"unknown\" is never a value here: it cannot be told apart from a model literally tagged `unknown` or from a stringified None."
+            }
+          }
+        },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "python",
+            "platform",
+            "tools"
+          ],
+          "properties": {
+            "python": {
+              "type": "string"
+            },
+            "platform": {
+              "type": "string",
+              "description": "platform.platform(). OS, release and architecture. It carries no hostname."
+            },
+            "tools": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "description": "Packaging tool versions; null means the tool was not installed, which is a different fact from an omitted key."
+            }
+          }
+        },
+        "invocation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "argv",
+            "argv_redacted"
+          ],
+          "properties": {
+            "argv": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "The command, with credential-shaped values replaced by [REDACTED] and every absolute path reduced to its basename. Documented usage includes --header \"Authorization: Bearer ...\" and this block is meant to be published, so a raw argv would make a provenance feature a credential-disclosure feature."
+            },
+            "argv_redacted": {
+              "type": "boolean",
+              "description": "A CREDENTIAL was replaced. Deliberately not named argv_is_safe: redaction matches a list of auth-shaped names, and a credential passed under a name not on that list survives. Path reduction is unconditional and does NOT set this, so the flag stays a signal about secrets rather than about formatting."
+            }
+          }
+        },
+        "ci": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "event",
+            "repository",
+            "run_attempt",
+            "run_id",
+            "run_url",
+            "runner_arch",
+            "runner_os",
+            "workflow",
+            "workflow_ref"
+          ],
+          "properties": {
+            "event": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "repository": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "run_attempt": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "run_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "run_url": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "runner_arch": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "runner_os": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "workflow": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "workflow_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "description": "The workflow that produced this. Every value is null outside CI and the keys are still present: a locally produced statement must not be able to pass for a CI one."
+        },
+        "ci_absent_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            null,
+            "not_queried",
+            "not_supplied",
+            "not_applicable",
+            "not_running_in_ci",
+            "not_a_git_checkout",
+            "git_unavailable",
+            "no_matching_tag",
+            "version_not_discoverable",
+            "package_not_installed",
+            "not_readable",
+            "unsupported_by_target",
+            "redacted_for_publication"
+          ],
+          "description": "Why the paired field is null, from a closed vocabulary (protocol_tests/run_provenance.py::ABSENT_REASONS). Exactly one of a field and its `_absent_reason` sibling is non-null. The string \"unknown\" is never a value here: it cannot be told apart from a model literally tagged `unknown` or from a stringified None."
+        },
+        "not_claimed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "What this block does not establish, in plain words."
+        }
+      },
+      "description": "What produced this run. Every key is always present; absence of knowledge is null paired with an `_absent_reason`. Deliberately NOT recorded: hostname, username, working directory and absolute paths. docs/PRIVACY.md lists infrastructure topology under what never travels, and a report a user is invited to publish is held to the same line as telemetry. Their absence is a decision, not an omission."
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "url",
+        "url_absent_reason",
+        "model",
+        "model_absent_reason",
+        "corpus",
+        "corpus_absent_reason"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "http",
+            "model",
+            "corpus",
+            "none"
+          ],
+          "description": "Which arm of the union applies. `none` means the run reached no subject, which is a fact; an omitted subject is not."
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "HTTP target, when kind is 'http'."
+        },
+        "url_absent_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            null,
+            "not_queried",
+            "not_supplied",
+            "not_applicable",
+            "not_running_in_ci",
+            "not_a_git_checkout",
+            "git_unavailable",
+            "no_matching_tag",
+            "version_not_discoverable",
+            "package_not_installed",
+            "not_readable",
+            "unsupported_by_target",
+            "redacted_for_publication"
+          ],
+          "description": "Why the paired field is null, from a closed vocabulary (protocol_tests/run_provenance.py::ABSENT_REASONS). Exactly one of a field and its `_absent_reason` sibling is non-null. The string \"unknown\" is never a value here: it cannot be told apart from a model literally tagged `unknown` or from a stringified None."
+        },
+        "model": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/model_identity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Model under test, when kind is 'model'."
+        },
+        "model_absent_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            null,
+            "not_queried",
+            "not_supplied",
+            "not_applicable",
+            "not_running_in_ci",
+            "not_a_git_checkout",
+            "git_unavailable",
+            "no_matching_tag",
+            "version_not_discoverable",
+            "package_not_installed",
+            "not_readable",
+            "unsupported_by_target",
+            "redacted_for_publication"
+          ],
+          "description": "Why the paired field is null, from a closed vocabulary (protocol_tests/run_provenance.py::ABSENT_REASONS). Exactly one of a field and its `_absent_reason` sibling is non-null. The string \"unknown\" is never a value here: it cannot be told apart from a model literally tagged `unknown` or from a stringified None."
+        },
+        "corpus": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "size_bytes",
+                "size_bytes_absent_reason"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Basename only. The directory a corpus sits in is infrastructure topology; the file is the subject."
+                },
+                "size_bytes": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "description": "Size of that file."
+                },
+                "size_bytes_absent_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    null,
+                    "not_queried",
+                    "not_supplied",
+                    "not_applicable",
+                    "not_running_in_ci",
+                    "not_a_git_checkout",
+                    "git_unavailable",
+                    "no_matching_tag",
+                    "version_not_discoverable",
+                    "package_not_installed",
+                    "not_readable",
+                    "unsupported_by_target",
+                    "redacted_for_publication"
+                  ],
+                  "description": "Why the paired field is null, from a closed vocabulary (protocol_tests/run_provenance.py::ABSENT_REASONS). Exactly one of a field and its `_absent_reason` sibling is non-null. The string \"unknown\" is never a value here: it cannot be told apart from a model literally tagged `unknown` or from a stringified None."
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Local corpus under test, when kind is 'corpus'."
+        },
+        "corpus_absent_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            null,
+            "not_queried",
+            "not_supplied",
+            "not_applicable",
+            "not_running_in_ci",
+            "not_a_git_checkout",
+            "git_unavailable",
+            "no_matching_tag",
+            "version_not_discoverable",
+            "package_not_installed",
+            "not_readable",
+            "unsupported_by_target",
+            "redacted_for_publication"
+          ],
+          "description": "Why the paired field is null, from a closed vocabulary (protocol_tests/run_provenance.py::ABSENT_REASONS). Exactly one of a field and its `_absent_reason` sibling is non-null. The string \"unknown\" is never a value here: it cannot be told apart from a model literally tagged `unknown` or from a stringified None."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "model"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "model": {
+                "$ref": "#/$defs/model_identity"
+              }
+            }
+          }
+        }
+      ],
+      "description": "What the run was run against, as a tagged union with a FIXED key set: every arm carries every key, and the arms that do not apply cite `not_applicable`. 'This run had no URL because its subject was a model' and 'this run had a URL and nobody recorded it' must not be the same document."
+    },
+    "model_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tag",
+        "runtime",
+        "runtime_absent_reason",
+        "digest",
+        "digest_absent_reason",
+        "family",
+        "family_absent_reason",
+        "parameter_size",
+        "parameter_size_absent_reason",
+        "quantization",
+        "quantization_absent_reason"
+      ],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The tag the run asked for, e.g. 'qwen3.5:latest'. Never null: a model subject that names no model is not a model subject."
+        },
+        "runtime": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The server that answered, e.g. 'ollama 0.18.2'."
+        },
+        "runtime_absent_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            null,
+            "not_queried",
+            "not_supplied",
+            "not_applicable",
+            "not_running_in_ci",
+            "not_a_git_checkout",
+            "git_unavailable",
+            "no_matching_tag",
+            "version_not_discoverable",
+            "package_not_installed",
+            "not_readable",
+            "unsupported_by_target",
+            "redacted_for_publication"
+          ],
+          "description": "Why the paired field is null, from a closed vocabulary (protocol_tests/run_provenance.py::ABSENT_REASONS). Exactly one of a field and its `_absent_reason` sibling is non-null. The string \"unknown\" is never a value here: it cannot be told apart from a model literally tagged `unknown` or from a stringified None."
+        },
+        "digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Manifest digest of the weights that answered. `not_queried` is the honest default: agent_data_injection.py reaches Ollama's /api/generate and never its /api/show, so it can name the tag it asked for and not the weights it got."
+        },
+        "digest_absent_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            null,
+            "not_queried",
+            "not_supplied",
+            "not_applicable",
+            "not_running_in_ci",
+            "not_a_git_checkout",
+            "git_unavailable",
+            "no_matching_tag",
+            "version_not_discoverable",
+            "package_not_installed",
+            "not_readable",
+            "unsupported_by_target",
+            "redacted_for_publication"
+          ],
+          "description": "Why the paired field is null, from a closed vocabulary (protocol_tests/run_provenance.py::ABSENT_REASONS). Exactly one of a field and its `_absent_reason` sibling is non-null. The string \"unknown\" is never a value here: it cannot be told apart from a model literally tagged `unknown` or from a stringified None."
+        },
+        "family": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Model family as the runtime reports it."
+        },
+        "family_absent_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            null,
+            "not_queried",
+            "not_supplied",
+            "not_applicable",
+            "not_running_in_ci",
+            "not_a_git_checkout",
+            "git_unavailable",
+            "no_matching_tag",
+            "version_not_discoverable",
+            "package_not_installed",
+            "not_readable",
+            "unsupported_by_target",
+            "redacted_for_publication"
+          ],
+          "description": "Why the paired field is null, from a closed vocabulary (protocol_tests/run_provenance.py::ABSENT_REASONS). Exactly one of a field and its `_absent_reason` sibling is non-null. The string \"unknown\" is never a value here: it cannot be told apart from a model literally tagged `unknown` or from a stringified None."
+        },
+        "parameter_size": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Parameter count as the runtime reports it, e.g. '9.7B'."
+        },
+        "parameter_size_absent_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            null,
+            "not_queried",
+            "not_supplied",
+            "not_applicable",
+            "not_running_in_ci",
+            "not_a_git_checkout",
+            "git_unavailable",
+            "no_matching_tag",
+            "version_not_discoverable",
+            "package_not_installed",
+            "not_readable",
+            "unsupported_by_target",
+            "redacted_for_publication"
+          ],
+          "description": "Why the paired field is null, from a closed vocabulary (protocol_tests/run_provenance.py::ABSENT_REASONS). Exactly one of a field and its `_absent_reason` sibling is non-null. The string \"unknown\" is never a value here: it cannot be told apart from a model literally tagged `unknown` or from a stringified None."
+        },
+        "quantization": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Quantisation as the runtime reports it, e.g. 'Q4_K_M'."
+        },
+        "quantization_absent_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            null,
+            "not_queried",
+            "not_supplied",
+            "not_applicable",
+            "not_running_in_ci",
+            "not_a_git_checkout",
+            "git_unavailable",
+            "no_matching_tag",
+            "version_not_discoverable",
+            "package_not_installed",
+            "not_readable",
+            "unsupported_by_target",
+            "redacted_for_publication"
+          ],
+          "description": "Why the paired field is null, from a closed vocabulary (protocol_tests/run_provenance.py::ABSENT_REASONS). Exactly one of a field and its `_absent_reason` sibling is non-null. The string \"unknown\" is never a value here: it cannot be told apart from a model literally tagged `unknown` or from a stringified None."
+        }
+      },
+      "description": "Which model answered, and which parts of that the tool actually asked for. docs/evidence/adi/2026-09-02-qwen35-n3-raw.json carries these five values in a header that was assembled by hand, because the tool had nowhere to put them."
     }
   },
   "anyOf": [
@@ -412,6 +1096,9 @@
   "dependentRequired": {
     "independence_level": [
       "system_under_test"
+    ],
+    "subject": [
+      "provenance"
     ]
   }
 }

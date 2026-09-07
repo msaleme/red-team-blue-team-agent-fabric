@@ -248,6 +248,65 @@ def _run_endpoint_detector(directory: pathlib.Path) -> list[str]:
     return case._scan(sorted(directory.glob("*.py")))
 
 
+# --------------------------------------------------------------------------
+# Detector 5 — a report writer that cannot say what produced the run
+# --------------------------------------------------------------------------
+
+_PROVENANCE_VIOLATION = '''"""A harness that writes a report with no header."""
+import argparse
+import json
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--report")
+    args = ap.parse_args()
+    results = []
+    with open(args.report, "w") as fh:
+        json.dump([r.__dict__ for r in results], fh)
+'''
+
+_PROVENANCE_CONTROL = '''"""The correct form: a document with a header.
+
+Also prose describing the wrong one -- a bare list of results with nowhere to
+put a header -- which the detector must not fire on, because a file that fails
+on an accurate description of what it requires is a file that gets muted.
+"""
+import argparse
+import json
+
+from protocol_tests.run_provenance import run_provenance, subject_none
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--report")
+    args = ap.parse_args()
+    results = []
+    document = {"provenance": run_provenance(), "subject": subject_none(),
+                "results": [r.__dict__ for r in results]}
+    with open(args.report, "w") as fh:
+        json.dump(document, fh)
+'''
+
+
+def _run_provenance_header_detector(directory: pathlib.Path) -> list[str]:
+    # Imported through the package, unlike its neighbours above, because
+    # `tests/` holds a file of the same basename and has no `__init__.py`. A
+    # bare `import test_report_states_its_provenance` therefore resolves to
+    # whichever of the two pytest happened to import first, and that is a
+    # function of collection order.
+    from testing import test_report_states_its_provenance as mod
+    offenders = []
+    for path in sorted(directory.glob("*.py")):
+        src = path.read_text(encoding="utf-8")
+        if not mod.WRITES_A_REPORT.search(src):
+            continue
+        if not mod.STATES_ITS_PROVENANCE.search(src):
+            offenders.append(path.name)
+    return offenders
+
+
 #: detector name -> (runner, seeded violation, legitimate control, guarded file)
 #:
 #: The fourth element is load-bearing. The queue's ratchet used to compare
@@ -268,6 +327,14 @@ DETECTORS = {
     "fabricated default endpoint": (
         _run_endpoint_detector, _ENDPOINT_VIOLATION, _ENDPOINT_CONTROL,
         "test_no_default_endpoints.py"),
+    # A shape that must be PRESENT rather than a construction that must be
+    # absent, which is the direction UNCONTROLLED says a seeded violation is
+    # usually meaningless for. It is not meaningless here: the absence of the
+    # shape IS the violation, so a module that writes a report and never names
+    # run_provenance is a seedable one.
+    "report writer with no provenance header": (
+        _run_provenance_header_detector, _PROVENANCE_VIOLATION,
+        _PROVENANCE_CONTROL, "test_report_states_its_provenance.py"),
 }
 
 #: Derived, never written down: the files that have a seeded control pair.

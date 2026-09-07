@@ -169,8 +169,23 @@ def strip_sensitive_fields(report: dict) -> dict:
 
     This ensures request/response payloads, URLs, credentials, and other
     infrastructure details are NEVER sent to the registry.
+
+    `provenance` and `subject` are handled separately and NOT by deletion. The
+    substring rule below removes any key containing `url`, which in those two
+    blocks is `subject.url`, `subject.url_absent_reason` and `ci.run_url` --
+    all three required by the schema, so a stripped record stopped validating.
+    The rule is right about what must not travel and wrong about how: deleting
+    a key there destroys the property those blocks exist to have, that a reader
+    can always tell an unknown from an omission. So the value goes, the key
+    stays, and the reason becomes `redacted_for_publication`.
     """
     cleaned = copy.deepcopy(report)
+
+    from .run_provenance import redact_for_publication
+    held = {}
+    for key in ("provenance", "subject"):
+        if isinstance(cleaned.get(key), dict):
+            held[key] = redact_for_publication(cleaned.pop(key))
 
     def _strip(obj: dict | list) -> None:
         if isinstance(obj, dict):
@@ -185,6 +200,7 @@ def strip_sensitive_fields(report: dict) -> dict:
                     _strip(item)
 
     _strip(cleaned)
+    cleaned.update(held)
     return cleaned
 
 

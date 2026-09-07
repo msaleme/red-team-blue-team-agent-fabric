@@ -214,7 +214,14 @@ class TestEveryRegisterReportsBothNumbers(unittest.TestCase):
                       "REGISTERS", "REFUSAL_VOCAB", "CALLER_EXTRA", "ALLOWED",
                       "MODULE_TERMS", "HAS_THE_RULE", "DIFFERENT_REMEDY",
                       "LEGITIMATELY_PERMISSIVE", "PASSING_AGAINST_YES",
-                      "RECOGNISES_A_REFUSAL", "RECOGNISES_NO_REFUSAL"}
+                      "RECOGNISES_A_REFUSAL", "RECOGNISES_NO_REFUSAL",
+                      # Scope exclusions in test_report_states_its_provenance:
+                      # files that are not report writers at all (a dispatcher,
+                      # a usage docstring, the shared machinery). Same kind as
+                      # NOT_A_HARNESS in test_inconclusive_summary -- naming
+                      # what is outside the surveyed population, so there is no
+                      # population for it to be a fraction of.
+                      "NOT_A_REPORT_WRITER"}
         expected = declaring - taxonomies
         missing = expected - set(REGISTERS)
         self.assertEqual(

@@ -78,6 +78,11 @@ from dataclasses import dataclass
 
 from protocol_tests.harness_base import HarnessResult, RecordingHarness
 from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX, is_inconclusive
+from protocol_tests.run_provenance import (
+    run_provenance,
+    subject_model,
+    subject_none,
+)
 
 OLLAMA_URL = os.environ.get("HARNESS_ADI_OLLAMA", "http://127.0.0.1:11434/api/generate")
 
@@ -416,8 +421,26 @@ def main() -> None:
                   f"also not evidence a control held -- read the replies.")
 
     if args.report:
+        # A DOCUMENT, not a bare list. The list had nowhere to put a header, and
+        # docs/evidence/adi/2026-09-02-qwen35-n3-raw.json is what that costs: its
+        # `runtime` block -- server version, model tag, manifest digest, family,
+        # parameter size, quantisation -- was assembled by hand from a shell
+        # session that is not part of the record. A verdict about a model whose
+        # identity was typed in beside it is a verdict about nothing checkable.
+        #
+        # `subject_model()` defaults every detail to `not_queried`, which is the
+        # true state: `ollama_model()` POSTs to /api/generate and nothing here
+        # calls /api/show, so this file can name the tag it ASKED for and not the
+        # weights that answered. Saying so is the point; filling those keys would
+        # require asking.
+        tag = os.environ.get("HARNESS_ADI_MODEL")
+        document = {
+            "provenance": run_provenance(),
+            "subject": subject_model(tag) if tag else subject_none(),
+            "results": [r.__dict__ for r in results],
+        }
         with open(args.report, "w") as fh:
-            json.dump([r.__dict__ for r in results], fh, indent=2, default=str)
+            json.dump(document, fh, indent=2, default=str)
         print(f"Report written to {args.report}", file=sys.stderr)
 
     sys.exit(1 if failed > 0 else 0)
