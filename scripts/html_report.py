@@ -132,12 +132,19 @@ def _compute_aiuc1(results: list[dict], req_index: dict[str, dict]) -> dict[str,
             }
             continue
 
-        passed = sum(1 for t in matched if result_by_id[t].get("passed", False))
-        failed = len(matched) - passed
+        inconc = sum(1 for t in matched if _is_inconclusive(result_by_id[t]))
+        passed = sum(1 for t in matched
+                     if result_by_id[t].get("passed", False)
+                     and not _is_inconclusive(result_by_id[t]))
+        # Not a residual. `len(matched) - passed` counted every unexercised
+        # control as a failing one, which asserts the control did not hold --
+        # the same defect fixed in scripts/evidence_pack.py (#522).
+        failed = len(matched) - passed - inconc
         covered += 1
         coverage[req_id] = {
             "title": req_def["title"], "category": req_def["category"],
-            "status": "PASS" if failed == 0 else "FAIL",
+            "status": ("FAIL" if failed else
+                       "PASS" if passed else "INCONCLUSIVE"),
             "passed": passed, "failed": failed, "total": len(matched),
         }
 
@@ -160,12 +167,20 @@ def _compute_owasp(results: list[dict], req_index: dict[str, dict]) -> dict[str,
     for asi_id, asi_name in OWASP_AGENTIC_CATEGORIES.items():
         test_ids = asi_tests.get(asi_id, [])
         matched = [t for t in test_ids if t in result_by_id]
-        passed = sum(1 for t in matched if result_by_id[t].get("passed", False))
-        failed = len(matched) - passed
-        if matched and failed == 0:
-            status = "PASS"
-        elif failed > 0:
+        inconc = sum(1 for t in matched if _is_inconclusive(result_by_id[t]))
+        passed = sum(1 for t in matched
+                     if result_by_id[t].get("passed", False)
+                     and not _is_inconclusive(result_by_id[t]))
+        # Not a residual. `len(matched) - passed` counted every unexercised
+        # control as a failing one, which asserts the control did not hold --
+        # the same defect fixed in scripts/evidence_pack.py (#522).
+        failed = len(matched) - passed - inconc
+        if failed > 0:
             status = "FAIL"
+        elif passed:
+            status = "PASS"
+        elif inconc:
+            status = "INCONCLUSIVE"
         else:
             status = "NOT_TESTED"
         owasp[asi_id] = {
@@ -198,6 +213,7 @@ h3{font-size:15px;font-weight:600;margin:20px 0 8px}
 .card .label{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#888;margin-bottom:4px}
 .card .value{font-size:28px;font-weight:700}
 .card .value.green{color:#16a34a}
+.card .value.grey{color:#6b7280}
 .card .value.red{color:#dc2626}
 .card .value.amber{color:#d97706}
 .card .value.blue{color:#2563eb}
@@ -207,6 +223,7 @@ h3{font-size:15px;font-weight:600;margin:20px 0 8px}
  text-transform:uppercase;letter-spacing:.3px}
 .badge-pass{background:#dcfce7;color:#166534}
 .badge-fail{background:#fee2e2;color:#991b1b}
+.badge-inconclusive{background:#e5e7eb;color:#374151}
 .badge-gap{background:#fef3c7;color:#92400e}
 .badge-na{background:#f3f4f6;color:#6b7280}
 
@@ -263,6 +280,28 @@ function toggleAll(open){
 """
 
 
+INCONCLUSIVE_PREFIX = "INCONCLUSIVE"
+
+
+def _is_inconclusive(r: dict) -> bool:
+    """Was this control exercised at all?
+
+    This renderer was two-state. A simulated run -- which contacts nothing --
+    rendered as 100% passed, risk 0, AUROC 1.0000, because the source said
+    `passed: True`. Making the source honest without teaching the renderer the
+    third state would only invert the lie into 100% FAIL, and a fail asserts
+    the control did not hold, which an unexercised control cannot establish.
+
+    Reads the explicit field first, then the INCONCLUSIVE_PREFIX convention in
+    `details`, so producers that carry only one of the two still classify.
+    """
+    if r.get("inconclusive") or r.get("not_established"):
+        return True
+    details = r.get("details") or r.get("detail") or ""
+    return isinstance(details, str) and details.strip().upper().startswith(
+        INCONCLUSIVE_PREFIX)
+
+
 def _status_badge(status: str) -> str:
     """Return an HTML badge span for a status string."""
     s = status.upper()
@@ -270,6 +309,9 @@ def _status_badge(status: str) -> str:
         return '<span class="badge badge-pass">PASS</span>'
     if s == "FAIL":
         return '<span class="badge badge-fail">FAIL</span>'
+    if s == "INCONCLUSIVE":
+        return ('<span class="badge badge-inconclusive" title="the control was '
+                'not exercised">INCONCLUSIVE</span>')
     if s == "GAP":
         return '<span class="badge badge-gap">GAP</span>'
     return f'<span class="badge badge-na">{_esc(s)}</span>'
@@ -299,16 +341,25 @@ def generate_html(report_data: dict[str, Any]) -> str:
     """Generate a self-contained HTML report string from harness JSON output."""
     results = report_data.get("results", [])
     total = len(results)
-    passed = sum(1 for r in results if r.get("passed", False))
-    failed = total - passed
-    pass_rate = (passed / total * 100) if total else 0.0
+    inconclusive = sum(1 for r in results if _is_inconclusive(r))
+    passed = sum(1 for r in results
+                 if r.get("passed", False) and not _is_inconclusive(r))
+    failed = total - passed - inconclusive
+    serviced = passed + failed
+    # `serviced` is the denominator, not `total`. An unexercised control is
+    # neither a pass nor a fail and must not move the rate in either direction.
+    pass_rate = (passed / serviced * 100) if serviced else None
 
     target = report_data.get("target", "unknown")
     timestamp = report_data.get("timestamp", datetime.now(timezone.utc).isoformat())
 
     # Risk score: use from report if present, else compute simple estimate
     risk_data = report_data.get("risk", {})
-    risk_score = risk_data.get("score", round((failed / total * 40) if total else 0, 2))
+    # None, not 0.0. A risk score of zero rendered as "LOW" for a run that
+    # contacted nothing -- the same claim-from-absence the pass rate had.
+    risk_score = risk_data.get("score")
+    if risk_score is None and serviced:
+        risk_score = round(failed / serviced * 40, 2)
 
     # AIUC-1 and OWASP coverage
     mapping = _try_load_aiuc1_mapping()
@@ -368,20 +419,39 @@ def generate_html(report_data: dict[str, Any]) -> str:
     parts.append(f'<div class="value {"red" if failed else "green"}">{failed}</div>')
     parts.append("</div>")
 
+    # Without this the reader sees Total 33 / Passed 0 / Failed 0 and has
+    # to work out where the other 33 went.
+    parts.append('<div class="card">')
+    parts.append('<div class="label">Inconclusive</div>')
+    parts.append(f'<div class="value grey">{inconclusive}</div>')
+    parts.append('</div>')
     parts.append('<div class="card">')
     parts.append('<div class="label">Pass Rate</div>')
-    rate_class = "green" if pass_rate >= 90 else ("amber" if pass_rate >= 70 else "red")
-    parts.append(f'<div class="value {rate_class}">{pass_rate:.1f}%</div>')
+    rate_class = ("grey" if pass_rate is None
+                  else "green" if pass_rate >= 90
+                  else "amber" if pass_rate >= 70 else "red")
+    rate_text = ("n/a" if pass_rate is None else f"{pass_rate:.1f}%")
+    parts.append(f'<div class="value {rate_class}">{rate_text}</div>')
+    if pass_rate is None:
+        parts.append('<div class="label">nothing was serviced; no rate '
+                     'can be computed</div>')
     parts.append("</div>")
 
     parts.append('<div class="card">')
     parts.append('<div class="label">Risk Score</div>')
-    rc = "green" if risk_score < 20 else ("amber" if risk_score < 40 else "red")
-    parts.append(f'<div class="value {rc}">{risk_score:.1f}</div>')
-    parts.append(f'<div class="risk-bar {_risk_class(risk_score)}">')
-    parts.append(f'<div class="fill" style="width:{min(risk_score, 100):.0f}%"></div>')
+    rc = ("grey" if risk_score is None
+          else "green" if risk_score < 20
+          else "amber" if risk_score < 40 else "red")
+    parts.append(f'<div class="value {rc}">'
+                 f'{"n/a" if risk_score is None else f"{risk_score:.1f}"}</div>')
+    _rs = 0 if risk_score is None else risk_score
+    parts.append(f'<div class="risk-bar {_risk_class(_rs)}">')
+    parts.append(f'<div class="fill" style="width:{min(_rs, 100):.0f}%"></div>')
     parts.append("</div>")
-    parts.append(f'<div class="label">{_risk_label(risk_score)}</div>')
+    parts.append(
+        '<div class="label">not established -- nothing was serviced</div>'
+        if risk_score is None
+        else f'<div class="label">{_risk_label(risk_score)}</div>')
     parts.append("</div>")
 
     parts.append("</div>")  # card-row
@@ -395,9 +465,16 @@ def generate_html(report_data: dict[str, Any]) -> str:
     )
 
     for mod_name, mod_results in sorted(modules.items()):
-        mod_passed = sum(1 for r in mod_results if r.get("passed", False))
-        mod_failed = len(mod_results) - mod_passed
-        mod_status = "PASS" if mod_failed == 0 else "FAIL"
+        mod_inconc = sum(1 for r in mod_results if _is_inconclusive(r))
+        mod_passed = sum(1 for r in mod_results
+                         if r.get("passed", False) and not _is_inconclusive(r))
+        mod_failed = len(mod_results) - mod_passed - mod_inconc
+        if mod_failed:
+            mod_status = "FAIL"
+        elif mod_passed:
+            mod_status = "PASS"
+        else:
+            mod_status = "INCONCLUSIVE"
 
         parts.append("<details>")
         parts.append(
@@ -414,8 +491,11 @@ def generate_html(report_data: dict[str, Any]) -> str:
             tid = _esc(r.get("test_id", ""))
             name = _esc(r.get("name", r.get("test_name", tid)))
             severity = _esc(r.get("severity", ""))
-            is_pass = r.get("passed", False)
-            status_badge = _status_badge("PASS" if is_pass else "FAIL")
+            if _is_inconclusive(r):
+                status_badge = _status_badge("INCONCLUSIVE")
+            else:
+                status_badge = _status_badge(
+                    "PASS" if r.get("passed", False) else "FAIL")
             detail = _esc(r.get("details", r.get("detail", r.get("error", r.get("reason", "")))))
             parts.append(
                 f"<tr><td><code>{tid}</code></td><td>{name}</td>"
@@ -535,7 +615,16 @@ def generate_html(report_data: dict[str, Any]) -> str:
         except Exception:
             auroc_data = None
 
-    if auroc_data and auroc_data.get("modules"):
+    if auroc_data and auroc_data.get("modules") and not serviced:
+        # AUROC over unserviced observations is not a weak result, it is no
+        # result. Rendered from a simulated run this read 1.0000 "Excellent"
+        # while `passed: True` was synthetic; with the source corrected it read
+        # 0.5000 "Inadequate", which is equally a claim about detection quality
+        # that nothing here measured.
+        parts.append("<h2>AUROC — Detection Effectiveness</h2>")
+        parts.append('<p class="muted">Not established: no test was serviced, '
+                     'so there is no operating point to compute a curve from.</p>')
+    elif auroc_data and auroc_data.get("modules"):
         parts.append("<h2>AUROC — Detection Effectiveness</h2>")
         overall = auroc_data.get("overall", 0.5)
         try:
