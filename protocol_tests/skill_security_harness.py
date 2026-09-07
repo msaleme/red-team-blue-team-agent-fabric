@@ -207,7 +207,7 @@ class SkillSecurityTests:
 
             self._record(SkillSecurityResult(
                 test_id="SS-001", name="Skill Manifest Integrity",
-                category="manifest_integrity", owasp_asi="ASI09",
+                category="manifest_integrity", owasp_asi="ASI04",
                 severity=Severity.CRITICAL.value, passed=detection_works,
                 details=(
                     f"[simulate] Incomplete manifest missing: {sorted(missing_in_incomplete)}; "
@@ -230,7 +230,7 @@ class SkillSecurityTests:
         if not content:
             self._record(SkillSecurityResult(
                 test_id="SS-001", name="Skill Manifest Integrity",
-                category="manifest_integrity", owasp_asi="ASI09",
+                category="manifest_integrity", owasp_asi="ASI04",
                 severity=Severity.CRITICAL.value, passed=False,
                 details="No skill content found at skill_path — cannot validate manifest.",
                 payload_summary=f"skill_path={self.skill_path}",
@@ -244,7 +244,7 @@ class SkillSecurityTests:
 
         self._record(SkillSecurityResult(
             test_id="SS-001", name="Skill Manifest Integrity",
-            category="manifest_integrity", owasp_asi="ASI09",
+            category="manifest_integrity", owasp_asi="ASI04",
             severity=Severity.CRITICAL.value, passed=passed,
             details=(
                 f"All required manifest fields present: {sorted(required)}" if passed
@@ -638,7 +638,7 @@ class SkillSecurityTests:
 
             self._record(SkillSecurityResult(
                 test_id="SS-005", name="Provenance Chain Verification",
-                category="provenance", owasp_asi="ASI09",
+                category="provenance", owasp_asi="ASI04",
                 severity=Severity.HIGH.value, passed=detection_works,
                 details=(
                     f"[simulate] Signed manifest: {signed_msg}; "
@@ -664,7 +664,7 @@ class SkillSecurityTests:
         if not content:
             self._record(SkillSecurityResult(
                 test_id="SS-005", name="Provenance Chain Verification",
-                category="provenance", owasp_asi="ASI09",
+                category="provenance", owasp_asi="ASI04",
                 severity=Severity.HIGH.value, passed=False,
                 details="No skill content found at skill_path.",
                 payload_summary=f"skill_path={self.skill_path}",
@@ -684,7 +684,7 @@ class SkillSecurityTests:
 
         self._record(SkillSecurityResult(
             test_id="SS-005", name="Provenance Chain Verification",
-            category="provenance", owasp_asi="ASI09",
+            category="provenance", owasp_asi="ASI04",
             severity=Severity.HIGH.value, passed=passed,
             details=(
                 "Provenance chain fields present (signature, ssp_version, signed_by)" if passed
@@ -1055,7 +1055,7 @@ class SkillSecurityTests:
 
             self._record(SkillSecurityResult(
                 test_id="SS-008", name="Skill Update Tampering",
-                category="update_integrity", owasp_asi="ASI09",
+                category="update_integrity", owasp_asi="ASI04",
                 severity=Severity.HIGH.value, passed=passed,
                 details=(
                     f"[simulate] v1.0 clean: {v1_clean}. "
@@ -1080,7 +1080,7 @@ class SkillSecurityTests:
         if not content:
             self._record(SkillSecurityResult(
                 test_id="SS-008", name="Skill Update Tampering",
-                category="update_integrity", owasp_asi="ASI09",
+                category="update_integrity", owasp_asi="ASI04",
                 severity=Severity.HIGH.value, passed=False,
                 details="No skill content found at skill_path.",
                 payload_summary=f"skill_path={self.skill_path}",
@@ -1115,7 +1115,7 @@ class SkillSecurityTests:
 
         self._record(SkillSecurityResult(
             test_id="SS-008", name="Skill Update Tampering",
-            category="update_integrity", owasp_asi="ASI09",
+            category="update_integrity", owasp_asi="ASI04",
             severity=Severity.HIGH.value, passed=passed,
             details=(
                 "Hash verification passed; no injection in current version" if passed

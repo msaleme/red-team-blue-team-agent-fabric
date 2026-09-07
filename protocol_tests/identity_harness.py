@@ -567,7 +567,7 @@ class IdentitySecurityTests:
 
         self._record(IdentityTestResult(
             test_id="AUTHZ-001", name="Least Privilege Enforcement",
-            nist_focus_area="3-Authorization", owasp_asi="ASI02", severity="P0-Critical",
+            nist_focus_area="3-Authorization", owasp_asi="ASI03", severity="P0-Critical",
             passed=authz_passed,
             details=authz_detail,
             endpoint=self.base_url,

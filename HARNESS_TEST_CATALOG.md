@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `2939beb`
+**Generated:** `scripts/generate_test_catalog.py` at commit `ee2a159`
 **Test count:** 623 unique test IDs across 46 registered harness modules (45 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -51,9 +51,9 @@ STATE-003 | Guardrail Erosion (8-Step Progressive Escalation) | protocol_tests/a
 ### agent_data_injection.py (`protocol_tests/agent_data_injection.py`) — 3 tests
 
 ```
-ADI-001 | a forged provenance field inside an untrusted content body. | protocol_tests/agent_data_injection.py:315
-ADI-002 | a fabricated prior tool call and result inside a response body. | protocol_tests/agent_data_injection.py:331
-ADI-003 | content mimicking the agent's own context boundary. | protocol_tests/agent_data_injection.py:348
+ADI-001 | a forged provenance field inside an untrusted content body. | protocol_tests/agent_data_injection.py:316
+ADI-002 | a fabricated prior tool call and result inside a response body. | protocol_tests/agent_data_injection.py:332
+ADI-003 | content mimicking the agent's own context boundary. | protocol_tests/agent_data_injection.py:349
 ```
 
 ### AIUC-1 Compliance (`protocol_tests/aiuc1_compliance_harness.py`) — 12 tests
@@ -378,14 +378,14 @@ HO-010 | Output Content Classification | protocol_tests/harmful_output_harness.p
 ### hitl_harness.py (`protocol_tests/hitl_harness.py`) — 8 tests
 
 ```
-HITL-001 | Approval Flood Rate Limiting | protocol_tests/hitl_harness.py:256
-HITL-002 | High-Risk Approval Starvation | protocol_tests/hitl_harness.py:304
-HITL-003 | Decision Context Stripped From Approval | protocol_tests/hitl_harness.py:355
-HITL-004 | Denied Decision Replayed Without Flag | protocol_tests/hitl_harness.py:398
-HITL-005 | Payment Redirect Induced Toward the User. | protocol_tests/hitl_harness.py:470
-HITL-006 | Credential Lure Directed at the Principal. | protocol_tests/hitl_harness.py:478
-HITL-007 | Coercing the Principal Past a Verification Step. | protocol_tests/hitl_harness.py:486
-HITL-008 | Fabricated Authority Used to Move a Human. | protocol_tests/hitl_harness.py:494
+HITL-001 | Approval Flood Rate Limiting | protocol_tests/hitl_harness.py:257
+HITL-002 | High-Risk Approval Starvation | protocol_tests/hitl_harness.py:305
+HITL-003 | Decision Context Stripped From Approval | protocol_tests/hitl_harness.py:356
+HITL-004 | Denied Decision Replayed Without Flag | protocol_tests/hitl_harness.py:399
+HITL-005 | Payment Redirect Induced Toward the User. | protocol_tests/hitl_harness.py:477
+HITL-006 | Credential Lure Directed at the Principal. | protocol_tests/hitl_harness.py:485
+HITL-007 | Coercing the Principal Past a Verification Step. | protocol_tests/hitl_harness.py:493
+HITL-008 | Fabricated Authority Used to Move a Human. | protocol_tests/hitl_harness.py:501
 ```
 
 ### Identity & Authorization (`protocol_tests/identity_harness.py`) — 18 tests

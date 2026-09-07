@@ -707,7 +707,7 @@ class IncidentResponseTests:
         passed = contained and still_responsive
         self._record(IncidentResponseTestResult(
             test_id="IR-008", name="Cascading Failure Containment",
-            category="containment", owasp_asi="ASI10",
+            category="containment", owasp_asi="ASI08",
             stride="Denial of Service", severity=Severity.CRITICAL.value,
             passed=passed,
             details=(

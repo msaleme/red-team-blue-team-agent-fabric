@@ -21,7 +21,6 @@ categories:
           - MCP-001  # Tool List Integrity Check
           - MCP-002  # Tool Poisoning via Description Injection
           - MCP-003  # Tool Name Collision / Shadowing
-        owasp_asi: ASI04
         nist_rmf: "MS-2.5"
 
       B002:
@@ -31,7 +30,6 @@ categories:
         test_ids:
           - MCP-004  # Capability Negotiation Tampering
           - MCP-005  # Unauthorized Resource Access
-        owasp_asi: ASI03
         nist_rmf: "GV-1.3"
 
       B003:
@@ -41,7 +39,6 @@ categories:
         test_ids:
           - MCP-006  # Protocol Version Downgrade
           - MCP-007  # Transport Security Bypass
-        owasp_asi: ASI06
         nist_rmf: "MS-2.3"
 
       B004:
@@ -52,7 +49,6 @@ categories:
           - MCP-008  # Malformed JSON-RPC Handling
           - MCP-009  # Cross-Protocol Injection
           - MCP-010  # Batch Request Abuse
-        owasp_asi: ASI01
         nist_rmf: "MS-2.6"
 
       B005:
@@ -78,7 +74,6 @@ categories:
           - ID-016   # Standards Compliance Matrix
           - ID-017   # Certificate Rotation Under Load
           - ID-018   # Identity Spoofing Resistance
-        owasp_asi: ASI07
         nist_rmf: "GV-1"
 
   reliability:
@@ -91,7 +86,6 @@ categories:
         test_ids:
           - A2A-001  # Agent Card Schema Validation
           - A2A-002  # Agent Card Spoofing Detection
-        owasp_asi: ASI04
         nist_rmf: "MS-2.5"
 
       C002:
@@ -102,7 +96,6 @@ categories:
           - A2A-003  # Task Hijacking via ID Prediction
           - A2A-004  # Task State Manipulation
           - A2A-005  # Concurrent Task Isolation
-        owasp_asi: ASI03
         nist_rmf: "GV-1.3"
 
       C003:
@@ -112,7 +105,6 @@ categories:
         test_ids:
           - AIUC-C003a  # Harmful Content Generation
           - AIUC-C003b  # Deceptive Content Generation
-        owasp_asi: ASI01
         nist_rmf: "MS-2.5, MS-2.6"
 
       C004:
@@ -123,7 +115,6 @@ categories:
           - AIUC-C004a  # Out-of-Scope Execution
           - AIUC-C004b  # Scope Creep Detection
           - AIUC-C004c  # Authority Impersonation Refusal
-        owasp_asi: ASI02
         nist_rmf: "GV-1.3, MS-2.3"
 
       C005:
@@ -133,7 +124,6 @@ categories:
         test_ids:
           - A2A-006  # Message Replay Attack
           - A2A-007  # Message Tampering Detection
-        owasp_asi: ASI06
         nist_rmf: "MS-2.3"
 
       C006:
@@ -143,7 +133,6 @@ categories:
         test_ids:
           - A2A-008  # Context Leakage Between Tasks
           - A2A-009  # Multi-Tenant Isolation
-        owasp_asi: ASI05
         nist_rmf: "MS-2.6"
 
       C007:
@@ -152,7 +141,6 @@ categories:
         harness: a2a
         test_ids:
           - A2A-010  # Streaming Artifact Injection
-        owasp_asi: ASI06
         nist_rmf: "MS-2.3"
 
       C008:
@@ -161,7 +149,6 @@ categories:
         harness: a2a
         test_ids:
           - A2A-011  # Push Notification Spoofing
-        owasp_asi: ASI07
         nist_rmf: "GV-1"
 
       C009:
@@ -170,7 +157,6 @@ categories:
         harness: a2a
         test_ids:
           - A2A-012  # Full Protocol Conformance Check
-        owasp_asi: ASI06
         nist_rmf: "MS-2.3"
 
       C010:
@@ -180,7 +166,6 @@ categories:
         test_ids:
           - L4-001   # L402 Authorization Bypass
           - L4-002   # Macaroon Caveat Manipulation
-        owasp_asi: ASI07
         nist_rmf: "GV-1"
 
   transparency:
@@ -193,7 +178,6 @@ categories:
         test_ids:
           - ATT-001  # Schema-compliant report generation
           - ATT-002  # Legacy report migration
-        owasp_asi: ASI07
         nist_rmf: "GV-1"
 
       D002:
@@ -203,7 +187,6 @@ categories:
         test_ids:
           - ATT-003  # Per-finding scope annotation
           - ATT-004  # Remediation guidance completeness
-        owasp_asi: ASI07
         nist_rmf: "MG-2.4"
 
       D003:
@@ -213,7 +196,6 @@ categories:
         test_ids:
           - PROV-001  # Tool provenance verification
           - PROV-002  # Attestation bypass detection
-        owasp_asi: ASI07
         nist_rmf: "GV-1"
 
       D004:
@@ -223,7 +205,6 @@ categories:
         test_ids:
           - ID-011   # Action Logging Completeness
           - ID-012   # Non-Repudiation Evidence
-        owasp_asi: ASI07
         nist_rmf: "MG-2.4"
 
   safety:
@@ -235,7 +216,6 @@ categories:
         harness: aiuc1
         test_ids:
           - AIUC-E001  # Incident Detection Latency
-        owasp_asi: ASI07
         nist_rmf: "GV-1, MG-2.4"
         notes: "Simulation-mode test. Live endpoint validation recommended for full certification."
 
@@ -245,7 +225,6 @@ categories:
         harness: aiuc1
         test_ids:
           - AIUC-E002  # Incident Containment
-        owasp_asi: ASI07
         nist_rmf: "GV-1, MG-2.4"
         notes: "Simulation-mode test. Live kill-switch / circuit-breaker validation recommended."
 
@@ -255,7 +234,6 @@ categories:
         harness: aiuc1
         test_ids:
           - AIUC-E003  # Incident Audit Trail
-        owasp_asi: ASI07
         nist_rmf: "GV-1, MG-2.4"
         notes: "Simulation-mode test. Live audit logging infrastructure validation recommended."
 
@@ -267,7 +245,6 @@ categories:
         status: GAP
         harness: null
         test_ids: []
-        owasp_asi: ASI05
         nist_rmf: "MS-2.6, MS-2.7"
         gap_notes: >
           No dedicated content filtering harness yet.
@@ -283,7 +260,6 @@ categories:
           - AIUC-F002b  # Biological Hazard Refusal
           - AIUC-F002c  # Radiological/Nuclear Refusal
           - AIUC-F002d  # CBRN Dual-Use Detection
-        owasp_asi: ASI05
         nist_rmf: "MS-2.6, MS-2.7"
         notes: "Simulation-mode tests. Live LLM endpoint validation recommended for full certification."
 

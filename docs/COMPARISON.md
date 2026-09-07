@@ -16,10 +16,40 @@ How does the Agent Security Harness compare to other tools in the AI agent secur
 | **Behavioral profiling / drift** | — | — | — | **Planned (v3.10)** |
 | **Compliance evidence packs** | — | — | — | **Yes (AIUC-1, OWASP, NIST)** |
 | **AIUC-1 requirement mapping** | — | — | — | **19/20 requirements (95%)** |
-| **OWASP Agentic Top 10** | — | — | — | **Complete ASI01-ASI10** |
+| **OWASP Agentic Top 10** | — | — | — | **Tests mapped to ASI01–ASI10; per-category counts and limits below** |
 | **Statistical multi-trial** | — | — | — | **Wilson CIs (NIST AI 800-2)** |
 | **CI/CD integration** | — | Snyk platform | — | **GitHub Action + CLI** |
 | **License** | Apache 2.0 | Proprietary | Apache 2.0 | **Apache 2.0** |
+
+
+### OWASP Agentic Top 10 — what "mapped" means here
+
+Each test carries one ASI primary, or none. A mapping is a claim about which
+category a test's *scenario* evidences; it is not a claim that the category is
+covered. Counts below are the corpus denominator an evidence pack reports
+against (`protocol_tests/asi_inventory.py`, read from source). 48 tests
+carry **no primary** on purpose: over-refusal positive controls, content-safety
+refusal checks, and protocol-robustness rows support mitigation work without
+evidencing a named agentic failure mode, and counting them as coverage was the
+overclaim an external review corrected on 2026-09-07 (81 rows remapped).
+
+| ASI | Category | Tests mapped |
+|---|---|---|
+| ASI01 | Agent Goal Hijack | 77 |
+| ASI02 | Tool Misuse and Exploitation | 84 |
+| ASI03 | Identity and Privilege Abuse | 136 |
+| ASI04 | Agentic Supply Chain Vulnerabilities | 65 |
+| ASI05 | Unexpected Code Execution (RCE) | 41 |
+| ASI06 | Memory & Context Poisoning | 33 |
+| ASI07 | Insecure Inter-Agent Communication | 26 |
+| ASI08 | Cascading Failures | 19 |
+| ASI09 | Human-Agent Trust Exploitation | 59 |
+| ASI10 | Rogue Agents | 13 |
+| — | No ASI primary (positive controls, content safety, robustness) | 48 |
+
+**ASI10 Rogue Agents (13) and ASI08 Cascading Failures (19) are thin.**
+That is a true statement about this suite, not a rendering gap. Before the remap
+ASI10 read as 38 because 25 over-refusal controls were counted under it.
 
 ## When to Use What
 

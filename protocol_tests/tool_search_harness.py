@@ -281,7 +281,7 @@ class ToolSearchTests:
 
             self._record(ToolSearchResult(
                 test_id="TS-001", name="Description-Based Ranking Manipulation",
-                category="ranking", owasp_asi="ASI05",
+                category="ranking", owasp_asi="ASI04",
                 severity=Severity.CRITICAL.value, passed=passed,
                 details=(
                     f"[simulate] query={query!r}. legit_score={legit_score:.2f}, "
@@ -298,7 +298,7 @@ class ToolSearchTests:
         if self._unreachable(resp) or self._method_unsupported(resp):
             self._record(ToolSearchResult(
                 test_id="TS-001", name="Description-Based Ranking Manipulation",
-                category="ranking", owasp_asi="ASI05",
+                category="ranking", owasp_asi="ASI04",
                 severity=Severity.CRITICAL.value, passed=False,
                 details=self._no_surface(resp, "ranking attack"),
                 payload_summary="method_unsupported",
@@ -323,7 +323,7 @@ class ToolSearchTests:
 
         self._record(ToolSearchResult(
             test_id="TS-001", name="Description-Based Ranking Manipulation",
-            category="ranking", owasp_asi="ASI05",
+            category="ranking", owasp_asi="ASI04",
             severity=Severity.CRITICAL.value, passed=passed,
             details=(
                 "No ungated destructive tools surfaced for a benign query." if passed
@@ -376,7 +376,7 @@ class ToolSearchTests:
 
             self._record(ToolSearchResult(
                 test_id="TS-002", name="Unsigned Tool-Library Injection",
-                category="provenance", owasp_asi="ASI09",
+                category="provenance", owasp_asi="ASI04",
                 severity=Severity.HIGH.value, passed=detection_works,
                 details=(
                     f"[simulate] {len(unverified)}/{len(library)} library entries lack a "
@@ -392,7 +392,7 @@ class ToolSearchTests:
         if self._unreachable(resp) or self._method_unsupported(resp):
             self._record(ToolSearchResult(
                 test_id="TS-002", name="Unsigned Tool-Library Injection",
-                category="provenance", owasp_asi="ASI09",
+                category="provenance", owasp_asi="ASI04",
                 severity=Severity.HIGH.value, passed=False,
                 details=self._no_surface(resp, "library-injection"),
                 payload_summary="method_unsupported",
@@ -409,7 +409,7 @@ class ToolSearchTests:
 
         self._record(ToolSearchResult(
             test_id="TS-002", name="Unsigned Tool-Library Injection",
-            category="provenance", owasp_asi="ASI09",
+            category="provenance", owasp_asi="ASI04",
             severity=Severity.HIGH.value, passed=passed,
             details=(
                 vacuous or ("All returned tools carry a verifiable signature." if passed
@@ -541,7 +541,7 @@ class ToolSearchTests:
 
             self._record(ToolSearchResult(
                 test_id="TS-004", name="Post-Discovery Access-Control Bypass",
-                category="access_control", owasp_asi="ASI05",
+                category="access_control", owasp_asi="ASI03",
                 severity=Severity.HIGH.value, passed=passed,
                 details=(
                     f"[simulate] Tool '{admin_tool['name']}' requires role=admin; "
@@ -558,7 +558,7 @@ class ToolSearchTests:
         if self._unreachable(resp) or self._method_unsupported(resp):
             self._record(ToolSearchResult(
                 test_id="TS-004", name="Post-Discovery Access-Control Bypass",
-                category="access_control", owasp_asi="ASI05",
+                category="access_control", owasp_asi="ASI03",
                 severity=Severity.HIGH.value, passed=False,
                 details=self._no_surface(resp, "post-discovery"),
                 payload_summary="method_unsupported",
@@ -586,7 +586,7 @@ class ToolSearchTests:
 
         self._record(ToolSearchResult(
             test_id="TS-004", name="Post-Discovery Access-Control Bypass",
-            category="access_control", owasp_asi="ASI05",
+            category="access_control", owasp_asi="ASI03",
             severity=Severity.HIGH.value, passed=passed,
             details=(
                 vacuous or ("All side-effecting tools in results carry access-control metadata." if passed
@@ -634,7 +634,7 @@ class ToolSearchTests:
 
             self._record(ToolSearchResult(
                 test_id="TS-005", name="Top-K Ranking via Keyword Stuffing",
-                category="ranking", owasp_asi="ASI05",
+                category="ranking", owasp_asi="ASI04",
                 severity=Severity.MEDIUM.value, passed=passed,
                 details=(
                     f"[simulate] normal_repeat_ratio={normal_ratio:.2f}, "
@@ -652,7 +652,7 @@ class ToolSearchTests:
         if self._unreachable(resp) or self._method_unsupported(resp):
             self._record(ToolSearchResult(
                 test_id="TS-005", name="Top-K Ranking via Keyword Stuffing",
-                category="ranking", owasp_asi="ASI05",
+                category="ranking", owasp_asi="ASI04",
                 severity=Severity.MEDIUM.value, passed=False,
                 details=self._no_surface(resp, "ranking-stuffing"),
                 payload_summary="method_unsupported",
@@ -670,7 +670,7 @@ class ToolSearchTests:
 
         self._record(ToolSearchResult(
             test_id="TS-005", name="Top-K Ranking via Keyword Stuffing",
-            category="ranking", owasp_asi="ASI05",
+            category="ranking", owasp_asi="ASI04",
             severity=Severity.MEDIUM.value, passed=passed,
             details=(
                 vacuous or ("No keyword-stuffed descriptions in results." if passed

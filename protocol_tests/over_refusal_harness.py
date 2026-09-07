@@ -308,7 +308,7 @@ class OverRefusalTests:
         allowed = self._is_allowed(resp)
         self._record(OverRefusalTestResult(
             test_id="OR-001", name="Valid MCP Initialize Handshake",
-            category="mcp_tool_discovery", owasp_asi="ASI10",
+            category="mcp_tool_discovery", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details="Legitimate initialize accepted" if allowed
                     else "Legitimate initialize was incorrectly blocked",
@@ -325,7 +325,7 @@ class OverRefusalTests:
         allowed = self._is_allowed(resp)
         self._record(OverRefusalTestResult(
             test_id="OR-002", name="Valid MCP Tools List",
-            category="mcp_tool_discovery", owasp_asi="ASI10",
+            category="mcp_tool_discovery", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details="Legitimate tools/list accepted" if allowed
                     else "Legitimate tools/list was incorrectly blocked",
@@ -345,7 +345,7 @@ class OverRefusalTests:
         allowed = self._is_allowed(resp)
         self._record(OverRefusalTestResult(
             test_id="OR-003", name="Valid MCP Tool Call",
-            category="mcp_tool_discovery", owasp_asi="ASI10",
+            category="mcp_tool_discovery", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details="Legitimate tool call accepted" if allowed
                     else "Legitimate tool call was incorrectly blocked",
@@ -362,7 +362,7 @@ class OverRefusalTests:
         allowed = self._is_allowed(resp)
         self._record(OverRefusalTestResult(
             test_id="OR-004", name="Valid MCP Prompts List",
-            category="mcp_tool_discovery", owasp_asi="ASI10",
+            category="mcp_tool_discovery", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details="Legitimate prompts/list accepted" if allowed
                     else "Legitimate prompts/list was incorrectly blocked",
@@ -379,7 +379,7 @@ class OverRefusalTests:
         allowed = self._is_allowed(resp)
         self._record(OverRefusalTestResult(
             test_id="OR-005", name="Valid MCP Resources List",
-            category="mcp_tool_discovery", owasp_asi="ASI10",
+            category="mcp_tool_discovery", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details="Legitimate resources/list accepted" if allowed
                     else "Legitimate resources/list was incorrectly blocked",
@@ -399,7 +399,7 @@ class OverRefusalTests:
         allowed = self._is_allowed(resp)
         self._record(OverRefusalTestResult(
             test_id="OR-006", name="Valid A2A Agent Card Discovery",
-            category="a2a_delegation", owasp_asi="ASI10",
+            category="a2a_delegation", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details="Legitimate agent card request accepted" if allowed
                     else "Legitimate agent card request was incorrectly blocked",
@@ -421,7 +421,7 @@ class OverRefusalTests:
         allowed = self._is_allowed(resp)
         self._record(OverRefusalTestResult(
             test_id="OR-007", name="Valid A2A Task Delegation",
-            category="a2a_delegation", owasp_asi="ASI10",
+            category="a2a_delegation", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details="Legitimate task delegation accepted" if allowed
                     else "Legitimate task delegation was incorrectly blocked",
@@ -440,7 +440,7 @@ class OverRefusalTests:
         allowed = self._is_allowed(resp)
         self._record(OverRefusalTestResult(
             test_id="OR-008", name="Valid A2A Task Status Check",
-            category="a2a_delegation", owasp_asi="ASI10",
+            category="a2a_delegation", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details="Legitimate task status check accepted" if allowed
                     else "Legitimate task status check was incorrectly blocked",
@@ -468,7 +468,7 @@ class OverRefusalTests:
         allowed = self._is_allowed(resp)
         self._record(OverRefusalTestResult(
             test_id="OR-009", name="Valid A2A Message with Context",
-            category="a2a_delegation", owasp_asi="ASI10",
+            category="a2a_delegation", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details="Legitimate contextualized message accepted" if allowed
                     else "Legitimate contextualized message was incorrectly blocked",
@@ -487,7 +487,7 @@ class OverRefusalTests:
         allowed = self._is_allowed(resp)
         self._record(OverRefusalTestResult(
             test_id="OR-010", name="Valid A2A Task Cancel",
-            category="a2a_delegation", owasp_asi="ASI10",
+            category="a2a_delegation", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details="Legitimate task cancel accepted" if allowed
                     else "Legitimate task cancel was incorrectly blocked",
@@ -509,7 +509,7 @@ class OverRefusalTests:
         allowed = status != 403 and status != 451
         self._record(OverRefusalTestResult(
             test_id="OR-011", name="Valid L402 Invoice Request",
-            category="l402_payment", owasp_asi="ASI10",
+            category="l402_payment", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details=f"L402 endpoint responded with status {status}" if allowed
                     else "L402 invoice request was incorrectly blocked",
@@ -546,7 +546,7 @@ class OverRefusalTests:
         allowed = status not in (403, 451)
         self._record(OverRefusalTestResult(
             test_id="OR-012", name="Valid L402 Macaroon Format Presentation",
-            category="l402_payment", owasp_asi="ASI10",
+            category="l402_payment", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details=f"Server responded {status} to well-formed L402 auth" if allowed
                     else "Well-formed L402 auth was incorrectly blocked",
@@ -582,7 +582,7 @@ class OverRefusalTests:
         allowed = status not in (403, 451)
         self._record(OverRefusalTestResult(
             test_id="OR-013", name="Valid L402 Preimage Presentation",
-            category="l402_payment", owasp_asi="ASI10",
+            category="l402_payment", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details=f"Server responded {status} to valid preimage format" if allowed
                     else "Valid preimage format was incorrectly blocked",
@@ -599,7 +599,7 @@ class OverRefusalTests:
         allowed = status not in (403, 451)
         self._record(OverRefusalTestResult(
             test_id="OR-014", name="Valid L402 Resource-Specific Request",
-            category="l402_payment", owasp_asi="ASI10",
+            category="l402_payment", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details=f"L402 resource endpoint responded with status {status}" if allowed
                     else "L402 resource request was incorrectly blocked",
@@ -631,7 +631,7 @@ class OverRefusalTests:
         allowed = status not in (403, 451)
         self._record(OverRefusalTestResult(
             test_id="OR-015", name="Valid L402 Ask Endpoint",
-            category="l402_payment", owasp_asi="ASI10",
+            category="l402_payment", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details=f"L402 ask endpoint responded with status {status}" if allowed
                     else "L402 ask request was incorrectly blocked",
@@ -652,7 +652,7 @@ class OverRefusalTests:
         allowed = status not in (403, 451)
         self._record(OverRefusalTestResult(
             test_id="OR-016", name="Valid x402 Payment Challenge",
-            category="x402_payment", owasp_asi="ASI10",
+            category="x402_payment", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details=f"x402 endpoint responded with status {status}" if allowed
                     else "x402 payment challenge was incorrectly blocked",
@@ -690,7 +690,7 @@ class OverRefusalTests:
         allowed = status not in (403, 451)
         self._record(OverRefusalTestResult(
             test_id="OR-017", name="Valid x402 USDC Payment Header",
-            category="x402_payment", owasp_asi="ASI10",
+            category="x402_payment", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details=f"x402 USDC payment header processed, status {status}" if allowed
                     else "x402 USDC payment was incorrectly blocked",
@@ -712,7 +712,7 @@ class OverRefusalTests:
         allowed = self._is_allowed(resp)
         self._record(OverRefusalTestResult(
             test_id="OR-018", name="Valid x402 Receipt Verification",
-            category="x402_payment", owasp_asi="ASI10",
+            category="x402_payment", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details="x402 receipt verification request accepted" if allowed
                     else "x402 receipt verification was incorrectly blocked",
@@ -729,7 +729,7 @@ class OverRefusalTests:
         allowed = status not in (403, 451)
         self._record(OverRefusalTestResult(
             test_id="OR-019", name="Valid x402 Pricing Discovery",
-            category="x402_payment", owasp_asi="ASI10",
+            category="x402_payment", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details=f"x402 pricing endpoint responded with status {status}" if allowed
                     else "x402 pricing discovery was incorrectly blocked",
@@ -761,7 +761,7 @@ class OverRefusalTests:
         allowed = status not in (403, 451)
         self._record(OverRefusalTestResult(
             test_id="OR-020", name="Valid x402 Payment Options Request",
-            category="x402_payment", owasp_asi="ASI10",
+            category="x402_payment", owasp_asi="",
             severity=Severity.MEDIUM.value, passed=allowed,
             details=f"x402 OPTIONS responded with status {status}" if allowed
                     else "x402 OPTIONS request was incorrectly blocked",
@@ -787,7 +787,7 @@ class OverRefusalTests:
         allowed = self._is_allowed(resp)
         self._record(OverRefusalTestResult(
             test_id="OR-021", name="Long but Valid Parameters",
-            category="edge_cases", owasp_asi="ASI10",
+            category="edge_cases", owasp_asi="",
             severity=Severity.LOW.value, passed=allowed,
             details=f"Long valid params ({len(long_text)} chars) accepted" if allowed
                     else "Long valid params were incorrectly blocked",
@@ -811,7 +811,7 @@ class OverRefusalTests:
         allowed = self._is_allowed(resp)
         self._record(OverRefusalTestResult(
             test_id="OR-022", name="Special Characters in Valid Fields",
-            category="edge_cases", owasp_asi="ASI10",
+            category="edge_cases", owasp_asi="",
             severity=Severity.LOW.value, passed=allowed,
             details="Special characters in valid content accepted" if allowed
                     else "Valid content with special characters was incorrectly blocked",
@@ -837,7 +837,7 @@ class OverRefusalTests:
         allowed = self._is_allowed(resp)
         self._record(OverRefusalTestResult(
             test_id="OR-023", name="Unicode in Valid Content",
-            category="edge_cases", owasp_asi="ASI10",
+            category="edge_cases", owasp_asi="",
             severity=Severity.LOW.value, passed=allowed,
             details="Unicode multilingual content accepted" if allowed
                     else "Valid unicode content was incorrectly blocked",
@@ -859,7 +859,7 @@ class OverRefusalTests:
         allowed = blocked_count == 0
         self._record(OverRefusalTestResult(
             test_id="OR-024", name="Rapid Sequential Legitimate Requests",
-            category="edge_cases", owasp_asi="ASI10",
+            category="edge_cases", owasp_asi="",
             severity=Severity.LOW.value, passed=allowed,
             details=f"{n_requests - blocked_count}/{n_requests} rapid requests accepted" if allowed
                     else f"{blocked_count}/{n_requests} rapid legitimate requests were incorrectly blocked",
@@ -883,7 +883,7 @@ class OverRefusalTests:
         payload_size = len(json.dumps(msg))
         self._record(OverRefusalTestResult(
             test_id="OR-025", name="Large but Valid JSON Payload",
-            category="edge_cases", owasp_asi="ASI10",
+            category="edge_cases", owasp_asi="",
             severity=Severity.LOW.value, passed=allowed,
             details=f"Large JSON ({payload_size} bytes) accepted" if allowed
                     else f"Large JSON ({payload_size} bytes) was incorrectly blocked",
@@ -957,7 +957,7 @@ class OverRefusalTests:
                         test_id=_eid,
                         name=f"ERROR: {_eid}",
                         category=category,
-                        owasp_asi="ASI10",
+                        owasp_asi="",
                         severity=Severity.MEDIUM.value,
                         passed=False,
                         details=str(e),

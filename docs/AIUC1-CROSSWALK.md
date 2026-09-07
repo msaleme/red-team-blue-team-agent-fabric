@@ -105,7 +105,7 @@ The Q3-2026 quarterly refresh modified 8 requirements and 41 controls ([changelo
 ## Standards Alignment
 
 - **AIUC-1 (2026)** - Evidence mapping for 19 of 20 testable requirements (2026-Q1/Q2 set; Q3-2026 delta — see Currency Note above)
-- **OWASP Top 10 for Agentic Applications (2026)** - Complete ASI01-ASI10 coverage
+- **OWASP Top 10 for Agentic Applications (2026)** - tests mapped to ASI01–ASI10 with per-category counts and stated limits (see docs/COMPARISON.md)
 - **OWASP LLM Top 10** - LLM01 (Prompt Injection), LLM02, LLM03, LLM04, LLM06, LLM08
 - **NIST AI RMF** - GOVERN, MAP, MEASURE, MANAGE functions covered
 - **NIST AI 800-2: Benchmark Evaluation Practices (Jan 2026)** - Statistical evaluation protocol follows all 9 practices
