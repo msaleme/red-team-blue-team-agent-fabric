@@ -319,7 +319,7 @@ modification · v4.6–v4.9 payment-stack depth (AP2 mandate chain, UCP/ACP merc
 agentic tokens, settlement finality, Fireblocks x402) · v4.10 benchmark integrity · v4.11–v4.12
 decision-governance corpus currency and provenance repair · **v4.13 OWASP Agentic v1.1 T1–T17 coverage
 mapping and the human-in-the-loop harness** · v4.13.1 a correctness fix to that harness · v4.14.0
-endpoint provenance · v4.16.0 three target shapes: a verdict must be able to be wrong AND to be right · v4.17.0 eight modules could not tell a refusal from a compliance · v4.18.0 INCONCLUSIVE became a field, and the read-list emptied · v4.19.0 a correctness disclosure: verdicts moved in both directions · **v4.20.0 the last absence-graded verdicts got a positive control** · v4.15.0 unserviced requests are no longer recorded as passes (see
+endpoint provenance · v4.16.0 three target shapes: a verdict must be able to be wrong AND to be right · v4.17.0 eight modules could not tell a refusal from a compliance · v4.18.0 INCONCLUSIVE became a field, and the read-list emptied · v4.19.0 a correctness disclosure: verdicts moved in both directions · v4.20.0 the last absence-graded verdicts got a positive control · **v4.21.0 the instrument was the thing under test: 7 of 9 defects were in the measurement apparatus** · v4.15.0 unserviced requests are no longer recorded as passes (see
 [CHANGELOG.md](CHANGELOG.md)).
 
 The release carries **611** tests; `main` is at **623**. They diverge by MCP-021, the MCP

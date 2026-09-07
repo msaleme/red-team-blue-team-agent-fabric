@@ -7,134 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added — delegated authority, checked at every hop instead of at the ends
+## [4.21.0] - 2026-09-07
 
-`protocol_tests/delegation_chain_harness.py`, DCA-001..DCA-011. When an agent
-hands work to a sub-agent and that sub-agent hands it on again, each hop carries
-a pass. The property under test is that a child's authority is provably no
-broader than its parent's, and that this is decided at the tool boundary — the
-thing that performs the effect — rather than in the calling agent's reasoning
-about what it ought to ask for. An agent's reasoning is not an enforcement
-point; it is an input the attacker may control.
+**The instrument was the thing under test.** This release is what happened when
+the harness's own outputs were asked whether they could distinguish *did not
+pass* from *did not run* -- first by the maintainer, then twice by an external
+reviewer working from a public brief. Twenty-one defects landed. Sixteen were in
+the measurement apparatus rather than in anything it measures, and six of those
+were introduced by the fixes for the others and caught by the second pass.
 
-This generalises FB-013. That defect was an approval quorum that checked
-approvers were *distinct* and never that they were *authorized*, so two
-arbitrary strings formed a quorum: a structural property checked in place of an
-authority property. Delegation chains fail the same way and more often, because
-the structural version is so much more convincing — validating that a child pass
-is well-formed rather than narrower, or validating the leaf against the **root**
-rather than against **every hop**.
+### Found by the maintainer (#520–#529)
 
-The last of those is DCA-011 and is why the module exists rather than a pair of
-extra rows in an existing one. Given
+A validator that rejected the correct answer (`inconclusive`); an AIUC-1
+requirement that could read PASS on two of its five mapped tests; a trial
+runner that called an unexercised control a failure and serialised none of the
+per-trial states it claimed to; a provenance ratchet satisfied by an import
+statement; a renderer with no word for "not established"; a residual bucket
+(`failed = total - passed`) in three separate files; a wheel that shipped
+without the schema it reads (`FileNotFoundError` for every pip user); `--html`
+producing a file for zero of forty-five harnesses; and every OWASP category
+title wrong in the three artifacts an auditor actually opens.
 
-```
-root  caps {read,write,refund}  scope {staging, production}  spend 100000
-mid   caps {read}               scope {staging}              spend 1000
-leaf  caps {read,write}         scope {staging, production}  spend 100000
-```
+### Found by the first external review (#530)
 
-the leaf is a strict subset of the root. Every field of it is something the root
-really held, held by a delegate the root really authorized, and the audit trail
-looks clean. It is still an escalation, because `mid` gave up `write`,
-production and 99% of the spend cap, and nothing downstream of `mid` can take
-them back. A leaf-versus-root check accepts it.
+Three recognized-flag credential shapes leaking into the publication copy; the
+HTML classifier reading `not_established` -- a claim-bound string -- as an
+unevaluated marker, so a legitimate FAIL could leave the denominator by adding
+an honest caveat; the live delegation parser reading `_body`, which exists only
+on HTTP errors, so every live allow was undecided; DCA-005 grading a correctly
+allowing target as "control absent"; three report consumers resolving a
+checkout-only path; and a build that succeeded while shipping no data when
+symlinks materialise as files.
 
-**Positive controls are half the suite, not an afterthought.** Every deny row
-pairs its attack with the legitimate variant inside the same test, and DCA-009
-and DCA-010 assert an ALLOW and nothing else. The consequence is measured rather
-than argued: a boundary whose `authorize` returns `Decision(False)`
-unconditionally fails **all eleven** rows, and a boundary that returns
-`Decision(True)` unconditionally fails ten. DCA-009 is the only row a permissive
-boundary passes, which is what makes the deny rows mean anything.
+### Found by the second external review (#532)
 
-**Every guard is shown to be able to fail.** `testing/test_delegation_chain_
-attenuation.py` neuters each check in turn — the four attenuation predicates
-individually, audience, expiry, revocation, the replay ledger, the effective-
-authority intersection, the ambient-credential refusal, and the whole per-hop
-walk replaced by a leaf-versus-root walk — and asserts that the row that guard
-exists for then fails *naming that defect*, not incidentally. Writing that
-matrix changed the module: DCA-001, DCA-002 and DCA-003 originally passed with
-the per-hop attenuation check deleted, because the intersection check (DAP-10)
-independently bounded the request. They asserted "the request was refused" when
-the property is "the attenuation check refused it", so they now require the
-denial to carry the clause by name. A guard whose removal changes nothing is
-dead code with a reassuring name.
+Three defects in the first review's fixes. `--url=` userinfo survived the
+strip that caught the bare form. DCA-005 read every non-True as a refusal, so
+`{}` and a JSON-RPC error graded PASS. And `python -m build` with no flags --
+the route the publish workflow runs -- failed building the wheel from the sdist.
+The release would have failed at publish time; every wheel test had used
+`--wheel`.
 
-Live mode is deliberately narrow. There is no interoperable wire format for a
-delegation pass across MCP, A2A and the payment stack, so `--url` grades only
-the two unambiguous answers — the target *allowed* an escalation, or the target
-*allowed* the legitimate chain — and reports everything else INCONCLUSIVE rather
-than reading a rejection it cannot attribute as a passing control.
+### The taxonomy (#531)
 
-### Changed — a multi-trial run could report a control it never exercised as failed, and one that gave way as passed (#523)
+Eighty-one tests carried an OWASP ASI primary written in April against category
+titles that were themselves wrong. Three independent assignment paths existed;
+the coverage tables read the one that was not the tags. Four HITL rows changed
+category with the *outcome*. Remapped per the review's table, collapsed to one
+source (`protocol_tests/asi_inventory.py`, read from source by AST), and the
+ratchet's helper-literal rule then found four more modules with the same
+outcome-dependence the per-row table could not see. `docs/COMPARISON.md` no
+longer says "Complete ASI01-ASI10"; it says what is mapped and what is thin
+(ASI10 Rogue Agents: 13; ASI08 Cascading Failures: 19).
 
-`trial_runner` is the shared `--trials N` path for 24 harnesses, and it was the
-last summary in the package still computing `failed` as a residual:
+### The practice
 
-```python
-total_tests  = len(stat_results)
-passed_tests = sum(1 for sr in stat_results if sr.pass_rate >= 0.5)
-failed_tests = total_tests - passed_tests
-```
+Fault injection with one added step: **verify the injection changed the
+artifact under test before believing the result.** Nine injections across this
+release initially proved nothing -- a stale build cache, a two-branch classifier
+with one branch disabled, assertions matching a CSS rule, a `\1` that became an
+octal escape, a `^` without `(?m)`, a dict entry that was never a corpus test.
+Each was indistinguishable from a real pass until the artifact was checked.
 
-It read only `.passed`, so an INCONCLUSIVE result entered as `passed=False`,
-dragged the rate under the threshold, and was published as a target failure —
-the same substitution `run_summary` was written to stop in #402, in the one
-module that never called it. Against an unresponsive target a ten-trial run
-asserted that controls did not hold, when nothing had been exercised.
-
-The `>= 0.5` threshold was the other half. A test that failed two of five trials
-landed in `summary.passed` and the two failures appeared in no field of the
-written report: `per_trial` was held on the dataclass but `to_dict` never
-serialised it, so "retry until green" was the default and left no trace.
-
-`trial_runner` now delegates counting to `http_helpers.run_summary`, so
-`passed + failed + inconclusive == total`, the denominator is `serviced`, and
-the rate and Wilson interval are `None` rather than `0.0` when nothing was
-serviced. The verdict rule is named in the report rather than implied by a
-threshold: **a test passes only if every serviced trial passed; one serviced
-failure is a failure; no serviced trial is INCONCLUSIVE, never a failure.**
-Unstable tests are listed by id, and every trial's state is serialised.
-
-Three smaller faults in the same function, each of which could shrink a run
-without saying so:
-
-- `"results"` held the **final trial's** list while `summary.total` was computed
-  over the union across trials, with nothing marking the disagreement. If the
-  last trial crashed it silently held the trial before it; if all of them
-  crashed it was `[]`, which reads as "nothing failed" to the exit-code check in
-  every consumer. It is now one representative result per `test_id` — the trial
-  that carries the verdict — and an all-crashed run says so in `error`.
-- `getattr(r, "test_id", None) or r.get("test_id", "unknown")` put every
-  unidentified result in one `"unknown"` bucket: three results, one failing,
-  became a single entry scoring 2/3 and therefore passing. It also raised
-  `AttributeError` on a non-dict result lacking the attribute, dumping the rest
-  of that trial into `trial_errors`.
-- `statistical_summary.trials_per_test` published the **first** test's trial
-  count as if it were uniform. After a partial trial failure it is not; it is
-  now published only when it actually is, with the observed range beside it.
-
-Unchanged on purpose: per-trial error isolation, and matching by `test_id`
-rather than position.
-
-### Added — `check_public_metadata.py --apply`, so the release run can pass
-
-`Public metadata drift` runs on `release: published` and compares the
-description against the tree at the new tag. It failed on four consecutive
-releases (v4.18.0, v4.19.0rc1, v4.19.0, v4.20.0), correctly each time, because
-the description was edited a few minutes *after* the release was created and
-still named the previous version when the event fired. The Actions token cannot
-edit the description, so the edit moves to the releasing side and before the
-release exists:
-
-```bash
-python3 scripts/check_public_metadata.py --apply   # then gh release create ...
-```
-
-`rewrite_description` is pure and tested offline. `--apply` refuses to write a
-description the checker would still reject, and always runs the normal
-comparison afterwards, so its last line is OK or DRIFT, never "applied".
+Test count 612 -> 623 (DCA-001..DCA-011, multi-hop delegated-authority
+attenuation). Suite: 1191 passed, 864 subtests.
 
 ## [4.20.0] - 2026-09-02
 
