@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — a multi-trial run could report a control it never exercised as failed, and one that gave way as passed (#523)
+
+`trial_runner` is the shared `--trials N` path for 24 harnesses, and it was the
+last summary in the package still computing `failed` as a residual:
+
+```python
+total_tests  = len(stat_results)
+passed_tests = sum(1 for sr in stat_results if sr.pass_rate >= 0.5)
+failed_tests = total_tests - passed_tests
+```
+
+It read only `.passed`, so an INCONCLUSIVE result entered as `passed=False`,
+dragged the rate under the threshold, and was published as a target failure —
+the same substitution `run_summary` was written to stop in #402, in the one
+module that never called it. Against an unresponsive target a ten-trial run
+asserted that controls did not hold, when nothing had been exercised.
+
+The `>= 0.5` threshold was the other half. A test that failed two of five trials
+landed in `summary.passed` and the two failures appeared in no field of the
+written report: `per_trial` was held on the dataclass but `to_dict` never
+serialised it, so "retry until green" was the default and left no trace.
+
+`trial_runner` now delegates counting to `http_helpers.run_summary`, so
+`passed + failed + inconclusive == total`, the denominator is `serviced`, and
+the rate and Wilson interval are `None` rather than `0.0` when nothing was
+serviced. The verdict rule is named in the report rather than implied by a
+threshold: **a test passes only if every serviced trial passed; one serviced
+failure is a failure; no serviced trial is INCONCLUSIVE, never a failure.**
+Unstable tests are listed by id, and every trial's state is serialised.
+
+Three smaller faults in the same function, each of which could shrink a run
+without saying so:
+
+- `"results"` held the **final trial's** list while `summary.total` was computed
+  over the union across trials, with nothing marking the disagreement. If the
+  last trial crashed it silently held the trial before it; if all of them
+  crashed it was `[]`, which reads as "nothing failed" to the exit-code check in
+  every consumer. It is now one representative result per `test_id` — the trial
+  that carries the verdict — and an all-crashed run says so in `error`.
+- `getattr(r, "test_id", None) or r.get("test_id", "unknown")` put every
+  unidentified result in one `"unknown"` bucket: three results, one failing,
+  became a single entry scoring 2/3 and therefore passing. It also raised
+  `AttributeError` on a non-dict result lacking the attribute, dumping the rest
+  of that trial into `trial_errors`.
+- `statistical_summary.trials_per_test` published the **first** test's trial
+  count as if it were uniform. After a partial trial failure it is not; it is
+  now published only when it actually is, with the observed range beside it.
+
+Unchanged on purpose: per-trial error isolation, and matching by `test_id`
+rather than position.
+
 ### Added — `check_public_metadata.py --apply`, so the release run can pass
 
 `Public metadata drift` runs on `release: published` and compares the

@@ -93,15 +93,41 @@ def bootstrap_ci(pass_rates: list[float], n_bootstrap: int = 10000,
 
 @dataclass
 class TrialResult:
-    """Result of running a test across multiple trials."""
+    """Result of running a test across multiple trials.
+
+    ``pass_rate`` and ``ci_95`` are ``None`` -- not ``0.0`` and not ``(0.0, 0.0)``
+    -- when no trial was serviced, for the reason ``http_helpers.run_summary``
+    gives: a rate of zero is a claim, and absence is not. The denominator for
+    both is ``n_serviced``, so the rate answers "of what was observed, how much
+    passed" rather than "of everything attempted".
+
+    The three-state fields are appended, with defaults, so the positional
+    constructions in ``l402_harness`` and ``x402_harness`` keep working; those
+    two do not track INCONCLUSIVE per trial and correctly report zero of it.
+    """
     test_id: str
     test_name: str
     n_trials: int
     n_passed: int
-    pass_rate: float
-    ci_95: tuple[float, float]  # Wilson score CI
+    pass_rate: float | None
+    ci_95: tuple[float, float] | None  # Wilson score CI over serviced trials
     per_trial: list[bool]  # Individual trial results
     mean_elapsed_s: float
+    #: Trials that established nothing. Not failures.
+    n_inconclusive: int = 0
+    #: Per-trial "pass"/"fail"/"inconclusive", when the caller tracked it.
+    per_trial_state: list[str] | None = None
+
+    @property
+    def n_serviced(self) -> int:
+        """Trials that actually exercised the control."""
+        return self.n_trials - self.n_inconclusive
+
+    @property
+    def n_failed(self) -> int:
+        """Serviced trials that failed. A residual over `n_trials` would count
+        the inconclusive ones as failures, which is the defect this replaces."""
+        return self.n_serviced - self.n_passed
 
     def to_dict(self) -> dict:
         return {
@@ -109,10 +135,18 @@ class TrialResult:
             "test_name": self.test_name,
             "n_trials": self.n_trials,
             "n_passed": self.n_passed,
+            "n_failed": self.n_failed,
+            "n_inconclusive": self.n_inconclusive,
+            "n_serviced": self.n_serviced,
             "pass_rate": self.pass_rate,
-            "ci_95_lower": self.ci_95[0],
-            "ci_95_upper": self.ci_95[1],
+            "ci_95_lower": self.ci_95[0] if self.ci_95 else None,
+            "ci_95_upper": self.ci_95[1] if self.ci_95 else None,
             "mean_elapsed_s": self.mean_elapsed_s,
+            # `per_trial` was held on the dataclass but never serialised, so the
+            # claim that a flaky test's failures were "recoverable from the JSON"
+            # was not true of any written report. The state sequence is carried
+            # here, and is `None` for callers that do not track it.
+            "per_trial_state": self.per_trial_state,
         }
 
 
@@ -192,14 +226,28 @@ def enhance_report(report: dict, trial_results: list[TrialResult] | None = None)
 
     # Add statistical summary if trial results provided
     if trial_results:
-        pass_rates = [tr.pass_rate for tr in trial_results]
-        aggregate_ci = bootstrap_ci(pass_rates)
+        # Only tests with a serviced trial have a rate. Averaging a `None` in as
+        # 0.0 would drag the aggregate down with observations that were never
+        # made -- the same substitution `run_summary` refuses.
+        pass_rates = [tr.pass_rate for tr in trial_results if tr.pass_rate is not None]
+        trial_counts = [tr.n_trials for tr in trial_results]
+        # `trial_results[0].n_trials` published the FIRST test's trial count as
+        # if it were the whole run's. After a partial trial failure it is not:
+        # a run where T-1 got 3 trials and T-2 got 1 reported "3". So it is
+        # published only when it is actually uniform, and the observed range is
+        # published alongside it either way.
+        uniform = len(set(trial_counts)) == 1
 
         report["statistical_summary"] = {
-            "aggregate_pass_rate": round(sum(pass_rates) / len(pass_rates), 4) if pass_rates else 0,
-            "aggregate_ci_95": list(aggregate_ci),
+            "aggregate_pass_rate": (round(sum(pass_rates) / len(pass_rates), 4)
+                                    if pass_rates else None),
+            "aggregate_ci_95": list(bootstrap_ci(pass_rates)) if pass_rates else None,
             "n_tests": len(trial_results),
-            "trials_per_test": trial_results[0].n_trials if trial_results else 0,
+            "n_tests_with_a_serviced_trial": len(pass_rates),
+            "trials_per_test": trial_counts[0] if uniform else None,
+            "trials_per_test_uniform": uniform,
+            "trials_per_test_min": min(trial_counts),
+            "trials_per_test_max": max(trial_counts),
             "per_test": [tr.to_dict() for tr in trial_results],
         }
 

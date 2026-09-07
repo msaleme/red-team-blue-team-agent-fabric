@@ -57,8 +57,25 @@ class TestRunWithTrials(unittest.TestCase):
 class TestTrialResult(unittest.TestCase):
     def test_to_dict(self):
         tr = TrialResult("X", "T", 5, 3, 0.6, (0.3, 0.85), [True]*3+[False]*2, 1.5)
-        expected = {"test_id","test_name","n_trials","n_passed","pass_rate","ci_95_lower","ci_95_upper","mean_elapsed_s"}
+        expected = {"test_id","test_name","n_trials","n_passed","n_failed","n_inconclusive",
+                    "n_serviced","pass_rate","ci_95_lower","ci_95_upper","mean_elapsed_s",
+                    "per_trial_state"}
         self.assertEqual(set(tr.to_dict().keys()), expected)
+
+    def test_three_state_counts(self):
+        """`n_failed` is over serviced trials, not a residual over `n_trials`."""
+        tr = TrialResult("X", "T", 5, 2, 0.6667, (0.2, 0.94), [], 1.0, n_inconclusive=2)
+        self.assertEqual(tr.n_serviced, 3)
+        self.assertEqual(tr.n_failed, 1)
+        self.assertEqual(tr.n_passed + tr.n_failed + tr.n_inconclusive, tr.n_trials)
+
+    def test_unserviced_rate_is_none_not_zero(self):
+        tr = TrialResult("X", "T", 3, 0, None, None, [], 0.0, n_inconclusive=3)
+        d = tr.to_dict()
+        self.assertIsNone(d["pass_rate"])
+        self.assertIsNone(d["ci_95_lower"])
+        self.assertIsNone(d["ci_95_upper"])
+        self.assertEqual(tr.n_serviced, 0)
 
 
 class TestEnhanceReport(unittest.TestCase):
@@ -67,6 +84,38 @@ class TestEnhanceReport(unittest.TestCase):
     def test_statistical_mode(self):
         tr = TrialResult("X","T",5,3,0.6,(0.3,0.85),[True]*3+[False]*2,1.0)
         self.assertTrue(enhance_report({"suite":"t","results":[]}, trial_results=[tr])["metadata"]["statistical_mode"])
+
+    def test_trials_per_test_not_published_when_uneven(self):
+        """The FIRST test's trial count is not the run's trial count (#523)."""
+        trs = [TrialResult("T-1", "one", 3, 3, 1.0, (0.4, 1.0), [], 0.1),
+               TrialResult("T-2", "two", 1, 1, 1.0, (0.2, 1.0), [], 0.1)]
+        s = enhance_report({"suite": "t", "results": []}, trs)["statistical_summary"]
+        self.assertIsNone(s["trials_per_test"])
+        self.assertFalse(s["trials_per_test_uniform"])
+        self.assertEqual((s["trials_per_test_min"], s["trials_per_test_max"]), (1, 3))
+
+    def test_trials_per_test_published_when_uniform(self):
+        trs = [TrialResult("T-1", "one", 3, 3, 1.0, (0.4, 1.0), [], 0.1),
+               TrialResult("T-2", "two", 3, 3, 1.0, (0.4, 1.0), [], 0.1)]
+        s = enhance_report({"suite": "t", "results": []}, trs)["statistical_summary"]
+        self.assertEqual(s["trials_per_test"], 3)
+        self.assertTrue(s["trials_per_test_uniform"])
+
+    def test_aggregate_rate_is_none_when_nothing_serviced(self):
+        """An unserviced test has no rate; it must not be averaged in as 0.0."""
+        trs = [TrialResult("T-1", "one", 2, 0, None, None, [], 0.0, n_inconclusive=2)]
+        s = enhance_report({"suite": "t", "results": []}, trs)["statistical_summary"]
+        self.assertIsNone(s["aggregate_pass_rate"])
+        self.assertIsNone(s["aggregate_ci_95"])
+        self.assertEqual(s["n_tests"], 1)
+        self.assertEqual(s["n_tests_with_a_serviced_trial"], 0)
+
+    def test_aggregate_rate_excludes_unserviced_tests(self):
+        trs = [TrialResult("T-1", "one", 2, 2, 1.0, (0.3, 1.0), [], 0.1),
+               TrialResult("T-2", "two", 2, 0, None, None, [], 0.0, n_inconclusive=2)]
+        s = enhance_report({"suite": "t", "results": []}, trs)["statistical_summary"]
+        self.assertEqual(s["aggregate_pass_rate"], 1.0)  # not 0.5
+        self.assertEqual(s["n_tests_with_a_serviced_trial"], 1)
 
 
 class TestGenerateReport(unittest.TestCase):
