@@ -259,6 +259,10 @@ HARNESSES = {
         "module": "protocol_tests.capability_profile_harness",
         "description": "Capability profile validation tests (10 tests, executor boundary enforcement)",
     },
+    "delegation-chain": {
+        "module": "protocol_tests.delegation_chain_harness",
+        "description": "Multi-hop delegated-authority attenuation (11 tests, per-hop narrowing + audience + expiry/revocation + confused deputy)",
+    },
     "harmful-output": {
         "module": "protocol_tests.harmful_output_harness",
         "description": "Harmful output content tests (10 tests, AIUC-1 C003/C004)",

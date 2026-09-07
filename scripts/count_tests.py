@@ -53,6 +53,7 @@ MODULE_NAMES = {
     "return_channel_harness.py": "Return Channel",
     "identity_harness.py": "Identity & Authorization",
     "capability_profile_harness.py": "Capability Profile",
+    "delegation_chain_harness.py": "Delegated-Authority Attenuation",
     "harmful_output_harness.py": "Harmful Output",
     "cbrn_harness.py": "CBRN Prevention",
     "incident_response_harness.py": "Incident Response",

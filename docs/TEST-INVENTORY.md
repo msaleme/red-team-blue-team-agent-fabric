@@ -1,11 +1,11 @@
 # Test Inventory
 
-**612 security tests across 44 test-bearing modules** on `main` (verified 2026-09-01 by `scripts/count_tests.py`)
+**623 security tests across 45 test-bearing modules** on `main` (verified 2026-09-07 by `scripts/count_tests.py`)
 
 See also: **[OWASP Agentic AI v1.1 Threat Coverage Report](OWASP-AGENTIC-V1.1-COVERAGE.md)** — per-threat T1–T17 evidence mapping with scenario coverage, mitigation-control validation and evidence classes, generated from `coverage/owasp-agentic-v1.1.yaml`. ([T1–T15 submission view](OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md))
 
-> **Canonical figures (verified 2026-09-02).** Main branch: 612 test IDs across
-> 44 test-bearing modules in `protocol_tests/` (files with no `test_id` — CLI,
+> **Canonical figures (verified 2026-09-07).** Main branch: 623 test IDs across
+> 45 test-bearing modules in `protocol_tests/` (files with no `test_id` — CLI,
 > helpers, telemetry, registry — are not counted as modules). `main`'s
 > `pyproject.toml` is at `agent-security-harness` v4.20.0 (611 tests); `main` and
 > that version agree, with no test added or removed since (see `CHANGELOG.md`). Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: 19 of
@@ -164,6 +164,41 @@ Tests the Coinbase/Stripe/Cloudflare agent payment standard ($600M+ payment volu
 
 ---
 
+## Delegated-Authority Attenuation - 11 tests
+
+`protocol_tests/delegation_chain_harness.py`. Multi-hop delegation: a child's
+authority must be provably no broader than its parent's, enforced at the tool
+boundary rather than in the calling agent's reasoning. Generalises FB-013, where
+an approval quorum checked a structural property (distinctness) in place of an
+authority property (entitlement).
+
+| ID | Case | Expected |
+|---|---|---|
+| DCA-001 | Child adds a capability absent from its parent | deny (DAP-1) |
+| DCA-002 | Child widens resource scope, staging -> production | deny (DAP-2) |
+| DCA-003 | Child drops or loosens a parent constraint (spend cap, rate limit) | deny (DAP-3) |
+| DCA-004 | Valid pass presented to the wrong tool audience | deny (DAP-4) |
+| DCA-005 | Replayed effect request | first receipt returned, no second effect (DAP-11) |
+| DCA-006 | Pass used after expiry | deny, naming DAP-6 |
+| DCA-007 | Pass used after revocation epoch | deny, naming DAP-7 |
+| DCA-008 | Tool acts under ambient credentials outside request context | deny (DAP-8) |
+| DCA-009 | **Positive control** — correctly attenuated child | ALLOW |
+| DCA-010 | **Positive control** — parent's own full authority | ALLOW |
+| DCA-011 | Three-hop chain: intermediate re-widens what its parent narrowed | deny at the widening hop |
+
+Every deny row pairs its attack with the legitimate variant inside the same
+test, so a verifier that refuses every request fails all eleven rows rather than
+passing eight. `testing/test_delegation_chain_attenuation.py` neuters each guard
+in turn and asserts that the row it exists for then fails, naming that defect.
+
+The verdicts in `--simulate` mode are about the reference model defined in the
+module, not about any deployment; each row says so in `verdict_scope`. There is
+no interoperable wire format for a delegation pass, so `--url` mode grades only
+the two unambiguous live answers — the target allowed an escalation, or the
+target allowed the legitimate chain — and reports everything else INCONCLUSIVE.
+
+---
+
 ## Enterprise Platform Adapters
 
 Pre-configured tests for 20+ enterprise platforms where AI agents are being deployed:
@@ -198,8 +233,8 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 
 ## Test Harness Modules (representative summary)
 
-> This table lists the largest modules; the full harness spans **44 test-bearing
-> modules / 612 tests** on `main` (verified 2026-09-01 via `scripts/count_tests.py`).
+> This table lists the largest modules; the full harness spans **45 test-bearing
+> modules / 623 tests** on `main` (verified 2026-09-07 via `scripts/count_tests.py`).
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|

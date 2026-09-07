@@ -339,7 +339,7 @@ SURFACE_PATTERNS = (
     ("test count", re.compile(r"(\d{3,4})\s+(?:executable\s+)?(?:security\s+)?tests?\b"), "count", False),
     # "test-bearing" is optional because it is the phrasing this project
     # actually uses. Without it the pattern needed the number adjacent to
-    # "modules" and so matched nothing at all on "44 test-bearing modules" --
+    # "modules" and so matched nothing at all on "N test-bearing modules" --
     # the canonical wording on start-here and on the PubPoint page. The module
     # count was therefore unchecked on every surface that stated it correctly,
     # and PubPoint's stale module count passed unread on 2026-09-05.

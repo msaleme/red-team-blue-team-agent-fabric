@@ -118,7 +118,7 @@ assessment:
       count, so a total left stale would fail rather than mislead. commit and assessed_at
       are deliberately unchanged from 1.1.
 
-  total_repository_tests: 612
+  total_repository_tests: 623
   total_tests_command: python scripts/count_tests.py
   unique_mapped_tests: 96
   adjudicated_by: corpus author - NOT independent review
