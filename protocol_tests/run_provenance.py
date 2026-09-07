@@ -227,6 +227,37 @@ def _pair(name: str, value: Any, reason: str) -> dict[str, Any]:
 # Argv redaction
 # ---------------------------------------------------------------------------
 
+#: Short flags whose value may be attached without a separator (`-Hvalue`).
+_ATTACHED_SHORT_FLAGS = ("-H",)
+
+
+def _is_auth_flag(flag: str) -> bool:
+    """One test for both syntax forms. Membership first, then the name regex."""
+    return flag in _AUTH_FLAGS or (
+        flag.startswith("-") and bool(_AUTH_NAME_RE.search(flag))
+    )
+
+
+def _split_attached_short(arg: str) -> tuple[str, str] | None:
+    """`-HAuthorization: Bearer x` -> ('-H', 'Authorization: Bearer x')."""
+    for flag in _ATTACHED_SHORT_FLAGS:
+        if arg.startswith(flag) and len(arg) > len(flag) and arg[len(flag)] != "=":
+            return flag, arg[len(flag):]
+    return None
+
+
+_URL_USERINFO_RE = re.compile(r"^([a-zA-Z][a-zA-Z0-9+.-]*://)([^/@\s]+)@")
+
+
+def _strip_url_userinfo(arg: str) -> str:
+    """`https://user:pass@host/x` -> `https://[REDACTED]@host/x`.
+
+    Credentials in URL userinfo are a credential under another name; the
+    flag-name paths never see them because the argument is a URL, not a flag.
+    """
+    return _URL_USERINFO_RE.sub(rf"\1{REDACTED}@", arg)
+
+
 def _split_flag(arg: str) -> tuple[str, str] | None:
     """`--api-key=sk-...` -> ('--api-key', 'sk-...'); otherwise None."""
     if arg.startswith("-") and "=" in arg:
@@ -299,22 +330,44 @@ def redact_argv(argv: list[str]) -> tuple[list[str], bool]:
             expect_value = False
             continue
 
-        if arg in _AUTH_FLAGS or (arg.startswith("-") and _AUTH_NAME_RE.search(arg)
-                                  and "=" not in arg):
+        # Attached short-option value: `-HAuthorization: Bearer x` is ONE argv
+        # element carrying both the flag and the secret. The old code matched
+        # the auth word, decided this was a flag awaiting its next value, and
+        # appended the whole element -- secret included -- untouched.
+        short = _split_attached_short(arg)
+        if short:
+            out.append(f"{short[0]}{REDACTED}")
+            redacted = True
+            continue
+
+        # Only a bare flag awaits a following value. An `=`-bearing element
+        # carries its value inline and is handled below; testing it here lets
+        # an auth word INSIDE the value (`--key=...SECRET...`) match the name
+        # regex and route the whole element, secret included, into `out`.
+        if "=" not in arg and _is_auth_flag(arg):
             out.append(arg)
             expect_value = True
             continue
 
+        # `--flag=value`. The separated form (`--key VALUE`) consulted
+        # _AUTH_FLAGS; this form consulted only _AUTH_NAME_RE, which does not
+        # contain the bare words `key` or `header`. So `--key VALUE` was
+        # redacted and `--key=VALUE` was not -- the same flag, two answers.
+        # Both forms now use the same test, and a recognized flag's value is
+        # redacted WHOLE: what follows `--header=` is credential-bearing by
+        # declaration, and parsing it for an auth-shaped key is how
+        # `--header=X-Custom: <secret>` got through.
         split = _split_flag(arg)
-        if split and _AUTH_NAME_RE.search(split[0]) and split[1]:
+        if split and split[1] and _is_auth_flag(split[0]):
             out.append(f"{split[0]}={REDACTED}")
             redacted = True
             continue
 
         cleaned = _redact_inline(arg)
-        if cleaned != arg:
+        cleaned2 = _strip_url_userinfo(cleaned)
+        if cleaned2 != arg:
             redacted = True
-        out.append(_basename_if_absolute(cleaned))
+        out.append(_basename_if_absolute(cleaned2))
 
     # A trailing auth flag with no value after it. Nothing to redact, and
     # dropping the flag would misreport the command that was run.
