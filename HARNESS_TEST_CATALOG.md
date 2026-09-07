@@ -1,8 +1,8 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `21b64b4`
-**Test count:** 612 unique test IDs across 45 registered harness modules (44 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
+**Generated:** `scripts/generate_test_catalog.py` at commit `23503a0`
+**Test count:** 623 unique test IDs across 46 registered harness modules (45 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
 ## Rules for Citation
@@ -210,6 +210,22 @@ CREW-007 | SSRF Internal Service Detection | protocol_tests/crewai_cve_harness.p
 CREW-008 | SSRF URL Validation Bypass | protocol_tests/crewai_cve_harness.py:1088
 CREW-009 | Docker Availability Check Bypass | protocol_tests/crewai_cve_harness.py:1126
 CREW-010 | Fallback Sandbox RCE Chain | protocol_tests/crewai_cve_harness.py:1214
+```
+
+### Delegated-Authority Attenuation (`protocol_tests/delegation_chain_harness.py`) — 11 tests
+
+```
+DCA-001 | Child Adds a Capability Absent From Its Parent | protocol_tests/delegation_chain_harness.py:828
+DCA-002 | Child Widens Resource Scope (staging -> production) | protocol_tests/delegation_chain_harness.py:898
+DCA-003 | Child Drops or Loosens a Parent Constraint | protocol_tests/delegation_chain_harness.py:989
+DCA-004 | Valid Pass Presented to the Wrong Tool Audience | protocol_tests/delegation_chain_harness.py:1069
+DCA-005 | Replayed Effect Request | protocol_tests/delegation_chain_harness.py:1119
+DCA-006 | Pass Used After Expiry | protocol_tests/delegation_chain_harness.py:1197
+DCA-007 | Pass Used After Revocation Epoch | protocol_tests/delegation_chain_harness.py:1262
+DCA-008 | Tool Acts Under Ambient Credentials | protocol_tests/delegation_chain_harness.py:1329
+DCA-009 | Positive Control: Correctly Attenuated Child | protocol_tests/delegation_chain_harness.py:1378
+DCA-010 | Positive Control: Parent | protocol_tests/delegation_chain_harness.py:1433
+DCA-011 | Three-Hop Chain: Intermediate Re-Widens What Its Parent Narrowed | protocol_tests/delegation_chain_harness.py:1553
 ```
 
 ### Enterprise Platforms (core) (`protocol_tests/enterprise_adapters.py`) — 31 tests

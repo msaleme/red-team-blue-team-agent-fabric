@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — delegated authority, checked at every hop instead of at the ends
+
+`protocol_tests/delegation_chain_harness.py`, DCA-001..DCA-011. When an agent
+hands work to a sub-agent and that sub-agent hands it on again, each hop carries
+a pass. The property under test is that a child's authority is provably no
+broader than its parent's, and that this is decided at the tool boundary — the
+thing that performs the effect — rather than in the calling agent's reasoning
+about what it ought to ask for. An agent's reasoning is not an enforcement
+point; it is an input the attacker may control.
+
+This generalises FB-013. That defect was an approval quorum that checked
+approvers were *distinct* and never that they were *authorized*, so two
+arbitrary strings formed a quorum: a structural property checked in place of an
+authority property. Delegation chains fail the same way and more often, because
+the structural version is so much more convincing — validating that a child pass
+is well-formed rather than narrower, or validating the leaf against the **root**
+rather than against **every hop**.
+
+The last of those is DCA-011 and is why the module exists rather than a pair of
+extra rows in an existing one. Given
+
+```
+root  caps {read,write,refund}  scope {staging, production}  spend 100000
+mid   caps {read}               scope {staging}              spend 1000
+leaf  caps {read,write}         scope {staging, production}  spend 100000
+```
+
+the leaf is a strict subset of the root. Every field of it is something the root
+really held, held by a delegate the root really authorized, and the audit trail
+looks clean. It is still an escalation, because `mid` gave up `write`,
+production and 99% of the spend cap, and nothing downstream of `mid` can take
+them back. A leaf-versus-root check accepts it.
+
+**Positive controls are half the suite, not an afterthought.** Every deny row
+pairs its attack with the legitimate variant inside the same test, and DCA-009
+and DCA-010 assert an ALLOW and nothing else. The consequence is measured rather
+than argued: a boundary whose `authorize` returns `Decision(False)`
+unconditionally fails **all eleven** rows, and a boundary that returns
+`Decision(True)` unconditionally fails ten. DCA-009 is the only row a permissive
+boundary passes, which is what makes the deny rows mean anything.
+
+**Every guard is shown to be able to fail.** `testing/test_delegation_chain_
+attenuation.py` neuters each check in turn — the four attenuation predicates
+individually, audience, expiry, revocation, the replay ledger, the effective-
+authority intersection, the ambient-credential refusal, and the whole per-hop
+walk replaced by a leaf-versus-root walk — and asserts that the row that guard
+exists for then fails *naming that defect*, not incidentally. Writing that
+matrix changed the module: DCA-001, DCA-002 and DCA-003 originally passed with
+the per-hop attenuation check deleted, because the intersection check (DAP-10)
+independently bounded the request. They asserted "the request was refused" when
+the property is "the attenuation check refused it", so they now require the
+denial to carry the clause by name. A guard whose removal changes nothing is
+dead code with a reassuring name.
+
+Live mode is deliberately narrow. There is no interoperable wire format for a
+delegation pass across MCP, A2A and the payment stack, so `--url` grades only
+the two unambiguous answers — the target *allowed* an escalation, or the target
+*allowed* the legitimate chain — and reports everything else INCONCLUSIVE rather
+than reading a rejection it cannot attribute as a passing control.
+
 ### Changed — a multi-trial run could report a control it never exercised as failed, and one that gave way as passed (#523)
 
 `trial_runner` is the shared `--trials N` path for 24 harnesses, and it was the

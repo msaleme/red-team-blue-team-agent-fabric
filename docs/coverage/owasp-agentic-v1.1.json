@@ -82,7 +82,7 @@
         "change": "Repository test total 611 -> 612 on the addition of MCP-021, the MCP authentication fail-open differential (#503, CVE-2026-59822 shape). No threat, scenario or control verdict changed and no adjudication was redone; MCP-021 is an ASI02 test on a surface this mapping already adjudicates, so unique_mapped_tests is unchanged. Recorded because r15_total compares the stated total against a live count, so a total left stale would fail rather than mislead. commit and assessed_at are deliberately unchanged from 1.1."
       }
     ],
-    "total_repository_tests": 612,
+    "total_repository_tests": 623,
     "total_tests_command": "python scripts/count_tests.py",
     "unique_mapped_tests": 96,
     "adjudicated_by": "corpus author - NOT independent review"
