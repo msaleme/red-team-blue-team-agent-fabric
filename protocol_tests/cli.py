@@ -126,7 +126,11 @@ def _simulate_harness(harness_name: str, info: dict,
             "name": entry["name"],
             "category": entry["category"],
             "passed": False,
-            "inconclusive": True,
+            # The canonical structural marker (http_helpers.INCONCLUSIVE_FIELDS),
+            # not a renderer-private `inconclusive` key. One vocabulary: a
+            # consumer that reads the shared predicate classifies this row
+            # exactly as it classifies a harness result object.
+            "not_evaluated": True,
             # The INCONCLUSIVE_PREFIX form, so the consumers that classify on
             # the details string agree with the consumers that read the field.
             "details": (

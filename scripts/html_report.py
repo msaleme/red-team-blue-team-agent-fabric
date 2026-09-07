@@ -33,6 +33,7 @@ from typing import Any
 # Ensure repo root is on path so protocol_tests is importable
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
+from protocol_tests.package_data import data_path as _data_path  # noqa: E402
 
 from protocol_tests.version import get_harness_version
 
@@ -62,7 +63,7 @@ def _try_load_aiuc1_mapping() -> dict[str, Any] | None:
     """Attempt to load the AIUC-1 mapping; return None if unavailable."""
     try:
         import yaml
-        mapping_path = os.path.join(REPO_ROOT, "configs", "aiuc1_mapping.yaml")
+        mapping_path = str(_data_path("configs", "aiuc1_mapping.yaml"))
         with open(mapping_path) as f:
             return yaml.safe_load(f)
     except Exception:
@@ -275,22 +276,19 @@ INCONCLUSIVE_PREFIX = "INCONCLUSIVE"
 
 
 def _is_inconclusive(r: dict) -> bool:
-    """Was this control exercised at all?
+    """Was this control exercised at all? Delegates to the one predicate.
 
-    This renderer was two-state. A simulated run -- which contacts nothing --
-    rendered as 100% passed, risk 0, AUROC 1.0000, because the source said
-    `passed: True`. Making the source honest without teaching the renderer the
-    third state would only invert the lie into 100% FAIL, and a fail asserts
-    the control did not hold, which an unexercised control cannot establish.
-
-    Reads the explicit field first, then the INCONCLUSIVE_PREFIX convention in
-    `details`, so producers that carry only one of the two still classify.
+    This renderer briefly had its own classifier reading `inconclusive` and
+    `not_established`, while the shared predicate reads `not_evaluated` and
+    `informational`. Two consequences, both found by an external review:
+    a FAIL carrying an honest `not_established` limitation rendered as
+    INCONCLUSIVE (a legitimate failure removed from the denominator by adding
+    a caveat), and a structurally inconclusive row with no prose prefix
+    rendered as FAIL. `not_established` is a claim-bound string and must never
+    affect a verdict. There is one predicate; this is a call to it.
     """
-    if r.get("inconclusive") or r.get("not_established"):
-        return True
-    details = r.get("details") or r.get("detail") or ""
-    return isinstance(details, str) and details.strip().upper().startswith(
-        INCONCLUSIVE_PREFIX)
+    from protocol_tests.http_helpers import is_inconclusive
+    return is_inconclusive(r)
 
 
 def _status_badge(status: str) -> str:
@@ -348,7 +346,12 @@ def generate_html(report_data: dict[str, Any]) -> str:
     risk_data = report_data.get("risk", {})
     # None, not 0.0. A risk score of zero rendered as "LOW" for a run that
     # contacted nothing -- the same claim-from-absence the pass rate had.
-    risk_score = risk_data.get("score")
+    # An imported score bypassed the zero-serviced guard: only the COMPUTED
+    # fallback was gated on `serviced`, so an all-INCONCLUSIVE report carrying
+    # `"risk": {"score": 0}` from an earlier or external computation still
+    # rendered LOW. Found by an external review (2026-09-07). Nothing was
+    # measured; no score is rendered, whatever its origin.
+    risk_score = risk_data.get("score") if serviced else None
     if risk_score is None and serviced:
         risk_score = round(failed / serviced * 40, 2)
 

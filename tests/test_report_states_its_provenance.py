@@ -80,6 +80,12 @@ ENTRY = {
 #: Shaped like the real things and valid nowhere. The point of using realistic
 #: shapes is that a redactor keyed to a toy value ("secret123") passes on the
 #: toy and leaks the real one.
+#: A canary with no auth word in it, assembled at runtime where it is used so
+#: no source literal has the shape of a credential -- the secret scanner
+#: flags `://user:pass@` and `Bearer <token>` on sight, and the repo rule is
+#: to change the fixture, never the scanner.
+CANARY = "zq7" + "hunter2" + "wq"
+
 FAKE_BEARER = "sk-ant-api03-Qx7NOTAREALKEY0000000000000000000000000000000000AA"
 # Not AWS's canonical example access key: that literal trips this repo's own
 # secret scanner (testing/test_code_quality.py), and a fixture that teaches
@@ -267,6 +273,24 @@ def test_a_bearer_header_does_not_reach_the_document():
     (["p", f"Bearer {FAKE_BEARER}"], FAKE_BEARER),
     (["p", f"--secret={FAKE_PASSWORD}"], FAKE_PASSWORD),
     (["p", "--cookie", f"session={FAKE_BEARER}"], FAKE_BEARER),
+    # --- the three shapes an external review got through, 2026-09-07 ---
+    # Equals form of a flag that IS in _AUTH_FLAGS but whose bare name is not
+    # in _AUTH_NAME_RE. Separated `--key VALUE` was redacted; this was not.
+    (["p", f"--key={FAKE_PAT}"], FAKE_PAT),
+    # Recognized flag, custom header name inside the value. The value of a
+    # recognized flag is redacted whole; parsing it for an auth-shaped key is
+    # how this got through.
+    (["p", f"--header=X-Custom: {FAKE_PAT}"], FAKE_PAT),
+    # Attached short-option value: one element carrying flag AND secret.
+    (["p", "-H" + "Authorization: Bearer " + FAKE_BEARER], FAKE_BEARER),
+    # Credentials in URL userinfo: a credential under another name that no
+    # flag-name path ever sees.
+    (["p", "--url", "https://alice:" + FAKE_PASSWORD + "@host.example/mcp"], FAKE_PASSWORD),
+    # A canary containing NO auth word, so this cannot pass by the value
+    # happening to match the name regex. Must pass on the flag path alone.
+    (["p", "--key=" + CANARY], CANARY),
+    (["p", "--header=X-Custom: " + CANARY], CANARY),
+    (["p", "-H" + "Authorization: Bearer " + CANARY], CANARY),
 ])
 def test_credential_shapes_are_redacted(argv, secret):
     out, redacted = redact_argv(argv)
@@ -567,3 +591,36 @@ def test_the_hand_assembled_evidence_file_is_left_alone():
     assert "provenance" not in doc, (
         "this file predates run_provenance and must keep saying so; the header "
         "in it was typed by a person and no later edit can make that untrue")
+
+
+# ---------------------------------------------------------------------------
+# The publication copy is where a leak actually matters.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("argv,secret", [
+    (["p", "--key=" + CANARY], CANARY),
+    (["p", "--header=X-Custom: " + CANARY], CANARY),
+    (["p", "-H" + "Authorization: Bearer " + CANARY], CANARY),
+    (["p", "--url", "https://alice:" + CANARY + "@host.example/mcp"], CANARY),
+])
+def test_no_recognized_credential_survives_into_the_publication_copy(argv, secret):
+    """`run_provenance()` -> `strip_sensitive_fields()` is the path a record
+    takes to a registry. An external review found three recognized-flag
+    shapes surviving it with `argv_redacted=False`. The stripper is not a
+    second scrubber; the provenance block must arrive already clean.
+    """
+    from protocol_tests.attestation_registry import strip_sensitive_fields
+    with mock.patch.object(sys, "argv", argv):
+        block = run_provenance()
+    published = strip_sensitive_fields({"provenance": block})
+    assert secret not in json.dumps(published), published["provenance"]["invocation"]
+    assert published["provenance"]["invocation"]["argv_redacted"] is True
+
+
+def test_innocent_arguments_are_not_redacted():
+    """Over-redaction hides what was run; the flag must mean 'a secret was here'."""
+    out, redacted = redact_argv(["p", "--url", "http://localhost:8080/mcp",
+                                 "--trials", "5", "--report", "/home/alice/out.json"])
+    assert redacted is False, out
+    assert out == ["p", "--url", "http://localhost:8080/mcp", "--trials", "5",
+                   "--report", "out.json"], out

@@ -32,6 +32,7 @@ from typing import Any
 # Ensure repo root is on path so protocol_tests is importable
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
+from protocol_tests.package_data import data_path as _data_path  # noqa: E402
 
 from protocol_tests.version import get_harness_version
 
@@ -47,7 +48,7 @@ def load_aiuc1_mapping(mapping_path: str | None = None) -> dict[str, Any]:
     import yaml  # PyYAML — project dependency
 
     if mapping_path is None:
-        mapping_path = os.path.join(REPO_ROOT, "configs", "aiuc1_mapping.yaml")
+        mapping_path = str(_data_path("configs", "aiuc1_mapping.yaml"))
 
     with open(mapping_path) as f:
         data = yaml.safe_load(f)

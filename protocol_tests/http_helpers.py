@@ -183,9 +183,19 @@ def is_inconclusive(subject) -> bool:
     """
     if subject is None or isinstance(subject, str):
         return INCONCLUSIVE_PREFIX.strip(" -") in (subject or "")
-    if any(getattr(subject, f, False) for f in INCONCLUSIVE_FIELDS):
+    # A result arrives as an object in-process and as a dict from a JSON
+    # report. `getattr` on a dict returns the default for every key, so a
+    # dict-shaped result classified as never-inconclusive -- which is how the
+    # HTML renderer grew its own predicate with different field names, and
+    # how a FAIL carrying an honest `not_established` limitation was rendered
+    # INCONCLUSIVE while a structurally inconclusive row was rendered FAIL.
+    # One predicate, both shapes, same fields. `not_established` is a
+    # claim-bound string and is never read here.
+    get = subject.get if isinstance(subject, dict) else (
+        lambda f, d=None: getattr(subject, f, d))
+    if any(get(f, False) for f in INCONCLUSIVE_FIELDS):
         return True
-    return is_inconclusive(getattr(subject, "details", None))
+    return is_inconclusive(get("details", None) or get("detail", None))
 
 
 #: Keys whose values are the ENVELOPE, not the agent's words.
