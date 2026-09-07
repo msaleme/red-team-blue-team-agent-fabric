@@ -27,6 +27,7 @@ import json as _json
 import os
 import re
 import sys
+import tempfile
 from datetime import datetime, timezone
 
 from protocol_tests.version import get_harness_version
@@ -98,8 +99,17 @@ def _simulate_harness(harness_name: str, info: dict,
                       json_output: bool, html_output: str | None) -> None:
     """Generate synthetic results for a harness without a live target.
 
-    All tests are marked passed + simulated so downstream consumers
-    (html_report.py, top10_failures.py) receive valid data.
+    Every row is INCONCLUSIVE, not passed.
+
+    This previously emitted `"passed": True` for every test, so a simulated run
+    produced 100% pass, risk score 0, AUROC 1.0000 -- a clean bill of health for
+    a run that contacted nothing. The repo's own schema already defines the
+    right word: `inconclusive` means "the control was not exercised -- the
+    target did not service the request". A simulated run is definitionally
+    that.
+
+    It is deliberately not `"passed": False` either. A fail asserts the control
+    did not hold, which a run that never made a request cannot establish.
     """
     mod = importlib.import_module(info["module"])
     catalog = _extract_test_catalog(mod.__file__)
@@ -115,8 +125,14 @@ def _simulate_harness(harness_name: str, info: dict,
             "test_id": entry["test_id"],
             "name": entry["name"],
             "category": entry["category"],
-            "passed": True,
-            "details": "Simulated — no live target",
+            "passed": False,
+            "inconclusive": True,
+            # The INCONCLUSIVE_PREFIX form, so the consumers that classify on
+            # the details string agree with the consumers that read the field.
+            "details": (
+                "INCONCLUSIVE - simulated run; no target was contacted, so "
+                "this control was not exercised"
+            ),
             "simulated": True,
         })
 
@@ -127,10 +143,16 @@ def _simulate_harness(harness_name: str, info: dict,
         "mode": "simulation",
         "summary": {
             "total": len(results),
-            "passed": len(results),
+            "passed": 0,
             "failed": 0,
+            "inconclusive": len(results),
+            # Nothing was serviced, so there is no denominator and no rate.
+            # A rate of zero would be a claim; absence is not.
+            "serviced": 0,
+            "pass_rate": None,
             "simulated": True,
         },
+        "status": "inconclusive",
         "results": results,
     }
 
@@ -696,10 +718,32 @@ def main():
                             for a in filtered_args)):
             filtered_args += ["--transport", "http"]
 
+        # --html needs a report to render. If the operator asked for HTML but
+        # not JSON, ask the harness for a throwaway report we can read back.
+        _side_report = None
+        if html_output and _module_declares_flag(harness_name, "--report") and not any(
+                a == "--report" or a.startswith("--report=") for a in filtered_args):
+            _side_report = os.path.join(
+                tempfile.gettempdir(), f"agent-security-html-{os.getpid()}.json")
+            filtered_args += ["--report", _side_report]
+
         sys.argv = [info["module"]] + filtered_args
 
         import runpy
-        ns = runpy.run_module(info["module"], run_name="__main__")
+        # Every harness main() ends in sys.exit(), which raises SystemExit.
+        # Nothing here caught it, so everything below -- telemetry AND the
+        # entire --html block -- was unreachable on this path. `--html` is
+        # advertised in print_usage() and produced a file for 0 of 45
+        # harnesses: exit 0, no file, no warning. Catch it, finish the work,
+        # then exit with the code the harness asked for.
+        _harness_exit = 0
+        try:
+            ns = runpy.run_module(info["module"], run_name="__main__")
+        except SystemExit as exc:
+            _harness_exit = exc.code if isinstance(exc.code, int) else (
+                0 if exc.code is None else 1
+            )
+            ns = getattr(exc, "_ns", None) or {}
 
         # Send anonymous telemetry after harness completes (#112).
         # Extract actual test counts from the harness namespace if available.
@@ -754,6 +798,20 @@ def main():
                 from scripts.html_report import generate_html as _gen_html
 
                 report_json = None
+                # 41 of 45 harnesses keep their results in main()'s locals, so
+                # they never appear in the module namespace and the namespace
+                # scan below finds nothing. Every harness that declares
+                # --report can write one, so ask it for a file and render that.
+                # This is why --html produced nothing even once SystemExit was
+                # caught: the block was reachable and still had no data.
+                if _side_report and os.path.exists(_side_report):
+                    try:
+                        with open(_side_report) as _fh:
+                            _candidate = _json.load(_fh)
+                        if isinstance(_candidate, dict) and "results" in _candidate:
+                            report_json = _candidate
+                    except (OSError, ValueError):
+                        report_json = None
                 for key in ("_json_report", "json_report", "_report"):
                     candidate = ns.get(key)
                     if isinstance(candidate, dict) and "results" in candidate:
