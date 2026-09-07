@@ -87,6 +87,11 @@
           "minimum": 0,
           "description": "Number of entries with result 'fail'."
         },
+        "inconclusive": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Entries whose control was not exercised. NOT required, so records published before this field existed remain valid -- their hashes are the evidence and invalidating them would add no information. Every report this harness generates emits it, including at zero: a reader who can infer passed + failed == total will, and that inference is what this bucket exists to prevent. tests/test_attestation_can_say_inconclusive.py pins the always-emit property."
+        },
         "errored": {
           "type": "integer",
           "minimum": 0,
@@ -176,10 +181,11 @@
           "enum": [
             "pass",
             "fail",
+            "inconclusive",
             "error",
             "skip"
           ],
-          "description": "Test outcome."
+          "description": "Test outcome. `inconclusive` means the control was not exercised -- the target did not service the request, the probe could not run, or the result cannot distinguish a held control from an absent one. It is NOT a fail: a fail asserts the control did not hold, which inconclusive does not establish."
         },
         "severity": {
           "type": "string",
@@ -252,6 +258,14 @@
         "response_received": {
           "type": "object",
           "description": "The response payload received (for evidence)."
+        },
+        "not_established": {
+          "type": "string",
+          "description": "What this entry does NOT establish, stated plainly. Required reading for any party citing the entry as evidence. A passing result bounds a claim; this field says where that bound falls (docs/EVIDENCE-CLASS-TAXONOMY.md, whose every row carries a 'Does not establish' column)."
+        },
+        "inconclusive_reason": {
+          "type": "string",
+          "description": "Why the control was not exercised. Only meaningful when result is `inconclusive`; carrying it elsewhere is a schema smell, not an error."
         }
       },
       "additionalProperties": false

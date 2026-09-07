@@ -128,6 +128,11 @@ class AttestationEntry:
             "name", "remediation", "elapsed_s", "agent_identity",
             "protocol_version", "owasp_asi", "statistical", "details",
             "request_sent", "response_received",
+            # #520: an entry may state what it does not establish, and why a
+            # control went unexercised. Without these the schema could only say
+            # pass or fail, so an unexercised control left the harness as a
+            # failure -- an assertion the run never made.
+            "not_established", "inconclusive_reason",
         ):
             if key in kwargs:
                 self.data[key] = kwargs[key]
@@ -185,6 +190,7 @@ def generate_attestation_report(
         )
     passed = sum(1 for e in entries if e.get("result") == "pass")
     failed = sum(1 for e in entries if e.get("result") == "fail")
+    inconclusive = sum(1 for e in entries if e.get("result") == "inconclusive")
     errored = sum(1 for e in entries if e.get("result") == "error")
     skipped = sum(1 for e in entries if e.get("result") == "skip")
 
@@ -201,6 +207,11 @@ def generate_attestation_report(
             "total": len(entries),
             "passed": passed,
             "failed": failed,
+            # Always present, including at zero. `run_summary()` in http_helpers
+            # already treats this as a first-class bucket; omitting it here when
+            # it is empty would let a reader infer pass+fail == total, which is
+            # the inference this field exists to prevent.
+            "inconclusive": inconclusive,
         },
         "entries": entries,
     }
@@ -224,6 +235,31 @@ def generate_attestation_report(
 # Legacy migration (v3.7 -> v3.8)
 # ---------------------------------------------------------------------------
 
+def _legacy_result(record: dict[str, Any]) -> str:
+    """Map one legacy result to a schema `result`, preserving inconclusive.
+
+    A legacy record carries `passed: bool`, so an unexercised control and a
+    failed control are the same value. The third state survives only in the
+    INCONCLUSIVE_PREFIX on `details` and in the `not_evaluated` / `informational`
+    flags. Reading `passed` alone therefore reports "the control did not hold"
+    about a run that never tested it -- an assertion the harness never made.
+
+    The same predicate and the same field list as the in-process summary, so a
+    report and a summary over the same results cannot disagree. Note the shape
+    difference: `is_inconclusive` reads a result OBJECT via getattr, and a legacy
+    record is a dict, so handing it the record whole silently returns False for
+    every entry. The structural fields are read as keys and the prose form is
+    delegated, which is the one place that mismatch has to be known.
+    """
+    from .http_helpers import INCONCLUSIVE_FIELDS, is_inconclusive
+
+    if any(record.get(field) for field in INCONCLUSIVE_FIELDS):
+        return "inconclusive"
+    if is_inconclusive(record.get("details")):
+        return "inconclusive"
+    return "pass" if record.get("passed") else "fail"
+
+
 def migrate_legacy_report(legacy: dict[str, Any], harness_version: str = "3.8.0") -> dict[str, Any]:
     """Convert a v3.7-style report to the v3.8 attestation format.
 
@@ -236,7 +272,7 @@ def migrate_legacy_report(legacy: dict[str, Any], harness_version: str = "3.8.0"
     entries: list[dict[str, Any]] = []
 
     for r in legacy.get("results", []):
-        result_str = "pass" if r.get("passed") else "fail"
+        result_str = _legacy_result(r)
         entry = AttestationEntry(
             test_id=r.get("test_id", "UNKNOWN"),
             category=r.get("category", ""),
@@ -244,7 +280,8 @@ def migrate_legacy_report(legacy: dict[str, Any], harness_version: str = "3.8.0"
             severity=r.get("severity", "P4-Info"),
             timestamp=r.get("timestamp", legacy.get("timestamp")),
             **{k: r[k] for k in ("name", "owasp_asi", "details", "elapsed_s",
-                                  "request_sent", "response_received")
+                                  "request_sent", "response_received",
+                                  "not_established", "inconclusive_reason")
                if r.get(k) is not None},
         )
 
