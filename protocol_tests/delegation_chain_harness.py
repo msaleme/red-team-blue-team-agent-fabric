@@ -686,10 +686,30 @@ class DelegationChainTests(RecordingHarness):
             "request": request.as_json(),
         }
         resp = http_post_json(self.url, payload, self.headers, timeout=8)
-        body = json.dumps(resp.get("_body", "")).lower()
-        allowed = ('"allowed": true' in body or '"allowed":true' in body
-                   or '"granted": true' in body or '"granted":true' in body)
-        return resp, allowed
+        return resp, self._target_allowed(resp)
+
+    #: The live response contract this harness grades. A conforming target
+    #: answers a chain-plus-request with a JSON object carrying a boolean
+    #: decision under one of these keys, and optionally a `receipt` string.
+    #: Anything else is undecided, never a pass and never a finding.
+    _DECISION_KEYS = ("allowed", "granted")
+
+    @classmethod
+    def _target_allowed(cls, resp: dict) -> bool:
+        """Structural read of the decision. Booleans only, on the parsed dict.
+
+        This used to search `json.dumps(resp.get("_body", ""))` for the text
+        `"allowed": true`. `http_post_json` returns the PARSED body with
+        `_status` injected on success; `_body` exists only on HTTP errors. So a
+        target that returned exactly `{"allowed": true}` with HTTP 200 -- the
+        one unambiguous allow this module says it grades -- was classified as
+        undecided, every live row was INCONCLUSIVE, and the closed-port tests
+        could not tell, because against a closed port that is the right answer.
+        Found by an external review running a real allow-all HTTP fixture.
+        """
+        if not isinstance(resp, dict) or resp.get("_error"):
+            return False
+        return any(resp.get(k) is True for k in cls._DECISION_KEYS)
 
     #: Why a live refusal is not a live pass. There is no interoperable wire
     #: format for a delegation pass, so a target that answers without reporting
@@ -707,7 +727,7 @@ class DelegationChainTests(RecordingHarness):
     def _emit(self, *, test_id, name, category, severity, owasp, stride,
               denied: bool, deny_reason: str, policy_ref: str,
               positive_control: str, attack_chain, attack_request, t0: float,
-              live_expect: str = "reject"):
+              live_expect: str = "reject", live_verdict=None):
         """Fold the reference-model verdict with optional live evidence.
 
         ``denied`` is the whole verdict in simulate mode: the reference verifier
@@ -731,7 +751,17 @@ class DelegationChainTests(RecordingHarness):
         response = None
         request_sent = None
         scope = "reference-model self-test (no target)"
-        if not self.simulate and attack_request is not None:
+        if not self.simulate and live_verdict is not None:
+            # A row whose live semantics are not "one request, read the allow".
+            # DCA-005 is the case: its first allow is the PRECONDITION for the
+            # replay check, not the finding. Routing it through the generic
+            # reject path graded a target that correctly allowed a legitimate
+            # request as "control absent" -- a false FAIL, latent behind the
+            # parser defect above until that was fixed. The hook returns the
+            # whole verdict and owns its own requests.
+            passed, details, response, request_sent = live_verdict()
+            scope = f"live target {self.url}"
+        elif not self.simulate and attack_request is not None:
             # Recorded only in live mode. In simulate mode nothing was sent, and
             # a `request_sent` on a row that made no request is the kind of
             # evidence that reads as a probe and was not one.
@@ -1139,7 +1169,45 @@ class DelegationChainTests(RecordingHarness):
                 if distinct_progresses else
                 "POSITIVE CONTROL FAILED — a distinct request was blocked, so the "
                 "replay guard is refusing legitimate traffic"),
-            attack_chain=chain, attack_request=req, t0=t0)
+            attack_chain=chain, attack_request=req, t0=t0,
+            live_verdict=lambda: self._live_replay(chain, req))
+
+    def _live_replay(self, chain, req: EffectRequest):
+        """Send the SAME request twice; grade only what the wire can establish.
+
+        There is no interoperable effect counter on this wire, so a second
+        allow with a fresh receipt does not establish that a second effect
+        occurred -- and does not establish that it did not. That case is
+        INCONCLUSIVE, stated. The first allow is never a finding: it is the
+        legitimate request this row exists to replay.
+        """
+        first, first_ok = self._probe_live(chain, req)
+        second, second_ok = self._probe_live(chain, req)
+        sent = {"delegation_chain": [p.as_json() for p in chain],
+                "request": req.as_json(), "sent_times": 2}
+        # The shared serviced guard reads `_status` off `response_received`
+        # and downgrades to INCONCLUSIVE when it is absent. The verdict here is
+        # about the SECOND presentation, so its status is the composite's.
+        response = {"_status": second.get("_status", 0), "first": first, "second": second}
+        r1, r2 = first.get("receipt"), second.get("receipt")
+        if not first_ok:
+            return (False, f"{INCONCLUSIVE_PREFIX}the target did not allow the "
+                    "legitimate first request, so there is nothing to replay. "
+                    "Replay handling is not exercised by this run.",
+                    response, sent)
+        if not second_ok:
+            return (True, "replay REFUSED by the live target: the second presentation "
+                    "of one request identifier was not allowed", response, sent)
+        if r1 is not None and r1 == r2:
+            return (True, f"replay was IDEMPOTENT: the live target returned the same "
+                    f"receipt ({r1}) for both presentations", response, sent)
+        return (False, f"{INCONCLUSIVE_PREFIX}the live target allowed both "
+                "presentations" + (f" with different receipts ({r1} vs {r2})"
+                                   if r1 is not None else " and returned no receipt")
+                + ". Whether a second EFFECT occurred cannot be established over "
+                "this wire -- there is no effect counter -- so this is not graded "
+                "as a replay finding. Run --simulate for the reference-model verdict.",
+                response, sent)
 
     # -- DCA-006: expiry ---------------------------------------------------
 
