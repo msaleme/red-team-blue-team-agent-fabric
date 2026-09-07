@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.21.0] - 2026-09-07
+
+**The instrument was the thing under test.** Nine defects landed this release and
+seven of them were in the measurement apparatus rather than in anything it
+measures: a validator that rejected the correct answer, a requirement that could
+pass on a subset of its own tests, a trial runner that called an unexercised
+control a failure, a ratchet satisfied by an import statement, a renderer with no
+word for "not established", a residual bucket in three separate files, a wheel
+that shipped without the schema it reads, and every OWASP category title wrong in
+the three artifacts an auditor actually opens.
+
+Two of these were only reachable from outside the source tree. `pip install`
+users got an uncaught `FileNotFoundError` from a documented function, and
+`--html` produced a file for zero of forty-five harnesses -- both invisible to a
+suite that runs in a checkout, because in a checkout the wrong path happens to be
+right and the dead code path is never taken.
+
+The practice that found them is fault injection with one added step: **verify the
+injection changed the artifact under test before believing the result.** Three
+injections this release initially proved nothing -- a stale build cache served a
+cached wheel, a two-branch classifier kept working when one branch was disabled,
+and two assertions matched a CSS rule and a slice boundary instead of the thing
+they named. Every one of those false passes was indistinguishable from a real one.
+
+Test count 612 -> 623. New: DCA-001..DCA-011, multi-hop delegated-authority
+attenuation, checked at every hop rather than at the ends of the chain.
+
+
 ### Added — delegated authority, checked at every hop instead of at the ends
 
 `protocol_tests/delegation_chain_harness.py`, DCA-001..DCA-011. When an agent
