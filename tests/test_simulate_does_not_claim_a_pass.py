@@ -111,6 +111,56 @@ class TheRenderedPageMakesNoClaim(unittest.TestCase):
         self.assertNotIn('class="badge badge-fail"', self.html)
 
 
+class ReportIsHonouredOnTheSimulatePath(unittest.TestCase):
+    """`--simulate --report x.json` exited 0 and wrote nothing: the dispatcher
+    exits before the module would see `--report`. Silent success is the
+    defect; the file must carry the same document `--json` prints. Found by
+    the third external review, 2026-09-07."""
+
+    def _run_report(self, *spelling):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "sim.json")
+            done = run_cli("test", "mcp", "--simulate",
+                           *[a.replace("{out}", out) for a in spelling])
+            self.assertEqual(done.returncode, 0, done.stderr)
+            self.assertTrue(os.path.exists(out),
+                            f"--report produced no file (exit {done.returncode})"
+                            f"\n{done.stderr[-600:]}")
+            with open(out) as fh:
+                return json.load(fh), done
+
+    def test_separated_form_writes_the_file(self):
+        report, done = self._run_report("--report", "{out}")
+        self.assertEqual(report["status"], "inconclusive")
+        self.assertEqual(report["mode"], "simulation")
+        self.assertTrue(report["results"])
+        for r in report["results"]:
+            with self.subTest(test_id=r.get("test_id")):
+                self.assertFalse(r["passed"])
+                self.assertTrue(r["not_evaluated"])
+        self.assertIn("Report written to", done.stderr)
+
+    def test_equals_form_writes_the_file(self):
+        report, _ = self._run_report("--report={out}")
+        self.assertEqual(report["status"], "inconclusive")
+        self.assertEqual(report["summary"]["serviced"], 0)
+
+    def test_the_file_is_the_document_json_prints(self):
+        report, _ = self._run_report("--report", "{out}", "--json")
+        printed = json.loads(run_cli("test", "mcp", "--simulate", "--json").stdout)
+        for doc in (report, printed):
+            doc.pop("timestamp", None)
+        self.assertEqual(report, printed)
+
+    def test_an_unwritable_path_is_a_nonzero_exit_not_silence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "no-such-dir", "sim.json")
+            done = run_cli("test", "mcp", "--simulate", "--report", out)
+            self.assertNotEqual(done.returncode, 0)
+            self.assertIn("could not write --report", done.stderr)
+            self.assertFalse(os.path.exists(out))
+
+
 class HtmlIsReachableOnTheLivePath(unittest.TestCase):
     def test_html_produces_a_file_against_an_unreachable_target(self):
         """The block used to be dead code: exit 0, no file, no warning."""

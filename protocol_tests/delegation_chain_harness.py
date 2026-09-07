@@ -686,7 +686,7 @@ class DelegationChainTests(RecordingHarness):
             "request": request.as_json(),
         }
         resp = http_post_json(self.url, payload, self.headers, timeout=8)
-        return resp, self._target_allowed(resp)
+        return resp, self._target_decision(resp) == "allow"
 
     #: The live response contract this harness grades. A conforming target
     #: answers a chain-plus-request with a JSON object carrying a boolean
@@ -698,40 +698,57 @@ class DelegationChainTests(RecordingHarness):
     def _target_decision(cls, resp: dict) -> str:
         """'allow' | 'deny' | 'undecided'. Three states, because two conflate.
 
-        `_target_allowed` returned False for an explicit `{"allowed": false}`
-        AND for `{}`, `{"allowed": "true"}`, a JSON-RPC error, or a transport
-        error. `_live_replay` read that False as "the replay was refused" and
-        graded PASS. A second response that established NOTHING was counted as
-        the control holding. Found by an external second review, 2026-09-07,
-        with a real HTTP fixture. 'deny' now requires a boolean False under a
-        decision key; anything else that is not a boolean True is undecided.
+        THE parser. Every live verdict path reads the decision through this
+        function and no other. There used to be two: this one, read by the
+        DCA-005 replay hook, and `_target_allowed`, read by `_probe_live` for
+        every other row. They agreed on well-formed responses and disagreed on
+        `{"allowed": false, "granted": true}`: this one stopped at the first
+        key and said deny; the other accepted ANY true alias and said allow.
+        So DCA-009/010 graded PASS on a response DCA-005 called a refusal.
+        Found by the third external review, 2026-09-07.
+
+        Precedence, stated: there is none. Every decision key present must
+        carry a boolean, and every boolean present must agree. One key is a
+        decision; two keys that agree are the same decision; two keys that
+        disagree are a contradiction and establish nothing. A decision key
+        carrying a non-boolean (`"true"`, `1`, an object) is a malformed
+        decision, and a malformed decision next to a well-formed one is not
+        upgraded to the well-formed one. `null` is read as not stated.
+
+        History: `_target_allowed` returned False for an explicit
+        `{"allowed": false}` AND for `{}`, `{"allowed": "true"}`, a JSON-RPC
+        error, or a transport error; `_live_replay` read that False as "the
+        replay was refused" and graded PASS (second review). 'deny' requires
+        a boolean False; anything that is not a boolean is undecided.
         """
+        return cls._decide(resp)[0]
+
+    @classmethod
+    def _decide(cls, resp: dict) -> tuple[str, str]:
+        """(state, reason). The reason is empty for allow/deny and names the
+        cause for undecided, so an INCONCLUSIVE row can say WHY on the row."""
         if not isinstance(resp, dict) or resp.get("_error") or "error" in resp:
-            return "undecided"
+            return "undecided", ""
+        seen: dict[str, bool] = {}
         for k in cls._DECISION_KEYS:
             v = resp.get(k)
-            if v is True:
-                return "allow"
-            if v is False:
-                return "deny"
-        return "undecided"
+            if v is None:
+                continue
+            if not isinstance(v, bool):
+                return "undecided", f"decision key {k!r} is not a boolean"
+            seen[k] = v
+        if not seen:
+            return "undecided", ""
+        if len(set(seen.values())) > 1:
+            stated = ", ".join(f"{k}={str(v).lower()}" for k, v in seen.items())
+            return "undecided", f"decision keys contradict each other ({stated})"
+        return ("allow" if next(iter(seen.values())) else "deny"), ""
 
     @classmethod
     def _target_allowed(cls, resp: dict) -> bool:
-        """Structural read of the decision. Booleans only, on the parsed dict.
-
-        This used to search `json.dumps(resp.get("_body", ""))` for the text
-        `"allowed": true`. `http_post_json` returns the PARSED body with
-        `_status` injected on success; `_body` exists only on HTTP errors. So a
-        target that returned exactly `{"allowed": true}` with HTTP 200 -- the
-        one unambiguous allow this module says it grades -- was classified as
-        undecided, every live row was INCONCLUSIVE, and the closed-port tests
-        could not tell, because against a closed port that is the right answer.
-        Found by an external review running a real allow-all HTTP fixture.
-        """
-        if not isinstance(resp, dict) or resp.get("_error"):
-            return False
-        return any(resp.get(k) is True for k in cls._DECISION_KEYS)
+        """`_target_decision(resp) == "allow"`, and nothing else. Kept as a
+        name so a reader who knew the old one finds the definition."""
+        return cls._target_decision(resp) == "allow"
 
     #: Why a live refusal is not a live pass. There is no interoperable wire
     #: format for a delegation pass, so a target that answers without reporting
@@ -804,6 +821,10 @@ class DelegationChainTests(RecordingHarness):
             else:
                 passed = False
                 details = f"{INCONCLUSIVE_PREFIX}{self._LIVE_UNDECIDED}"
+                _state, why = self._decide(response)
+                if why:
+                    details = f"{INCONCLUSIVE_PREFIX}{why}; no decision is read from " \
+                              f"this response. {self._LIVE_UNDECIDED}"
         r = DelegationResult(
             test_id=test_id, name=name, owasp_asi=owasp, severity=severity,
             passed=passed, details=details, category=category, stride=stride,
@@ -1216,14 +1237,20 @@ class DelegationChainTests(RecordingHarness):
         response = {"_status": worst, "first": first, "second": second}
         r1, r2 = first.get("receipt"), second.get("receipt")
         if d1 != "allow":
+            why = self._decide(first)[1]
             return (False, f"{INCONCLUSIVE_PREFIX}the target did not allow the "
-                    "legitimate first request, so there is nothing to replay. "
+                    "legitimate first request"
+                    + (f" ({why})" if why else "")
+                    + ", so there is nothing to replay. "
                     "Replay handling is not exercised by this run.",
                     response, sent)
         if d2 == "undecided":
+            why = self._decide(second)[1]
             return (False, f"{INCONCLUSIVE_PREFIX}the second presentation produced no "
-                    "decision (empty body, non-boolean decision, or an application "
-                    "error). That is not a refusal; nothing about replay handling "
+                    "decision ("
+                    + (why if why else "empty body, non-boolean decision, or an "
+                       "application error")
+                    + "). That is not a refusal; nothing about replay handling "
                     "is established.", response, sent)
         if d2 == "deny":
             return (True, "replay REFUSED by the live target: the second presentation "

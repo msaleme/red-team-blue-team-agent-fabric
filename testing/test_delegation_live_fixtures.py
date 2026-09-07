@@ -292,3 +292,104 @@ class AFalseDecisionIsNotARefusal(unittest.TestCase):
         finally:
             fx.close()
         self.assertTrue(is_inconclusive(r), r.details); self.assertFalse(r.passed)
+
+
+# ---------------------------------------------------------------------------
+# Third external review, 2026-09-07: two parsers, one contradictory response.
+# ---------------------------------------------------------------------------
+
+def contradictory_deny_first(payload, fx):
+    return {"allowed": False, "granted": True, "receipt": uuid.uuid4().hex}
+
+
+def contradictory_allow_first(payload, fx):
+    return {"allowed": True, "granted": False, "receipt": uuid.uuid4().hex}
+
+
+class AContradictoryDecisionIsNoDecision(unittest.TestCase):
+    """`_target_decision` stopped at the first key ("deny"); `_target_allowed`
+    accepted ANY true alias ("allow"). `_probe_live` used the second and
+    `_live_replay` the first, so DCA-009/010 PASSED on a response DCA-005
+    called a refusal. One parser now; a contradiction is undecided, and every
+    row says so on the row."""
+
+    def _rows(self, policy):
+        fx = _Fixture(policy)
+        try:
+            rows = _run(fx)
+        finally:
+            fx.close()
+        self.assertGreaterEqual(len(fx.requests), len(ALL_IDS))
+        return rows
+
+    def _assert_every_row_undecided(self, rows):
+        for tid in sorted(ALL_IDS):
+            with self.subTest(tid):
+                r = rows[tid]
+                self.assertTrue(is_inconclusive(r), r.details)
+                self.assertFalse(r.passed, r.details)
+                self.assertNotIn("LIVE TARGET ALLOWED", r.details)
+                self.assertIn("contradict", r.details)
+                # The target answered; this is the parser's undecided, not
+                # the transport guard's.
+                self.assertNotIn("did not service", r.details)
+
+    def test_allowed_false_granted_true_every_row_inconclusive(self):
+        self._assert_every_row_undecided(self._rows(contradictory_deny_first))
+
+    def test_allowed_true_granted_false_every_row_inconclusive(self):
+        self._assert_every_row_undecided(self._rows(contradictory_allow_first))
+
+    def test_the_accept_rows_did_not_pass(self):
+        """The specific false pass: DCA-009/010 read `granted: true` as the
+        legitimate chain being allowed while DCA-005 read the same body as
+        a refusal."""
+        rows = self._rows(contradictory_deny_first)
+        for tid in sorted(ACCEPT_ROWS):
+            with self.subTest(tid):
+                self.assertFalse(rows[tid].passed, rows[tid].details)
+                self.assertIs(rows[tid].response_received.get("granted"), True)
+
+    def test_a_contradictory_second_presentation_is_not_a_refusal(self):
+        r = _Fixture(_second_response_policy({"allowed": False, "granted": True}))
+        try:
+            row = _run(r)[REPLAY_ROW]
+        finally:
+            r.close()
+        self.assertTrue(is_inconclusive(row), row.details)
+        self.assertFalse(row.passed)
+        self.assertIn("contradict", row.details)
+
+
+class OneParserForEveryLiveVerdict(unittest.TestCase):
+    """Pin the definition, not only the behaviour: the boolean read IS the
+    three-state read, on every response shape the fixtures above use."""
+
+    SHAPES = [
+        {"allowed": True}, {"granted": True}, {"allowed": False},
+        {"allowed": True, "granted": True}, {"allowed": False, "granted": True},
+        {"allowed": True, "granted": False}, {"allowed": "true"},
+        {"allowed": "true", "granted": True}, {"allowed": None, "granted": True},
+        {}, {"error": {"code": -32601}}, {"_error": "refused"},
+    ]
+
+    def test_target_allowed_is_target_decision_equals_allow(self):
+        for shape in self.SHAPES:
+            with self.subTest(shape=shape):
+                self.assertEqual(
+                    DelegationChainTests._target_allowed(shape),
+                    DelegationChainTests._target_decision(shape) == "allow")
+
+    def test_agreeing_aliases_and_null_are_a_decision(self):
+        d = DelegationChainTests._target_decision
+        self.assertEqual(d({"allowed": True, "granted": True}), "allow")
+        self.assertEqual(d({"allowed": False, "granted": False}), "deny")
+        self.assertEqual(d({"allowed": None, "granted": True}), "allow")
+        self.assertEqual(d({"granted": False}), "deny")
+
+    def test_contradiction_and_malformed_are_undecided(self):
+        d = DelegationChainTests._target_decision
+        self.assertEqual(d({"allowed": False, "granted": True}), "undecided")
+        self.assertEqual(d({"allowed": True, "granted": False}), "undecided")
+        self.assertEqual(d({"allowed": "true", "granted": True}), "undecided")
+        self.assertEqual(d({"allowed": 1}), "undecided")
