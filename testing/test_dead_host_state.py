@@ -45,7 +45,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-from dead_host_sweep import sweep
+from dead_host_sweep import NOT_APPLICABLE, sweep
 
 #: Measured 2026-08-29. Module -> number of verdicts that still pass against a
 #: target that was never there. May shrink. Must never grow, and a module absent
@@ -84,6 +84,15 @@ KNOWN_PASSING = {
     # sweep. Its verdicts are now guarded by the request log as well as by
     # _aggregate_evidence's marker, and testing/test_a2a_unserviced_state.py
     # pins all thirteen IDs rather than a shrinking open set.
+
+    # 2026-09-07, R3-01/R3-02. Seven modules entered this sweep for the first
+    # time when discovery moved from a source-text rule to the CLI registry:
+    # ap2_harness, x402_fireblocks_harness, ucp_acp_harness, card_token_harness,
+    # settlement_finality_harness, delegation_chain_harness, hitl_harness. The
+    # five payment modules would have read 17, 17, 12, 12 and 8 here -- the
+    # reference model's PASS under `mode: live` -- and were repaired in the
+    # same change (http_helpers.fold_live_verdict). All seven measure 0 and are
+    # absent from this map for that reason, not because they were never run.
 }
 
 
@@ -92,9 +101,19 @@ KNOWN_PASSING = {
 #: row is here so the abort stays visible instead of reading as a clean 0/0.
 SILENT_BY_DESIGN = {"mcp_harness"}
 
-#: No runnable suite at all. harness_base is the shared ABC and defines no tests
-#: of its own, so this is a correct row rather than a gap.
-UNRUNNABLE = {"harness_base"}
+#: No runnable suite at all. Empty since discovery moved to the CLI registry:
+#: harness_base is not a registered harness and no longer produces a row, and
+#: a registered harness the sweep cannot construct now makes `sweep()` raise
+#: rather than appear here. The set stays so the assertion keeps its shape.
+UNRUNNABLE: set[str] = set()
+
+#: Registered harnesses the sweep excuses by name, each with a reason in
+#: `dead_host_sweep.NOT_APPLICABLE`. They appear as rows so the table shows
+#: the whole registry; the sweep's own test pins that the union is the registry.
+EXCUSED_STEMS = {
+    "mcp_supplychain", "receipt_claim_harness", "agent_data_injection",
+    "community_runner",
+}
 
 
 class TestDeadHostState(unittest.TestCase):
@@ -115,10 +134,21 @@ class TestDeadHostState(unittest.TestCase):
         The floor is asserted rather than restated in prose, so it cannot go
         stale the way the sentence it replaced did.
         """
+        # 63 while discovery was a source-text rule; 68 measured 2026-09-07 once
+        # it became the CLI registry minus the four excused. The slack is for an
+        # adapter that legitimately moves to ran-no-verdicts, not for a module
+        # dropping out -- registry_coverage() raises for that.
         self.assertGreaterEqual(
-            len(self.ran), 60,
+            len(self.ran), 66,
             f"only {len(self.ran)} suites produced verdicts; the sweep is probably "
             f"broken, or its discovery has narrowed back to a naming convention")
+
+    def test_the_excused_rows_are_exactly_the_declared_ones(self):
+        """An excuse is visible in the table, and only the declared ones are."""
+        excused = {r["module"] for r in self.rows
+                   if r["status"].startswith("not-applicable")}
+        self.assertEqual(excused, EXCUSED_STEMS)
+        self.assertEqual(len(excused), len(NOT_APPLICABLE))
 
     def test_a_suite_that_produced_nothing_is_declared(self):
         """Ran and emitted no verdicts is not the same as ran and found nothing.
@@ -136,7 +166,8 @@ class TestDeadHostState(unittest.TestCase):
 
     def test_nothing_is_unrunnable_except_what_is_declared(self):
         cannot_run = {r["module"]: r["status"] for r in self.rows
-                      if r["status"] not in ("ran", "ran-no-verdicts")}
+                      if r["status"] not in ("ran", "ran-no-verdicts")
+                      and not r["status"].startswith("not-applicable")}
         self.assertEqual(
             set(cannot_run), UNRUNNABLE,
             f"declared {sorted(UNRUNNABLE)}, measured {cannot_run}. A suite the "

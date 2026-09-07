@@ -500,6 +500,140 @@ def inconclusive_detail(resp, details: str | None) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# Folding a reference-model verdict with a live observation
+# ---------------------------------------------------------------------------
+#
+# Five payment conformance modules -- ap2, x402_fireblocks, ucp_acp, card_token
+# and settlement_finality -- share one `_finish` shape: compute a verdict from
+# the reference verifier in the file, then, in live mode, probe the target with
+# the attack and read `_live_rejected` back as accepted / rejected / unreachable.
+#
+# All five carried the same defect. The row started as `passed = model_pass`
+# and the unreachable branch only rewrote `details`, so a target that was never
+# reached kept the reference model's PASS, `mode: live`, a 100% pass rate and a
+# Wilson interval, and migrated into a 17-pass attestation. Verified on the
+# published 4.21.0 against a closed port: 17/17, 17/17, 12/12, 12/12, 8/8.
+# `scripts/dead_host_sweep.py` never saw it because its discovery rule was a
+# source-text match that none of the five satisfied.
+#
+# The fold is one function so the policy has one home. A module keeps its own
+# transport and its own rejection vocabulary; what it may no longer keep is a
+# private answer to "what does a row say when nothing live was observed".
+
+#: The scope statement carried on `reference_verdict`, so a consumer that finds
+#: the field cannot mistake it for an observation of the target.
+REFERENCE_VERDICT_SCOPE = (
+    "reference model in this module; not an observation of the target")
+
+
+def fold_live_verdict(*, live_requested: bool, verdict: str | None,
+                      model_pass: bool, model_reason: str,
+                      subject: str = "live verifier",
+                      accepted_detail: str | None = None,
+                      rejected_detail: str | None = None,
+                      positive_control: bool = False,
+                      ) -> tuple[bool, str, dict | None]:
+    """``(passed, details, reference_verdict)`` for a reference-vs-live row.
+
+    ``live_requested`` is ``not simulate``. ``verdict`` is what `_live_rejected`
+    returned, or ``None`` when the row defines no live probe at all.
+
+    - Simulate mode: the reference verdict is the whole row, unchanged, and
+      ``reference_verdict`` is ``None`` because there is nothing to separate it
+      from. (The simulate rows of these modules are grandfathered as unlabelled
+      in `testing/test_simulated_passes_are_scoped.py`; this does not touch them.)
+    - Live ``accepted``: the target let the attack through. FAIL, control absent.
+    - Live ``rejected`` WITH a positive control: PASS. The row established both
+      that the attack was refused and that the legitimate variant was not.
+    - Live ``rejected`` WITHOUT a positive control: INCONCLUSIVE. A verifier
+      that rejects everything produces the same observation, which is the
+      repository's own position on a bare refusal (`advanced_attacks`, 2026-08-31;
+      `delegation_chain_harness._emit`). The rejection is still recorded under
+      ``live_evidence``; it is not scored as a pass. None of the five callers
+      currently sends a legitimate variant, so none passes ``positive_control``.
+    - Live, no probe or unreachable: INCONCLUSIVE. Live was requested, nothing
+      live was observed, and the reference verdict is preserved SEPARATELY under
+      ``reference_verdict`` with its own scope statement -- never in ``passed``.
+
+    ``reference_verdict`` is returned whenever live mode was requested, so a
+    consumer can always see what the reference model said and always sees that
+    it is about the reference model.
+    """
+    if not live_requested:
+        return bool(model_pass), model_reason, None
+    reference = {"passed": bool(model_pass), "reason": model_reason,
+                 "scope": REFERENCE_VERDICT_SCOPE}
+    if verdict == "accepted":
+        return (False,
+                accepted_detail or
+                f"{model_reason}; LIVE {subject} ACCEPTED the attack - control absent",
+                reference)
+    if verdict == "rejected":
+        if positive_control:
+            return (bool(model_pass),
+                    rejected_detail or f"{model_reason}; {subject} rejected the attack",
+                    reference)
+        return (False,
+                f"{INCONCLUSIVE_PREFIX}{subject} rejected the attack, and this row "
+                f"carries no positive control, so a {subject} that rejects "
+                f"everything would produce the same observation. Recorded under "
+                f"live_evidence; not scored as a pass. Reference-model verdict "
+                f"preserved under reference_verdict.",
+                reference)
+    if verdict is None:
+        why = "this row defines no live probe"
+    else:
+        why = f"{subject} unreachable"
+    return (False,
+            f"{INCONCLUSIVE_PREFIX}live target requested and not observed: {why}. "
+            f"Reference-model verdict preserved under reference_verdict and not "
+            f"scored.",
+            reference)
+
+
+def live_run_scope(results, *, live_requested: bool, target: str | None) -> dict:
+    """Report-level statement of what a reference-vs-live run observed.
+
+    Sits beside ``mode`` in the report. ``mode`` says what was REQUESTED;
+    this says what was REACHED, which is the distinction the defect above
+    erased: a report could say ``mode: live`` over rows that had observed
+    nothing live.
+    """
+    results = list(results)
+    total = len(results)
+    if not live_requested:
+        return {
+            "live_requested": False,
+            "statement": ("reference-model self-test (no target); every verdict "
+                          "is about the reference model in this module"),
+        }
+    observed = sum(
+        1 for r in results
+        if ((getattr(r, "live_evidence", None) or {}).get("verdict")
+            in ("accepted", "rejected")))
+    scored = sum(1 for r in results if not is_inconclusive(r))
+    if observed == 0:
+        statement = (
+            f"live target {target} requested and NOT reached: 0 of {total} rows "
+            f"observed a live response. Every row is INCONCLUSIVE; reference-model "
+            f"verdicts are preserved per row under reference_verdict and are not "
+            f"scored; no pass rate is computed.")
+    else:
+        statement = (
+            f"live target {target} requested; {observed} of {total} rows observed "
+            f"a live response and {scored} were scored. Rows without a live "
+            f"observation are INCONCLUSIVE and not scored.")
+    return {
+        "live_requested": True,
+        "target": target,
+        "rows_total": total,
+        "rows_with_live_observation": observed,
+        "rows_scored": scored,
+        "statement": statement,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Refusal, for the adapter families
 # ---------------------------------------------------------------------------
 #

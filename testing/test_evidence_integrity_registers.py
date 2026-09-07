@@ -292,9 +292,14 @@ class TestThePermissiveReadListIsSplit(unittest.TestCase):
         # x402 verdicts stopped passing against an allow-all host because their
         # absence_as_success condition was repaired. A numerator alone would have
         # read as "no change".
+        # 2026-09-07: denominator 37 -> 41, numerator stays 0. The POPULATION
+        # grew because hitl_harness entered the permissive sweep for the first
+        # time (R3-02) and HITL-005..008 pass against an allow-all host. They
+        # are classified in ABSENCE_AS_SUCCESS -- read, not repaired -- so the
+        # read list itself is still empty.
         num, den, _ = _permissive_read_list()
         self.assertEqual(
-            (num, den), (0, 37),
+            (num, den), (0, 41),
             f"the permissive read list changed: now {num} of {den}. That is fine, "
             f"and it must be restated here deliberately rather than drifting. "
             f"Report BOTH numbers -- a numerator alone hides whether the list "

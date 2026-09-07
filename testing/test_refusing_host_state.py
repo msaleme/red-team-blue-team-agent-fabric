@@ -100,6 +100,22 @@ RECOGNISES_NO_REFUSAL = {
     # INCONCLUSIVE. Before the repair it passed 5 of 6 here, vacuously.
     "tool_search_harness",
     "watermark_harness",
+    # 2026-09-07: seven modules entered the sweep for the first time (R3-02).
+    # The five payment modules -- ap2, x402_fireblocks, ucp_acp, card_token,
+    # settlement_finality -- read a 403 as `rejected` and, having no positive
+    # control on any row, record it under live_evidence without scoring it
+    # (R3-01, http_helpers.fold_live_verdict): a verifier that rejects
+    # everything produces the same observation. They will leave this list when
+    # a row sends a legitimate variant. delegation_chain_harness grades a live
+    # 403 as `_LIVE_UNDECIDED` by design. hitl_harness measured 0 and has NOT
+    # been read.
+    "ap2_harness",
+    "card_token_harness",
+    "delegation_chain_harness",
+    "hitl_harness",
+    "settlement_finality_harness",
+    "ucp_acp_harness",
+    "x402_fireblocks_harness",
 }
 
 
@@ -110,8 +126,9 @@ class TestRefusingHostState(unittest.TestCase):
         cls.ran = [r for r in cls.rows if r["status"] == "ran" and r["total"]]
 
     def test_the_sweep_actually_ran(self):
+        # 68 measured 2026-09-07 with discovery derived from the CLI registry.
         self.assertGreaterEqual(
-            len(self.ran), 55,
+            len(self.ran), 66,
             f"only {len(self.ran)} suites produced verdicts against the refusing "
             f"target; discovery or the fixture is broken")
 
