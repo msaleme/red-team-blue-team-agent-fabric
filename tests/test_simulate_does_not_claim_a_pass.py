@@ -44,7 +44,8 @@ class SimulateIsInconclusive(unittest.TestCase):
         for r in report["results"]:
             with self.subTest(test_id=r.get("test_id")):
                 self.assertFalse(r["passed"], "a simulated row claimed a pass")
-                self.assertTrue(r["inconclusive"])
+                self.assertTrue(r["not_evaluated"], "canonical structural marker")
+                self.assertNotIn("inconclusive", r, "no renderer-private field")
                 self.assertTrue(r["details"].upper().startswith("INCONCLUSIVE"))
 
     def test_the_summary_has_no_rate_because_nothing_was_serviced(self):

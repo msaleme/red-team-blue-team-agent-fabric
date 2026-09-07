@@ -275,22 +275,19 @@ INCONCLUSIVE_PREFIX = "INCONCLUSIVE"
 
 
 def _is_inconclusive(r: dict) -> bool:
-    """Was this control exercised at all?
+    """Was this control exercised at all? Delegates to the one predicate.
 
-    This renderer was two-state. A simulated run -- which contacts nothing --
-    rendered as 100% passed, risk 0, AUROC 1.0000, because the source said
-    `passed: True`. Making the source honest without teaching the renderer the
-    third state would only invert the lie into 100% FAIL, and a fail asserts
-    the control did not hold, which an unexercised control cannot establish.
-
-    Reads the explicit field first, then the INCONCLUSIVE_PREFIX convention in
-    `details`, so producers that carry only one of the two still classify.
+    This renderer briefly had its own classifier reading `inconclusive` and
+    `not_established`, while the shared predicate reads `not_evaluated` and
+    `informational`. Two consequences, both found by an external review:
+    a FAIL carrying an honest `not_established` limitation rendered as
+    INCONCLUSIVE (a legitimate failure removed from the denominator by adding
+    a caveat), and a structurally inconclusive row with no prose prefix
+    rendered as FAIL. `not_established` is a claim-bound string and must never
+    affect a verdict. There is one predicate; this is a call to it.
     """
-    if r.get("inconclusive") or r.get("not_established"):
-        return True
-    details = r.get("details") or r.get("detail") or ""
-    return isinstance(details, str) and details.strip().upper().startswith(
-        INCONCLUSIVE_PREFIX)
+    from protocol_tests.http_helpers import is_inconclusive
+    return is_inconclusive(r)
 
 
 def _status_badge(status: str) -> str:
