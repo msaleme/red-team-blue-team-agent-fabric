@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `ee2a159`
+**Generated:** `scripts/generate_test_catalog.py` at commit `f2926bf`
 **Test count:** 623 unique test IDs across 46 registered harness modules (45 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -215,17 +215,17 @@ CREW-010 | Fallback Sandbox RCE Chain | protocol_tests/crewai_cve_harness.py:121
 ### Delegated-Authority Attenuation (`protocol_tests/delegation_chain_harness.py`) — 11 tests
 
 ```
-DCA-001 | Child Adds a Capability Absent From Its Parent | protocol_tests/delegation_chain_harness.py:863
-DCA-002 | Child Widens Resource Scope (staging -> production) | protocol_tests/delegation_chain_harness.py:933
-DCA-003 | Child Drops or Loosens a Parent Constraint | protocol_tests/delegation_chain_harness.py:1024
-DCA-004 | Valid Pass Presented to the Wrong Tool Audience | protocol_tests/delegation_chain_harness.py:1104
-DCA-005 | Replayed Effect Request | protocol_tests/delegation_chain_harness.py:1154
-DCA-006 | Pass Used After Expiry | protocol_tests/delegation_chain_harness.py:1270
-DCA-007 | Pass Used After Revocation Epoch | protocol_tests/delegation_chain_harness.py:1335
-DCA-008 | Tool Acts Under Ambient Credentials | protocol_tests/delegation_chain_harness.py:1402
-DCA-009 | Positive Control: Correctly Attenuated Child | protocol_tests/delegation_chain_harness.py:1451
-DCA-010 | Positive Control: Parent | protocol_tests/delegation_chain_harness.py:1506
-DCA-011 | Three-Hop Chain: Intermediate Re-Widens What Its Parent Narrowed | protocol_tests/delegation_chain_harness.py:1626
+DCA-001 | Child Adds a Capability Absent From Its Parent | protocol_tests/delegation_chain_harness.py:885
+DCA-002 | Child Widens Resource Scope (staging -> production) | protocol_tests/delegation_chain_harness.py:955
+DCA-003 | Child Drops or Loosens a Parent Constraint | protocol_tests/delegation_chain_harness.py:1046
+DCA-004 | Valid Pass Presented to the Wrong Tool Audience | protocol_tests/delegation_chain_harness.py:1126
+DCA-005 | Replayed Effect Request | protocol_tests/delegation_chain_harness.py:1176
+DCA-006 | Pass Used After Expiry | protocol_tests/delegation_chain_harness.py:1302
+DCA-007 | Pass Used After Revocation Epoch | protocol_tests/delegation_chain_harness.py:1367
+DCA-008 | Tool Acts Under Ambient Credentials | protocol_tests/delegation_chain_harness.py:1434
+DCA-009 | Positive Control: Correctly Attenuated Child | protocol_tests/delegation_chain_harness.py:1483
+DCA-010 | Positive Control: Parent | protocol_tests/delegation_chain_harness.py:1538
+DCA-011 | Three-Hop Chain: Intermediate Re-Widens What Its Parent Narrowed | protocol_tests/delegation_chain_harness.py:1658
 ```
 
 ### Enterprise Platforms (core) (`protocol_tests/enterprise_adapters.py`) — 31 tests

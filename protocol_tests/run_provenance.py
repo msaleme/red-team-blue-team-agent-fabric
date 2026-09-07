@@ -362,6 +362,16 @@ def redact_argv(argv: list[str]) -> tuple[list[str], bool]:
             out.append(f"{split[0]}={REDACTED}")
             redacted = True
             continue
+        # A NON-auth flag's equals value can still be a URL with userinfo:
+        # `--url=https://u:p@host/`. The userinfo strip was anchored to the
+        # start of the whole element, so the bare form was scrubbed and this
+        # form was not. Found by an external second review, 2026-09-07.
+        if split and split[1]:
+            value = _strip_url_userinfo(split[1])
+            if value != split[1]:
+                out.append(f"{split[0]}={value}")
+                redacted = True
+                continue
 
         cleaned = _redact_inline(arg)
         cleaned2 = _strip_url_userinfo(cleaned)

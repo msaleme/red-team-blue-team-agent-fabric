@@ -236,3 +236,59 @@ class LegitimateChainAllowed(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---------------------------------------------------------------------------
+# Second external review, 2026-09-07: a False decision is not a refusal.
+# ---------------------------------------------------------------------------
+
+def _second_response_policy(second_body):
+    def policy(payload, fx):
+        rid = payload["request"]["request_id"]
+        seen = [r for r in fx.requests[:-1] if r["request"]["request_id"] == rid]
+        return second_body if seen else {"allowed": True, "receipt": "r-first"}
+    return policy
+
+
+class AFalseDecisionIsNotARefusal(unittest.TestCase):
+    """The old grader read every non-True as refused. These second responses
+    establish nothing about replay and must be INCONCLUSIVE, never PASS."""
+
+    def _replay(self, second_body):
+        fx = _Fixture(_second_response_policy(second_body))
+        try:
+            return _run(fx)[REPLAY_ROW]
+        finally:
+            fx.close()
+
+    def test_empty_body_is_undecided(self):
+        r = self._replay({})
+        self.assertTrue(is_inconclusive(r), r.details); self.assertFalse(r.passed)
+
+    def test_string_true_is_undecided(self):
+        r = self._replay({"allowed": "true"})
+        self.assertTrue(is_inconclusive(r), r.details); self.assertFalse(r.passed)
+
+    def test_jsonrpc_error_is_undecided(self):
+        r = self._replay({"error": {"code": -32601, "message": "method not found"}})
+        self.assertTrue(is_inconclusive(r), r.details); self.assertFalse(r.passed)
+
+    def test_explicit_false_is_a_refusal(self):
+        r = self._replay({"allowed": False, "reason": "replay"})
+        self.assertTrue(r.passed, r.details); self.assertIn("explicitly denied", r.details)
+
+    def test_matching_empty_receipts_are_not_idempotence(self):
+        fx = _Fixture(lambda p, f: {"allowed": True, "receipt": ""})
+        try:
+            r = _run(fx)[REPLAY_ROW]
+        finally:
+            fx.close()
+        self.assertTrue(is_inconclusive(r), r.details); self.assertFalse(r.passed)
+
+    def test_matching_non_string_receipts_are_not_idempotence(self):
+        fx = _Fixture(lambda p, f: {"allowed": True, "receipt": {"id": 1}})
+        try:
+            r = _run(fx)[REPLAY_ROW]
+        finally:
+            fx.close()
+        self.assertTrue(is_inconclusive(r), r.details); self.assertFalse(r.passed)

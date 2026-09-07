@@ -1,0 +1,9 @@
+# The build_py hook in setup.py copies runtime data from these canonical
+# roots into the package. An sdist that omits them cannot build a wheel:
+# `python -m build` (no flags) builds the sdist and then the wheel FROM it,
+# which is exactly what .github/workflows/publish-pypi.yml runs. A --wheel
+# build from a checkout passing does not cover that route. Found by an
+# external second review, 2026-09-07, from a clean worktree.
+graft schemas
+graft configs
+graft docs/coverage
