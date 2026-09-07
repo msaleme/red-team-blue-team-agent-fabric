@@ -24,7 +24,12 @@ from pathlib import Path
 
 _PT = Path(__file__).resolve().parent
 _ASI = re.compile(r"^ASI(0[1-9]|10)$")
-_TEST_ID = re.compile(r"^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d{3}[a-z]?$")
+#: Must accept every ID shape scripts/count_tests.py accepts. The first version
+#: required a trailing `-\d{3}`, which rejects `AIUC-E001` and `AIUC-C003a`; all
+#: twelve AIUC-1 tests were therefore never attributed and sat in the untagged
+#: grandfather list as if they carried no tag. They carry ASI01/02/07. Found
+#: when the helper-literal rule was broadened (third external review, R3-09).
+_TEST_ID = re.compile(r"^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-[A-Z]?\d{3}[a-z]?$")
 
 #: The ten published categories. `""` means "no ASI primary" -- a positive
 #: control, a content-safety refusal check, or a protocol-robustness row.
@@ -110,9 +115,14 @@ def unattributed_literals() -> dict[str, set[str]]:
                 continue
             has_literal_id = any(_const(a) and _TEST_ID.match(_const(a)) for a in node.args) or any(
                 k.arg == "test_id" and _const(k.value) and _TEST_ID.match(_const(k.value)) for k in node.keywords)
-            has_param_id = any(k.arg == "test_id" and isinstance(k.value, ast.Name) for k in node.keywords) or any(
-                isinstance(a, ast.Name) and a.id in ("test_id", "tid") for a in node.args)
-            if has_param_id and not has_literal_id:
+            # Any ASI-bearing call the locator could NOT attribute is recorded,
+            # whatever shape its id expression takes. This used to require a
+            # second narrow pattern (a Name in the test_id keyword or a
+            # positional `test_id`/`tid`) and so ignored `test_id=str(row_id)`
+            # -- a Call -- entirely. The third external review seeded exactly
+            # that shape and the whole ASI test file stayed green (R3-09).
+            # Unknown attribution is the case to record, not the case to skip.
+            if not has_literal_id:
                 out.setdefault(f.name, set()).update(asi)
     return out
 

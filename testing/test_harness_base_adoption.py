@@ -101,6 +101,21 @@ class TestGrandfatherListOnlyShrinks(unittest.TestCase):
             "instead, or call super()._record(result) from an override. A 45th "
             "parallel implementation is how the same defect survived four repairs.")
 
+    def test_the_detector_still_sees_the_grandfathered_modules(self) -> None:
+        """Anti-vacuity. With `_modules_with_own_record()` returning an empty
+        set, every test in this file passed -- including with a NEW module
+        defining its own `_record` seeded alongside (third external review,
+        R3-08). A detector that sees nothing has nothing to compare, and the
+        ratchet reads that as clean. Every grandfathered module must remain
+        visible to discovery; a detector that loses one has broken, not
+        improved."""
+        seen = _modules_with_own_record()
+        self.assertGreaterEqual(len(seen), len(GRANDFATHERED),
+                                "the detector found fewer modules than are grandfathered")
+        invisible = GRANDFATHERED - seen
+        self.assertEqual(invisible, set(),
+                         f"grandfathered modules the detector no longer sees: {sorted(invisible)}")
+
     def test_list_has_not_grown(self) -> None:
         self.assertLessEqual(
             len(GRANDFATHERED), 44,

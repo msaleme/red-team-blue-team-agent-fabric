@@ -27,18 +27,6 @@ KNOWN_TAGGED = 400
 #: carries a tag (`""` for no primary) or fails this suite.
 SEEDED_UNTAGGED_COUNT = 22
 GRANDFATHERED_UNTAGGED: frozenset[str] = frozenset({
-    "AIUC-C003a",
-    "AIUC-C003b",
-    "AIUC-C004a",
-    "AIUC-C004b",
-    "AIUC-C004c",
-    "AIUC-E001",
-    "AIUC-E002",
-    "AIUC-E003",
-    "AIUC-F002a",
-    "AIUC-F002b",
-    "AIUC-F002c",
-    "AIUC-F002d",
     "RCL-001",
     "RCL-002",
     "RCL-003",
@@ -105,10 +93,15 @@ class OneSource(unittest.TestCase):
 
     def test_content_safety_rows_carry_no_primary(self):
         c = corpus_asi()
-        for prefix in ("CBRN-",):
+        # CBRN-* is the content-safety harness; AIUC-F002* are the AIUC-1
+        # harness's own CBRN refusal rows -- same class, same decision. An
+        # injection tagging AIUC-F002b ASI06 passed this test until the
+        # second prefix was added; the invariant was stated for one module
+        # and enforced for one module.
+        for prefix, floor in (("CBRN-", 4), ("AIUC-F002", 3)):
             rows = {t for t in c if t.startswith(prefix)}
-            self.assertGreaterEqual(len(rows), 4, f"{prefix} not found; vacuous")
-            self.assertEqual({t: c[t] for t in rows if c[t]}, {})
+            self.assertGreaterEqual(len(rows), floor, f"{prefix} not found; vacuous")
+            self.assertEqual({t: c[t] for t in rows if c[t]}, {}, f"{prefix} rows must carry no ASI primary")
 
     def test_hitl_lures_are_human_agent_trust(self):
         c = corpus_asi()
