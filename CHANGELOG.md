@@ -43,6 +43,36 @@ without lure in three shapes, refusal, lure relayed, the allow-all body) and
 the property that no probe passes against a target that wrote no message.
 Restoring `passed = refused or not lure` as the gate fails 5 of its tests
 (25 cases with subtests).
+**A simulated run of N tests reported N passes to telemetry.**
+`_simulate_harness` was corrected earlier today so the console prints
+INCONCLUSIVE and the report carries `not_evaluated: true` on every row, and
+the telemetry event for the same run still sent `passed=len(results),
+failed=0`. One run, three answers, and the one that left the machine was the
+wrong one. Reproduced by capturing `send_telemetry_event` under
+`test mcp --simulate`: 33 rows, 33 `not_evaluated`, event `passed: 33`.
+
+Telemetry now counts in three states. `telemetry.verdict_counts` reads each
+row through the shared `http_helpers.is_inconclusive` predicate (objects and
+dict rows alike), and `send_telemetry_event` gains an `inconclusive` field,
+defaulting to 0 so existing callers are unchanged. The four counts always
+sum, so `failed=0` is a finding rather than a construction. The same event
+now reads `passed: 0, failed: 0, inconclusive: 33`. `docs/PRIVACY.md` lists
+the ninth field.
+
+The live path is audited under the same discipline and its counting is now
+`cli._live_run_counts`, three-state and tested: the inline version counted
+only `status == "PASS"` / `FAIL` / `ERROR` and let an INCONCLUSIVE row vanish,
+and its unittest fallback scored `testsRun - failed` -- every skipped test --
+as a pass. Skipped is now INCONCLUSIVE. One limit is recorded rather than
+fixed: every harness `main()` ends in `sys.exit()`, `SystemExit` carries no
+namespace, and results live on a harness instance, so the live event has
+always been `0/0/0` -- an empty claim, not a false one.
+
+Fault-injected: `passed=len(results), failed=0` restored by sed, the
+injection confirmed by diff and `ast.parse`, five of the new tests failed,
+the fix restored, all pass. An AST guard over the `send_telemetry_event`
+call sites in `cli.py` refuses a `len(...)` pass count or a constant
+`failed=0`, and requires that it can see both call sites.
 
 **A live target that was never reached inherited the reference model's PASS
 (R3-01, Critical; third external review, 2026-09-07).** Five payment
