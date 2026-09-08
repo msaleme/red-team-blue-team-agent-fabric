@@ -907,8 +907,16 @@ class X402SecurityTests:
             owasp_asi="ASI06",
             severity=Severity.MEDIUM.value,
             passed=passed,
+            # NARROW (R4-01, fourth external review). A byte scan over the body,
+            # the headers and any decoded blobs of ONE response. A PASS says
+            # those bytes matched none of the sensitive patterns; it is not a
+            # claim about the session-management implementation. The empty case
+            # is already INCONCLUSIVE (`not_evaluated`), so the scan ran over
+            # something.
             details=f"Sensitive data patterns found: {leaks_found}" if leaks_found
-                    else "No sensitive data patterns detected in response",
+                    else (f"No sensitive data patterns detected. Narrow: a scan of the "
+                          f"response body, headers and {len(decoded_blobs)} decoded "
+                          f"blob(s) actually returned -- exactly those bytes"),
             http_method="GET",
             csg_mapping="Harm Test: responses must not leak sensitive operational data",
             estimated_impact="info_leak",
@@ -1446,7 +1454,12 @@ class X402SecurityTests:
             owasp_asi="ASI06",
             severity=Severity.MEDIUM.value,
             passed=passed,
-            details=f"Info leaks found: {leaks}" if leaks else "No sensitive information leaked in 402 response",
+            # NARROW (R4-01). A byte scan of the 402 response's headers and body
+            # against this module's disclosure patterns. Exactly those bytes.
+            details=f"Info leaks found: {leaks}" if leaks
+                    else ("No sensitive information leaked in the 402 response. Narrow: "
+                          "a scan of the returned headers and body against the "
+                          "disclosure patterns listed above -- exactly those bytes"),
             http_method="GET",
             csg_mapping="Harm Test: 402 responses must not expose internal infrastructure details",
             estimated_impact="info_leak",
@@ -3306,12 +3319,18 @@ class X402SecurityTests:
             owasp_asi="ASI06",
             severity=Severity.MEDIUM.value,
             passed=passed,
+            # NARROW (R4-01). A size/echo differential across the responses that
+            # came back. A PASS says no size channel and no echo were observed in
+            # those responses; it is not a claim that payment metadata is
+            # unobservable through any other channel (timing, downstream logs).
             details=(f"Response body variance: {body_variance} bytes across payment amounts "
                      f"(size channel {'DETECTED' if side_channel_detected else 'not detected'}); "
                      + (f"amount ECHOED back for: {echoed_labels}" if leaked_amount
                         else "no response echoed the submitted amount")
                      + (f"; echo not decidable for {untestable} (too few digits to "
-                        f"distinguish an echo from a chance match)" if untestable else "")),
+                        f"distinguish an echo from a chance match)" if untestable else "")
+                     + ". Narrow: a size/echo differential over the responses returned, "
+                       "not a claim about timing or downstream channels"),
             http_method="GET",
             csg_mapping="HC-43: Error responses must not vary in size/timing based on payment amount validation",
             estimated_impact="info_leak",

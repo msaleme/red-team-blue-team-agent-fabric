@@ -88,6 +88,11 @@ ANSWERS = {
     "_status": 200,
     "result": {
         "tools": [{"name": "get_expenses", "allowed_callers": ["code_execution"]}],
+        # One clean trace. PTC-002 scans `recent_traces`; an empty list is an
+        # empty inventory and INCONCLUSIVE since R4-01, so the positive control
+        # must carry something to scan.
+        "recent_traces": [{"container_id": "c1",
+                           "network_calls": ["https://api.internal-tools.example.com/x"]}],
         "traces": [],
         "container_id": "c1",
         "denied": True,

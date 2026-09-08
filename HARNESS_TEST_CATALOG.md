@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `358b159`
+**Generated:** `scripts/generate_test_catalog.py` at commit `f7b2e6c`
 **Test count:** 623 unique test IDs across 46 registered harness modules (45 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -59,18 +59,18 @@ ADI-003 | content mimicking the agent's own context boundary. | protocol_tests/a
 ### AIUC-1 Compliance (`protocol_tests/aiuc1_compliance_harness.py`) — 12 tests
 
 ```
-AIUC-C003a | Harmful Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:804
-AIUC-C003b | Deceptive Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:837
-AIUC-C004a | Out-of-Scope Execution Refusal | protocol_tests/aiuc1_compliance_harness.py:885
-AIUC-C004b | Scope Creep Detection | protocol_tests/aiuc1_compliance_harness.py:933
-AIUC-C004c | Authority Impersonation Refusal | protocol_tests/aiuc1_compliance_harness.py:966
-AIUC-E001 | Incident Detection Latency | protocol_tests/aiuc1_compliance_harness.py:107
-AIUC-E002 | Incident Containment | protocol_tests/aiuc1_compliance_harness.py:565
-AIUC-E003 | Incident Audit Trail | protocol_tests/aiuc1_compliance_harness.py:638
-AIUC-F002a | Test refusal of chemical weapon synthesis instructions. | protocol_tests/aiuc1_compliance_harness.py:722
-AIUC-F002b | Test refusal of biological weapon creation instructions. | protocol_tests/aiuc1_compliance_harness.py:727
-AIUC-F002c | Test refusal of radiological/nuclear weapon instructions. | protocol_tests/aiuc1_compliance_harness.py:732
-AIUC-F002d | CBRN Dual-Use Detection | protocol_tests/aiuc1_compliance_harness.py:767
+AIUC-C003a | Harmful Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:840
+AIUC-C003b | Deceptive Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:873
+AIUC-C004a | Out-of-Scope Execution Refusal | protocol_tests/aiuc1_compliance_harness.py:951
+AIUC-C004b | Scope Creep Detection | protocol_tests/aiuc1_compliance_harness.py:1000
+AIUC-C004c | Authority Impersonation Refusal | protocol_tests/aiuc1_compliance_harness.py:1033
+AIUC-E001 | Incident Detection Latency | protocol_tests/aiuc1_compliance_harness.py:112
+AIUC-E002 | Incident Containment | protocol_tests/aiuc1_compliance_harness.py:570
+AIUC-E003 | Incident Audit Trail | protocol_tests/aiuc1_compliance_harness.py:674
+AIUC-F002a | Test refusal of chemical weapon synthesis instructions. | protocol_tests/aiuc1_compliance_harness.py:758
+AIUC-F002b | Test refusal of biological weapon creation instructions. | protocol_tests/aiuc1_compliance_harness.py:763
+AIUC-F002c | Test refusal of radiological/nuclear weapon instructions. | protocol_tests/aiuc1_compliance_harness.py:768
+AIUC-F002d | CBRN Dual-Use Detection | protocol_tests/aiuc1_compliance_harness.py:803
 ```
 
 ### AP2 Mandate Chain (`protocol_tests/ap2_harness.py`) — 17 tests
@@ -302,9 +302,9 @@ ZD-002 | Mass Ticket Closure (Competitor Sabotage) | protocol_tests/extended_ent
 ET-001 | Tampered Thinking-Block Signature Accepted | protocol_tests/extended_thinking_harness.py:206
 ET-002 | Missing Thinking Block Before Tool-Result Turn Accepted | protocol_tests/extended_thinking_harness.py:293
 ET-003 | Redacted-Thinking Payload Exposed to End User | protocol_tests/extended_thinking_harness.py:386
-ET-004 | Intermediate Reasoning Exposed Mid-Tool-Chain | protocol_tests/extended_thinking_harness.py:471
-ET-005 | Cross-Conversation Signature Replay Accepted | protocol_tests/extended_thinking_harness.py:553
-ET-006 | Silent Thinking-Budget Truncation | protocol_tests/extended_thinking_harness.py:636
+ET-004 | Intermediate Reasoning Exposed Mid-Tool-Chain | protocol_tests/extended_thinking_harness.py:479
+ET-005 | Cross-Conversation Signature Replay Accepted | protocol_tests/extended_thinking_harness.py:564
+ET-006 | Silent Thinking-Budget Truncation | protocol_tests/extended_thinking_harness.py:647
 ```
 
 ### Framework Adapters (`protocol_tests/framework_adapters.py`) — 15 tests
@@ -378,14 +378,14 @@ HO-010 | Output Content Classification | protocol_tests/harmful_output_harness.p
 ### hitl_harness.py (`protocol_tests/hitl_harness.py`) — 8 tests
 
 ```
-HITL-001 | Approval Flood Rate Limiting | protocol_tests/hitl_harness.py:306
-HITL-002 | High-Risk Approval Starvation | protocol_tests/hitl_harness.py:354
-HITL-003 | Decision Context Stripped From Approval | protocol_tests/hitl_harness.py:405
-HITL-004 | Denied Decision Replayed Without Flag | protocol_tests/hitl_harness.py:448
-HITL-005 | Payment Redirect Induced Toward the User. | protocol_tests/hitl_harness.py:563
-HITL-006 | Credential Lure Directed at the Principal. | protocol_tests/hitl_harness.py:571
-HITL-007 | Coercing the Principal Past a Verification Step. | protocol_tests/hitl_harness.py:579
-HITL-008 | Fabricated Authority Used to Move a Human. | protocol_tests/hitl_harness.py:587
+HITL-001 | Approval Flood Rate Limiting | protocol_tests/hitl_harness.py:307
+HITL-002 | High-Risk Approval Starvation | protocol_tests/hitl_harness.py:355
+HITL-003 | Decision Context Stripped From Approval | protocol_tests/hitl_harness.py:406
+HITL-004 | Denied Decision Replayed Without Flag | protocol_tests/hitl_harness.py:449
+HITL-005 | Payment Redirect Induced Toward the User. | protocol_tests/hitl_harness.py:595
+HITL-006 | Credential Lure Directed at the Principal. | protocol_tests/hitl_harness.py:603
+HITL-007 | Coercing the Principal Past a Verification Step. | protocol_tests/hitl_harness.py:611
+HITL-008 | Fabricated Authority Used to Move a Human. | protocol_tests/hitl_harness.py:619
 ```
 
 ### Identity & Authorization (`protocol_tests/identity_harness.py`) — 18 tests
@@ -414,14 +414,14 @@ STD-003 | SCIM Agent Lifecycle Management | protocol_tests/identity_harness.py:9
 ### Incident Response (`protocol_tests/incident_response_harness.py`) — 8 tests
 
 ```
-IR-001 | Security Breach Alert Triggering | protocol_tests/incident_response_harness.py:317
-IR-002 | Harmful Output Escalation | protocol_tests/incident_response_harness.py:353
-IR-003 | Hallucination Detection Alerting | protocol_tests/incident_response_harness.py:405
-IR-004 | Kill Switch Activation | protocol_tests/incident_response_harness.py:458
-IR-005 | Recovery Time Measurement | protocol_tests/incident_response_harness.py:522
-IR-006 | Log Completeness | protocol_tests/incident_response_harness.py:587
-IR-007 | Notification Timeline | protocol_tests/incident_response_harness.py:637
-IR-008 | Cascading Failure Containment | protocol_tests/incident_response_harness.py:709
+IR-001 | Security Breach Alert Triggering | protocol_tests/incident_response_harness.py:339
+IR-002 | Harmful Output Escalation | protocol_tests/incident_response_harness.py:375
+IR-003 | Hallucination Detection Alerting | protocol_tests/incident_response_harness.py:457
+IR-004 | Kill Switch Activation | protocol_tests/incident_response_harness.py:509
+IR-005 | Recovery Time Measurement | protocol_tests/incident_response_harness.py:573
+IR-006 | Log Completeness | protocol_tests/incident_response_harness.py:638
+IR-007 | Notification Timeline | protocol_tests/incident_response_harness.py:688
+IR-008 | Cascading Failure Containment | protocol_tests/incident_response_harness.py:791
 ```
 
 ### intent_contract_harness.py (`protocol_tests/intent_contract_harness.py`) — 8 tests
@@ -508,10 +508,10 @@ L4-026 | Invoice Expiry Bypass | protocol_tests/l402_harness.py:1599
 L4-027 | Multi-Hop Routing Header Injection | protocol_tests/l402_harness.py:1665
 L4-028 | Payment Replay Across Channels | protocol_tests/l402_harness.py:1692
 L4-029 | Large Payload DoS Resilience | protocol_tests/l402_harness.py:1780
-L4-030 | Header Injection DoS | protocol_tests/l402_harness.py:1836
-L4-031 | Concurrent Challenge Flood | protocol_tests/l402_harness.py:1877
-L4-032 | Protocol Downgrade (LSAT Compat) | protocol_tests/l402_harness.py:1921
-L4-033 | Information Disclosure in Errors | protocol_tests/l402_harness.py:1987
+L4-030 | Header Injection DoS | protocol_tests/l402_harness.py:1845
+L4-031 | Concurrent Challenge Flood | protocol_tests/l402_harness.py:1886
+L4-032 | Protocol Downgrade (LSAT Compat) | protocol_tests/l402_harness.py:1936
+L4-033 | Information Disclosure in Errors | protocol_tests/l402_harness.py:2002
 ```
 
 ### MCP Protocol (`protocol_tests/mcp_harness.py`) — 33 tests
@@ -573,7 +573,7 @@ CVE-006 | Description Payload Encoding Detection | protocol_tests/mcp_tool_poiso
 CVE-007 | Incremental Poisoning Scanner Coverage (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1105
 CVE-008 | Marketplace Registry Integrity (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1153
 CVE-009 | Shared-Auth Scope Escalation (CVE-2026-35625) | protocol_tests/mcp_tool_poisoning_harness.py:1276
-CVE-010 | Channel Extension SSRF (CVE-2026-35629) | protocol_tests/mcp_tool_poisoning_harness.py:1425
+CVE-010 | Channel Extension SSRF (CVE-2026-35629) | protocol_tests/mcp_tool_poisoning_harness.py:1461
 ```
 
 ### memory_harness.py (`protocol_tests/memory_harness.py`) — 12 tests
@@ -620,31 +620,31 @@ MAG-019 | Delegated Spend Bound Discrimination | protocol_tests/multi_agent_harn
 ### Over-Refusal (`protocol_tests/over_refusal_harness.py`) — 25 tests
 
 ```
-OR-001 | Valid MCP Initialize Handshake | protocol_tests/over_refusal_harness.py:310
-OR-002 | Valid MCP Tools List | protocol_tests/over_refusal_harness.py:327
-OR-003 | Valid MCP Tool Call | protocol_tests/over_refusal_harness.py:347
-OR-004 | Valid MCP Prompts List | protocol_tests/over_refusal_harness.py:364
-OR-005 | Valid MCP Resources List | protocol_tests/over_refusal_harness.py:381
-OR-006 | Valid A2A Agent Card Discovery | protocol_tests/over_refusal_harness.py:401
-OR-007 | Valid A2A Task Delegation | protocol_tests/over_refusal_harness.py:423
-OR-008 | Valid A2A Task Status Check | protocol_tests/over_refusal_harness.py:442
-OR-009 | Valid A2A Message with Context | protocol_tests/over_refusal_harness.py:470
-OR-010 | Valid A2A Task Cancel | protocol_tests/over_refusal_harness.py:489
-OR-011 | Valid L402 Invoice Request | protocol_tests/over_refusal_harness.py:511
-OR-012 | Valid L402 Macaroon Format Presentation | protocol_tests/over_refusal_harness.py:548
-OR-013 | Valid L402 Preimage Presentation | protocol_tests/over_refusal_harness.py:584
-OR-014 | Valid L402 Resource-Specific Request | protocol_tests/over_refusal_harness.py:601
-OR-015 | Valid L402 Ask Endpoint | protocol_tests/over_refusal_harness.py:633
-OR-016 | Valid x402 Payment Challenge | protocol_tests/over_refusal_harness.py:654
-OR-017 | Valid x402 USDC Payment Header | protocol_tests/over_refusal_harness.py:692
-OR-018 | Valid x402 Receipt Verification | protocol_tests/over_refusal_harness.py:714
-OR-019 | Valid x402 Pricing Discovery | protocol_tests/over_refusal_harness.py:731
-OR-020 | Valid x402 Payment Options Request | protocol_tests/over_refusal_harness.py:763
-OR-021 | Long but Valid Parameters | protocol_tests/over_refusal_harness.py:789
-OR-022 | Special Characters in Valid Fields | protocol_tests/over_refusal_harness.py:813
-OR-023 | Unicode in Valid Content | protocol_tests/over_refusal_harness.py:839
-OR-024 | Rapid Sequential Legitimate Requests | protocol_tests/over_refusal_harness.py:861
-OR-025 | Large but Valid JSON Payload | protocol_tests/over_refusal_harness.py:885
+OR-001 | Valid MCP Initialize Handshake | protocol_tests/over_refusal_harness.py:393
+OR-002 | Valid MCP Tools List | protocol_tests/over_refusal_harness.py:410
+OR-003 | Valid MCP Tool Call | protocol_tests/over_refusal_harness.py:430
+OR-004 | Valid MCP Prompts List | protocol_tests/over_refusal_harness.py:447
+OR-005 | Valid MCP Resources List | protocol_tests/over_refusal_harness.py:464
+OR-006 | Valid A2A Agent Card Discovery | protocol_tests/over_refusal_harness.py:484
+OR-007 | Valid A2A Task Delegation | protocol_tests/over_refusal_harness.py:506
+OR-008 | Valid A2A Task Status Check | protocol_tests/over_refusal_harness.py:525
+OR-009 | Valid A2A Message with Context | protocol_tests/over_refusal_harness.py:553
+OR-010 | Valid A2A Task Cancel | protocol_tests/over_refusal_harness.py:572
+OR-011 | Valid L402 Invoice Request | protocol_tests/over_refusal_harness.py:594
+OR-012 | Valid L402 Macaroon Format Presentation | protocol_tests/over_refusal_harness.py:625
+OR-013 | Valid L402 Preimage Presentation | protocol_tests/over_refusal_harness.py:655
+OR-014 | Valid L402 Resource-Specific Request | protocol_tests/over_refusal_harness.py:672
+OR-015 | Valid L402 Ask Endpoint | protocol_tests/over_refusal_harness.py:698
+OR-016 | Valid x402 Payment Challenge | protocol_tests/over_refusal_harness.py:719
+OR-017 | Valid x402 USDC Payment Header | protocol_tests/over_refusal_harness.py:751
+OR-018 | Valid x402 Receipt Verification | protocol_tests/over_refusal_harness.py:773
+OR-019 | Valid x402 Pricing Discovery | protocol_tests/over_refusal_harness.py:790
+OR-020 | Valid x402 Payment Options Request | protocol_tests/over_refusal_harness.py:816
+OR-021 | Long but Valid Parameters | protocol_tests/over_refusal_harness.py:849
+OR-022 | Special Characters in Valid Fields | protocol_tests/over_refusal_harness.py:873
+OR-023 | Unicode in Valid Content | protocol_tests/over_refusal_harness.py:899
+OR-024 | Rapid Sequential Legitimate Requests | protocol_tests/over_refusal_harness.py:922
+OR-025 | Large but Valid JSON Payload | protocol_tests/over_refusal_harness.py:946
 ```
 
 ### Prompt Caching (`protocol_tests/prompt_caching_harness.py`) — 6 tests
@@ -681,12 +681,12 @@ PRV-015 | Replay of Revoked Attestation | protocol_tests/provenance_harness.py:7
 ### Programmatic Tool Calling (`protocol_tests/ptc_harness.py`) — 6 tests
 
 ```
-PTC-001 | Destructive Tool Opted Into Code-Execution Context | protocol_tests/ptc_harness.py:244
-PTC-002 | Sandbox Exfiltration Before Model Visibility | protocol_tests/ptc_harness.py:332
-PTC-003 | Container State Leakage Across Sessions | protocol_tests/ptc_harness.py:412
-PTC-004 | Client-Asserted Caller-Type Spoofing | protocol_tests/ptc_harness.py:514
-PTC-005 | Unbounded Batch Execution of a Side-Effecting Tool | protocol_tests/ptc_harness.py:597
-PTC-006 | Expired Container Reuse | protocol_tests/ptc_harness.py:677
+PTC-001 | Destructive Tool Opted Into Code-Execution Context | protocol_tests/ptc_harness.py:273
+PTC-002 | Sandbox Exfiltration Before Model Visibility | protocol_tests/ptc_harness.py:376
+PTC-003 | Container State Leakage Across Sessions | protocol_tests/ptc_harness.py:472
+PTC-004 | Client-Asserted Caller-Type Spoofing | protocol_tests/ptc_harness.py:574
+PTC-005 | Unbounded Batch Execution of a Side-Effecting Tool | protocol_tests/ptc_harness.py:657
+PTC-006 | Expired Container Reuse | protocol_tests/ptc_harness.py:752
 ```
 
 ### receipt_claim_harness.py (`protocol_tests/receipt_claim_harness.py`) — 11 tests
@@ -775,11 +775,11 @@ UCP-006 | Agent Profile Takeover (rebind) | protocol_tests/ucp_acp_harness.py:49
 ### watermark_harness.py (`protocol_tests/watermark_harness.py`) — 5 tests
 
 ```
-WM-001 | Watermark Presence Validation | protocol_tests/watermark_harness.py:171
-WM-002 | Watermark Forgery Resistance | protocol_tests/watermark_harness.py:191
-WM-003 | Watermark Stripping Resistance | protocol_tests/watermark_harness.py:247
-WM-004 | Watermark Parameter Extraction Resistance | protocol_tests/watermark_harness.py:311
-WM-005 | Multi-Language Watermark Compliance | protocol_tests/watermark_harness.py:377
+WM-001 | Watermark Presence Validation | protocol_tests/watermark_harness.py:172
+WM-002 | Watermark Forgery Resistance | protocol_tests/watermark_harness.py:192
+WM-003 | Watermark Stripping Resistance | protocol_tests/watermark_harness.py:272
+WM-004 | Watermark Parameter Extraction Resistance | protocol_tests/watermark_harness.py:336
+WM-005 | Multi-Language Watermark Compliance | protocol_tests/watermark_harness.py:402
 ```
 
 ### x402 Fireblocks Extension (`protocol_tests/x402_fireblocks_harness.py`) — 17 tests
@@ -817,50 +817,50 @@ X4-007 | Session Token Security Check | protocol_tests/x402_harness.py:731
 X4-008 | Fabricated Session Token Rejection | protocol_tests/x402_harness.py:777
 X4-009 | Expired Session Token Rejection | protocol_tests/x402_harness.py:818
 X4-010 | Session / Response Data Leakage Check | protocol_tests/x402_harness.py:904
-X4-011 | Rapid Payment Request Rate Limiting | protocol_tests/x402_harness.py:986
-X4-012 | Underpayment Attempt Rejection | protocol_tests/x402_harness.py:1037
-X4-013 | Budget Exhaustion Burst Test | protocol_tests/x402_harness.py:1082
-X4-014 | Fake Facilitator Header Injection | protocol_tests/x402_harness.py:1303
-X4-015 | Non-Existent Facilitator Verification Claim | protocol_tests/x402_harness.py:1340
-X4-016 | Facilitator Timeout / Unreachable Handling | protocol_tests/x402_harness.py:1380
-X4-017 | 402 Response Information Leakage | protocol_tests/x402_harness.py:1443
-X4-018 | Error Message Information Disclosure | protocol_tests/x402_harness.py:1506
-X4-019 | Wrong Network Payment Rejection | protocol_tests/x402_harness.py:1550
-X4-020 | Wrong Token Type Payment Rejection | protocol_tests/x402_harness.py:1590
-X4-021 | Operator Attestation Presence (OATR) | protocol_tests/x402_harness.py:1698
-X4-022 | Attestation-Domain Binding (OATR) | protocol_tests/x402_harness.py:1751
-X4-023 | Attestation Revocation Check (OATR) | protocol_tests/x402_harness.py:1822
-X4-024 | Stale Manifest Acceptance (OATR) | protocol_tests/x402_harness.py:1879
-X4-025 | Forged Attestation Injection (OATR) | protocol_tests/x402_harness.py:1948
-X4-026 | Payment Amount Rounding Attack (IEEE 754) | protocol_tests/x402_harness.py:1999
-X4-027 | Stale Payment Session Replay | protocol_tests/x402_harness.py:2048
-X4-031 | Multi-Hop Redirect Chain Attack | protocol_tests/x402_harness.py:2097
-X4-032 | Currency Type Confusion | protocol_tests/x402_harness.py:2148
-X4-033 | Payment Deadline Bypass | protocol_tests/x402_harness.py:2192
-X4-034 | Zero-Amount Payment Acceptance | protocol_tests/x402_harness.py:2229
-X4-035 | Negative Amount Payment | protocol_tests/x402_harness.py:2267
-X4-036 | Max uint256 Overflow Attack | protocol_tests/x402_harness.py:2313
-X4-037 | Facilitator Impersonation | protocol_tests/x402_harness.py:2369
-X4-038 | Double-Spend Detection | protocol_tests/x402_harness.py:2423
-X4-039 | Payment Proof Format Injection | protocol_tests/x402_harness.py:2471
-X4-040 | Cross-Chain Payment Confusion | protocol_tests/x402_harness.py:2524
-X4-041 | Settlement Callback URL SSRF | protocol_tests/x402_harness.py:2579
-X4-042 | Payment Metadata Exfiltration | protocol_tests/x402_harness.py:2650
-X4-043 | Concurrent Payment Race Condition | protocol_tests/x402_harness.py:2711
-X4-044 | Payment Replay Against Different Endpoint | protocol_tests/x402_harness.py:2760
-X4-045 | Replay Same Payment Hash | protocol_tests/x402_harness.py:2820
-X4-046 | Duplicate Settlement Claim | protocol_tests/x402_harness.py:2871
-X4-047 | Expired Auth Token Reuse | protocol_tests/x402_harness.py:2929
-X4-048 | Scope Escalation in Payment Context | protocol_tests/x402_harness.py:2979
-X4-049 | Premature Finality Claim | protocol_tests/x402_harness.py:3035
-X4-050 | Settlement Race Condition | protocol_tests/x402_harness.py:3091
-X4-051 | L402-to-x402 Protocol Confusion | protocol_tests/x402_harness.py:3141
-X4-052 | Mixed Settlement Protocol Confusion | protocol_tests/x402_harness.py:3195
-X4-053 | Payment Metadata Side Channel | protocol_tests/x402_harness.py:3303
-X4-054 | Payment Correlation Attack | protocol_tests/x402_harness.py:3372
-X4-055 | Cascading Payment Approval Chain | protocol_tests/x402_harness.py:3447
-X4-056 | Payment Credential Accepted in URL (CWE-598) | protocol_tests/x402_harness.py:1170
-X4-057 | Delegated Allowance Overdraft via Verify/Settle Race | protocol_tests/x402_harness.py:1254
+X4-011 | Rapid Payment Request Rate Limiting | protocol_tests/x402_harness.py:994
+X4-012 | Underpayment Attempt Rejection | protocol_tests/x402_harness.py:1045
+X4-013 | Budget Exhaustion Burst Test | protocol_tests/x402_harness.py:1090
+X4-014 | Fake Facilitator Header Injection | protocol_tests/x402_harness.py:1311
+X4-015 | Non-Existent Facilitator Verification Claim | protocol_tests/x402_harness.py:1348
+X4-016 | Facilitator Timeout / Unreachable Handling | protocol_tests/x402_harness.py:1388
+X4-017 | 402 Response Information Leakage | protocol_tests/x402_harness.py:1451
+X4-018 | Error Message Information Disclosure | protocol_tests/x402_harness.py:1519
+X4-019 | Wrong Network Payment Rejection | protocol_tests/x402_harness.py:1563
+X4-020 | Wrong Token Type Payment Rejection | protocol_tests/x402_harness.py:1603
+X4-021 | Operator Attestation Presence (OATR) | protocol_tests/x402_harness.py:1711
+X4-022 | Attestation-Domain Binding (OATR) | protocol_tests/x402_harness.py:1764
+X4-023 | Attestation Revocation Check (OATR) | protocol_tests/x402_harness.py:1835
+X4-024 | Stale Manifest Acceptance (OATR) | protocol_tests/x402_harness.py:1892
+X4-025 | Forged Attestation Injection (OATR) | protocol_tests/x402_harness.py:1961
+X4-026 | Payment Amount Rounding Attack (IEEE 754) | protocol_tests/x402_harness.py:2012
+X4-027 | Stale Payment Session Replay | protocol_tests/x402_harness.py:2061
+X4-031 | Multi-Hop Redirect Chain Attack | protocol_tests/x402_harness.py:2110
+X4-032 | Currency Type Confusion | protocol_tests/x402_harness.py:2161
+X4-033 | Payment Deadline Bypass | protocol_tests/x402_harness.py:2205
+X4-034 | Zero-Amount Payment Acceptance | protocol_tests/x402_harness.py:2242
+X4-035 | Negative Amount Payment | protocol_tests/x402_harness.py:2280
+X4-036 | Max uint256 Overflow Attack | protocol_tests/x402_harness.py:2326
+X4-037 | Facilitator Impersonation | protocol_tests/x402_harness.py:2382
+X4-038 | Double-Spend Detection | protocol_tests/x402_harness.py:2436
+X4-039 | Payment Proof Format Injection | protocol_tests/x402_harness.py:2484
+X4-040 | Cross-Chain Payment Confusion | protocol_tests/x402_harness.py:2537
+X4-041 | Settlement Callback URL SSRF | protocol_tests/x402_harness.py:2592
+X4-042 | Payment Metadata Exfiltration | protocol_tests/x402_harness.py:2663
+X4-043 | Concurrent Payment Race Condition | protocol_tests/x402_harness.py:2724
+X4-044 | Payment Replay Against Different Endpoint | protocol_tests/x402_harness.py:2773
+X4-045 | Replay Same Payment Hash | protocol_tests/x402_harness.py:2833
+X4-046 | Duplicate Settlement Claim | protocol_tests/x402_harness.py:2884
+X4-047 | Expired Auth Token Reuse | protocol_tests/x402_harness.py:2942
+X4-048 | Scope Escalation in Payment Context | protocol_tests/x402_harness.py:2992
+X4-049 | Premature Finality Claim | protocol_tests/x402_harness.py:3048
+X4-050 | Settlement Race Condition | protocol_tests/x402_harness.py:3104
+X4-051 | L402-to-x402 Protocol Confusion | protocol_tests/x402_harness.py:3154
+X4-052 | Mixed Settlement Protocol Confusion | protocol_tests/x402_harness.py:3208
+X4-053 | Payment Metadata Side Channel | protocol_tests/x402_harness.py:3316
+X4-054 | Payment Correlation Attack | protocol_tests/x402_harness.py:3391
+X4-055 | Cascading Payment Approval Chain | protocol_tests/x402_harness.py:3466
+X4-056 | Payment Credential Accepted in URL (CWE-598) | protocol_tests/x402_harness.py:1178
+X4-057 | Delegated Allowance Overdraft via Verify/Settle Race | protocol_tests/x402_harness.py:1262
 ```
 
 ## Decision Behavior Benchmark corpus (`benchmarks/decision_behavior_corpus.py`) — 52 scenarios

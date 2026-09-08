@@ -1784,12 +1784,21 @@ class L402SecurityTests:
             severity=Severity.MEDIUM.value,
             passed=passed,
             not_evaluated=not_evaluated,
+            # NARROW (R4-01, fourth external review). What a PASS here says is
+            # exactly this: every oversized Authorization header that completed
+            # came back with a 4xx. That is an HTTP-status observation about the
+            # request line, and a target answering 200 `{}` to the protocol can
+            # still produce it -- the stdlib parser rejects the header before any
+            # handler runs. It is not a claim about the L402 implementation's
+            # resilience under load.
             details=(f"none of {len(large_variants)} oversized payloads produced an "
                      f"observed response, so resilience was not measured"
                      if not_evaluated else
                      f"{handled}/{observed} oversized payloads actively rejected "
                      f"(4xx, not a 5xx parser fault); {len(large_variants) - observed} "
-                     f"never completed"),
+                     f"never completed. Narrow: an HTTP-status observation on the "
+                     f"request line -- a front door or a parser can produce it, and it "
+                     f"says nothing about the L402 handler behind it"),
             http_method="GET",
             request_sent={"variants": [label for label, _ in large_variants]},
             elapsed_s=round(elapsed, 3),
@@ -1880,8 +1889,14 @@ class L402SecurityTests:
             owasp_asi="ASI08",
             severity=Severity.MEDIUM.value,
             passed=passed,
+            # NARROW (R4-01). An error-RATE tolerance: this measures that the
+            # endpoint stayed up under 2N concurrent requests. Any live host that
+            # answers anything passes it, including one answering 200 `{}`. It is
+            # a liveness measurement, not a payment-flood control.
             details=(f"{len(results_list)} concurrent requests: "
-                     f"{n_402} got 402, {n_429} rate-limited, {n_errors} errors"),
+                     f"{n_402} got 402, {n_429} rate-limited, {n_errors} errors. "
+                     f"Narrow: a liveness/error-rate measurement under concurrency, "
+                     f"not evidence that a challenge-flood control exists"),
             http_method="GET",
             request_sent={"n_concurrent": n_workers * 2},
             response_received={"n_402": n_402, "n_429": n_429, "n_errors": n_errors},
@@ -1990,7 +2005,14 @@ class L402SecurityTests:
             owasp_asi="ASI06",
             severity=Severity.MEDIUM.value,
             passed=passed,
-            details=("No sensitive information leaked" if passed
+            # NARROW (R4-01). A byte scan: these are the probe bodies the target
+            # actually returned, checked against this module's sensitive-pattern
+            # set. A PASS says those bytes carried none of those patterns. It is
+            # not a claim that the endpoint discloses nothing anywhere.
+            details=(f"No sensitive information leaked: none of the sensitive "
+                     f"patterns scanned appeared in the {len(probe_requests)} probe "
+                     f"bodies the target returned. Narrow: a scan of exactly those "
+                     f"bytes" if passed
                      else f"Leaks detected: {'; '.join(leaks_found[:10])}"),
             http_method="GET",
             request_sent={"probes": [label for label, _ in probe_requests]},
