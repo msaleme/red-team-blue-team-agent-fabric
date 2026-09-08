@@ -21,13 +21,15 @@ When telemetry is enabled (opt-IN, off by default), we collect:
 | Harness version | `3.8.0` | Know which versions are in use, prioritize backports |
 | Module name | `mcp` | Know which harnesses matter most to users |
 | Test count | `13` | Understand typical workload size |
-| Passed count | `11` | Identify modules with high failure rates (may indicate bugs in our tests) |
+| Passed count | `9` | Identify modules with high failure rates (may indicate bugs in our tests) |
 | Failed count | `2` | Same as above |
+| Inconclusive count | `2` | Rows the target never serviced (or a simulated run, which services nothing). Kept apart so an unexercised control is never counted as a pass |
 | OS | `linux` | Platform-specific bug triage |
 | Python version | `3.12` | Know which Python versions to keep supporting |
 | Timestamp | `2026-03-28T00:00:00Z` | Understand usage patterns (weekday vs weekend, not time-of-day) |
 
-That's it. Eight fields. Flat JSON. No nesting, no extensibility, no "other" bucket.
+That's it. Nine fields. Flat JSON. No nesting, no extensibility, no "other" bucket.
+The three counts always sum to the test count.
 
 You can see the exact payload in code:
 
@@ -41,7 +43,7 @@ print(telemetry_payload_example())
 ## What We NEVER Collect
 
 - **Target URLs** - We never see what you're scanning
-- **Test results or details** - Only pass/fail counts, never which tests failed or why
+- **Test results or details** - Only pass/fail/inconclusive counts, never which tests failed or why
 - **Attestation report contents** - Reports stay on your machine unless you explicitly publish them
 - **API keys or credentials** - We never touch your `.env`, auth tokens, or secrets
 - **IP addresses** - Hashed at the edge before any processing. We cannot reverse them.

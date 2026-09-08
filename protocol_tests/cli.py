@@ -220,13 +220,53 @@ def _simulate_harness(harness_name: str, info: dict,
         except Exception as e:
             print(f"Warning: HTML report generation failed: {e}", file=sys.stderr)
 
-    # Telemetry
+    # Telemetry. This sent `passed=len(results), failed=0` while every row
+    # above is `not_evaluated: True`: the console said N/N INCONCLUSIVE, the
+    # report said passed 0, and the event said N passed. Same run, third
+    # answer. Count the rows with the shared three-state predicate, so the
+    # event can only say what the rows say.
     try:
-        from protocol_tests.telemetry import send_telemetry_event
-        send_telemetry_event(module=harness_name, tests=len(results),
-                             passed=len(results), failed=0)
+        from protocol_tests.telemetry import send_telemetry_event, verdict_counts
+        send_telemetry_event(module=harness_name, **verdict_counts(results))
     except Exception:
         pass
+
+def _live_run_counts(ns: dict) -> dict:
+    """Three-state telemetry counts from a harness module namespace.
+
+    Reads the same names the inline version read (`_results`, `results`,
+    `test_results`, then a unittest-style `_test_result` / `test_result`) and
+    counts them with `telemetry.verdict_counts`, so a row the target never
+    serviced is reported as INCONCLUSIVE instead of vanishing. The inline
+    version counted only `status == "PASS"` / `FAIL` / `ERROR` and, for the
+    unittest shape, `passed = testsRun - failed` -- a residual bucket that
+    scored every skipped test as a pass. Here `skipped` is INCONCLUSIVE and
+    `passed` is what is left after both, so the four counts always sum.
+
+    Known limit, not fixed here: every harness `main()` ends in `sys.exit()`,
+    `SystemExit` carries no namespace, and results live on a harness instance
+    rather than at module level, so in practice `ns` is `{}` and the live
+    event reports 0/0/0/0. That is an empty claim, not a false one; the false
+    one was the simulated path.
+    """
+    from protocol_tests.telemetry import verdict_counts
+
+    for key in ("_results", "results", "test_results"):
+        result_list = ns.get(key)
+        if isinstance(result_list, (list, tuple)) and result_list:
+            return verdict_counts(result_list)
+
+    for key in ("_test_result", "test_result"):
+        tr = ns.get(key)
+        if tr and hasattr(tr, "testsRun"):
+            tests = int(tr.testsRun)
+            failed = len(getattr(tr, "failures", [])) + len(getattr(tr, "errors", []))
+            inconclusive = len(getattr(tr, "skipped", []))
+            passed = max(tests - failed - inconclusive, 0)
+            return {"tests": tests, "passed": passed, "failed": failed,
+                    "inconclusive": inconclusive}
+
+    return {"tests": 0, "passed": 0, "failed": 0, "inconclusive": 0}
 
 HARNESSES = {
     "mcp": {
@@ -787,40 +827,7 @@ def main():
         # Harnesses typically store results in _results, results, or similar.
         try:
             from protocol_tests.telemetry import send_telemetry_event
-
-            # Try to extract counts from the module namespace
-            test_count = 0
-            pass_count = 0
-            fail_count = 0
-
-            # Check common result patterns from harness modules
-            for key in ("_results", "results", "test_results"):
-                result_list = ns.get(key)
-                if isinstance(result_list, (list, tuple)) and result_list:
-                    test_count = len(result_list)
-                    for r in result_list:
-                        status = ""
-                        if hasattr(r, "status"):
-                            status = str(getattr(r.status, "value", r.status)).upper()
-                        elif isinstance(r, dict):
-                            status = str(r.get("status", "")).upper()
-                        if status == "PASS":
-                            pass_count += 1
-                        elif status in ("FAIL", "ERROR"):
-                            fail_count += 1
-                    break
-
-            # Also check unittest-style result objects
-            if test_count == 0:
-                for key in ("_test_result", "test_result"):
-                    tr = ns.get(key)
-                    if tr and hasattr(tr, "testsRun"):
-                        test_count = tr.testsRun
-                        fail_count = len(getattr(tr, "failures", [])) + len(getattr(tr, "errors", []))
-                        pass_count = test_count - fail_count
-                        break
-
-            send_telemetry_event(module=harness_name, tests=test_count, passed=pass_count, failed=fail_count)
+            send_telemetry_event(module=harness_name, **_live_run_counts(ns))
         except Exception:
             pass  # Telemetry must never break the CLI
 

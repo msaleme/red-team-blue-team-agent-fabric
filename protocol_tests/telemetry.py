@@ -1,6 +1,6 @@
 """Anonymous usage telemetry for agent-security-harness.
 
-WHAT THIS SENDS: version, module_name, test_count, passed, failed, os, python_version, timestamp
+WHAT THIS SENDS: version, module_name, test_count, passed, failed, inconclusive, os, python_version, timestamp
 WHAT THIS NEVER SENDS: URLs, results, payloads, credentials, IPs
 
 OPT IN: export AGENT_SECURITY_TELEMETRY=on
@@ -91,8 +91,63 @@ def _post(payload: bytes) -> None:
     except Exception:
         pass  # Never retry. Never block. Never raise.
 
-def send_telemetry_event(module: str, tests: int, passed: int, failed: int) -> None:
-    """Send a single anonymous telemetry event. Non-blocking."""
+def verdict_counts(results) -> dict:
+    """Three-state counts for a telemetry event: tests, passed, failed, inconclusive.
+
+    Both call sites in `cli.py` previously computed these inline, and neither
+    had a word for INCONCLUSIVE. The simulated path sent
+    `passed=len(results), failed=0` -- every row in that run is marked
+    `not_evaluated: True`, so a simulated run of N tests reported N passes to
+    whatever endpoint the operator had pointed telemetry at. The live path
+    counted `status == "PASS"` and put everything else in silence.
+
+    Absence of a detected attack is not evidence a control held (CLAUDE.md
+    item 8). A row is INCONCLUSIVE when the shared predicate says so; only a
+    row that was serviced AND carries `passed: True` is a pass; a serviced row
+    that does not is a fail. A row that carries neither a `passed` verdict nor
+    a recognisable status established nothing and is counted INCONCLUSIVE,
+    never as a pass. The four counts always sum: `tests == passed + failed +
+    inconclusive`, so `failed=0` is a finding, not a default.
+
+    Accepts result objects and dict rows (a serialised report), because
+    `is_inconclusive` accepts both and this helper should not narrow it.
+    """
+    from protocol_tests.http_helpers import is_inconclusive
+
+    tests = passed = failed = inconclusive = 0
+    for r in results:
+        tests += 1
+        get = r.get if isinstance(r, dict) else (lambda f, d=None: getattr(r, f, d))
+        status = get("status", "")
+        status = str(getattr(status, "value", status) or "").upper()
+        if is_inconclusive(r) or status == "INCONCLUSIVE":
+            inconclusive += 1
+            continue
+        verdict = get("passed", None)
+        if verdict is None:
+            if status == "PASS":
+                verdict = True
+            elif status in ("FAIL", "ERROR"):
+                verdict = False
+            else:
+                inconclusive += 1  # No verdict of any shape: nothing established.
+                continue
+        if verdict:
+            passed += 1
+        else:
+            failed += 1
+    return {"tests": tests, "passed": passed, "failed": failed,
+            "inconclusive": inconclusive}
+
+def send_telemetry_event(module: str, tests: int, passed: int, failed: int,
+                         inconclusive: int = 0) -> None:
+    """Send a single anonymous telemetry event. Non-blocking.
+
+    `inconclusive` is the count of rows the target never serviced (or a
+    simulated run, which services nothing). It defaults to 0 so callers that
+    predate the field keep working; new callers should pass the output of
+    `verdict_counts` rather than computing the three buckets by hand.
+    """
     if _is_disabled():
         return
     _show_first_run_notice()
@@ -103,6 +158,7 @@ def send_telemetry_event(module: str, tests: int, passed: int, failed: int) -> N
         "tests": tests,                   # How many tests ran
         "passed": passed,                 # Pass count only -- no details about which tests
         "failed": failed,                 # Fail count only -- no details about which tests
+        "inconclusive": inconclusive,     # Unserviced count only -- never scored as a pass
         "os": platform.system().lower(),  # OS family for platform bug triage
         "py": f"{sys.version_info.major}.{sys.version_info.minor}",  # Python compat
         "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -112,5 +168,6 @@ def send_telemetry_event(module: str, tests: int, passed: int, failed: int) -> N
 def telemetry_payload_example() -> dict:
     """Return a sample payload so users can see exactly what's sent."""
     from protocol_tests.version import get_harness_version
-    return {"v": get_harness_version(), "module": "mcp", "tests": 13, "passed": 11,
-            "failed": 2, "os": "linux", "py": "3.12", "ts": "2026-03-28T00:00:00Z"}
+    return {"v": get_harness_version(), "module": "mcp", "tests": 13, "passed": 9,
+            "failed": 2, "inconclusive": 2, "os": "linux", "py": "3.12",
+            "ts": "2026-03-28T00:00:00Z"}
