@@ -201,6 +201,89 @@ Fault injections, each restored: `_refused` back to scanning the whole reply
 `AIUC-C004a` back to reading `response`/`_body` (4 fail).
 
 No test IDs were added or removed; the count stays at 623.
+### Fixed — wrapper errors reported as security results, community "live" and dry-run PASS without contact, discarded CLI exit codes, community validation gaps (R4-06, R4-07, R4-08 High; R4-14 Medium; fourth external review, 2026-09-08)
+
+Every finding below was reproduced on a clean worktree before it was fixed,
+and each fix was fault-injected to show its test fails without it. No test
+IDs were added or removed; the count stays at 623.
+
+**The free scan reported five vulnerabilities when its own result-reading
+code failed (R4-06).** `scripts/free_scan.py::run_free_scan` called five
+`MCPSecurityTests` methods that record their result on the suite and return
+`None`, dereferenced `.status` on that `None`, caught its own
+`AttributeError` and published it as five `ERROR` rows, `tests_failed: 5`,
+grade **F** and "The scan detected 5 issue(s)" with remediation advice --
+against the shipped mock and against a closed port alike. The MCP server
+exposes the same function as the `scan_mcp_server` tool. The wrapper now
+runs the MCP handshake the methods assume (as `run_all` does), reads each
+recorded result back by test id, and reports anything the scanner itself
+could not do as `INCONCLUSIVE` with the detail "the scanner could not
+evaluate this test". An INCONCLUSIVE row is never counted in `tests_failed`
+and never named as a detected issue; when any row is INCONCLUSIVE the
+report carries `grade: null` and `grade_status: "not established"`. New
+fields `tests_evaluated`, `tests_inconclusive`, `grade_status`. The script
+exits 2 in that state. Per-test console lines no longer land on stdout ahead
+of the JSON. `testing/test_free_scan_controls.py` holds the two controls a
+public wrapper needs: the shipped mock on loopback (MCP-001 and MCP-008
+FAIL, MCP-003/004/010 PASS, grade C -- the mock's real shape) and a closed
+port (five INCONCLUSIVE, no grade), plus a synthetic wrapper fault that must
+land as INCONCLUSIVE, not as an issue.
+
+**Community "live" and dry-run runs published PASS without contacting a
+target (R4-07).** `_do_send_message`, `_do_send_jsonrpc` and `_do_call_tool`
+returned `{"status": "sent", "response": None}` ("Populated by harness
+integration"), so `--url` never opened a socket and an absence assertion
+passed against a host that was never reached; dry-run assigned
+`passed = True` outright. A synthetic plugin against `http://127.0.0.1:9`
+produced one PASS and zero inconclusive in both modes. The three actions now
+go through one real adapter, `HttpJsonRpcAdapter` -- JSON-RPC 2.0 over HTTP
+POST to `--url` via `http_helpers.http_post_json` -- for frameworks `mcp`,
+`a2a` and `generic` (`send_message` as A2A `message/send`, `call_tool` as
+MCP `tools/call`, `send_jsonrpc` verbatim). The runner refuses to evaluate
+any assertion when no adapter is bound (no `--url`, or a framework with no
+wire protocol: autogen, crewai, langgraph, x402, l402), when no step
+contacted the target, or when the target answered none of the requests
+sent: every assertion is INCONCLUSIVE with the reason, and the result
+carries `requests_sent` / `requests_answered`. Dry-run assertions are
+`passed=False`, `not_evaluated=True`, detail `(dry run — not evaluated)`,
+counted under `inconclusive`. The CLI exits 2 when nothing failed but
+something is INCONCLUSIVE. `testing/test_community_live_adapter.py` proves
+a hash-bound synthetic plugin actually reaches the shipped mock on loopback
+(2 sent, 2 answered, assertions evaluated, a presence assertion the mock
+does not satisfy is a real FAIL) and that a closed port, no URL, an
+unsupported framework, simulation-only steps and dry-run are each
+INCONCLUSIVE, never PASS.
+
+**The CLI discarded child failures, including usage errors (R4-08).**
+`protocol_tests/cli.py` stored the child's exit code in `_harness_exit`
+and then called `sys.exit(0)` unconditionally, under a comment promising
+to "exit with the code the harness asked for". `agent-security test
+skill-security --url http://127.0.0.1:9 --report out.json` printed
+argparse's "unrecognized arguments", wrote no report, and exited 0. The
+dispatcher now exits with the child's code after the HTML and telemetry
+post-processing; when `--report` or `--html` was requested and no file
+appeared it says so on stderr and exits non-zero; the throwaway side
+report `--html` asks for is removed afterwards.
+`testing/test_cli_exit_propagation.py` drives the public entry point: an
+unsupported flag exits 2 and names the missing report, a failing child's
+code equals the module's own exit, `--html` against a closed port still
+writes the file and still exits non-zero, and a good run exits 0.
+
+**Community validation and the pattern budget were incomplete (R4-14).**
+Validation accepted a non-object `evidence_schema`, an unknown action and
+an unknown assertion type; the pattern budget was checked only before each
+step, so a final step or the whole assertion phase ran unbounded, and
+nothing capped the assertion count. `evidence_schema` must now be an
+object; `action` and assertion `type` are validated against
+`VALID_ACTIONS` / `VALID_ASSERTION_TYPES`, derived from the two dispatch
+tables rather than written down a second time; `MAX_ASSERTIONS = 50`. The
+deadline (`MAX_PATTERN_EXECUTION_TIMEOUT_S`, 120 s) is checked before and
+after every step, after every assertion and once at the end, and an overrun
+is INCONCLUSIVE (`pattern execution exceeded budget`, with where it was
+detected), never PASS. Tested with a 50 ms budget and a 200 ms `wait` step,
+and with a slow assertion phase. `docs/PLUGIN_SPEC.md` documents the closed
+vocabularies, the caps, the adapter and dry-run semantics, and the exit
+codes.
 
 ## [4.21.1] - 2026-09-07
 

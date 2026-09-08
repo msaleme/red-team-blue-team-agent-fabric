@@ -116,6 +116,12 @@ Quick 5-test security scan with A-F grading.
 }
 ```
 
+A test the scanner could not evaluate (the target did not complete the MCP
+handshake, or the scanner itself failed) has `status: "INCONCLUSIVE"`, is
+counted in `tests_inconclusive` rather than `tests_failed`, and is never a
+detected issue. When any test is INCONCLUSIVE the response carries
+`"grade": null` and `"grade_status": "not established"`.
+
 ### full_security_audit
 
 Full harness run with attestation report.

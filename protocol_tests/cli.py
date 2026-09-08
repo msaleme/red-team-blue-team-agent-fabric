@@ -798,6 +798,9 @@ def main():
         # --html needs a report to render. If the operator asked for HTML but
         # not JSON, ask the harness for a throwaway report we can read back.
         _side_report = None
+        # The operator's own --report path, read before the --html side report
+        # is appended so the two are never confused (R4-08).
+        _operator_report = _report_path_from(filtered_args)
         if html_output and _module_declares_flag(harness_name, "--report") and not any(
                 a == "--report" or a.startswith("--report=") for a in filtered_args):
             _side_report = os.path.join(
@@ -900,7 +903,31 @@ def main():
             except Exception as e:
                 print(f"Warning: HTML report generation failed: {e}", file=sys.stderr)
 
-        sys.exit(0)
+        if _side_report:
+            try:
+                os.remove(_side_report)
+            except OSError:
+                pass
+
+        # The comment above promised "exit with the code the harness asked
+        # for", and the line here was `sys.exit(0)`. A usage error inside the
+        # harness (argparse exit 2, no report written) therefore became a
+        # successful run to any CI job reading the status; an independent
+        # review reproduced it with
+        #     agent-security test skill-security --url ... --report out.json
+        # (R4-08, fourth external review, 2026-09-08). Propagate the child's
+        # code, and when the operator asked for a file that never appeared,
+        # say so and refuse to exit 0.
+        _problems = []
+        if _harness_exit != 0:
+            _problems.append(f"harness `{harness_name}` exited {_harness_exit}")
+        if _operator_report and not os.path.exists(_operator_report):
+            _problems.append(f"--report {_operator_report} was requested and no file was written")
+        if html_output and not os.path.exists(html_output):
+            _problems.append(f"--html {html_output} was requested and no file was written")
+        if _problems:
+            print("error: " + "; ".join(_problems), file=sys.stderr)
+        sys.exit(_harness_exit if _harness_exit != 0 else (1 if _problems else 0))
 
     print(f"Error: unknown command '{args[0]}'")
     print("Use 'agent-security --help' for usage.")
