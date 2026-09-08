@@ -427,11 +427,20 @@ def _live_rejected(url: str, headers: dict, payload: dict) -> tuple[str, dict]:
     """Probe a live endpoint with an attack payload.
 
     Returns (verdict, evidence) where verdict in
-    {"rejected", "accepted", "unreachable"}. Liveness gate (VS-R03): a
+    {"rejected", "accepted", "undecided", "unreachable"}. Liveness gate (VS-R03): a
     transport failure or 5xx is 'unreachable' (observe-failure), never a pass.
     """
     resp = http_post_json(url, payload, headers, timeout=10)
-    return payment_outcome(resp, extra=("policy", "blocked"))
+    # x402 facilitator: /verify answers {"isValid": true}, /settle answers
+    # {"success": true, "transaction": "0x.."}; Fireblocks reports a
+    # transaction as COMPLETED / CONFIRMING / BROADCASTING; a batch voucher
+    # is "redeemed". `transaction` itself is not an effect key: card_token
+    # sends one, so an echo would carry it. `txHash` is in the shared core.
+    return payment_outcome(
+        resp, extra=("policy", "blocked"),
+        accept_flags=("isValid", "is_valid", "signed", "redeemed"),
+        accept_states=("completed", "confirming", "broadcasting", "redeemed"),
+        accept_effects=("network_fee", "signed_tx"))
 
 
 # ---------------------------------------------------------------------------

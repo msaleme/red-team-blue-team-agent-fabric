@@ -7,6 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — a payment target that answered without deciding was scored, and its body could forge the transport (R4-02, R4-03, High; fourth external review, 2026-09-08)
+
+**200 with no decision read as the attack getting through (R4-02).**
+`http_helpers.payment_outcome` had three states. Transport failure and 5xx
+were `unreachable` (INCONCLUSIVE, correct since #537) and a 403 was
+`rejected`, but a 2xx with no rejection word was `accepted`: an empty body,
+non-JSON prose, or JSON holding only a request id all folded to FAIL "LIVE
+verifier ACCEPTED the attack -- control absent". Reproduced on the untouched
+tree: `protocol_tests.cli test ap2` against a loopback answering 200 `{}` to
+everything reported `passed 0, failed 17, inconclusive 0, serviced 17,
+pass_rate 0.0`. The repair for the closed port had stopped absence reading
+as PASS; its input classifier still read absence as FAIL. Absence of a
+rejection word is not an acceptance decision.
+
+The classifier now has four states, and the fourth is the one an answer
+falls into by default. `unreachable`: no status or a 5xx. `rejected`:
+401/402/403 by status semantics (a 402 IS the protocol servicing the
+request, x402/L402 convention, and it says "not this one"), any other 4xx
+that states a denial, or a body with a rejection term, a decision flag set
+`false`, or a reject state. `accepted`: a RECOGNISED acceptance -- a true
+flag (`allowed`, `granted`, `accepted`, `approved`, `authorized`, `valid`,
+`verified`, `settled`, `success`), a state field (`status`, `state`,
+`decision`, `outcome`, ...) naming an accept state (`accepted`, `settled`,
+`authorized`, `completed`, `paid`, `captured`, ...), or an effect only the
+target can have minted (`settlement_id`, `tx_hash`, `authorization_code`,
+...), read at the top level and under envelope keys only, so a verifier
+that echoes the probe back -- AP2-016 sends `{"final": true, "verified":
+true}` inside a mandate -- has decided nothing. `undecided`: the target
+answered and asserted no decision. `fold_live_verdict` makes `undecided`
+INCONCLUSIVE with details saying the request was serviced and no decision
+came back; `live_run_scope` counts it as a live observation that was not
+scored, so the report no longer says "NOT reached" about a target that
+answered.
+
+Each of the five payment modules passes its protocol's acceptance
+vocabulary the way it already passed its rejection vocabulary (x402
+facilitator `isValid` / `success`, Fireblocks `COMPLETED` / `CONFIRMING`,
+ACP `order` / `completed`, card `approval_code` / `captured`, settlement
+`released` / `final` / `release_id`). `transaction`, `transaction_id`,
+`receipt` and `payment_id` are deliberately NOT effect keys: the probes
+send them. `settlement_finality_harness` held the fifth private copy of the
+classifier, with the same defect, and now routes through the shared one.
+
+**Application JSON could forge transport-failure metadata (R4-03).**
+`_utils.http_post_json` rebuilt `_status` from the real HTTP status and kept
+every other key the server sent, so `{"allowed": true, "_error": true,
+"_status": 503}` came back with `_error` intact and `payment_outcome({...})`
+returned `unreachable`: a body could downgrade its own affirmative decision
+to INCONCLUSIVE. That is CLAUDE.md item 3 with `_status` fixed and `_error`
+not. The transport now owns the whole underscore-prefixed namespace
+(`RESERVED_TRANSPORT_KEYS`): a server body is parsed, stripped of every
+`_`-prefixed key in one place, and only then does the transport write its
+own; what it removed is recorded under `_stripped_keys` so a forgery
+attempt stays in the evidence. `payment_outcome` reads only the application
+body for decisions and terms, so a recorded `_stripped_keys: ["_denied"]`
+is not a rejection word either. A 2xx whose body is not a JSON object now
+carries `_status` and `_raw` beside the `_error` the six other consumers of
+this transport already read, so a classifier can tell prose from a socket
+that never opened. `status` (the application's field) and `_status` (the
+transport's) stay distinct in both directions.
+
+Wire-level results, through a real loopback socket and the flat transport
+the five modules use: `{}` -> undecided; empty body -> undecided;
+`{"allowed": true}` -> accepted; `{"allowed": true, "_error": true,
+"_status": 503, "_exception": "URLError"}` -> accepted with
+`_stripped_keys: ["_error", "_exception", "_status", ...]`; 403
+`{"error": "denied"}` -> rejected; prose 200 -> undecided; JSON array 200
+-> undecided; 503 -> unreachable; closed port -> unreachable. `ap2` through
+the CLI against 200 `{}`: `passed 0, failed 0, inconclusive 17, serviced
+0`, no pass rate, every row's `live_evidence` = `{"verdict": "undecided",
+"status": 200}`.
+
+Tests: `testing/test_payment_decision_states.py` -- a truth table of 9
+transport states x 12 body shapes (every cell written before the code),
+the wire cases above, the reserved-key strip, the fold, the scope
+statement, and the AP2 CLI run. `testing/test_payment_outcome.py` pins the
+four-state branch table and registers `settlement_finality_harness` as a
+routed caller. Fault-injected: restoring `if 200 <= status < 300:` as the
+accepted branch fails 4 truth-table cells and all 17 AP2 rows; removing the
+strip (`result, stripped = parsed, []`) fails both wire-level forgery tests.
+No test IDs added or removed; the count stays at 623.
+
+
 ## [4.21.1] - 2026-09-07
 
 A patch release for the third external review of v4.21.0, run against the

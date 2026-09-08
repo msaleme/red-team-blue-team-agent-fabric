@@ -63,6 +63,7 @@ from datetime import datetime, timezone
 
 from protocol_tests._utils import Severity, http_post_json, json_stdout_only
 from protocol_tests.http_helpers import (fold_live_verdict, is_inconclusive,
+                                         payment_outcome,
                                          live_run_scope, run_summary,
                                          summary_lines)
 
@@ -203,24 +204,25 @@ class SettlementTestResult:
 
 def _live_rejected(url: str, headers: dict, payload: dict) -> tuple[str, dict]:
     """Probe a live settlement/release endpoint. verdict in
-    {rejected, accepted, unreachable}. A transport failure or 5xx is
-    'unreachable', never a pass."""
+    {rejected, accepted, undecided, unreachable}. A transport failure or 5xx
+    is 'unreachable', never a pass; an answer with no recognised decision is
+    'undecided', never a fail.
+
+    Routed through the shared `payment_outcome` on 2026-09-08 (R4-02): this
+    module held the fifth private copy of the classifier, and the copy still
+    read 200 ``{}`` as a release. The settlement vocabulary is passed as
+    *extra*: "pending", "withheld", "not final" and "unconfirmed" mean the
+    release was refused HERE and nowhere else. A release is stated as
+    released/final/finalized, or a settlement id / release id the target
+    minted. ``receipt`` is not an effect key: the probe sends one.
+    """
     resp = http_post_json(url, payload, headers, timeout=10)
-    if resp.get("_error"):
-        status = resp.get("_status", 0)
-        if status and 400 <= status < 500:
-            return ("rejected", resp)
-        return ("unreachable", resp)
-    status = resp.get("_status", 0)
-    if status >= 500 or status == 0:
-        return ("unreachable", resp)
-    text = json.dumps(resp).lower()
-    if any(w in text for w in ("reject", "denied", "withheld", "pending", "not final",
-                               "unconfirmed", "revoked", "expired", "invalid")):
-        return ("rejected", resp)
-    if 200 <= status < 300:
-        return ("accepted", resp)
-    return ("unreachable", resp)
+    return payment_outcome(
+        resp, extra=("withheld", "pending", "not final", "unconfirmed",
+                     "revoked", "expired"),
+        accept_flags=("released", "final", "finalized", "finalised"),
+        accept_states=("final", "finalized", "finalised", "released"),
+        accept_effects=("release_id", "settlement_receipt"))
 
 
 # ---------------------------------------------------------------------------

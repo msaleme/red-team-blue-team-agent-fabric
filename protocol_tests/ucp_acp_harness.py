@@ -301,11 +301,18 @@ class JourneyTestResult:
 def _live_rejected(url: str, headers: dict, payload: dict) -> tuple[str, dict]:
     """Probe a live merchant-journey verifier. Returns (verdict, evidence).
 
-    verdict in {"rejected", "accepted", "unreachable"}. Liveness gate: a
+    verdict in {"rejected", "accepted", "undecided", "unreachable"}. Liveness gate: a
     transport failure or 5xx is 'unreachable', never a pass.
     """
     resp = http_post_json(url, payload, headers, timeout=10)
-    return payment_outcome(resp, extra=("not authorized", "mismatch", "expired"))
+    # ACP: a checkout session that reached "completed" and an "order" object
+    # are the effect; the request sends {"session": ..., "completion": ...}
+    # and never an "order", so an echo cannot carry one.
+    return payment_outcome(
+        resp, extra=("not authorized", "mismatch", "expired"),
+        accept_flags=("completed", "charged"),
+        accept_states=("ready_for_complete", "fulfilled", "charged"),
+        accept_effects=("order", "order_id", "charge_id"))
 
 
 # ---------------------------------------------------------------------------
