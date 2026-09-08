@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.21.1] - 2026-09-07
+
+A patch release for the third external review of v4.21.0, run against the
+published wheel. Its Critical finding: five payment harnesses graded a live
+target that never answered by the reference model's verdict, so `pip install
+agent-security-harness==4.21.0` reported 17/17, 17/17, 12/12, 12/12 and 8/8
+PASS against a closed port. Every finding below was reproduced on the installed
+package or a clean worktree before it was fixed, and each fix was fault-injected
+to show its test fails without it. No test IDs were added or removed; the count
+stays at 623.
+
 ### Fixed
 
 **HITL-005..008 passed against a target that said nothing (absence read as
