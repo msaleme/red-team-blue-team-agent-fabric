@@ -14,7 +14,22 @@
 #   * they sign fictional test authorities, never a real trust anchor
 #
 # Removing them would make the fixtures unverifiable, which is their purpose.
+#
+# The provenance redaction tests must construct credential-shaped strings in
+# order to assert that they are stripped from the published report. GitGuardian
+# classified the `https://alice:...@host.example/mcp` fixture as a "Basic Auth
+# String" (PR #530, commit f4e3f5b) -- it scanned the test that proves we redact.
+#
+# They are not secrets:
+#   * every value is a self-labelling fake: `...NOTAREALKEY...`,
+#     `correct-horse-battery-staple`, and the reserved `host.example` domain
+#   * they are asserted ABSENT from output; a fixture that leaked would fail the
+#     test rather than expose anything
+#   * no value has ever authenticated against any service
+#
+# Removing them would delete the redaction coverage they exist to provide.
 version: 2
 secret:
   ignored-paths:
     - fixtures/rcl/*.json
+    - tests/test_report_states_its_provenance.py
