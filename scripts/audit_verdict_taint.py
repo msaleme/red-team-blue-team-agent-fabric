@@ -58,6 +58,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PROTOCOL_TESTS = REPO_ROOT / "protocol_tests"
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 # A floor, not the list. These cover responses that arrive as a *parameter*
 # (``def _leak(resp)``) where there is no assignment to derive from.
@@ -237,13 +239,17 @@ def audit(module_path: Path) -> list[dict]:
 
 
 def candidate_modules() -> list[Path]:
-    """Same derivation as testing/test_serviced_guard.py: records a response."""
-    out = []
-    for path in sorted(PROTOCOL_TESTS.glob("*.py")):
-        src = path.read_text(encoding="utf-8")
-        if "def _record" in src and "response_received" in src:
-            out.append(path)
-    return out
+    """Same derivation as testing/test_serviced_guard.py: records a response.
+
+    The same FUNCTION, not the same rule copied: until 2026-09-07 this held its
+    own copy of a source-text match (the literal text of a `_record` def and the
+    literal `response_received`), and so did the guard suite, and both missed
+    every module that inherits `_record` from RecordingHarness instead of
+    defining one. protocol_tests.asi_inventory.response_recording_modules starts
+    from the CLI registry and reads the fact off the imported module.
+    """
+    from protocol_tests.asi_inventory import response_recording_modules
+    return [PROTOCOL_TESTS / f"{stem}.py" for stem in sorted(response_recording_modules())]
 
 
 def main() -> int:
