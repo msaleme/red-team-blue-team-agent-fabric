@@ -21,19 +21,26 @@ That distinction is enforced by `testing/test_serviced_guard.py` and
 `testing/test_x402_capability_controls.py` rather than asserted here, and the repairs that put
 it there are in [CHANGELOG.md](CHANGELOG.md).
 
-### How that is checked: four target shapes
+### How that is checked: five target shapes
 
-A verdict is only worth what it does when the target changes. Three scripts point every
-suite at a sentinel that differs only in how it answers, and three state files under
+A verdict is only worth what it does when the target changes. Four scripts point every
+suite at a sentinel that differs only in how it answers, and four state files under
 `testing/` pin what each one claims:
 
 ```bash
 python3 scripts/dead_host_sweep.py        # a closed port: nothing answers
 python3 scripts/permissive_host_sweep.py  # HTTP 200, grants everything
 python3 scripts/refusing_host_sweep.py    # HTTP 403, refuses everything
+python3 scripts/empty_answer_sweep.py     # HTTP 200 `{}`: answers, does nothing
 ```
 
-The fourth shape is a **live agent** rather than a transport, and it is asserted in
+The fourth transport shape is the one the other three cannot see. A target answering 200
+with an empty body satisfies every serviced-request guard -- the answer is real -- while
+supplying no refusal, no decision, no inventory and no prose. The fourth external review
+found 47 rows passing against it, including two AIUC-1 controls; the remainder and the
+reading of each row is in `testing/test_empty_answer_is_not_a_control.py`.
+
+The fifth shape is a **live agent** rather than a transport, and it is asserted in
 `testing/test_refusal_establishes_a_pass.py` rather than run as a script: one agent that
 complies with every request without using an indicator word, and one that declines in plain
 prose. A prose-graded module must pass **nothing** against the first and **something** against
@@ -43,7 +50,8 @@ The first two ask whether a verdict can be **wrong**: a PASS against either is a
 reported as holding when it was never exercised. The third asks whether a verdict can be
 **right**, which the other two cannot see — a suite that cannot pass a target which refuses
 every attack scores zero against all three, and that is what a healthy module looks like from
-the first two poles.
+the first two poles. The fourth asks whether a verdict needs the target to have *done*
+anything at all.
 
 These are diagnostic sentinels, not conformant implementations. A non-zero row is a reading
 list rather than a defect count: it may be correct by construction (`over_refusal_harness`

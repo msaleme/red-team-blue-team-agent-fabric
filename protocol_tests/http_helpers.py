@@ -275,6 +275,104 @@ def agent_prose(resp, _depth: int = 0) -> str:
     return " ".join(out)
 
 
+#: Flat fields under which an agent endpoint returns its user-facing reply when
+#: it does not speak A2A. ``response`` is the package convention (``_leak``
+#: reads it); ``text`` is what the hitl fixtures use.
+MESSAGE_FIELDS = ("text", "response", "content", "message", "output", "reply",
+                  "answer")
+
+_MESSAGE_DEPTH = 3
+
+
+def agent_message_text(resp, _depth: int = 0) -> str:
+    """Provenance-checked: the user-facing text the AGENT wrote, or ``""``.
+
+    Not the same question as :func:`agent_prose`. That one collects *words to
+    classify* and descends permissively -- through ``detail``, ``error``
+    messages, quoted history -- because a classifier wants everything the
+    reply said. This one answers a narrower question that several verdicts
+    hang a PASS on: *did the agent write anything to a human at all*. So it
+    excludes what is not the agent's authorship:
+
+    - echoed user-role parts (A2A ``status.message`` / ``message`` /
+      ``history`` entries with ``role: user``), through the reader
+      ``a2a_harness`` already has for that purpose;
+    - error envelopes -- ``error``, ``_error``, ``_exception``, ``detail`` --
+      a backend saying "unable to connect to the model" is not the agent
+      declining anything (fourth external review, R4-04);
+    - markup bodies, and whitespace.
+
+    Written for HITL-005..008 as ``hitl_harness._agent_message_text`` (#540),
+    promoted here 2026-09-08 when IR-003, AIUC-E002, AIUC-C004a and WM-002
+    turned out to need the same reader: each graded an empty 200 as the agent
+    having said something safe (R4-01). One reader, one set of exclusions.
+
+    Reads, in order: the A2A ``result`` shapes; the ``response`` wrapper the
+    package's own transports put a parsed body under; the flat
+    ``MESSAGE_FIELDS`` at the top level and under ``result``; then a non-JSON
+    body (``_raw``) unless it looks like markup.
+    """
+    if not isinstance(resp, dict) or _depth > _MESSAGE_DEPTH:
+        return ""
+    chunks: list[str] = []
+    try:
+        from protocol_tests.a2a_harness import _a2a_agent_output_text
+        chunks.append(_a2a_agent_output_text(resp))
+    except Exception:  # pragma: no cover - the flat readers below still run
+        pass
+    # The package transports (http_post_json, http_get, http_post) return the
+    # parsed body under "response". Read through it once, so a wrapped A2A
+    # answer reaches the role-aware reader above.
+    wrapped = resp.get("response")
+    if isinstance(wrapped, dict):
+        chunks.append(agent_message_text(wrapped, _depth + 1))
+    result = resp.get("result")
+    for container in (resp, result if isinstance(result, dict) else {}):
+        for key in MESSAGE_FIELDS:
+            v = container.get(key)
+            if isinstance(v, str):
+                chunks.append(v)
+            elif isinstance(v, dict) and v.get("role") != "user":
+                for inner in MESSAGE_FIELDS:
+                    iv = v.get(inner)
+                    if isinstance(iv, str):
+                        chunks.append(iv)
+    raw = resp.get("_raw")
+    if isinstance(raw, str) and not raw.lstrip().startswith("<"):
+        chunks.append(raw)
+    return " ".join(c.strip() for c in chunks if c and c.strip())
+
+
+def echoed_user_parts_only(resp) -> bool:
+    """True when the only text in an A2A answer is the caller's own message.
+
+    The shape R4-04 reproduced: ``result.status.message`` with ``role: user``
+    and the harness's prompt echoed back, and no agent-authored part anywhere.
+    A refusal read out of that text is the harness grading itself.
+    """
+    if not isinstance(resp, dict):
+        return False
+    if agent_message_text(resp):
+        return False
+    inner = resp.get("response") if isinstance(resp.get("response"), dict) else None
+    for container in (resp, inner or {}):
+        result = container.get("result")
+        if not isinstance(result, dict):
+            continue
+        candidates = []
+        status = result.get("status")
+        if isinstance(status, dict):
+            candidates.append(status.get("message"))
+        candidates.append(result.get("message"))
+        candidates.extend(result.get("history") or [])
+        for msg in candidates:
+            if isinstance(msg, dict) and msg.get("role") == "user":
+                for part in msg.get("parts") or []:
+                    if isinstance(part, dict) and str(part.get("text", "")).strip():
+                        return True
+    return False
+
+
 #: Words that mean a PAYMENT PROTOCOL rejected a request, as distinct from an
 #: agent declining in prose. Four payment modules each kept their own copy of
 #: this tuple, and none of them received the word-boundary or negation fixes

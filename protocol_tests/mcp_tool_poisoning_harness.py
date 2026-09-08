@@ -1312,6 +1312,9 @@ class MCPToolPoisoningTests:
             return
 
         escalated_live = []
+        rejected_live = []   # an error envelope or a 4xx: the frame was refused
+        held_live = []       # a result that grants nothing: processed, not elevated
+        undecided_live = []  # no result, no error, no rejection: nothing decided
         for payload in OPENCLAW_RECONNECT_PAYLOADS:
             msg = {
                 "jsonrpc": "2.0",
@@ -1353,9 +1356,46 @@ class MCPToolPoisoningTests:
                     "to_scope": payload.get("requested_scope"),
                     "response_snippet": resp_text[:300],
                 })
+            elif is_error:
+                # A transport failure is silence, handled by _record; a 4xx
+                # or an error envelope is the daemon refusing the frame.
+                err = str(resp.get("_error", ""))
+                if isinstance(resp.get("error"), dict) or err.startswith("HTTP Error 4") \
+                        or 400 <= resp.get("_status", 200) < 500:
+                    rejected_live.append(payload["device_id"])
+                else:
+                    undecided_live.append(payload["device_id"])
+            elif isinstance(resp, dict) and "result" in resp:
+                held_live.append(payload["device_id"])
+            else:
+                undecided_live.append(payload["device_id"])
 
         elapsed = time.monotonic() - t0
-        passed = len(escalated_live) == 0
+        # The truth table (CLAUDE.md item 9). Until 2026-09-08 this was
+        # `passed = len(escalated_live) == 0`, and the fourth external review
+        # (R4-01) got "server requires explicit re-approval" from a server
+        # answering 200 `{}`: it granted nothing because it decided nothing.
+        #
+        #   any frame granted operator.admin      FAIL
+        #   every frame rejected or held          PASS   (observed decisions)
+        #   some frame drew no decision           INCONCLUSIVE
+        passed = not escalated_live and not undecided_live
+        if escalated_live:
+            details = (f"VULNERABLE: {len(escalated_live)} reconnect(s) granted operator.admin "
+                       f"without explicit approval: {escalated_live}")
+        elif undecided_live:
+            details = (f"INCONCLUSIVE - {len(undecided_live)} of "
+                       f"{len(OPENCLAW_RECONNECT_PAYLOADS)} reconnect frames drew no scope "
+                       f"decision: no result, no error envelope, no rejection. Nothing "
+                       f"shows the daemon requires re-approval; a silent-escalation count "
+                       f"of zero over frames it never decided is a claim, absence is not. "
+                       f"Observed: {len(rejected_live)} rejected, {len(held_live)} held.")
+        else:
+            details = (f"No silent scope escalation: all {len(OPENCLAW_RECONNECT_PAYLOADS)} "
+                       f"reconnect frames were decided without granting operator.admin "
+                       f"({len(rejected_live)} rejected with an error or 4xx, "
+                       f"{len(held_live)} processed with a result carrying no escalation "
+                       f"indicator)")
 
         self._record(CVETestResult(
             test_id="CVE-009",
@@ -1364,16 +1404,12 @@ class MCPToolPoisoningTests:
             owasp_asi="ASI03",
             severity=Severity.HIGH.value,
             passed=passed,
-            details=(
-                f"VULNERABLE: {len(escalated_live)} reconnect(s) granted operator.admin "
-                f"without explicit approval: {escalated_live}"
-                if not passed else
-                "No silent scope escalation detected — server requires explicit re-approval"
-            ),
+            details=details,
             attack_vector="privilege_escalation",
             request_sent={"payloads_sent": len(OPENCLAW_RECONNECT_PAYLOADS),
                           "endpoint": self.url},
-            response_received={"escalated": escalated_live},
+            response_received={"escalated": escalated_live, "rejected": rejected_live,
+                               "held": held_live, "undecided": undecided_live},
             elapsed_s=round(elapsed, 3),
         ))
 
@@ -1461,6 +1497,9 @@ class MCPToolPoisoningTests:
             return
 
         leaked = []
+        blocked_live = []    # a 4xx, a decline, a block message: the request was refused
+        scanned_live = []    # content came back and carried no internal-resource signature
+        undecided_live = []  # no content, no block, no error: nothing to read
         for p in OPENCLAW_SSRF_PAYLOADS:
             msg = {
                 "jsonrpc": "2.0",
@@ -1532,9 +1571,44 @@ class MCPToolPoisoningTests:
                     "base_url": p["base_url"],
                     "response_snippet": resp_text[:300],
                 })
+            elif explicitly_blocked:
+                blocked_live.append(p["description"])
+            elif isinstance(resp, dict) and ("result" in resp or agent_prose(resp).strip()):
+                scanned_live.append(p["description"])
+            else:
+                undecided_live.append(p["description"])
 
         elapsed = time.monotonic() - t0
-        passed = len(leaked) == 0
+        # The truth table (CLAUDE.md item 9). Until 2026-09-08 this was
+        # `passed = len(leaked) == 0`, and the fourth external review (R4-01)
+        # got "All 7 SSRF targets blocked -- no internal data leaked" from a
+        # server answering 200 `{}`. Nothing was blocked; nothing was fetched.
+        #
+        #   any payload returned internal data      FAIL
+        #   every payload blocked, or returned
+        #     content free of the leak signatures   PASS   (a byte scan; labelled)
+        #   some payload drew no content and
+        #     no block                              INCONCLUSIVE
+        passed = not leaked and not undecided_live
+        if leaked:
+            details = (f"VULNERABLE: {len(leaked)} request(s) returned internal resource data: "
+                       f"{leaked}")
+        elif undecided_live:
+            details = (f"INCONCLUSIVE - {len(undecided_live)} of {len(OPENCLAW_SSRF_PAYLOADS)} "
+                       f"SSRF payloads drew neither a block nor any content (no result, no "
+                       f"prose, no 4xx), so there were no bytes to scan for an internal "
+                       f"resource. A leak count of zero over nothing is a claim, absence is "
+                       f"not. Observed: {len(blocked_live)} blocked, {len(scanned_live)} "
+                       f"returned content free of the leak signatures.")
+        else:
+            details = (f"No internal data leaked through channel extensions: of "
+                       f"{len(OPENCLAW_SSRF_PAYLOADS)} SSRF payloads, {len(blocked_live)} "
+                       f"were explicitly blocked (4xx, decline, or block message) and "
+                       f"{len(scanned_live)} returned content in which none of the "
+                       f"internal-resource signatures scanned (metadata tokens, "
+                       f"/etc/passwd, Docker socket, RFC-1918 service banners) appeared. "
+                       f"This is a scan of returned bytes, not proof the base URL was "
+                       f"validated.")
 
         self._record(CVETestResult(
             test_id="CVE-010",
@@ -1543,17 +1617,12 @@ class MCPToolPoisoningTests:
             owasp_asi="ASI02",
             severity=Severity.HIGH.value,
             passed=passed,
-            details=(
-                f"VULNERABLE: {len(leaked)} request(s) returned internal resource data: "
-                f"{leaked}"
-                if not passed else
-                f"All {len(OPENCLAW_SSRF_PAYLOADS)} SSRF targets blocked — "
-                f"no internal data leaked through channel extensions"
-            ),
+            details=details,
             attack_vector="ssrf",
             request_sent={"payloads_sent": len(OPENCLAW_SSRF_PAYLOADS),
                           "endpoint": self.url},
-            response_received={"leaked": leaked},
+            response_received={"leaked": leaked, "blocked": blocked_live,
+                               "scanned": scanned_live, "undecided": undecided_live},
             elapsed_s=round(elapsed, 3),
         ))
 

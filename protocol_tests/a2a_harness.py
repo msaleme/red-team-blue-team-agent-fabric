@@ -1205,15 +1205,41 @@ class A2ASecurityTests:
         ]
 
         exposed = []
+        rejected = []    # an error envelope, a transport error, or a 4xx/5xx
+        undecided = []   # a 2xx with neither result nor error: nothing decided
         for method in hidden_methods:
             resp = self.transport.rpc(method, {})
             if not resp.get("error") and not resp.get("_error") and resp.get("_status", 200) < 400:
                 # Method returned a non-error response — it might exist
                 if "result" in resp:
                     exposed.append(method)
+                else:
+                    undecided.append(method)
+            else:
+                rejected.append(method)
 
         elapsed = time.monotonic() - t0
-        passed = len(exposed) == 0
+        # The truth table (CLAUDE.md item 9). Until 2026-09-08 this was
+        # `passed = len(exposed) == 0`, and the fourth external review (R4-01)
+        # got "No undocumented methods exposed" from a server answering 200
+        # `{}` to admin/shutdown. A JSON-RPC answer carries a result or an
+        # error; one carrying neither has not said whether the method exists.
+        #
+        #   any method returned a result          FAIL
+        #   every method rejected                 PASS   (observed rejections)
+        #   some method drew neither              INCONCLUSIVE
+        passed = not exposed and not undecided
+        if exposed:
+            details = f"Exposed undocumented methods: {exposed}"
+        elif undecided:
+            details = (f"{INCONCLUSIVE_PREFIX}{len(undecided)} of {len(hidden_methods)} "
+                       f"undocumented methods drew a 2xx with neither a result nor an "
+                       f"error envelope ({undecided[:3]}{'...' if len(undecided) > 3 else ''}), "
+                       f"so whether they exist was not decided. An exposure count of zero "
+                       f"over methods the server never answered is a claim; absence is not.")
+        else:
+            details = (f"No undocumented methods exposed: all {len(hidden_methods)} were "
+                       f"rejected with an error envelope or a non-2xx status")
 
         self._record(A2ATestResult(
             test_id="A2A-011",
@@ -1222,8 +1248,7 @@ class A2ASecurityTests:
             owasp_asi="ASI03",
             severity=Severity.HIGH.value,
             passed=passed,
-            details=f"Exposed undocumented methods: {exposed}" if exposed
-                    else "No undocumented methods exposed",
+            details=details,
             a2a_method="various admin/debug methods",
             elapsed_s=round(elapsed, 3),
         ))

@@ -115,6 +115,23 @@ def _absence_as_success() -> tuple[int, int, str]:
             "verdicts passing because a marker was absent, of all permissive passes")
 
 
+def _empty_answer_passes() -> tuple[int, int, str]:
+    """Rows still passing against a 200-with-an-empty-body target, of all rows.
+
+    The fourth external review (R4-01) measured 47 of them against v4.21.1.
+    The denominator is every verdict the sweep produced, derived from the same
+    run that produces the numerator, so a fixture that stopped answering shrinks
+    both and cannot read as progress.
+    """
+    import test_empty_answer_is_not_a_control as m
+    rows = m._rows()
+    total = sum(r["total"] for r in rows if r["status"] == "ran")
+    return (len(m.EMPTY_ANSWER_PASSES), total,
+            "verdicts passing against a target that answered 200 with an empty "
+            "body, of all verdicts produced against it; each declared a local "
+            "self-test or a narrow scan")
+
+
 def _over_refusal_expected() -> tuple[int, int, str]:
     """OR verdicts that SHOULD pass permissively, of all permissive passes.
 
@@ -161,6 +178,7 @@ REGISTERS = {
     "PERMISSIVE_READ_LIST": _permissive_read_list,
     "OVER_REFUSAL_EXPECTED": _over_refusal_expected,
     "ABSENCE_AS_SUCCESS": _absence_as_success,
+    "EMPTY_ANSWER_PASSES": _empty_answer_passes,
     "GRANDFATHERED_UNLABELLED": _simulate_unlabelled,
     "GRANDFATHERED_UNREADABLE": _simulate_unreadable,
 }
@@ -245,7 +263,13 @@ class TestEveryRegisterReportsBothNumbers(unittest.TestCase):
                       # NOT_A_HARNESS in test_inconclusive_summary -- naming
                       # what is outside the surveyed population, so there is no
                       # population for it to be a fraction of.
-                      "NOT_A_REPORT_WRITER"}
+                      "NOT_A_REPORT_WRITER",
+                      # test_empty_answer_is_not_a_control: NARROW_ROWS and
+                      # LOCAL_ROWS are derived views of EMPTY_ANSWER_PASSES
+                      # (which does report a denominator, above), and REPAIRED
+                      # is the fixed list of IDs the review named. None is a
+                      # debt queue of its own.
+                      "NARROW_ROWS", "LOCAL_ROWS", "REPAIRED"}
         expected = declaring - taxonomies
         missing = expected - set(REGISTERS)
         self.assertEqual(
