@@ -140,6 +140,22 @@ Each assertion checks a condition after all attack steps complete.
 | `field_equals` | Field must equal a specific value | `field`, `value` |
 | `field_matches` | Field must match a regex | `field`, `value` (regex) |
 
+### Regex bound for `field_matches`
+
+The regex in a `field_matches` assertion is evaluated under a hard budget,
+because plugin YAML is untrusted input to the runner:
+
+- pattern length at most 200 characters, input truncated to 10,000 characters;
+- nested quantifiers such as `(a+)+` are rejected before evaluation;
+- the match runs in a separate interpreter that is killed after 1.0 second of
+  wall clock (`MAX_REGEX_EVAL_SECONDS` in `community_runner.py`).
+
+An assertion that is rejected, does not compile, or is killed at the budget is
+reported as INCONCLUSIVE (`pattern evaluation exceeded budget`), not as PASS
+and not as FAIL, and a pattern containing one is INCONCLUSIVE as a whole
+(`not_evaluated: true` in the result). Keep patterns simple and unambiguous:
+`(a|aa)+$` is 8 characters and never finishes.
+
 ## Evidence Schema
 
 The `evidence_schema` declares what evidence this pattern collects. This is validated at load time to ensure the pattern runner captures the right data.
