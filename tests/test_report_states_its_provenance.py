@@ -301,7 +301,8 @@ def test_a_bearer_header_does_not_reach_the_document():
     # Separated form was caught by accident (partition at the right `=`);
     # pinned so the URL parser, not the accident, is what holds it.
     (["p", "--url", "http://127.0.0.1:9/?token=" + CANARY], CANARY),
-    # Names the auth regex does not know. Only an allowlist catches these.
+    # Names the auth regex does not know. These were the case for the query
+    # allowlist; the authority-only rule (R4-09) covers them positionally.
     (["p", "--url", "http://127.0.0.1:9/?sig=" + CANARY], CANARY),
     (["p", "--url=http://127.0.0.1:9/?k=" + CANARY], CANARY),
     (["p", "--url=http://127.0.0.1:9/?transport=sse&code=" + CANARY], CANARY),
@@ -319,44 +320,101 @@ def test_ordinary_arguments_survive_intact():
     """Over-redaction that eats the command is its own failure.
 
     A provenance record that cannot say which model or which target was used
-    has replaced one unverifiable claim with another.
+    has replaced one unverifiable claim with another. Under the URL contract
+    (R4-09) the target is `scheme://host:port`; the path is not part of it.
     """
     out, redacted = redact_argv(
         ["p", "test", "agent-data-injection", "--model", "qwen3.5:latest",
          "--trials", "3", "--url", "http://localhost:8080/mcp"])
     assert out == ["p", "test", "agent-data-injection", "--model",
                    "qwen3.5:latest", "--trials", "3", "--url",
-                   "http://localhost:8080/mcp"]
-    assert redacted is False
-
-
-def test_the_rest_of_the_url_survives_query_redaction():
-    """Reproducibility: scheme, host, port, path and allowlisted selectors
-    are kept byte-for-byte; only the unallowlisted VALUE is replaced."""
-    out, redacted = redact_argv(
-        ["p", "--url=http://127.0.0.1:9/mcp?transport=sse&api_key" + "=" + CANARY])
-    assert out == ["p", "--url=http://127.0.0.1:9/mcp?transport=sse&api_key=[REDACTED]"]
+                   "http://localhost:8080/[REDACTED]"]
+    # A component was removed, so the flag is true. It is not a claim that a
+    # credential was found -- `not_claimed` says exactly that.
     assert redacted is True
 
 
-def test_allowlisted_query_selectors_do_not_set_the_flag():
-    """`?transport=sse` is a protocol selector, not a secret. Replacing it
-    would both lose the reproduction and make `argv_redacted` mean nothing."""
+def test_the_url_authority_survives_and_nothing_else_does():
+    """Reproducibility needs what was contacted, not what was asked for.
+
+    Scheme, host and port are kept byte-for-byte; path, query and fragment are
+    each replaced whole. The previous contract kept the path as sent and
+    replaced query/fragment values by parameter NAME, which four shapes walked
+    through (R4-09).
+    """
     out, redacted = redact_argv(
-        ["p", "--url", "http://localhost:8080/mcp?transport=sse&version=2"])
-    assert out == ["p", "--url", "http://localhost:8080/mcp?transport=sse&version=2"]
-    assert redacted is False
+        ["p", "--url=http://127.0.0.1:9/mcp?transport=sse&api_key" + "=" + CANARY])
+    assert out == ["p", "--url=http://127.0.0.1:9/[REDACTED]?[REDACTED]"]
+    assert redacted is True
 
 
-def test_the_query_allowlist_is_stated_in_not_claimed():
-    """A reader of the published block must be able to tell a [REDACTED]
-    query value from a credential without reading this module."""
-    from protocol_tests.run_provenance import _QUERY_PARAM_ALLOWLIST
+@pytest.mark.parametrize("argv,expect", [
+    # A token as a PATH segment. The allowlist never looked here.
+    (["p", "--url", "http://127.0.0.1:9/v1/" + CANARY + "/run"],
+     ["p", "--url", "http://127.0.0.1:9/[REDACTED]"]),
+    # A token as the FRAGMENT with no `name=` to split on.
+    (["p", "--url=http://127.0.0.1:9/cb#" + CANARY],
+     ["p", "--url=http://127.0.0.1:9/[REDACTED]#[REDACTED]"]),
+    # A bare query token: no `=`, so the name/value split found nothing.
+    (["p", "--url", "http://127.0.0.1:9/?" + CANARY],
+     ["p", "--url", "http://127.0.0.1:9/?[REDACTED]"]),
+    # A token under an ALLOWLISTED name. An allowlist of names cannot prove an
+    # allowed value is nonsecret; this is the shape that retired the allowlist.
+    (["p", "--url=http://127.0.0.1:9/?format=" + CANARY],
+     ["p", "--url=http://127.0.0.1:9/?[REDACTED]"]),
+])
+def test_the_four_opaque_url_shapes_do_not_survive(argv, expect):
+    """R4-09, one case per shape the fourth external review walked through."""
+    out, redacted = redact_argv(argv)
+    assert CANARY not in " ".join(out), out
+    assert out == expect
+    assert redacted is True
+
+
+def test_the_authority_is_kept_so_the_run_is_still_locatable():
+    """The other half of the contract: over-redaction that removes the target
+    is a different failure, not a safer one."""
+    out, _ = redact_argv(["p", "--url", "https://target.example:8443/v1/x?y=1#z"])
+    assert out == ["p", "--url", "https://target.example:8443/[REDACTED]?[REDACTED]#[REDACTED]"]
+    assert "target.example:8443" in out[2]
+
+
+def test_a_url_with_no_path_query_or_fragment_is_untouched():
+    """Nothing was removed, so nothing is claimed to have been."""
+    for url in ("http://127.0.0.1:9", "http://127.0.0.1:9/", "https://host.example"):
+        out, redacted = redact_argv(["p", "--url", url])
+        assert out == ["p", "--url", url]
+        assert redacted is False
+
+
+def test_userinfo_is_still_removed_when_the_path_is_too():
+    """Splitting before the userinfo substitution matters: replacing it first
+    puts brackets in the netloc, `urlsplit` raises 'invalid IPv6 URL', and the
+    old order returned early on exactly the arguments carrying a credential."""
+    out, redacted = redact_argv(
+        ["p", "--url", "https://alice:" + FAKE_PASSWORD + "@host.example/mcp"])
+    assert out == ["p", "--url", "https://[REDACTED]@host.example/[REDACTED]"]
+    assert FAKE_PASSWORD not in " ".join(out)
+    assert redacted is True
+
+
+def test_an_ipv6_authority_survives_intact():
+    out, _ = redact_argv(["p", "--url", "http://[::1]:8080/mcp"])
+    assert out == ["p", "--url", "http://[::1]:8080/[REDACTED]"]
+
+
+def test_the_url_contract_is_stated_in_not_claimed():
+    """A reader of the published block must be able to tell a [REDACTED] URL
+    component from a credential -- and must not be told that no hostname is
+    recorded while a hostname sits in argv beside the sentence (R4-09)."""
+    from protocol_tests.run_provenance import URL_REPLACED, URL_RETAINED
     with mock.patch.object(sys, "argv", ["p"]):
         text = " ".join(run_provenance()["not_claimed"])
-    for name in _QUERY_PARAM_ALLOWLIST:
-        assert name in text, name
-    assert "not evidence that a credential was there" in text
+    assert URL_RETAINED in text and URL_REPLACED in text
+    assert "HOSTNAME IS recorded" in text
+    assert "never that a credential was found" in text
+    # The contradiction the review named: the old sentence promised this.
+    assert "No hostname" not in text
 
 
 def test_help_is_not_treated_as_a_header_flag():
@@ -712,10 +770,22 @@ def test_no_absolute_path_survives_into_the_publication_copy(argv):
     assert "run.json" in published
 
 
-def test_innocent_arguments_are_not_redacted():
-    """Over-redaction hides what was run; the flag must mean 'a secret was here'."""
-    out, redacted = redact_argv(["p", "--url", "http://localhost:8080/mcp",
-                                 "--trials", "5", "--report", "/home/alice/out.json"])
-    assert redacted is False, out
-    assert out == ["p", "--url", "http://localhost:8080/mcp", "--trials", "5",
+def test_innocent_arguments_are_not_eaten():
+    """Over-redaction hides what was run.
+
+    Everything outside a URL and outside an absolute path survives verbatim;
+    the URL keeps its authority; the absolute path keeps its basename.
+    """
+    out, _ = redact_argv(["p", "--url", "http://localhost:8080/mcp",
+                          "--trials", "5", "--report", "/home/alice/out.json"])
+    assert out == ["p", "--url", "http://localhost:8080/[REDACTED]", "--trials", "5",
                    "--report", "out.json"], out
+
+
+def test_a_run_with_no_url_still_sets_no_flag():
+    """The flag must not become universally true: without a URL and without a
+    credential, nothing was replaced."""
+    out, redacted = redact_argv(["p", "test", "mcp", "--trials", "5",
+                                 "--report", "/home/alice/out.json"])
+    assert redacted is False, out
+    assert out == ["p", "test", "mcp", "--trials", "5", "--report", "out.json"]

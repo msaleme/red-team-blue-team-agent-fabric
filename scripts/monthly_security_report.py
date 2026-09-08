@@ -5,10 +5,17 @@ Reads MCP server targets from configs/monthly_targets.yaml, runs the full
 MCP security harness against each, and produces a combined monthly report
 in markdown.
 
+Checkout-only resource: the DEFAULT config is the repository's
+`configs/monthly_targets.yaml`, whose entries are example targets, and the
+default output directory is `reports/monthly/` under the checkout. Neither
+exists in an installed wheel. Run with no arguments from an installed package
+and the command prints one line naming the missing resource and exits 2
+(fourth external review, R4-15). Supply `--config` and `--output-dir` and it
+runs anywhere.
+
 Usage:
-    python scripts/monthly_security_report.py
-    python scripts/monthly_security_report.py --config configs/monthly_targets.yaml
-    python scripts/monthly_security_report.py --month 2026-03
+    python -m scripts.monthly_security_report --config targets.yaml --output-dir out/
+    python -m scripts.monthly_security_report --month 2026-03 --config targets.yaml
 """
 
 from __future__ import annotations
@@ -281,8 +288,20 @@ def main():
     # Determine month
     month = args.month or datetime.now(timezone.utc).strftime("%Y-%m")
 
-    # Load config
+    # Load config. The DEFAULT config lives in the checkout and is not shipped;
+    # missing it is a one-line exit 2 naming the resource, not a generic error,
+    # because "run this from a clone or pass --config" is the actionable half.
+    # `parser.get_default` rather than rebuilding the path: one more
+    # REPO_ROOT join here would raise this script's floor in
+    # testing/test_packaged_scripts_resolve.py, which is a list that shrinks.
     if not os.path.exists(args.config):
+        if os.path.abspath(args.config) == os.path.abspath(parser.get_default("config")):
+            print(f"monthly_security_report.py: checkout-only resource missing: "
+                  f"configs/monthly_targets.yaml (expected at {args.config}). The "
+                  f"default target list and reports/ directory are not shipped in "
+                  f"the wheel; run from a clone or pass --config PATH "
+                  f"--output-dir DIR.", file=sys.stderr)
+            sys.exit(2)
         print(f"Error: Config file not found: {args.config}", file=sys.stderr)
         sys.exit(1)
 

@@ -40,11 +40,23 @@ from protocol_tests.version import get_harness_version
 
 HARNESS_VERSION = get_harness_version()
 
+# A help page must not require the optional dependency. This module answered
+# `--help` with "Error: discord.py is required" and exit 1 -- true, and not an
+# answer to the question asked (fourth external review, R4-15). The check is
+# here, above the import, because the bot's command decorators run at import
+# time and there is no later point that is still before the failure.
+if any(a in ("-h", "--help") for a in sys.argv[1:]):
+    print(__doc__.strip())
+    print()
+    print("Requires the optional dependency discord.py: pip install discord.py python-dotenv")
+    sys.exit(0)
+
 try:
     import discord
     from discord.ext import commands
 except ImportError:
-    print("Error: discord.py is required. Install with: pip install discord.py")
+    print("Error: discord.py is required. Install with: pip install discord.py",
+          file=sys.stderr)
     sys.exit(1)
 
 try:

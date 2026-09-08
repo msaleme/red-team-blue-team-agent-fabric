@@ -46,13 +46,30 @@ REQUIRED = load_schema_required()
 
 
 def _report():
+    """A report that validates against schemas/attestation-report.json in full.
+
+    It did not, until 2026-09-08: `schema_version: "1.0"` (the schema pins the
+    const "1.0.0") and an entry of `{"id": ..., "result": ...}` missing five
+    required fields. The wire tests still passed, because the server checked
+    only that the schema's required TOP-LEVEL keys were present (R4-11). A
+    fixture that cannot pass the check the contract asks for cannot demonstrate
+    that the check runs.
+    """
     return {
-        "schema_version": "1.0",
+        "schema_version": "1.0.0",
         "harness_version": "4.15.0",
         "suite": "mcp",
         "timestamp": "2026-08-14T12:00:00Z",
         "summary": {"total": 1, "passed": 1, "failed": 0},
-        "entries": [{"id": "MCP-001", "result": "pass"}],
+        "entries": [{
+            "test_id": "MCP-001",
+            "name": "Tool List Integrity Check",
+            "category": "tool_poisoning",
+            "result": "pass",
+            "severity": "P2-Medium",
+            "scope": {"protocol": "mcp", "layer": "protocol"},
+            "timestamp": "2026-08-14T12:00:00Z",
+        }],
     }
 
 

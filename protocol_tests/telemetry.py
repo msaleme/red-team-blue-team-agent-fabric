@@ -1,11 +1,12 @@
 """Anonymous usage telemetry for agent-security-harness.
 
-WHAT THIS SENDS: version, module_name, test_count, passed, failed, inconclusive, os, python_version, timestamp
+WHAT THIS SENDS: version, module_name, counts_available, test_count, passed, failed, inconclusive, os, python_version, timestamp
+  (when the counts are unavailable the four count fields are OMITTED and a fixed `reason` token is sent instead)
 WHAT THIS NEVER SENDS: URLs, results, payloads, credentials, IPs
 
 OPT IN: export AGENT_SECURITY_TELEMETRY=on
 
-This module is intentionally small (<100 lines) so you can audit it in 2 minutes.
+This module is intentionally small so you can audit it in a few minutes.
 Source: https://github.com/msaleme/red-team-blue-team-agent-fabric/blob/main/protocol_tests/telemetry.py
 """
 from __future__ import annotations
@@ -139,35 +140,71 @@ def verdict_counts(results) -> dict:
     return {"tests": tests, "passed": passed, "failed": failed,
             "inconclusive": inconclusive}
 
-def send_telemetry_event(module: str, tests: int, passed: int, failed: int,
-                         inconclusive: int = 0) -> None:
+#: The only `reason` values an event may carry. Closed, so the field cannot
+#: become a free-text channel; docs/PRIVACY.md lists each one.
+COUNTS_UNAVAILABLE_REASONS = frozenset({"results_not_exposed_and_no_report_written"})
+
+
+def send_telemetry_event(module: str, tests: int | None = None, passed: int | None = None,
+                         failed: int | None = None, inconclusive: int = 0, *,
+                         counts_available: bool = True, reason: str | None = None) -> None:
     """Send a single anonymous telemetry event. Non-blocking.
 
     `inconclusive` is the count of rows the target never serviced (or a
     simulated run, which services nothing). It defaults to 0 so callers that
     predate the field keep working; new callers should pass the output of
     `verdict_counts` rather than computing the three buckets by hand.
+
+    `counts_available=False` is the state the live path is in when a harness
+    kept its results in `main()`'s locals and wrote no report: the run
+    happened and its size is not known here. Until 2026-09-08 that was sent
+    as `tests:0, passed:0, failed:0, inconclusive:0` -- a measured-looking
+    claim about a run with 17 rows (fourth external review, R4-12). Now the
+    four count fields are OMITTED, `counts_available` is false and `reason`
+    is one fixed token from COUNTS_UNAVAILABLE_REASONS. A consumer that sums
+    `tests` sees a missing key, not a zero.
     """
     if _is_disabled():
         return
     _show_first_run_notice()
     from protocol_tests.version import get_harness_version
-    payload = json.dumps({
+    event: dict = {
         "v": get_harness_version(),      # Which version is running
         "module": module,                 # Which harness (e.g. "mcp") -- NOT a URL
-        "tests": tests,                   # How many tests ran
-        "passed": passed,                 # Pass count only -- no details about which tests
-        "failed": failed,                 # Fail count only -- no details about which tests
-        "inconclusive": inconclusive,     # Unserviced count only -- never scored as a pass
+        "counts_available": bool(counts_available),  # False: the four counts are absent, not zero
+    }
+    if counts_available:
+        if tests is None or passed is None or failed is None:
+            raise ValueError("counts_available is true but a count is missing; "
+                             "pass counts_available=False and a reason instead")
+        event.update({
+            "tests": tests,               # How many tests ran
+            "passed": passed,             # Pass count only -- no details about which tests
+            "failed": failed,             # Fail count only -- no details about which tests
+            "inconclusive": inconclusive, # Unserviced count only -- never scored as a pass
+        })
+    else:
+        if reason not in COUNTS_UNAVAILABLE_REASONS:
+            raise ValueError(f"reason must be one of {sorted(COUNTS_UNAVAILABLE_REASONS)}")
+        event["reason"] = reason          # A fixed token naming why, never free text
+    event.update({
         "os": platform.system().lower(),  # OS family for platform bug triage
         "py": f"{sys.version_info.major}.{sys.version_info.minor}",  # Python compat
         "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-    }).encode()
+    })
+    payload = json.dumps(event).encode()
     threading.Thread(target=_post, args=(payload,), daemon=True).start()
 
 def telemetry_payload_example() -> dict:
     """Return a sample payload so users can see exactly what's sent."""
     from protocol_tests.version import get_harness_version
-    return {"v": get_harness_version(), "module": "mcp", "tests": 13, "passed": 9,
-            "failed": 2, "inconclusive": 2, "os": "linux", "py": "3.12",
-            "ts": "2026-03-28T00:00:00Z"}
+    return {"v": get_harness_version(), "module": "mcp", "counts_available": True,
+            "tests": 13, "passed": 9, "failed": 2, "inconclusive": 2,
+            "os": "linux", "py": "3.12", "ts": "2026-03-28T00:00:00Z"}
+
+def telemetry_payload_example_counts_unavailable() -> dict:
+    """The other shape: the run happened, its size is not known to the sender."""
+    from protocol_tests.version import get_harness_version
+    return {"v": get_harness_version(), "module": "ap2", "counts_available": False,
+            "reason": "results_not_exposed_and_no_report_written",
+            "os": "linux", "py": "3.12", "ts": "2026-03-28T00:00:00Z"}

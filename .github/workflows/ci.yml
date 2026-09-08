@@ -91,7 +91,10 @@ jobs:
 
       - name: Run pytest
         run: |
-          pip install pytest pyyaml
+          # cryptography and jsonschema are optional at run time and required
+          # here: without them the registry signature and schema-validity tests
+          # importorskip, and a skipped contract test is a contract nothing checks.
+          pip install pytest pyyaml cryptography jsonschema
           python -m pytest tests/ -v --tb=short
 
       - name: Verify all harness --list commands
@@ -112,8 +115,67 @@ jobs:
       - name: Run self-tests
         if: hashFiles('testing/') != ''
         run: |
-          pip install pytest
+          pip install pytest cryptography jsonschema
           python -m pytest testing/ -v --tb=short
+
+  # Fourth external review (2026-09-08, R4-16): the pinned reference-server
+  # calibration skips when the npm cache lacks the package, and a skip reads
+  # green. This job populates the cache with the exact pin the script declares,
+  # proves the server launches offline, and then fails on ANY skip. A skipped
+  # calibration is UNMEASURED, and unmeasured is not clean.
+  mcp-reference-calibration:
+    name: MCP reference-server calibration (pinned, non-skippable)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package and test tools
+        run: pip install -e . pyyaml pytest
+
+      # The pin is read from the one place it is declared, so this step cannot
+      # drift from the script; test_the_pin_is_a_fixed_version refuses a
+      # floating tag there.
+      - name: Populate the npm cache with the exact pinned reference server
+        run: |
+          set -euo pipefail
+          pin=$(python -c "from scripts.mcp_reference_calibration import REFERENCE_SERVER; print(REFERENCE_SERVER)")
+          case "$pin" in
+            @modelcontextprotocol/server-everything@20[0-9][0-9].[0-9]*.[0-9]*) echo "pin: $pin" ;;
+            *) echo "::error::REFERENCE_SERVER is not the pinned package: $pin"; exit 1 ;;
+          esac
+          npx -y -p "$pin" -c true
+          echo "$pin" > "$RUNNER_TEMP/reference-server.pin"
+
+      - name: Prove the pinned server launches offline
+        run: |
+          set -euo pipefail
+          pin=$(cat "$RUNNER_TEMP/reference-server.pin")
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' > "$RUNNER_TEMP/init.json"
+          timeout 30 npx --offline -y "$pin" stdio < "$RUNNER_TEMP/init.json" > "$RUNNER_TEMP/init.out" 2> "$RUNNER_TEMP/init.err" || true
+          grep -q '"serverInfo"' "$RUNNER_TEMP/init.out" || {
+            echo "::error::the pinned server did not answer initialize offline"
+            cat "$RUNNER_TEMP/init.err"; exit 1; }
+          head -c 200 "$RUNNER_TEMP/init.out"; echo
+
+      - name: Run the calibration and fail on any skip
+        run: |
+          set -euo pipefail
+          python -m pytest testing/test_mcp_reference_calibration.py \
+            -p no:cacheprovider -rs -v --tb=short \
+            --junitxml="$RUNNER_TEMP/calibration.xml"
+          if grep -q '<skipped' "$RUNNER_TEMP/calibration.xml"; then
+            echo "::error::the reference calibration reported a skip: UNMEASURED, not clean"
+            grep -o '<skipped[^>]*>' "$RUNNER_TEMP/calibration.xml"
+            exit 1
+          fi
+          ran=$(grep -o '<testcase ' "$RUNNER_TEMP/calibration.xml" | wc -l)
+          echo "testcases run: $ran"
+          [ "$ran" -ge 5 ] || { echo "::error::expected at least 5 calibration testcases, saw $ran"; exit 1; }
 
   lint:
     name: Lint

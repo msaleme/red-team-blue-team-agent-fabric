@@ -71,10 +71,10 @@ Compare test runs to detect behavioral drift, compute stability and risk scores,
 
 ```bash
 # Compare two runs
-python scripts/behavioral_profile.py --baseline run1.json --current run2.json
+python -m scripts.behavioral_profile --baseline run1.json --current run2.json
 
 # Trend analysis over multiple runs
-python scripts/behavioral_profile.py --history run1.json run2.json run3.json --output profile/
+python -m scripts.behavioral_profile --history run1.json run2.json run3.json --output profile/
 ```
 
 Produces stability score (0-100), drift detection (PASS->FAIL regressions), risk score with transparent formula, and trend analysis for 3+ runs. This is what static scanners cannot see -- behavioral change over time.
@@ -87,10 +87,10 @@ Generate signed, audit-ready evidence packages from harness test results:
 
 ```bash
 # Generate evidence pack from a harness report
-python scripts/evidence_pack.py --report report.json --output evidence/
+python -m scripts.evidence_pack --report report.json --output evidence/
 
 # Generate and sign with HMAC-SHA256
-python scripts/evidence_pack.py --report report.json --output evidence/ --sign --zip
+python -m scripts.evidence_pack --report report.json --output evidence/ --sign --zip
 ```
 
 Produces four files: `evidence-summary.json` (machine-readable), `test-results.json` (raw data), `aiuc1-mapping.json` (per-requirement coverage), and `evidence-summary.md` (human-readable for auditors). Usable as CI gate artifacts, procurement questionnaire attachments, or audit packet exhibits.

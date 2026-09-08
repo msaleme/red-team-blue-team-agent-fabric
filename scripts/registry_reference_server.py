@@ -9,6 +9,11 @@ This is a CONFORMANCE REFERENCE, not a deployment target. No persistence, no
 auth, no TLS, no rate limiting, in-memory store. Run it to check a client or a
 second server implementation against the contract.
 
+`payload.report` is validated against `schemas/attestation-report.json` in full
+when `jsonschema` is importable, which is what contract 5 step 5 asks for. Where
+it is not, only the schema's required top-level keys are checked, and the stored
+record says which of the two happened in `validation_level`.
+
     python3 scripts/registry_reference_server.py --port 8787
     export AGENT_SECURITY_REGISTRY_URL="http://localhost:8787"
 
@@ -32,6 +37,25 @@ try:  # optional: only needed to actually verify a signature
     _CRYPTO = True
 except ImportError:  # pragma: no cover - environment dependent
     _CRYPTO = False
+
+try:  # optional: full JSON Schema validation (contract 5 step 5)
+    import jsonschema as _jsonschema
+    _JSONSCHEMA = True
+except ImportError:  # pragma: no cover - environment dependent
+    _JSONSCHEMA = False
+
+#: What was actually checked before a record was stored. Contract 5 step 5 says
+#: validate `payload.report` against `schemas/attestation-report.json`; until
+#: 2026-09-08 this server checked only that the schema's REQUIRED keys were
+#: present, and a correctly signed report carrying `evidence_class: "E9"` -- a
+#: value no version of the enum has ever contained -- was stored with 201 and
+#: issued the claim label (fourth external review, R4-11).
+#:
+#: The level travels in the record because the two are different claims and a
+#: consumer cannot tell them apart from the outside. "The required keys were
+#: present" is not "the report conforms".
+VALIDATION_SCHEMA = "schema"
+VALIDATION_REQUIRED_KEYS = "required-keys"
 
 # A checkout puts the repo root on sys.path only when run as a module; run
 # as a script (`python3 scripts/registry_reference_server.py`) it is not.
@@ -104,30 +128,67 @@ class SchemaUnavailable(RuntimeError):
     """
 
 
-def load_schema_required(schema_path: "Path | str | None" = None) -> list[str]:
-    """Required top-level keys of the attestation report.
+def load_schema(schema_path: "Path | str | None" = None) -> dict:
+    """The whole attestation schema, or SchemaUnavailable.
 
-    Deliberately a required-key check, not full JSON Schema validation: the repo
-    has no jsonschema dependency and a server that claims schema validation it
-    does not perform is the same class of defect as claiming a signature check it
-    skipped. A production server SHOULD validate fully.
-
-    Raises SchemaUnavailable when the schema cannot be read, does not parse, or
-    declares no required keys. It never returns an empty list.
+    Raises rather than returning a permissive default for the same reason
+    `load_schema_required` never returns `[]`: missing validation configuration
+    must not mean no requirements.
     """
     path = Path(schema_path) if schema_path is not None else Path(SCHEMA_PATH)
     try:
-        required = json.loads(path.read_text()).get("required")
+        schema = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
         raise SchemaUnavailable(
             f"cannot load the attestation schema at {path}: {exc}; refusing to "
             f"validate submissions without it") from exc
+    required = schema.get("required") if isinstance(schema, dict) else None
     if not isinstance(required, list) or not required \
             or not all(isinstance(k, str) for k in required):
         raise SchemaUnavailable(
             f"the attestation schema at {path} declares no required keys; refusing "
             f"to treat an absent requirement list as no requirements")
-    return list(required)
+    return schema
+
+
+def load_schema_required(schema_path: "Path | str | None" = None) -> list[str]:
+    """Required top-level keys of the attestation report.
+
+    The required-key list is the FLOOR, not the check: contract 5 step 5 asks
+    for full JSON Schema validation and `validate_and_build` performs it
+    whenever `jsonschema` is importable. This list is what remains enforceable
+    on a host without it, and a record validated only against it says so in
+    `validation_level`.
+
+    Raises SchemaUnavailable when the schema cannot be read, does not parse, or
+    declares no required keys. It never returns an empty list.
+    """
+    return list(load_schema(schema_path)["required"])
+
+
+def schema_errors(report: dict, schema: dict) -> "list[str] | None":
+    """Full JSON Schema errors for `report`, or None when jsonschema is absent.
+
+    None and `[]` are different answers and the caller must not conflate them:
+    `[]` is "the validator ran and found nothing", None is "the validator did
+    not run". That distinction is the whole of R4-11 one level down.
+    """
+    if not _JSONSCHEMA:
+        return None
+
+    def render(err) -> str:
+        where = ".".join(str(p) for p in err.absolute_path) or "(root)"
+        # An `anyOf` failure's own message is the entire instance, which tells a
+        # submitter nothing about which alternative it missed. The sub-errors
+        # name the rules (`'producer' is a required property`), so say those.
+        if err.context:
+            reasons = "; ".join(sorted({sub.message for sub in err.context}))
+            return f"{where}: does not match any allowed form ({reasons})"
+        return f"{where}: {err.message}"
+
+    validator = _jsonschema.Draft202012Validator(schema)
+    return [render(err) for err in
+            sorted(validator.iter_errors(report), key=lambda e: list(e.path))]
 
 
 class Store:
@@ -159,6 +220,7 @@ def validate_and_build(
     submission: dict,
     required_keys: list[str],
     *,
+    schema: dict | None = None,
     test_only_accept_invalid_class: str | None = None,
 ) -> dict:
     """Contract section 5. Eight checks, in order. Raises Rejected.
@@ -214,10 +276,28 @@ def validate_and_build(
     if leaked:
         raise Rejected(422, f"report contains sensitive keys: {', '.join(sorted(leaked)[:8])}")
 
-    # 5. Schema required keys
+    # 5. Schema. The required-key check first, because its message names the
+    # missing fields plainly; then full JSON Schema validation, which is what
+    # contract 5 step 5 actually asks for.
     missing = [k for k in required_keys if k not in report]
     if missing:
         raise Rejected(422, f"report missing schema-required keys: {', '.join(missing)}")
+
+    # A correctly signed report with `evidence_class: "E9"` passed the check
+    # above and was stored with the claim label. A signature establishes who
+    # sent the bytes; it says nothing about whether the document conforms.
+    validation_level = VALIDATION_REQUIRED_KEYS
+    if schema is not None:
+        errors = schema_errors(report, schema)
+        if errors is not None:
+            if errors:
+                raise Rejected(
+                    422,
+                    "report does not validate against the attestation schema: "
+                    + "; ".join(errors[:5])
+                    + (f" (+{len(errors) - 5} more)" if len(errors) > 5 else ""),
+                )
+            validation_level = VALIDATION_SCHEMA
 
     # 6. Signature
     public_key = submission.get("public_key")
@@ -286,6 +366,20 @@ def validate_and_build(
         ),
         "received_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "claim_label": CLAIM_LABEL,
+        # "schema": the whole report validated against
+        # schemas/attestation-report.json. "required-keys": only the schema's
+        # required top-level keys were checked, because no JSON Schema
+        # validator was available here. A consumer must be able to tell those
+        # apart; before 2026-09-08 the record said neither and the weaker one
+        # was what happened (R4-11).
+        "validation_level": validation_level,
+        "validation_level_basis": (
+            "payload.report validated against schemas/attestation-report.json "
+            "(contract 5 step 5)" if validation_level == VALIDATION_SCHEMA else
+            "jsonschema was not importable on this server; only the schema's "
+            "required top-level keys were checked. Required-key presence is NOT "
+            "report conformance."
+        ),
     }
 
 
@@ -301,6 +395,7 @@ BADGE_SVG = (
 class Handler(BaseHTTPRequestHandler):
     store: Store
     required_keys: list[str]
+    schema: dict | None = None
     test_only_accept_invalid_class: str | None = None
     server_version = "agent-security-registry-reference/1.0"
 
@@ -330,6 +425,7 @@ class Handler(BaseHTTPRequestHandler):
             record = validate_and_build(
                 submission,
                 self.required_keys,
+                schema=self.schema,
                 test_only_accept_invalid_class=self.test_only_accept_invalid_class,
             )
         except Rejected as rej:
@@ -384,7 +480,8 @@ def build_server(
     if test_only_accept_invalid_class not in (None, *TEST_ONLY_ACCEPT_INVALID_CLASSES):
         raise ValueError("unsupported test-only invalid-acceptance class")
     Handler.store = Store()
-    Handler.required_keys = load_schema_required()
+    Handler.schema = load_schema()
+    Handler.required_keys = list(Handler.schema["required"])
     Handler.test_only_accept_invalid_class = test_only_accept_invalid_class
     return ThreadingHTTPServer(("127.0.0.1", port), Handler)
 
@@ -410,6 +507,10 @@ def main() -> int:
     if not _CRYPTO:
         print("  WARNING: 'cryptography' not importable; signed envelopes will be "
               "rejected with 501 rather than silently unverified")
+    if not _JSONSCHEMA:
+        print("  WARNING: 'jsonschema' not importable; records will be stored with "
+              "validation_level='required-keys'. Required-key presence is not report "
+              "conformance -- install jsonschema for contract 5 step 5.")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

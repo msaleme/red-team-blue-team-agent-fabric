@@ -132,9 +132,109 @@ jobs:
           name: provenance
           path: provenance.json
 
+  # Fourth external review (2026-09-08, R4-16): publish depended on `build`
+  # and on nothing that had run a test against the artifact being published.
+  # CI is a separate push/PR workflow, and its install check runs inside the
+  # checkout, where `import protocol_tests` can resolve to the source tree
+  # instead of the installed wheel. Provenance and OIDC establish who built
+  # the wheel; neither establishes that it works. This job installs the exact
+  # wheel the publish job uploads, into a fresh venv, from a directory that is
+  # NOT the checkout, and runs it there.
+  test-wheel:
+    name: Test the built wheel from a neutral directory
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # The checkout is here for tests/ and nothing else. No step below runs
+      # with the checkout as its working directory.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Download the built distributions
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Install the wheel into a fresh venv, outside the checkout
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          wheels=("$GITHUB_WORKSPACE"/dist/*.whl)
+          [ "${#wheels[@]}" -eq 1 ] || { echo "::error::expected one wheel, found ${#wheels[@]}"; exit 1; }
+          cd "$RUNNER_TEMP"
+          python -m venv wheel-venv
+          ./wheel-venv/bin/pip install -q "${wheels[0]}" pytest pyyaml cryptography jsonschema
+          # The import must resolve inside the venv, not to the checkout.
+          ./wheel-venv/bin/python -c '
+          import protocol_tests, scripts
+          for m in (protocol_tests, scripts):
+              d = list(m.__path__)[0]
+              assert "site-packages" in d, f"{m.__name__} resolved to {d}, not the installed wheel"
+              print(m.__name__, "->", d)
+          '
+
+      - name: Smoke the installed package
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          PY=./wheel-venv/bin/python
+          ./wheel-venv/bin/agent-security --version
+          "$PY" -m protocol_tests.mock_mcp_server --help > /dev/null
+          "$PY" -m scripts.registry_reference_server --help > /dev/null
+
+      # R3-01 reproduction, now a release gate: the installed 4.21.0 reported
+      # 17/17 PASS for this exact invocation against a port nothing listens on.
+      - name: A payment harness against a closed port passes nothing
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          rc=0
+          ./wheel-venv/bin/agent-security test ap2 --url http://127.0.0.1:9 \
+            --report "$RUNNER_TEMP/ap2-closed-port.json" || rc=$?
+          echo "harness exit code: $rc"
+          ./wheel-venv/bin/python - <<'EOF'
+          import json, os, sys
+          report = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "ap2-closed-port.json")))
+          s = report["summary"]
+          print("summary:", s)
+          if s.get("total", 0) < 1:
+              sys.exit("the closed-port run produced no verdicts: unmeasured, not clean")
+          if s.get("passed", 0) != 0:
+              sys.exit(f"{s['passed']} of {s['total']} PASS against a port nothing listens on (R3-01)")
+          EOF
+
+      # The packaged-behaviour tests that can run against an installed copy.
+      # Copied out of the checkout so `sys.path.insert(0, parents[1])` in each
+      # file points at a directory with no source tree in it. The other files
+      # in tests/ read checkout-only resources (docs/, benchmarks/, git) and
+      # belong to CI, not to this gate.
+      - name: Packaged-behaviour tests against the installed wheel
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/neutral"
+          cp -r "$GITHUB_WORKSPACE/tests" "$RUNNER_TEMP/neutral/tests"
+          cd "$RUNNER_TEMP/neutral"
+          "$RUNNER_TEMP/wheel-venv/bin/python" -m pytest -q -p no:cacheprovider -rs \
+            tests/test_auroc.py \
+            tests/test_evidence_pack_declares_its_denominator.py \
+            tests/test_fallback_validator_matches_schema.py \
+            tests/test_fb013_quorum_binds_distinct_approvers.py \
+            tests/test_fria_evidence.py \
+            tests/test_imported_risk_score_needs_a_denominator.py \
+            tests/test_mcp021_auth_fail_open.py \
+            tests/test_registry_schema_validity_is_enforced.py \
+            tests/test_simulate_does_not_claim_a_pass.py
+
   publish:
     name: Publish to PyPI
-    needs: build
+    needs: [build, test-wheel]
     runs-on: ubuntu-latest
     environment:
       name: pypi

@@ -25,7 +25,9 @@ of rewriting what already works.
 
 from __future__ import annotations
 
+import ast
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -86,9 +88,37 @@ GRANDFATHERED = {
 }
 
 
-def _modules_with_own_record() -> set[str]:
-    return {p.stem for p in sorted((REPO_ROOT / "protocol_tests").glob("*.py"))
-            if "def _record" in p.read_text()}
+def _defines_own_record(source: str) -> bool:
+    """A class in `source` defines a method named `_record`, read from the AST.
+
+    Until 2026-09-08 this was the substring test `"def _record" in text`. A
+    module spelling it `def  _record(` -- two spaces, valid Python -- was
+    invisible to it, so a 45th parallel implementation could be added and
+    every test in this file stayed green (fourth external review, R4-13). The
+    floor below proves the familiar files remain visible; it says nothing
+    about syntax the rule never matched. The AST does not care about
+    whitespace, comments, decorators or `async`.
+    """
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            for member in node.body:
+                if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)) \
+                        and member.name == "_record":
+                    return True
+    return False
+
+
+def _modules_with_own_record(package_dir: Path | None = None) -> set[str]:
+    """Stems of the modules in `package_dir` whose classes define `_record`.
+
+    `package_dir` defaults to the shipped package; it is a parameter so the
+    anti-vacuity tests below can point the same detector at a seeded module
+    instead of writing into the package.
+    """
+    package_dir = package_dir if package_dir is not None else REPO_ROOT / "protocol_tests"
+    return {p.stem for p in sorted(package_dir.glob("*.py"))
+            if _defines_own_record(p.read_text(encoding="utf-8"))}
 
 
 class TestGrandfatherListOnlyShrinks(unittest.TestCase):
@@ -125,6 +155,67 @@ class TestGrandfatherListOnlyShrinks(unittest.TestCase):
         missing = {m for m in GRANDFATHERED
                    if not (REPO_ROOT / "protocol_tests" / f"{m}.py").exists()}
         self.assertEqual(missing, set(), f"grandfathered but gone: {sorted(missing)}")
+
+
+class TestTheDetectorReadsSyntaxNotText(unittest.TestCase):
+    """R4-13. A detector that matches one spelling of a definition is a
+    detector of that spelling. Each seed here is a module that DOES define its
+    own `_record`, written the way the old substring rule could not see."""
+
+    SEEDS = {
+        "two_spaces": "class Seed:\n    def  _record(self, result):\n        pass\n",
+        "tab": "class Seed:\n    def\t_record(self, result):\n        pass\n",
+        "async": "class Seed:\n    async def _record(self, result):\n        pass\n",
+        "decorated": ("class Seed:\n    @staticmethod\n    def _record(result):\n"
+                      "        pass\n"),
+        "nested_class": ("class Outer:\n    class Inner:\n        def  _record(self, r):\n"
+                         "            pass\n"),
+        "plain": "class Seed:\n    def _record(self, result):\n        pass\n",
+    }
+
+    def test_every_seeded_spelling_is_seen(self) -> None:
+        for label, src in self.SEEDS.items():
+            with self.subTest(seed=label):
+                self.assertTrue(_defines_own_record(src), f"{label!r} seed is invisible")
+
+    def test_a_seeded_module_in_a_temp_package_enters_the_set(self) -> None:
+        """The whole path, on disk: the exact shape the review seeded."""
+        with tempfile.TemporaryDirectory() as tmp:
+            pkg = Path(tmp)
+            (pkg / "zz_whitespace_seed.py").write_text(self.SEEDS["two_spaces"], encoding="utf-8")
+            (pkg / "zz_inherits.py").write_text(
+                "from protocol_tests.harness_base import RecordingHarness\n"
+                "class Fine(RecordingHarness):\n    pass\n", encoding="utf-8")
+            seen = _modules_with_own_record(pkg)
+        self.assertIn("zz_whitespace_seed", seen)
+        self.assertNotIn("zz_inherits", seen, "inheriting the base is not defining _record")
+
+    def test_a_record_that_is_not_a_method_is_not_counted(self) -> None:
+        """The rule is about harness classes. A module-level helper, a call
+        site, a string or a comment mentioning `def _record` is not a 45th
+        implementation, and the old text rule counted all four."""
+        for label, src in {
+            "call": "class H:\n    def run(self):\n        self._record(1)\n",
+            "comment": "# def _record lives in harness_base\nclass H:\n    pass\n",
+            "string": 'DOC = "def _record"\nclass H:\n    pass\n',
+            "module_level": "def _record(result):\n    pass\n",
+        }.items():
+            with self.subTest(shape=label):
+                self.assertFalse(_defines_own_record(src))
+
+    def test_the_detector_agrees_with_the_inventory_facts(self) -> None:
+        """#543 reads the same fact off the imported module
+        (`asi_inventory.recording_facts()["defines_record"]`). Two derivations
+        of one fact must agree on every registered harness, or one of them is
+        a naming convention again."""
+        from protocol_tests.asi_inventory import harness_modules, recording_facts
+        seen = _modules_with_own_record()
+        disagreements = []
+        for dotted in harness_modules():
+            stem = dotted.rsplit(".", 1)[-1]
+            if recording_facts(dotted)["defines_record"] != (stem in seen):
+                disagreements.append(stem)
+        self.assertEqual(disagreements, [])
 
 
 class TestRecordingHarnessBehaviour(unittest.TestCase):

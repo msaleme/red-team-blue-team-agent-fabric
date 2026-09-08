@@ -20,22 +20,36 @@ When telemetry is enabled (opt-IN, off by default), we collect:
 |-------|---------|-----|
 | Harness version | `3.8.0` | Know which versions are in use, prioritize backports |
 | Module name | `mcp` | Know which harnesses matter most to users |
+| Counts available | `true` | Whether the four count fields below are present. `false` means the run happened and its size is not known to the sender; the four counts are then **omitted**, never sent as zero |
 | Test count | `13` | Understand typical workload size |
 | Passed count | `9` | Identify modules with high failure rates (may indicate bugs in our tests) |
 | Failed count | `2` | Same as above |
 | Inconclusive count | `2` | Rows the target never serviced (or a simulated run, which services nothing). Kept apart so an unexercised control is never counted as a pass |
+| Reason | `results_not_exposed_and_no_report_written` | Only when counts are unavailable: one fixed token from a closed list saying why. Never free text |
 | OS | `linux` | Platform-specific bug triage |
 | Python version | `3.12` | Know which Python versions to keep supporting |
 | Timestamp | `2026-03-28T00:00:00Z` | Understand usage patterns (weekday vs weekend, not time-of-day) |
 
-That's it. Nine fields. Flat JSON. No nesting, no extensibility, no "other" bucket.
-The three counts always sum to the test count.
+That's it. Ten fields when the counts are available, seven when they are not
+(`counts_available: false` plus `reason`, and no count fields at all). Flat
+JSON. No nesting, no extensibility, no "other" bucket. When present, the three
+counts always sum to the test count.
 
-You can see the exact payload in code:
+Zero observations and unavailable counts are different states. A live run
+whose harness keeps its results in `main()` and writes no report used to be
+sent as `tests: 0, passed: 0, failed: 0, inconclusive: 0` -- a measured-looking
+claim about a run that had, in the reviewed case, 17 rows. It is now sent with
+`counts_available: false`. When the run wrote a report (`--report PATH`, or
+the throwaway report `--html` asks for), the counts are read from that report
+and sent as measured.
+
+You can see both exact payloads in code:
 
 ```python
-from protocol_tests.telemetry import telemetry_payload_example
+from protocol_tests.telemetry import (telemetry_payload_example,
+                                      telemetry_payload_example_counts_unavailable)
 print(telemetry_payload_example())
+print(telemetry_payload_example_counts_unavailable())
 ```
 
 ---
