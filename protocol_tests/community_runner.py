@@ -19,6 +19,19 @@ Usage:
 
     # List discovered patterns
     python -m protocol_tests.community_runner --list
+
+Regex evaluation bound (R3-07)
+------------------------------
+``field_matches`` assertions carry an attacker-controlled regular expression:
+the YAML is untrusted. Length caps on the pattern (MAX_REGEX_LENGTH) and the
+input (MAX_REGEX_INPUT_LENGTH) do not bound ``re.search`` -- ``(a|aa)+$`` is
+200 characters short of the cap and does not finish on 37 characters of input.
+Every community regex is therefore evaluated in a child interpreter that is
+killed at MAX_REGEX_EVAL_SECONDS of wall clock. A pattern that is rejected
+before evaluation or killed during it yields an INCONCLUSIVE assertion
+("pattern evaluation exceeded budget"), never PASS, never FAIL: the target was
+not observed, so nothing about it was established. A pattern with any
+INCONCLUSIVE assertion is an INCONCLUSIVE pattern (``not_evaluated: true``).
 """
 
 from __future__ import annotations
@@ -28,12 +41,15 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX, is_inconclusive
 
 try:
     import yaml
@@ -54,6 +70,12 @@ MAX_YAML_FILE_SIZE = 256 * 1024  # 256 KB max per YAML file
 MAX_DELAY_MS = 30_000  # 30 seconds max delay per step
 MAX_PATTERN_EXECUTION_TIMEOUT_S = 120  # 2 minutes max per pattern
 MAX_REGEX_LENGTH = 200  # Max regex pattern length for field_matches
+MAX_REGEX_INPUT_LENGTH = 10_000  # Max input length a field_matches regex is run against
+# Wall-clock budget for ONE community regex evaluation. The match runs in a
+# child interpreter that is killed when this elapses (R3-07); a length cap is
+# not a bound, and a thread join is not a kill. Exceeding it is INCONCLUSIVE.
+MAX_REGEX_EVAL_SECONDS = 1.0
+REGEX_BUDGET_EXCEEDED = "pattern evaluation exceeded budget"
 MAX_ATTACK_STEPS = 20  # Max number of attack steps per pattern
 
 # Trust tiers (ordered by privilege)
@@ -121,10 +143,20 @@ class PatternResult:
     framework: str = ""
     assertions_passed: int = 0
     assertions_total: int = 0
+    # INCONCLUSIVE marker read by http_helpers.is_inconclusive: at least one
+    # assertion could not be evaluated, so no verdict on the target exists.
+    not_evaluated: bool = False
+    assertions_inconclusive: int = 0
 
     def __post_init__(self):
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
+        # The prefix in prose must imply the field, so a serialised record is
+        # readable without re-parsing English (testing/test_inconclusive_is_structural).
+        if not self.not_evaluated and is_inconclusive(self.details):
+            self.not_evaluated = True
+        if self.not_evaluated:
+            self.passed = False
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -712,21 +744,87 @@ class AssertionEvaluator:
         pattern = str(assertion.get("value", ""))
         actual = str(self.evidence.get(field_name, ""))
 
-        # ReDoS protection: limit regex length AND input length
+        # ReDoS protection, layer 1: caps. These bound the *size* of the work,
+        # not its running time -- see MAX_REGEX_EVAL_SECONDS for the bound.
         if len(pattern) > MAX_REGEX_LENGTH:
-            return False, f"Regex pattern too long ({len(pattern)} > {MAX_REGEX_LENGTH} chars)"
+            return False, (f"{INCONCLUSIVE_PREFIX}{REGEX_BUDGET_EXCEEDED}: regex pattern "
+                           f"too long ({len(pattern)} > {MAX_REGEX_LENGTH} chars)")
         # Truncate input to prevent catastrophic backtracking on large data
-        if len(actual) > 10_000:
-            actual = actual[:10_000]
-        # Reject known ReDoS patterns (nested quantifiers)
+        if len(actual) > MAX_REGEX_INPUT_LENGTH:
+            actual = actual[:MAX_REGEX_INPUT_LENGTH]
+        # Layer 2: reject the one syntactic ReDoS shape that is cheap to name
+        # (nested quantifiers). Ambiguous alternation such as (a|aa)+ is not
+        # named here and is why layer 3 exists.
         if re.search(r'\([^)]*[+*][^)]*\)[+*]', pattern):
-            return False, "Regex contains nested quantifiers (potential ReDoS)"
-        try:
-            if re.search(pattern, actual):
-                return True, f"Field '{field_name}' matches pattern '{pattern}'"
-        except re.error as e:
-            return False, f"Invalid regex pattern: {e}"
-        return False, f"Field '{field_name}' does not match pattern '{pattern}'"
+            return False, (f"{INCONCLUSIVE_PREFIX}{REGEX_BUDGET_EXCEEDED}: regex contains "
+                           f"nested quantifiers (potential ReDoS)")
+        # Layer 3: the wall-clock bound, enforced by killing a child process.
+        outcome, message = evaluate_regex_bounded(pattern, actual)
+        if outcome == "match":
+            return True, f"Field '{field_name}' matches pattern '{pattern}'"
+        if outcome == "nomatch":
+            return False, f"Field '{field_name}' does not match pattern '{pattern}'"
+        if outcome == "error":
+            return False, f"{INCONCLUSIVE_PREFIX}invalid regex pattern: {message}"
+        return False, f"{INCONCLUSIVE_PREFIX}{REGEX_BUDGET_EXCEEDED}: {message}"
+
+
+# ---------------------------------------------------------------------------
+# Bounded regex evaluation (R3-07)
+# ---------------------------------------------------------------------------
+
+# Runs in a separate interpreter: reads {"pattern", "text"} on stdin, writes
+# {"matched": bool} or {"error": str} on stdout. Only stdlib, isolated mode.
+_REGEX_WORKER_SRC = (
+    "import json, re, sys\n"
+    "job = json.load(sys.stdin)\n"
+    "try:\n"
+    "    out = {'matched': re.search(job['pattern'], job['text']) is not None}\n"
+    "except re.error as exc:\n"
+    "    out = {'error': str(exc)}\n"
+    "sys.stdout.write(json.dumps(out))\n"
+)
+
+
+def evaluate_regex_bounded(
+    pattern: str,
+    text: str,
+    budget_s: float | None = None,
+) -> tuple[str, str]:
+    """Run ``re.search(pattern, text)`` under a hard wall-clock bound.
+
+    Returns ``(outcome, message)`` where outcome is one of ``"match"``,
+    ``"nomatch"``, ``"error"`` (the pattern does not compile) or
+    ``"timeout"`` (the child was killed at the budget). The match runs in a
+    child interpreter so that the kill is real: a thread that is joined with
+    a timeout keeps running, a child process that is killed does not.
+    """
+    budget = MAX_REGEX_EVAL_SECONDS if budget_s is None else budget_s
+    job = json.dumps({"pattern": pattern, "text": text})
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-I", "-c", _REGEX_WORKER_SRC],
+            input=job,
+            capture_output=True,
+            text=True,
+            timeout=budget,
+        )
+    except subprocess.TimeoutExpired:
+        # subprocess.run has already killed the child on this path.
+        return "timeout", f"regex did not finish within {budget:g}s"
+    except (OSError, ValueError) as exc:
+        return "timeout", f"regex worker could not be started ({exc})"
+    if proc.returncode != 0:
+        return "timeout", f"regex worker exited {proc.returncode}"
+    try:
+        out = json.loads(proc.stdout or "{}")
+    except json.JSONDecodeError:
+        return "timeout", "regex worker returned no verdict"
+    if "error" in out:
+        return "error", str(out["error"])
+    if "matched" not in out:
+        return "timeout", "regex worker returned no verdict"
+    return ("match" if out["matched"] else "nomatch"), ""
 
 
 # ---------------------------------------------------------------------------
@@ -790,6 +888,8 @@ def run_pattern(
     assertions_passed = 0
     assertion_details = []
 
+    assertions_inconclusive = 0
+
     for i, assertion in enumerate(pattern.assertions):
         if dry_run:
             passed = True
@@ -797,19 +897,29 @@ def run_pattern(
         else:
             passed, detail = evaluator.evaluate(assertion)
 
+        # An assertion that could not be evaluated (regex budget exceeded,
+        # R3-07) is a third state: it is not a target failure and it is
+        # never a pass.
+        inconclusive = (not passed) and is_inconclusive(detail)
         if passed:
             assertions_passed += 1
+        elif inconclusive:
+            assertions_inconclusive += 1
 
-        status = "PASS" if passed else "FAIL"
+        status = "PASS" if passed else ("INCONCLUSIVE" if inconclusive else "FAIL")
         desc = assertion.get("description", assertion.get("type", ""))
         assertion_details.append(f"{status}: {desc} - {detail}")
 
         if verbose:
-            icon = "ok" if passed else "FAIL"
+            icon = "ok" if passed else status
             print(f"    Assertion {i+1}: [{icon}] {desc}")
 
     elapsed = time.time() - start_time
     all_passed = assertions_passed == len(pattern.assertions)
+    not_evaluated = assertions_inconclusive > 0
+    details = "; ".join(assertion_details)
+    if not_evaluated:
+        details = f"{INCONCLUSIVE_PREFIX}{assertions_inconclusive} assertion(s) not evaluated; {details}"
 
     result = PatternResult(
         test_id=pattern.id,
@@ -817,17 +927,19 @@ def run_pattern(
         source_file=pattern.source_file,
         owasp_asi=pattern.owasp_category,
         severity=pattern.severity,
-        passed=all_passed,
-        details="; ".join(assertion_details),
+        passed=all_passed and not not_evaluated,
+        details=details,
         elapsed_s=round(elapsed, 3),
         evidence=evidence,
         framework=pattern.framework,
         assertions_passed=assertions_passed,
         assertions_total=len(pattern.assertions),
+        not_evaluated=not_evaluated,
+        assertions_inconclusive=assertions_inconclusive,
     )
 
     if verbose:
-        status = "PASS" if all_passed else "FAIL"
+        status = "PASS" if result.passed else ("INCONCLUSIVE" if not_evaluated else "FAIL")
         print(f"  Result: {status} ({assertions_passed}/{len(pattern.assertions)} assertions)")
 
     return result
@@ -969,19 +1081,20 @@ def run_community_tests(
     for pattern in patterns:
         result = run_pattern(pattern, target_url=target_url, verbose=verbose, dry_run=dry_run)
         results.append(result)
-        status = "PASS" if result.passed else "FAIL"
+        status = "PASS" if result.passed else ("INCONCLUSIVE" if result.not_evaluated else "FAIL")
         print(f"  {status} {result.test_id}: {result.name} "
               f"({result.assertions_passed}/{result.assertions_total} assertions, "
               f"{result.elapsed_s:.2f}s)")
 
-    # Summary
+    # Summary -- INCONCLUSIVE is counted apart from FAIL, not folded into it.
     passed = sum(1 for r in results if r.passed)
-    failed = len(results) - passed
+    inconclusive = sum(1 for r in results if not r.passed and r.not_evaluated)
+    failed = len(results) - passed - inconclusive
     total_time = sum(r.elapsed_s for r in results)
 
     print(f"\n{'='*60}")
-    print(f"Community Pattern Results: {passed} passed, {failed} failed "
-          f"({len(results)} total, {total_time:.2f}s)")
+    print(f"Community Pattern Results: {passed} passed, {failed} failed, "
+          f"{inconclusive} inconclusive ({len(results)} total, {total_time:.2f}s)")
     print(f"{'='*60}")
 
     summary = {
@@ -993,6 +1106,7 @@ def run_community_tests(
         "patterns_run": len(results),
         "passed": passed,
         "failed": failed,
+        "inconclusive": inconclusive,
         "total_time_s": round(total_time, 3),
         "results": [r.to_dict() for r in results],
     }

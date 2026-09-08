@@ -178,6 +178,38 @@ equal an independent recomputation.
 None of this establishes that the detectors are complete; it establishes that
 each fails when switched off, which they did not before.
 
+### Fixed — a community plugin regex could hang the runner (R3-07, Medium; third external review, 2026-09-07)
+
+**`field_matches` capped the size of an untrusted regex and not its running
+time.** `community_runner.py` loads YAML plugins it does not trust, and a
+`field_matches` assertion hands `re.search` an attacker-chosen pattern. The
+guard capped the pattern at 200 characters, truncated the input at 10,000,
+rejected nested quantifiers by a syntactic check, and then called `re.search`
+in-process. `(a|aa)+$` passes all three. On `"a" * 37 + "!"` the evaluator did
+not return within four seconds (reproduced: killed at the 4 s cap, no output);
+the reviewer measured 0.004 s at 21 characters and 0.182 s at 29, and the
+curve is exponential. One plugin assertion could stop a whole community run.
+
+Every community regex now runs in a child interpreter (`sys.executable -I`)
+that is killed at `MAX_REGEX_EVAL_SECONDS` (1.0 s) of wall clock, via
+`evaluate_regex_bounded`. A child process that is killed stops; a thread that
+is joined with a timeout does not, which is why this is not a thread. No new
+dependency. The length caps are kept as the first two layers, the
+nested-quantifier check as the third, the kill as the fourth. A benign match
+costs about 12 ms.
+
+An assertion the runner could not evaluate -- budget exceeded, rejected by a
+cap, or a pattern that does not compile -- is INCONCLUSIVE: `passed: false`,
+the `INCONCLUSIVE - ` prefix on the detail, and the reason `pattern evaluation
+exceeded budget`. It was FAIL before, which filed an unevaluable plugin as a
+target that failed. `PatternResult` gains `not_evaluated: bool` and
+`assertions_inconclusive: int`, a pattern with any INCONCLUSIVE assertion is
+INCONCLUSIVE as a whole and never `passed`, and the batch summary counts
+`inconclusive` apart from `failed`. `testing/test_community_regex_budget.py`
+pins the bound (under 2 s wall clock), the verdict (never PASS), and that
+benign matches and non-matches keep their verdicts. Documented in the module
+docstring and `docs/PLUGIN_SPEC.md`.
+
 ## [4.21.0] - 2026-09-07
 
 **The instrument was the thing under test.** This release is what happened when
