@@ -15,6 +15,13 @@ The consolidation was checked as behaviour-preserving before it landed -- 960
 cases across the four vocabularies, zero divergence from the originals. The
 originals are gone now, so what remains testable is the branch table itself,
 which is what this file pins.
+
+2026-09-08 (R4-02/R4-03, fourth external review): the table gained a fourth
+state. A 2xx with no rejection word used to be `accepted`; it is now
+`accepted` only on a recognised decision and `undecided` otherwise, and the
+fifth caller, `settlement_finality_harness`, gave up its private copy. The
+wire-level truth table lives in `testing/test_payment_decision_states.py`;
+this file keeps the branch pins.
 """
 from __future__ import annotations
 
@@ -37,16 +44,43 @@ CALLER_EXTRA = {
                            "expired", "revoked"),
     "ucp_acp_harness": ("not authorized", "mismatch", "expired"),
     "x402_fireblocks_harness": ("policy", "blocked"),
+    "settlement_finality_harness": ("withheld", "pending", "not final",
+                                    "unconfirmed", "revoked", "expired"),
 }
 
 
 class TestTheBranchTable(unittest.TestCase):
-    def test_a_transport_error_with_a_4xx_is_a_real_rejection(self):
-        """The endpoint answered and said no. This branch is easy to lose."""
-        for status in (400, 403, 404, 422, 499):
+    def test_a_401_402_or_403_is_a_real_rejection(self):
+        """The endpoint answered and said no. This branch is easy to lose.
+
+        A 402 is the protocol servicing the request (x402/L402 convention),
+        not a transport failure, and against a submitted payment it says
+        "not this one".
+        """
+        for status in (401, 402, 403):
             with self.subTest(status=status):
                 self.assertEqual(
                     payment_outcome({"_error": True, "_status": status})[0],
+                    "rejected")
+
+    def test_another_4xx_is_a_rejection_only_when_it_states_a_denial(self):
+        """A bare 404 is a route the target lacks, not a refusal of the
+        payment; a 400 carrying an error field or a rejection word is."""
+        for status in (400, 404, 422, 499):
+            with self.subTest(status=status, body="bare"):
+                self.assertEqual(
+                    payment_outcome({"_error": True, "_status": status,
+                                     "_body": "not found"})[0],
+                    "undecided")
+            with self.subTest(status=status, body="error field"):
+                self.assertEqual(
+                    payment_outcome({"_error": True, "_status": status,
+                                     "_body": '{"error": "bad mandate"}'})[0],
+                    "rejected")
+            with self.subTest(status=status, body="rejection word"):
+                self.assertEqual(
+                    payment_outcome({"_error": True, "_status": status,
+                                     "_body": "signature invalid"})[0],
                     "rejected")
 
     def test_a_transport_error_without_a_4xx_is_unreachable(self):
@@ -70,18 +104,28 @@ class TestTheBranchTable(unittest.TestCase):
         self.assertEqual(
             payment_outcome({"_status": 0, "detail": "denied"})[0], "unreachable")
 
-    def test_a_2xx_with_no_rejection_term_is_an_accepted_attack(self):
+    def test_a_2xx_with_a_recognised_decision_is_an_accepted_attack(self):
         for status in (200, 201, 204, 299):
             with self.subTest(status=status):
                 self.assertEqual(
-                    payment_outcome({"_status": status, "m": "ok"})[0], "accepted")
+                    payment_outcome({"_status": status, "allowed": True})[0],
+                    "accepted")
 
-    def test_a_3xx_or_4xx_without_a_term_is_unreachable_not_accepted(self):
-        """Neither an observed rejection nor an observed acceptance."""
+    def test_a_2xx_with_no_decision_is_undecided_not_accepted(self):
+        """R4-02. Absence of a rejection word is not an acceptance decision:
+        200 {} made the installed AP2 suite report 17 FAIL, 17 serviced."""
+        for status in (200, 201, 204, 299):
+            with self.subTest(status=status):
+                self.assertEqual(
+                    payment_outcome({"_status": status, "m": "ok"})[0], "undecided")
+
+    def test_a_3xx_or_bare_4xx_without_a_term_is_undecided_not_accepted(self):
+        """Neither an observed rejection nor an observed acceptance -- and
+        not unreachable either: the target answered."""
         for status in (300, 302, 400, 404):
             with self.subTest(status=status):
                 self.assertEqual(
-                    payment_outcome({"_status": status, "m": "hm"})[0], "unreachable")
+                    payment_outcome({"_status": status, "m": "hm"})[0], "undecided")
 
     def test_every_core_term_rejects(self):
         for term in PAYMENT_REJECTION_TERMS:
@@ -109,8 +153,8 @@ class TestTheExtraVocabulary(unittest.TestCase):
 
     def test_a_caller_specific_term_does_not_reject_without_it(self):
         """`expired` is rejection for card_token and not for ap2. That is the point."""
-        self.assertEqual(
-            payment_outcome({"_status": 200, "m": "expired"})[0], "accepted")
+        self.assertNotEqual(
+            payment_outcome({"_status": 200, "m": "expired"})[0], "rejected")
         self.assertEqual(
             payment_outcome({"_status": 200, "m": "expired"},
                             extra=CALLER_EXTRA["card_token_harness"])[0], "rejected")

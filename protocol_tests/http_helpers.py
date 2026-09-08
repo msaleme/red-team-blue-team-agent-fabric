@@ -291,60 +291,211 @@ PAYMENT_REJECTION_TERMS = (
     "reject", "denied", "invalid", "unauthorized", "forbidden",
 )
 
+#: The four verdicts `payment_outcome` can return, in the order the branches
+#: are tried. Added `undecided` 2026-09-08 (R4-02, fourth external review):
+#: before it, a 2xx with no rejection word was `accepted`, so a target that
+#: answered 200 ``{}`` to everything made the installed AP2 suite report
+#: 17 FAIL "LIVE verifier ACCEPTED the attack -- control absent" with 17
+#: serviced. Absence of a rejection word is not an acceptance decision.
+PAYMENT_VERDICTS = ("unreachable", "rejected", "accepted", "undecided")
 
-def payment_outcome(resp: dict, extra: tuple[str, ...] = ()) -> tuple[str, dict]:
+#: Boolean fields whose ``true`` is an affirmative decision on the request
+#: and whose ``false`` is a refusal. Read at the top level of the answer and
+#: under the envelope keys in `PAYMENT_ENVELOPE_KEYS`, never deeper: every
+#: payment probe nests its own payload under a protocol key (``payment``,
+#: ``session``, ``payment_mandate`` ...), and a verifier that echoes the
+#: request back must not be read as having decided it. AP2-016 sends
+#: ``{"final": true, "verified": true}`` INSIDE a mandate for exactly that
+#: reason.
+PAYMENT_ACCEPT_FLAGS = (
+    "allowed", "granted", "accepted", "approved", "authorized", "authorised",
+    "valid", "verified", "settled", "success",
+)
+
+#: Fields whose string value names the decision.
+PAYMENT_STATE_FIELDS = (
+    "status", "state", "decision", "outcome", "verdict", "result",
+    "payment_status", "settlement_status", "authorization_status",
+    "verification_status",
+)
+
+#: Values of a state field that assert acceptance / refusal. ``ok`` is not
+#: here on purpose: it is an envelope word, not a payment decision.
+PAYMENT_ACCEPT_STATES = frozenset({
+    "accepted", "approved", "authorized", "authorised", "settled",
+    "completed", "complete", "succeeded", "success", "confirmed", "valid",
+    "verified", "paid", "captured",
+})
+PAYMENT_REJECT_STATES = frozenset({
+    "rejected", "denied", "declined", "refused", "failed", "failure",
+    "invalid", "unauthorized", "unauthorised", "forbidden", "blocked",
+    "expired", "revoked", "error",
+})
+
+#: Effects only the target can have produced: a non-empty value under one of
+#: these is a settlement/authorisation that happened. Deliberately NOT
+#: ``transaction``, ``transaction_id``, ``receipt`` or ``payment_id`` -- those
+#: are keys the probes themselves send (card_token, ap2, settlement_finality),
+#: so an echo would carry them.
+PAYMENT_EFFECT_KEYS = (
+    "settlement_id", "tx_hash", "txHash", "transaction_hash",
+    "authorization_code", "auth_code", "approval_code",
+)
+
+#: Envelope keys a decision may sit under. ``result`` covers JSON-RPC and the
+#: allow-all fixture; ``response`` covers the namespaced transport in this
+#: module.
+PAYMENT_ENVELOPE_KEYS = ("result", "data", "response", "decision", "outcome",
+                         "verification", "authorization", "settlement")
+
+#: A 4xx that is a refusal by its own semantics, with or without a body.
+_REFUSAL_STATUSES = frozenset({401, 402, 403})
+
+#: Fields whose presence on a 4xx body makes it a stated refusal rather than
+#: a route the target does not have.
+_DENIAL_FIELDS = ("error", "errors", "error_code", "denied", "denial",
+                  "rejection", "rejection_reason", "decline_reason")
+
+
+def _application_body(resp: dict) -> dict:
+    """The server's own fields: every non-underscore key. For a transport
+    that reported an HTTP error with a text ``_body``, the parsed body when
+    it is a JSON object, else ``{}``."""
+    app = {k: v for k, v in resp.items()
+           if isinstance(k, str) and not k.startswith("_")}
+    if not app and isinstance(resp.get("_body"), str):
+        try:
+            parsed = json.loads(resp["_body"])
+        except ValueError:
+            return {}
+        if isinstance(parsed, dict):
+            return {k: v for k, v in parsed.items()
+                    if isinstance(k, str) and not k.startswith("_")}
+    return app
+
+
+def _decision_views(app: dict) -> list[dict]:
+    """The top level plus each envelope key that holds an object."""
+    views = [app]
+    for key in PAYMENT_ENVELOPE_KEYS:
+        inner = app.get(key)
+        if isinstance(inner, dict):
+            views.append(inner)
+    return views
+
+
+def _decided(app: dict, *, flags, states, effects) -> str | None:
+    """``"accepted"`` / ``"rejected"`` when the answer carries a recognised
+    decision field, else ``None``. A refusal wins over an acceptance in the
+    same answer, matching the rejection-term precedence below."""
+    found_accept = False
+    for view in _decision_views(app):
+        for key in flags:
+            v = view.get(key)
+            if v is False:
+                return "rejected"
+            if v is True:
+                found_accept = True
+        for key in PAYMENT_STATE_FIELDS:
+            v = view.get(key)
+            if isinstance(v, str):
+                lv = v.strip().lower()
+                if lv in PAYMENT_REJECT_STATES:
+                    return "rejected"
+                if lv in states:
+                    found_accept = True
+        for key in effects:
+            v = view.get(key)
+            if v not in (None, "", False, 0, {}, []):
+                found_accept = True
+    return "accepted" if found_accept else None
+
+
+def payment_outcome(resp: dict, extra: tuple[str, ...] = (), *,
+                    accept_flags: tuple[str, ...] = (),
+                    accept_states: tuple[str, ...] = (),
+                    accept_effects: tuple[str, ...] = ()) -> tuple[str, dict]:
     """Classify a payment-protocol probe response. Returns (verdict, evidence).
 
-    verdict in {"rejected", "accepted", "unreachable"}.
+    verdict in `PAYMENT_VERDICTS`:
 
-    Four modules held this classification with identical structure and a
-    different term tuple: `ap2_harness`, `card_token_harness`, `ucp_acp_harness`
-    and `x402_fireblocks_harness`, each spelling it inside `_live_rejected`.
-    Verified mechanically before consolidating -- with the tuple normalised
-    away, the four bodies differ only in two comments.
+    - ``unreachable``: transport. No status (socket error, TLS failure,
+      timeout) or a 5xx -- the target did not service the request.
+    - ``rejected``: a recognised refusal. 401/402/403 by status semantics
+      (a 402 IS the protocol servicing the request -- x402/L402 convention --
+      and it says "not this one"); any other 4xx that states a denial
+      (`_DENIAL_FIELDS` or a rejection term in the body); or a body carrying
+      a rejection term, a decision flag set ``false``, or a state field in
+      `PAYMENT_REJECT_STATES`.
+    - ``accepted``: a RECOGNISED acceptance decision -- a flag in
+      `PAYMENT_ACCEPT_FLAGS` set ``true``, a state field in
+      `PAYMENT_ACCEPT_STATES`, or a target-produced effect in
+      `PAYMENT_EFFECT_KEYS` -- plus whatever the caller adds for its protocol.
+    - ``undecided``: the target answered and asserted no decision. An empty
+      body, a body that is not a JSON object, an object with no recognised
+      decision field, a 3xx, or a bare 4xx with no stated denial (404 on a
+      route the target lacks). `fold_live_verdict` makes this INCONCLUSIVE.
 
-    None of the four received the word-boundary or negation fixes made at the
-    agent-prose seam. That is the duplication claim: not that any copy was
-    wrong, but that a fix could never reach them.
+    Five modules route through this: `ap2_harness`, `card_token_harness`,
+    `ucp_acp_harness`, `x402_fireblocks_harness` and, since 2026-09-08,
+    `settlement_finality_harness`, whose private copy would otherwise have
+    kept the defect this repairs. Four of them held identical structure and a
+    different term tuple before consolidation; verified mechanically then.
 
     **This takes a RESPONSE, not a URL.** The first version of it made the
-    request too, and that was wrong: the four callers import `http_post_json`
-    from `protocol_tests._utils`, which is a DIFFERENT function from the one in
-    this module -- different default timeout, different SSE handling, and a
-    different error-dict shape. Consolidating the request would have silently
-    swapped the transport under four payment modules. The duplication this
-    guards is the matching rule, not the HTTP call, so the cut is here.
+    request too, and that was wrong: the callers import `http_post_json`
+    from `protocol_tests._utils`, which is a DIFFERENT function from the one
+    in this module -- different default timeout, different SSE handling, and
+    a different error-dict shape. The duplication this guards is the matching
+    rule, not the HTTP call, so the cut is here.
 
-    *extra* carries the module's own vocabulary, so the shared core does not
-    grow a word that means rejection in one protocol only. `card_token_harness`
-    adds "expired" and "revoked"; `x402_fireblocks_harness` adds "policy" and
-    "blocked". Same idiom as `looks_like_refusal(text, extra=)`.
+    *extra* carries the module's own rejection vocabulary, so the shared core
+    does not grow a word that means rejection in one protocol only.
+    *accept_flags* / *accept_states* / *accept_effects* do the same for
+    acceptance. Same idiom as `looks_like_refusal(text, extra=)`.
 
-    Order is preserved exactly from the originals, and each step matters:
+    Only the application body is read for decisions and terms: every
+    underscore-prefixed key is the transport's (`_utils.RESERVED_TRANSPORT_KEYS`),
+    is rebuilt by the transport, and is skipped here, so a forged
+    ``_error`` cannot downgrade an affirmative decision (R4-03) and a
+    ``_stripped_keys: ["_denied"]`` cannot be read as a rejection word.
 
-    - a transport error with a 4xx is a REAL rejection: the endpoint answered
-      and said no;
-    - a transport error otherwise is unreachable;
-    - a 5xx or status 0 is unreachable BEFORE the body is read, because an error
-      page can contain the word "invalid" while establishing nothing;
-    - only then do the rejection terms apply;
-    - a 2xx with no rejection term is an affirmative acceptance of the attack,
-      which means the control is absent.
+    Order, and why each step matters:
+
+    - no status or a 5xx is unreachable BEFORE the body is read, because an
+      error page can contain the word "invalid" while establishing nothing;
+    - 401/402/403 are refusals whatever the body says;
+    - rejection terms and negative decision fields apply next, so a body
+      that both grants and explains a policy block reads as the block;
+    - only a recognised acceptance is ``accepted``;
+    - everything else the target answered with is ``undecided``. A 2xx on
+      its own is not an acceptance of the attack.
     """
-    if resp.get("_error"):
-        status = resp.get("_status", 0)
-        if status and 400 <= status < 500:
-            return ("rejected", resp)
+    status = resp.get("_status")
+    if not isinstance(status, int) or status <= 0 or status >= 500:
         return ("unreachable", resp)
-    status = resp.get("_status", 0)
-    if status >= 500 or status == 0:
-        return ("unreachable", resp)
-    text = json.dumps(resp).lower()
-    if any(w in text for w in PAYMENT_REJECTION_TERMS + tuple(extra)):
+    if status in _REFUSAL_STATUSES:
         return ("rejected", resp)
-    if 200 <= status < 300:
+    app = _application_body(resp)
+    terms = PAYMENT_REJECTION_TERMS + tuple(extra)
+    text = json.dumps(app).lower()
+    if 400 <= status < 500 and isinstance(resp.get("_body"), str):
+        text += " " + resp["_body"].lower()
+    if any(w in text for w in terms):
+        return ("rejected", resp)
+    decision = _decided(app,
+                        flags=PAYMENT_ACCEPT_FLAGS + tuple(accept_flags),
+                        states=PAYMENT_ACCEPT_STATES | set(accept_states),
+                        effects=PAYMENT_EFFECT_KEYS + tuple(accept_effects))
+    if decision == "rejected":
+        return ("rejected", resp)
+    if 400 <= status < 500:
+        if any(k in app for k in _DENIAL_FIELDS):
+            return ("rejected", resp)
+        return ("undecided", resp)
+    if 200 <= status < 300 and decision == "accepted":
         return ("accepted", resp)
-    return ("unreachable", resp)
+    return ("undecided", resp)
 
 
 def declined(resp) -> bool:
@@ -506,7 +657,8 @@ def inconclusive_detail(resp, details: str | None) -> str | None:
 # Five payment conformance modules -- ap2, x402_fireblocks, ucp_acp, card_token
 # and settlement_finality -- share one `_finish` shape: compute a verdict from
 # the reference verifier in the file, then, in live mode, probe the target with
-# the attack and read `_live_rejected` back as accepted / rejected / unreachable.
+# the attack and read `_live_rejected` back as accepted / rejected / undecided
+# / unreachable (the fourth state since R4-02, 2026-09-08).
 #
 # All five carried the same defect. The row started as `passed = model_pass`
 # and the unreachable branch only rewrote `details`, so a target that was never
@@ -551,6 +703,11 @@ def fold_live_verdict(*, live_requested: bool, verdict: str | None,
       `delegation_chain_harness._emit`). The rejection is still recorded under
       ``live_evidence``; it is not scored as a pass. None of the five callers
       currently sends a legitimate variant, so none passes ``positive_control``.
+    - Live ``undecided``: the target answered and asserted no decision (an
+      empty body, prose, JSON with no recognised decision field). INCONCLUSIVE,
+      with details saying the request was serviced and no decision returned.
+      Not ``accepted``: a 200 on its own is not the attack getting through
+      (R4-02). Counted as a live observation in `live_run_scope`, never scored.
     - Live, no probe or unreachable: INCONCLUSIVE. Live was requested, nothing
       live was observed, and the reference verdict is preserved SEPARATELY under
       ``reference_verdict`` with its own scope statement -- never in ``passed``.
@@ -579,6 +736,14 @@ def fold_live_verdict(*, live_requested: bool, verdict: str | None,
                 f"everything would produce the same observation. Recorded under "
                 f"live_evidence; not scored as a pass. Reference-model verdict "
                 f"preserved under reference_verdict.",
+                reference)
+    if verdict == "undecided":
+        return (False,
+                f"{INCONCLUSIVE_PREFIX}{subject} serviced the request and returned "
+                f"no decision: the answer carries no recognised acceptance or "
+                f"rejection field, so neither an absent nor a held control was "
+                f"observed. Not scored. Reference-model verdict preserved under "
+                f"reference_verdict.",
                 reference)
     if verdict is None:
         why = "this row defines no live probe"
@@ -610,7 +775,7 @@ def live_run_scope(results, *, live_requested: bool, target: str | None) -> dict
     observed = sum(
         1 for r in results
         if ((getattr(r, "live_evidence", None) or {}).get("verdict")
-            in ("accepted", "rejected")))
+            in ("accepted", "rejected", "undecided")))
     scored = sum(1 for r in results if not is_inconclusive(r))
     if observed == 0:
         statement = (

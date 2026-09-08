@@ -313,11 +313,19 @@ class AP2TestResult:
 def _live_rejected(url: str, headers: dict, payload: dict) -> tuple[str, dict]:
     """Probe a live AP2 verifier. Returns (verdict, evidence).
 
-    verdict in {"rejected", "accepted", "unreachable"}. Liveness gate: a
-    transport failure or 5xx is 'unreachable', never a pass.
+    verdict in {"rejected", "accepted", "undecided", "unreachable"}. Liveness
+    gate: a transport failure or 5xx is 'unreachable', never a pass; an
+    answer with no recognised decision is 'undecided', never a fail (R4-02).
+
+    Acceptance an AP2 verifier states beyond the shared core: a mandate or
+    chain reported valid, a payment reported authorised/paid.
     """
     resp = http_post_json(url, payload, headers, timeout=10)
-    return payment_outcome(resp, extra=("not authorized", "mismatch"))
+    return payment_outcome(
+        resp, extra=("not authorized", "mismatch"),
+        accept_flags=("mandate_valid", "chain_valid", "signature_valid"),
+        accept_states=("fulfilled",),
+        accept_effects=("payment_receipt",))
 
 
 # ---------------------------------------------------------------------------

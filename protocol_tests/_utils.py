@@ -236,6 +236,32 @@ def model_judge_compliance(
     return {"complied": match.group(1).upper() == "COMPLIED", "raw": text.strip()}
 
 
+#: Every key the transport layer owns in the flat response dict this module's
+#: `http_post_json` returns. The whole ``_``-prefixed namespace is reserved --
+#: this set names the members that exist today so a test can pin them -- and
+#: `_strip_reserved` removes ALL underscore-prefixed keys from a server body
+#: before the transport writes its own, so application JSON cannot forge any
+#: of them. CLAUDE.md item 3 names the shape: ``{"_status": x, **body}`` lets
+#: the server overwrite internal keys. Rebuilding ``_status`` alone (the
+#: repair before this one) left ``_error`` forgeable: a body
+#: ``{"allowed": true, "_error": true, "_status": 503}`` kept its ``_error``,
+#: and `payment_outcome` read an affirmative decision as a transport failure
+#: (R4-03, fourth external review, 2026-09-08).
+RESERVED_TRANSPORT_KEYS = frozenset({
+    "_status", "_error", "_exception", "_message", "_body", "_raw",
+    "_headers", "_elapsed", "_transport", "_simulated", "_stripped_keys",
+})
+
+
+def _strip_reserved(body: dict) -> tuple[dict, list[str]]:
+    """``(application_body, stripped_keys)``: the server's JSON with every
+    underscore-prefixed key removed. Done once here, for every consumer."""
+    stripped = sorted(k for k in body if isinstance(k, str) and k.startswith("_"))
+    if not stripped:
+        return body, []
+    return {k: v for k, v in body.items() if k not in stripped}, stripped
+
+
 def http_post_json(
     url: str,
     payload: dict,
@@ -248,6 +274,12 @@ def http_post_json(
     ``_error`` key so callers can check ``resp.get("_error")`` without
     catching exceptions.
 
+    The transport owns every ``_``-prefixed key (`RESERVED_TRANSPORT_KEYS`).
+    A server body is parsed first, stripped of any underscore-prefixed key it
+    carried, and only then does the transport write ``_status``; the names it
+    removed are recorded under ``_stripped_keys`` so a forgery attempt stays
+    visible in the evidence instead of silently vanishing.
+
     Args:
         url:     Target URL.
         payload: Request body (will be JSON-serialised).
@@ -256,7 +288,15 @@ def http_post_json(
         timeout: Socket timeout in seconds (default 15).
 
     Returns:
-        Parsed JSON response dict, with ``_status`` injected on success.
+        Parsed JSON object, with ``_status`` set by the transport. An empty
+        2xx body is ``{"_status": <code>}``.
+        A 2xx whose body is not a JSON object (prose, HTML, a bare JSON
+        array or scalar): ``{"_error": True, "_exception": "JSONDecodeError"
+        | "NonObjectJSON", "_message": ..., "_status": <code>, "_raw": ...}``.
+        ``_error`` is kept on that shape because six consumers predate
+        ``_raw`` and read it as "nothing usable came back"; ``_status`` is
+        carried so a classifier can tell an answered-but-undecodable body
+        from a target that was never reached (R4-02).
         On HTTP errors: ``{"_error": True, "_status": <code>, "_body": ...}``.
         On network/other errors: ``{"_error": True, "_exception": ..., "_message": ...}``.
     """
@@ -269,10 +309,8 @@ def http_post_json(
     req = urllib.request.Request(url, data=data, headers=hdrs, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
+            status = resp.status
             raw = resp.read().decode("utf-8")
-            result = json.loads(raw) if raw else {}
-            result["_status"] = resp.status
-            return result
     except urllib.error.HTTPError as e:
         body_text = ""
         try:
@@ -282,6 +320,25 @@ def http_post_json(
         return {"_error": True, "_status": e.code, "_body": body_text}
     except Exception as e:
         return {"_error": True, "_exception": type(e).__name__, "_message": str(e)[:300]}
+    # The target answered 2xx. Parse OUTSIDE the network try so a body that is
+    # not JSON is never reported with the same shape as a socket failure
+    # without the status that distinguishes them.
+    if not raw.strip():
+        return {"_status": status}
+    try:
+        parsed = json.loads(raw)
+    except ValueError as e:
+        return {"_error": True, "_exception": "JSONDecodeError",
+                "_message": str(e)[:300], "_status": status, "_raw": raw[:500]}
+    if not isinstance(parsed, dict):
+        return {"_error": True, "_exception": "NonObjectJSON",
+                "_message": f"body is a JSON {type(parsed).__name__}, not an object",
+                "_status": status, "_raw": raw[:500]}
+    result, stripped = _strip_reserved(parsed)
+    result["_status"] = status
+    if stripped:
+        result["_stripped_keys"] = stripped
+    return result
 
 
 @contextlib.contextmanager

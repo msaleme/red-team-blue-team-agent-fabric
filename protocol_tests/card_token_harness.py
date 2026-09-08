@@ -260,12 +260,19 @@ class CardTokenTestResult:
 def _live_rejected(url: str, headers: dict, payload: dict) -> tuple[str, dict]:
     """Probe a live token authorizer. Returns (verdict, evidence).
 
-    verdict in {"rejected", "accepted", "unreachable"}. Liveness gate: a
+    verdict in {"rejected", "accepted", "undecided", "unreachable"}. Liveness gate: a
     transport failure or 5xx is 'unreachable', never a pass.
     """
     resp = http_post_json(url, payload, headers, timeout=10)
-    return payment_outcome(resp, extra=("declin", "not authorized", "mismatch",
-                                        "expired", "revoked"))
+    # A card authoriser states its decision as approved/authorized, an
+    # approval or authorization code, or a captured/settled transaction.
+    # `transaction` is what the probe SENDS, so it is not an effect key.
+    return payment_outcome(
+        resp, extra=("declin", "not authorized", "mismatch",
+                                        "expired", "revoked"),
+        accept_flags=("cryptogram_valid", "token_valid"),
+        accept_states=("authorised", "auth_approved", "captured"),
+        accept_effects=("approval_code", "authorization_id", "auth_id"))
 
 
 # ---------------------------------------------------------------------------
