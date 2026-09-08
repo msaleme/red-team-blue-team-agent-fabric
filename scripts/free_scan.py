@@ -28,11 +28,18 @@ from urllib.parse import urlparse
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 
+from protocol_tests.http_helpers import is_inconclusive
 from protocol_tests.mcp_harness import (
     MCPSecurityTests,
     MCPTestResult,
     StreamableHTTPTransport,
 )
+
+#: Row status when the scanner itself could not reach a verdict. It is never
+#: a failed test and never a detected issue.
+INCONCLUSIVE = "INCONCLUSIVE"
+COULD_NOT_EVALUATE = "the scanner could not evaluate this test"
+GRADE_NOT_ESTABLISHED = "not established"
 
 # ── SSRF Protection ────────────────────────────────────────────────────────
 
@@ -126,10 +133,14 @@ FREE_SCAN_TESTS = [
 
 # ── Grading ────────────────────────────────────────────────────────────────
 
-def compute_grade(passed: int, total: int) -> str:
-    """Return a letter grade A-F based on pass ratio."""
+def compute_grade(passed: int, total: int) -> str | None:
+    """Return a letter grade A-F based on pass ratio.
+
+    ``None`` when nothing was evaluated: zero tests is not an F, it is no
+    grade at all (R4-06).
+    """
     if total == 0:
-        return "F"
+        return None
     ratio = passed / total
     if ratio >= 1.0:
         return "A"
@@ -143,9 +154,31 @@ def compute_grade(passed: int, total: int) -> str:
         return "F"
 
 
-def build_recommendation(results: list[dict], grade: str) -> str:
-    """Generate a 1-paragraph recommendation based on scan results."""
-    failed = [r for r in results if r["status"] != "PASS"]
+def build_recommendation(results: list[dict], grade: str | None) -> str:
+    """Generate a 1-paragraph recommendation based on scan results.
+
+    Only a row the scanner actually evaluated can be a detected issue. A row
+    the scanner could not evaluate is reported as exactly that, and no grade
+    is claimed over it.
+    """
+    failed = [r for r in results if r["status"] == "FAIL"]
+    unevaluated = [r for r in results if r["status"] == INCONCLUSIVE]
+    if unevaluated:
+        names = ", ".join(r["name"] for r in unevaluated)
+        text = (
+            f"The scanner could not evaluate {len(unevaluated)} of {len(results)} "
+            f"tests ({names}), so no grade is established. This is not evidence "
+            f"that the server is vulnerable, and it is not evidence that it is "
+            f"secure. Check that the target URL is a reachable Streamable HTTP "
+            f"MCP endpoint and re-run the scan."
+        )
+        if failed:
+            fail_names = ", ".join(r["name"] for r in failed)
+            text += (
+                f" Of the tests that were evaluated, {len(failed)} failed: "
+                f"{fail_names}. Remediate those before re-running."
+            )
+        return text
     if not failed:
         return (
             "All five quick-scan tests passed. This MCP server demonstrates solid "
@@ -166,12 +199,36 @@ def build_recommendation(results: list[dict], grade: str) -> str:
 
 # ── Run scan ───────────────────────────────────────────────────────────────
 
+def _row(test_def: dict, status: str, detail: str) -> dict:
+    return {
+        "id": test_def["id"],
+        "name": test_def["name"],
+        "status": status,
+        "detail": detail or "",
+    }
+
+
+def _status_of(result: MCPTestResult) -> str:
+    if is_inconclusive(result):
+        return INCONCLUSIVE
+    return "PASS" if result.passed else "FAIL"
+
+
 def run_free_scan(url: str, transport: str = "http") -> dict:
     """Execute the 5 free-scan tests and return structured results.
 
     Args:
         url: Target MCP server URL.
         transport: Transport type - 'http' (default) or 'stdio'.
+
+    The selected ``MCPSecurityTests`` methods record their result on the
+    suite and return ``None``. This wrapper used to dereference that ``None``,
+    catch its own ``AttributeError`` and publish it as five failed tests,
+    grade F and "The scan detected 5 issue(s)" -- against the shipped mock and
+    against a closed port alike (R4-06, fourth external review, 2026-09-08).
+    It now reads the recorded result back by test id, runs the MCP handshake
+    the methods assume (as ``run_all`` does), and reports anything the
+    scanner itself could not do as INCONCLUSIVE with no grade.
     """
     # #110 - Wire transport parameter through
     if transport == "stdio":
@@ -179,46 +236,72 @@ def run_free_scan(url: str, transport: str = "http") -> dict:
         _transport = StdioTransport(url)
     else:
         _transport = StreamableHTTPTransport(url)
-    harness = MCPSecurityTests(_transport)
+    # json_output silences the per-test console lines, which would otherwise
+    # land on stdout ahead of the JSON this script prints.
+    harness = MCPSecurityTests(_transport, json_output=True)
 
     scan_results: list[dict] = []
-    passed = 0
     total = len(FREE_SCAN_TESTS)
 
-    for test_def in FREE_SCAN_TESTS:
-        test_method = getattr(harness, test_def["method"], None)
-        if test_method is None:
-            scan_results.append({
-                "id": test_def["id"],
-                "name": test_def["name"],
-                "status": "ERROR",
-                "detail": "Test method not found in harness.",
-            })
-            continue
-
+    try:
+        # The test methods assume the handshake ran; run_all() aborts when it
+        # does not. Against a closed port that is the whole verdict.
+        init_error: str | None = None
         try:
-            result: MCPTestResult = test_method()
-            status = result.status.value if hasattr(result.status, "value") else str(result.status)
-            is_pass = status.upper() == "PASS"
-            if is_pass:
-                passed += 1
-            scan_results.append({
-                "id": test_def["id"],
-                "name": test_def["name"],
-                "status": status.upper(),
-                "detail": result.detail or "",
-            })
-        except Exception as exc:
-            scan_results.append({
-                "id": test_def["id"],
-                "name": test_def["name"],
-                "status": "ERROR",
-                "detail": str(exc),
-            })
+            initialized = bool(harness.initialize())
+        except Exception as exc:  # the transport raised rather than reporting
+            initialized = False
+            init_error = f"{type(exc).__name__}: {exc}"
+        if not initialized:
+            reason = (getattr(harness, "_connection_error", None) or init_error
+                      or "MCP initialize did not succeed")
+            for test_def in FREE_SCAN_TESTS:
+                scan_results.append(_row(
+                    test_def, INCONCLUSIVE,
+                    f"INCONCLUSIVE - {COULD_NOT_EVALUATE}: {reason}"))
+        else:
+            for test_def in FREE_SCAN_TESTS:
+                test_method = getattr(harness, test_def["method"], None)
+                if test_method is None:
+                    scan_results.append(_row(
+                        test_def, INCONCLUSIVE,
+                        f"INCONCLUSIVE - {COULD_NOT_EVALUATE}: test method "
+                        f"{test_def['method']} not found in harness"))
+                    continue
 
-    _transport.close()
+                before = len(harness.results)
+                try:
+                    test_method()
+                except Exception as exc:
+                    scan_results.append(_row(
+                        test_def, INCONCLUSIVE,
+                        f"INCONCLUSIVE - {COULD_NOT_EVALUATE}: "
+                        f"{type(exc).__name__}: {exc}"))
+                    continue
 
-    grade = compute_grade(passed, total)
+                recorded = [r for r in harness.results[before:]
+                            if r.test_id == test_def["id"]]
+                if not recorded:
+                    scan_results.append(_row(
+                        test_def, INCONCLUSIVE,
+                        f"INCONCLUSIVE - {COULD_NOT_EVALUATE}: the harness "
+                        f"recorded no result for {test_def['id']}"))
+                    continue
+                result = recorded[-1]
+                scan_results.append(_row(test_def, _status_of(result), result.details))
+    finally:
+        try:
+            _transport.close()
+        except Exception:
+            pass
+
+    passed = sum(1 for r in scan_results if r["status"] == "PASS")
+    failed = sum(1 for r in scan_results if r["status"] == "FAIL")
+    inconclusive = sum(1 for r in scan_results if r["status"] == INCONCLUSIVE)
+
+    # A grade is a claim over all five tests. If any of them was not
+    # evaluated, no such claim exists.
+    grade = compute_grade(passed, total) if inconclusive == 0 else None
     recommendation = build_recommendation(scan_results, grade)
 
     return {
@@ -226,9 +309,12 @@ def run_free_scan(url: str, transport: str = "http") -> dict:
         "target_url": url,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "tests_run": total,
+        "tests_evaluated": total - inconclusive,
         "tests_passed": passed,
-        "tests_failed": total - passed,
+        "tests_failed": failed,
+        "tests_inconclusive": inconclusive,
         "grade": grade,
+        "grade_status": "established" if grade is not None else GRADE_NOT_ESTABLISHED,
         "recommendation": recommendation,
         "results": scan_results,
     }
@@ -246,8 +332,10 @@ def format_markdown(report: dict) -> str:
         "",
         f"**Target:** `{report['target_url']}`",
         f"**Date:** {report['timestamp']}",
-        f"**Grade:** {report['grade']}",
-        f"**Passed:** {report['tests_passed']}/{report['tests_run']}",
+        f"**Grade:** {report['grade'] or GRADE_NOT_ESTABLISHED}",
+        f"**Passed:** {report['tests_passed']}/{report['tests_run']}"
+        + (f" ({report['tests_inconclusive']} not evaluated)"
+           if report.get('tests_inconclusive') else ""),
         "",
         "## Results",
         "",
@@ -256,7 +344,7 @@ def format_markdown(report: dict) -> str:
     ]
 
     for r in report["results"]:
-        icon = "PASS" if r["status"] == "PASS" else "FAIL" if r["status"] == "FAIL" else "ERROR"
+        icon = r["status"]
         detail = r["detail"][:80].replace("|", "/") if r["detail"] else "-"
         lines.append(f"| {r['id']} | {r['name']} | {icon} | {detail} |")
 
@@ -280,7 +368,8 @@ def format_markdown(report: dict) -> str:
 def send_email_stub(email: str, report_text: str) -> None:
     """Stub for email delivery. Replace with actual SMTP/SES integration."""
     print(f"\nWould email to: {email}")
-    print(f"Subject: MCP Security Scan Report - Grade {json.loads(report_text)['grade'] if '{' in report_text else 'N/A'}")
+    grade = json.loads(report_text).get("grade") if "{" in report_text else None
+    print(f"Subject: MCP Security Scan Report - Grade {grade or GRADE_NOT_ESTABLISHED}")
     print("(Email sending is stubbed - integrate with your email provider to enable)")
 
 
@@ -337,8 +426,11 @@ def main():
     if args.email:
         send_email_stub(args.email, format_json(report))
 
-    # Exit with non-zero if any tests failed
-    sys.exit(0 if report["tests_passed"] == report["tests_run"] else 1)
+    # Exit code: 0 all passed, 1 a test failed, 2 the scanner could not
+    # evaluate every test (no grade established).
+    if report["tests_inconclusive"]:
+        sys.exit(2)
+    sys.exit(0 if report["tests_failed"] == 0 else 1)
 
 
 if __name__ == "__main__":

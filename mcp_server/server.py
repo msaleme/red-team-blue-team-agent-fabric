@@ -176,8 +176,14 @@ def create_server(
         """Quick 5-test MCP security scan with A-F grading.
 
         Runs the five most critical MCP protocol tests against a target server
-        and returns a grade (A-F), per-test pass/fail results, a recommendation,
-        and scan duration.
+        and returns a grade (A-F), per-test PASS/FAIL/INCONCLUSIVE results, a
+        recommendation, and scan duration.
+
+        A test the scanner could not evaluate -- the target did not complete
+        the MCP handshake, or the scanner itself failed -- is INCONCLUSIVE:
+        it is not counted in tests_failed, and when any test is INCONCLUSIVE
+        the grade is null with grade_status "not established". An
+        INCONCLUSIVE row is never a detected issue.
 
         Args:
             url: The MCP server URL to scan (e.g. http://host:port/mcp).
@@ -185,8 +191,9 @@ def create_server(
                        'stdio' for stdio-based servers.
 
         Returns:
-            dict with keys: grade, tests_passed, tests_run, results,
-            recommendation, scan_time, target_url, timestamp.
+            dict with keys: grade (A-F or null), grade_status, tests_run,
+            tests_evaluated, tests_passed, tests_failed, tests_inconclusive,
+            results, recommendation, scan_time, target_url, timestamp.
         """
         # Test-only execution witness for the public Streamable HTTP boundary
         # regression. It is inert unless an isolated test supplies a path.

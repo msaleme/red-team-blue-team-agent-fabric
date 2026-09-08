@@ -58,9 +58,12 @@ Returns a structured object with:
   "target_url": "http://...",
   "timestamp": "2026-03-28T15:00:00+00:00",
   "tests_run": 5,
+  "tests_evaluated": 5,
   "tests_passed": 4,
   "tests_failed": 1,
+  "tests_inconclusive": 0,
   "grade": "B",
+  "grade_status": "established",
   "recommendation": "The scan detected 1 issue(s)...",
   "results": [
     {"id": "MCP-001", "name": "Tool Discovery Poisoning", "status": "PASS", "detail": "..."},
@@ -68,6 +71,15 @@ Returns a structured object with:
   ]
 }
 ```
+
+A row's `status` is `PASS`, `FAIL` or `INCONCLUSIVE`. INCONCLUSIVE means the
+scanner could not evaluate that test -- the target did not complete the MCP
+handshake, or the scanner itself failed -- and its `detail` says so. It is
+never counted in `tests_failed` and never reported as a detected issue. When
+any row is INCONCLUSIVE, `grade` is `null` and `grade_status` is
+`"not established"`: a grade is a claim over all five tests, and no such
+claim exists over a test that was not evaluated. Against a closed port every
+row is INCONCLUSIVE and there is no grade.
 
 ### Markdown
 
@@ -86,7 +98,8 @@ Produces a human-readable report with a results table, grade, and recommendation
 ## Exit Code
 
 - `0` if all 5 tests pass
-- `1` if any test fails or errors
+- `1` if any test fails
+- `2` if the scanner could not evaluate every test (no grade established)
 
 This makes the script usable in CI/CD pipelines.
 

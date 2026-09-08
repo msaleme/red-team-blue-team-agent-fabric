@@ -44,12 +44,13 @@ import re
 import subprocess
 import sys
 import time
+import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX, is_inconclusive
+from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX, http_post_json, is_inconclusive
 
 try:
     import yaml
@@ -77,6 +78,18 @@ MAX_REGEX_INPUT_LENGTH = 10_000  # Max input length a field_matches regex is run
 MAX_REGEX_EVAL_SECONDS = 1.0
 REGEX_BUDGET_EXCEEDED = "pattern evaluation exceeded budget"
 MAX_ATTACK_STEPS = 20  # Max number of attack steps per pattern
+MAX_ASSERTIONS = 50  # Max number of assertions per pattern (R4-14)
+PATTERN_BUDGET_EXCEEDED = "pattern execution exceeded budget"
+
+#: Frameworks for which a live adapter exists. The adapter speaks JSON-RPC 2.0
+#: over HTTP POST to ``--url``: MCP and A2A are JSON-RPC protocols and
+#: ``generic`` is the plugin author saying "an HTTP JSON-RPC endpoint". The
+#: agent frameworks (autogen, crewai, langgraph) have no wire protocol of
+#: their own, and the payment protocols (x402, l402) are HTTP 402 flows, not
+#: JSON-RPC; a live run against those is INCONCLUSIVE, never a PASS.
+LIVE_ADAPTER_FRAMEWORKS = frozenset({"mcp", "a2a", "generic"})
+NO_ADAPTER_DETAIL = "no adapter bound; the target was not contacted"
+DRY_RUN_DETAIL = "(dry run \u2014 not evaluated)"
 
 # Trust tiers (ordered by privilege)
 TRUST_CORE = "core"          # Maintained by project maintainers
@@ -147,6 +160,10 @@ class PatternResult:
     # assertion could not be evaluated, so no verdict on the target exists.
     not_evaluated: bool = False
     assertions_inconclusive: int = 0
+    # How many steps reached the target and how many the target answered.
+    # Zero answered means no assertion can be evaluated (R4-07).
+    requests_sent: int = 0
+    requests_answered: int = 0
 
     def __post_init__(self):
         if not self.timestamp:
@@ -453,12 +470,23 @@ def validate_pattern(data: dict, file_path: str) -> tuple[AttackPattern | None, 
                         file_path, f"attack_steps[{i}].{req}",
                         f"Required step field '{req}' is missing"
                     ))
+            action = step.get("action")
+            if action is not None and str(action) not in VALID_ACTIONS:
+                errors.append(ValidationError(
+                    file_path, f"attack_steps[{i}].action",
+                    f"Action '{action}' is not valid. Must be one of: {', '.join(sorted(VALID_ACTIONS))}"
+                ))
 
     # Validate assertions
     assertions = data.get("assertions", [])
     if not isinstance(assertions, list) or len(assertions) == 0:
         errors.append(ValidationError(file_path, "assertions", "Must have at least one assertion"))
     else:
+        if len(assertions) > MAX_ASSERTIONS:
+            errors.append(ValidationError(
+                file_path, "assertions",
+                f"Too many assertions ({len(assertions)} > {MAX_ASSERTIONS})"
+            ))
         for i, assertion in enumerate(assertions):
             if not isinstance(assertion, dict):
                 errors.append(ValidationError(file_path, f"assertions[{i}]", "Assertion must be an object"))
@@ -469,10 +497,22 @@ def validate_pattern(data: dict, file_path: str) -> tuple[AttackPattern | None, 
                         file_path, f"assertions[{i}].{req}",
                         f"Required assertion field '{req}' is missing"
                     ))
+            atype = assertion.get("type")
+            if atype is not None and str(atype) not in VALID_ASSERTION_TYPES:
+                errors.append(ValidationError(
+                    file_path, f"assertions[{i}].type",
+                    f"Assertion type '{atype}' is not valid. Must be one of: {', '.join(sorted(VALID_ASSERTION_TYPES))}"
+                ))
 
-    # Validate evidence_schema
+    # Validate evidence_schema: it must be an object. A string or list here
+    # was accepted and later iterated as characters/items (R4-14).
     schema = data.get("evidence_schema", {})
-    if isinstance(schema, dict):
+    if not isinstance(schema, dict):
+        errors.append(ValidationError(
+            file_path, "evidence_schema",
+            f"Must be an object mapping field names to types, got {type(schema).__name__}"
+        ))
+    else:
         for key, type_name in schema.items():
             if str(type_name).lower() not in VALID_EVIDENCE_TYPES:
                 errors.append(ValidationError(
@@ -523,19 +563,87 @@ FRAMEWORK_HARNESS_MAP = {
 }
 
 
+class HttpJsonRpcAdapter:
+    """The one live adapter: JSON-RPC 2.0 over HTTP POST to ``--url``.
+
+    Before this existed, ``send_message``, ``send_jsonrpc`` and ``call_tool``
+    returned ``{"status": "sent", "response": None}`` with the comment
+    "Populated by harness integration", so a "live" run with ``--url`` never
+    opened a socket and an absence assertion passed against a target that
+    was never reached (R4-07, fourth external review, 2026-09-08).
+
+    Every call returns the namespaced dict ``http_post_json`` produces:
+    ``_status`` when the target answered (any HTTP status is an answer),
+    ``_exception`` when it did not.
+    """
+
+    def __init__(self, url: str, timeout_s: int = 15):
+        self.url = url
+        self.timeout_s = timeout_s
+
+    def send_jsonrpc(self, message: dict) -> dict:
+        return http_post_json(self.url, message, timeout=self.timeout_s)
+
+    @staticmethod
+    def answered(resp: dict) -> bool:
+        return isinstance(resp, dict) and "_status" in resp and "_exception" not in resp
+
+
+def bind_adapter(framework: str, target_url: str):
+    """Return the live adapter for *framework* at *target_url*, or None."""
+    if not target_url:
+        return None
+    if framework not in LIVE_ADAPTER_FRAMEWORKS:
+        return None
+    return HttpJsonRpcAdapter(target_url)
+
+
 class StepExecutor:
     """Executes individual attack steps.
 
     This is the bridge between YAML-declared steps and the harness infrastructure.
     Each action type maps to a method that delegates to the appropriate harness.
+
+    Three actions contact the target through ``self.adapter``: ``send_message``,
+    ``send_jsonrpc`` and ``call_tool``. The rest are local simulations that
+    never open a socket, and say so in their result. With no adapter bound the
+    three record ``not_sent`` and count nothing as answered, which run_pattern
+    turns into INCONCLUSIVE for every assertion.
     """
 
-    def __init__(self, pattern: AttackPattern, target_url: str = "", verbose: bool = False):
+    def __init__(self, pattern: AttackPattern, target_url: str = "",
+                 verbose: bool = False, adapter=None):
         self.pattern = pattern
         self.target_url = target_url
         self.verbose = verbose
         self.evidence: dict[str, Any] = {}
         self.responses: list[dict] = []
+        self.adapter = adapter if adapter is not None else bind_adapter(
+            pattern.framework, target_url)
+        self.requests_sent = 0
+        self.requests_answered = 0
+
+    def _live(self, target: str, message: dict, extra: dict) -> dict:
+        """Send *message* through the adapter and record whether it was answered."""
+        if self.adapter is None:
+            return {"status": "not_sent", "target": target,
+                    "reason": NO_ADAPTER_DETAIL, **extra}
+        self.requests_sent += 1
+        resp = self.adapter.send_jsonrpc(message)
+        answered = HttpJsonRpcAdapter.answered(resp)
+        if answered:
+            self.requests_answered += 1
+        record = {
+            "status": "sent" if answered else "unanswered",
+            "target": target,
+            "request_sent": message,
+            "response": resp.get("response") if isinstance(resp, dict) else None,
+            "http_status": resp.get("_status") if isinstance(resp, dict) else None,
+            **extra,
+        }
+        if not answered:
+            record["error"] = resp.get("_exception", "no answer") if isinstance(resp, dict) else "no answer"
+        return record
 
     def execute_step(self, step: dict) -> dict:
         """Execute a single attack step and return the result."""
@@ -565,53 +673,66 @@ class StepExecutor:
             return error_result
 
     def _do_send_message(self, target: str, payload: dict) -> dict:
-        """Simulate sending a message to an agent or server."""
-        return {
-            "status": "sent",
-            "target": target,
-            "role": payload.get("role", ""),
-            "content_length": len(str(payload.get("content", ""))),
-            "response": None,  # Populated by harness integration
+        """Send a message to the target as an A2A ``message/send`` request."""
+        content = str(payload.get("content", ""))
+        message = {
+            "jsonrpc": "2.0",
+            "method": "message/send",
+            "params": {
+                "message": {
+                    "role": payload.get("role") or "user",
+                    "parts": [{"kind": "text", "text": content}],
+                    "messageId": f"community-{uuid.uuid4().hex[:12]}",
+                    "metadata": payload.get("metadata", {}) or {},
+                },
+            },
+            "id": payload.get("id", "community-test-1"),
         }
+        return self._live(target, message, {
+            "role": payload.get("role", ""),
+            "content_length": len(content),
+        })
 
     def _do_send_jsonrpc(self, target: str, payload: dict) -> dict:
-        """Send a JSON-RPC 2.0 message."""
+        """Send a raw JSON-RPC 2.0 message to the target."""
         message = {
             "jsonrpc": "2.0",
             "method": payload.get("method", ""),
             "params": payload.get("params", {}),
             "id": payload.get("id", "community-test-1"),
         }
-        return {
-            "status": "sent",
-            "target": target,
-            "message": message,
-            "response": None,
-        }
+        return self._live(target, message, {})
 
     def _do_call_tool(self, target: str, payload: dict) -> dict:
-        """Invoke a tool by name."""
-        return {
-            "status": "called",
-            "target": target,
-            "tool_name": payload.get("tool_name", ""),
-            "arguments": payload.get("arguments", {}),
-            "response": None,
+        """Invoke a tool by name as an MCP ``tools/call`` request."""
+        message = {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {
+                "name": payload.get("tool_name", ""),
+                "arguments": payload.get("arguments", {}) or {},
+            },
+            "id": payload.get("id", "community-test-1"),
         }
+        return self._live(target, message, {
+            "tool_name": payload.get("tool_name", ""),
+        })
 
     def _do_inject_description(self, target: str, payload: dict) -> dict:
-        """Simulate injecting a modified tool description."""
+        """Simulate injecting a modified tool description (never contacts the target)."""
         return {
             "status": "injected",
+            "live": False,
             "target": target,
             "tool_name": payload.get("tool_name", ""),
             "injected_length": len(str(payload.get("injected_text", ""))),
         }
 
     def _do_register_tool(self, target: str, payload: dict) -> dict:
-        """Simulate registering a new tool."""
+        """Simulate registering a new tool (never contacts the target)."""
         return {
             "status": "registered",
+            "live": False,
             "target": target,
             "tool_name": payload.get("tool_name", ""),
             "description_length": len(str(payload.get("description", ""))),
@@ -619,17 +740,19 @@ class StepExecutor:
         }
 
     def _do_modify_context(self, target: str, payload: dict) -> dict:
-        """Simulate modifying agent context."""
+        """Simulate modifying agent context (never contacts the target)."""
         return {
             "status": "modified",
+            "live": False,
             "target": target,
             "context_key": payload.get("context_key", ""),
         }
 
     def _do_http_request(self, target: str, payload: dict) -> dict:
-        """Simulate an HTTP request (for exfiltration detection)."""
+        """Simulate an HTTP request (for exfiltration detection; never sent)."""
         return {
             "status": "simulated",
+            "live": False,
             "method": payload.get("method", "GET"),
             "url": payload.get("url", ""),
             "note": "HTTP request simulated - not actually sent during dry run",
@@ -642,9 +765,10 @@ class StepExecutor:
         return {"status": "waited", "duration_ms": duration_ms}
 
     def _do_assert_state(self, target: str, payload: dict) -> dict:
-        """Check intermediate state."""
+        """Check intermediate state (local; never contacts the target)."""
         return {
             "status": "checked",
+            "live": False,
             "condition": payload.get("condition", ""),
             "expected": payload.get("expected", ""),
         }
@@ -769,6 +893,16 @@ class AssertionEvaluator:
         return False, f"{INCONCLUSIVE_PREFIX}{REGEX_BUDGET_EXCEEDED}: {message}"
 
 
+#: The action and assertion vocabularies, derived from the two dispatch tables
+#: rather than written down a second time: a handler that exists is valid, a
+#: name with no handler is rejected at validation instead of being skipped or
+#: reported "Unknown assertion type" at run time (R4-14).
+VALID_ACTIONS = frozenset(
+    name[len("_do_"):] for name in vars(StepExecutor) if name.startswith("_do_"))
+VALID_ASSERTION_TYPES = frozenset(
+    name[len("_check_"):] for name in vars(AssertionEvaluator) if name.startswith("_check_"))
+
+
 # ---------------------------------------------------------------------------
 # Bounded regex evaluation (R3-07)
 # ---------------------------------------------------------------------------
@@ -831,46 +965,82 @@ def evaluate_regex_bounded(
 # Pattern runner
 # ---------------------------------------------------------------------------
 
+def _budget_result(pattern: AttackPattern, elapsed: float, where: str,
+                   executor: "StepExecutor | None" = None) -> PatternResult:
+    """INCONCLUSIVE: the pattern ran past its budget, so nothing was verified."""
+    return PatternResult(
+        test_id=pattern.id,
+        name=pattern.name,
+        source_file=pattern.source_file,
+        owasp_asi=pattern.owasp_category,
+        severity=pattern.severity,
+        passed=False,
+        details=(f"{INCONCLUSIVE_PREFIX}{PATTERN_BUDGET_EXCEEDED}: {elapsed:.2f}s "
+                 f"elapsed (limit: {MAX_PATTERN_EXECUTION_TIMEOUT_S}s) at {where}; "
+                 f"no assertion verdict was recorded"),
+        elapsed_s=round(elapsed, 3),
+        framework=pattern.framework,
+        assertions_total=len(pattern.assertions),
+        assertions_inconclusive=len(pattern.assertions),
+        not_evaluated=True,
+        requests_sent=executor.requests_sent if executor else 0,
+        requests_answered=executor.requests_answered if executor else 0,
+    )
+
+
 def run_pattern(
     pattern: AttackPattern,
     target_url: str = "",
     verbose: bool = False,
     dry_run: bool = False,
+    adapter=None,
 ) -> PatternResult:
     """Execute a community attack pattern and return the result.
 
-    Each pattern is capped at MAX_PATTERN_EXECUTION_TIMEOUT_S seconds.
-    """
-    start_time = time.time()
+    Each pattern is capped at MAX_PATTERN_EXECUTION_TIMEOUT_S seconds of
+    wall clock across ALL steps and ALL assertions. The deadline is checked
+    before and after every step, after every assertion and once at the end;
+    overrunning it is INCONCLUSIVE (R4-14). It used to be checked only before
+    each step, so a final step or the assertion phase could run unbounded.
 
-    executor = StepExecutor(pattern, target_url=target_url, verbose=verbose)
+    Verdict rules (R4-07):
+
+    * dry run: no step runs, every assertion is INCONCLUSIVE with
+      ``(dry run \u2014 not evaluated)``; the pattern is INCONCLUSIVE.
+    * no adapter bound (no ``--url``, or a framework with no live adapter):
+      every assertion is INCONCLUSIVE with ``no adapter bound; the target was
+      not contacted``.
+    * adapter bound but the target answered none of the requests sent (or no
+      step contacts the target at all): every assertion is INCONCLUSIVE.
+    * otherwise the assertions are evaluated against what the target said.
+    """
+    start_time = time.monotonic()
+
+    def over_budget() -> float | None:
+        elapsed = time.monotonic() - start_time
+        return elapsed if elapsed > MAX_PATTERN_EXECUTION_TIMEOUT_S else None
+
+    executor = StepExecutor(pattern, target_url=target_url, verbose=verbose, adapter=adapter)
 
     # Execute attack steps
     if verbose:
         print(f"\n  Running: {pattern.id} - {pattern.name}")
         print(f"  Framework: {pattern.framework} | Severity: {pattern.severity}")
         print(f"  Steps: {len(pattern.attack_steps)} | Assertions: {len(pattern.assertions)}")
+        if not dry_run and executor.adapter is None:
+            print(f"  WARNING: {NO_ADAPTER_DETAIL}")
 
+    n_steps = len(pattern.attack_steps)
     for i, step in enumerate(pattern.attack_steps):
-        # Enforce per-pattern execution timeout
-        elapsed = time.time() - start_time
-        if elapsed > MAX_PATTERN_EXECUTION_TIMEOUT_S:
+        elapsed = over_budget()
+        if elapsed is not None:
             if verbose:
                 print(f"    TIMEOUT: Pattern exceeded {MAX_PATTERN_EXECUTION_TIMEOUT_S}s limit")
-            return PatternResult(
-                test_id=pattern.id,
-                name=pattern.name,
-                source_file=pattern.source_file,
-                severity=pattern.severity,
-                passed=False,
-                details=f"Pattern execution timed out after {elapsed:.1f}s (limit: {MAX_PATTERN_EXECUTION_TIMEOUT_S}s)",
-                elapsed_s=round(elapsed, 3),
-                framework=pattern.framework,
-            )
+            return _budget_result(pattern, elapsed, f"before step {i + 1}/{n_steps}", executor)
 
         if verbose:
             desc = step.get("description", step.get("action", "step"))
-            print(f"    Step {i+1}/{len(pattern.attack_steps)}: {step['action']} -> {step['target']}")
+            print(f"    Step {i+1}/{n_steps}: {step['action']} -> {step['target']}")
 
         if not dry_run:
             executor.execute_step(step)
@@ -878,10 +1048,31 @@ def run_pattern(
             if verbose:
                 print("      (dry run - skipped)")
 
+        elapsed = over_budget()
+        if elapsed is not None:
+            if verbose:
+                print(f"    TIMEOUT: Pattern exceeded {MAX_PATTERN_EXECUTION_TIMEOUT_S}s limit")
+            return _budget_result(pattern, elapsed, f"after step {i + 1}/{n_steps}", executor)
+
     # Build evidence from schema defaults
     evidence = {}
     for key, type_name in pattern.evidence_schema.items():
         evidence[key] = executor.evidence.get(key, _default_for_type(type_name))
+
+    # Decide, once, whether any assertion can be evaluated at all.
+    unevaluable: str | None = None
+    if dry_run:
+        unevaluable = DRY_RUN_DETAIL
+    elif executor.adapter is None:
+        why = ("no --url given" if not target_url
+               else f"no live adapter for framework '{pattern.framework}'")
+        unevaluable = f"{NO_ADAPTER_DETAIL} ({why})"
+    elif executor.requests_sent == 0:
+        unevaluable = ("no step contacts the target (only simulated actions); "
+                       "the target was not contacted")
+    elif executor.requests_answered == 0:
+        unevaluable = (f"the target answered none of {executor.requests_sent} "
+                       f"request(s); nothing to evaluate")
 
     # Evaluate assertions
     evaluator = AssertionEvaluator(evidence, executor.responses)
@@ -890,16 +1081,17 @@ def run_pattern(
 
     assertions_inconclusive = 0
 
+    n_assertions = len(pattern.assertions)
     for i, assertion in enumerate(pattern.assertions):
-        if dry_run:
-            passed = True
-            detail = "(dry run - assertion not evaluated)"
+        if unevaluable is not None:
+            passed = False
+            detail = f"{INCONCLUSIVE_PREFIX}{unevaluable}"
         else:
             passed, detail = evaluator.evaluate(assertion)
 
         # An assertion that could not be evaluated (regex budget exceeded,
-        # R3-07) is a third state: it is not a target failure and it is
-        # never a pass.
+        # R3-07; no target contact, R4-07) is a third state: it is not a
+        # target failure and it is never a pass.
         inconclusive = (not passed) and is_inconclusive(detail)
         if passed:
             assertions_passed += 1
@@ -914,7 +1106,17 @@ def run_pattern(
             icon = "ok" if passed else status
             print(f"    Assertion {i+1}: [{icon}] {desc}")
 
-    elapsed = time.time() - start_time
+        elapsed = over_budget()
+        if elapsed is not None:
+            if verbose:
+                print(f"    TIMEOUT: Pattern exceeded {MAX_PATTERN_EXECUTION_TIMEOUT_S}s limit")
+            return _budget_result(pattern, elapsed, f"after assertion {i + 1}/{n_assertions}", executor)
+
+    elapsed = over_budget()
+    if elapsed is not None:
+        return _budget_result(pattern, elapsed, "end of pattern", executor)
+
+    elapsed = time.monotonic() - start_time
     all_passed = assertions_passed == len(pattern.assertions)
     not_evaluated = assertions_inconclusive > 0
     details = "; ".join(assertion_details)
@@ -936,6 +1138,8 @@ def run_pattern(
         assertions_total=len(pattern.assertions),
         not_evaluated=not_evaluated,
         assertions_inconclusive=assertions_inconclusive,
+        requests_sent=executor.requests_sent,
+        requests_answered=executor.requests_answered,
     )
 
     if verbose:
@@ -1076,6 +1280,20 @@ def run_community_tests(
 
     # Execute patterns
     print(f"\nRunning {len(patterns)} community pattern(s)...\n")
+    if dry_run:
+        print("  DRY RUN: no step is executed and no assertion is evaluated; "
+              "every pattern below is INCONCLUSIVE.")
+    elif not target_url:
+        print(f"  WARNING: {NO_ADAPTER_DETAIL} (no --url given). Every assertion "
+              "below is INCONCLUSIVE. Pass --url to run live, or --dry-run to "
+              "say so explicitly.")
+    else:
+        unsupported = sorted({p.framework for p in patterns
+                              if p.framework not in LIVE_ADAPTER_FRAMEWORKS})
+        if unsupported:
+            print(f"  WARNING: no live adapter for framework(s) "
+                  f"{', '.join(unsupported)}; those patterns are INCONCLUSIVE "
+                  f"(live adapters: {', '.join(sorted(LIVE_ADAPTER_FRAMEWORKS))}).")
     results: list[PatternResult] = []
 
     for pattern in patterns:
@@ -1144,13 +1362,16 @@ Examples:
     parser.add_argument("--severity", type=str,
                         help="Filter by severity (comma-separated)")
     parser.add_argument("--url", type=str, default="",
-                        help="Target URL for live testing")
+                        help="Target URL for live testing (JSON-RPC 2.0 over HTTP POST; "
+                             "frameworks mcp, a2a, generic). Without it no target is "
+                             "contacted and every assertion is INCONCLUSIVE.")
     parser.add_argument("--validate", action="store_true",
                         help="Validate patterns without running them")
     parser.add_argument("--list", action="store_true",
                         help="List discovered patterns")
     parser.add_argument("--dry-run", action="store_true",
-                        help="Execute steps but skip live interactions")
+                        help="Walk the pattern without executing steps or evaluating "
+                             "assertions; every result is INCONCLUSIVE, never PASS")
     parser.add_argument("--no-strict", action="store_true",
                         help="Allow patterns not in MANIFEST.yaml (not recommended)")
     parser.add_argument("--update-manifest", action="store_true",
@@ -1224,9 +1445,13 @@ Examples:
             json.dump(summary, f, indent=2)
         print(f"\nReport written to {args.report}", file=sys.stderr)
 
-    # Exit code: 0 if all passed, 1 if any failed
-    if "failed" in summary and summary["failed"] > 0:
+    # Exit code: 0 all passed, 1 any failed, 2 none failed but at least one
+    # INCONCLUSIVE (a dry run, a target never contacted, a budget overrun).
+    # An unevaluated pattern is not a green run.
+    if summary.get("failed", 0) > 0:
         sys.exit(1)
+    if summary.get("inconclusive", 0) > 0:
+        sys.exit(2)
 
 
 if __name__ == "__main__":

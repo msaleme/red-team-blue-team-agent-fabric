@@ -2,7 +2,7 @@
 
 **Version:** 1.0.0
 **Status:** Draft
-**Last Updated:** 2026-03-30
+**Last Updated:** 2026-09-08
 
 ## Overview
 
@@ -103,17 +103,48 @@ Each step in `attack_steps` is an object with:
 
 | Action | Description | Payload Fields |
 |--------|-------------|---------------|
-| `send_message` | Send a message to the target | `role`, `content`, `metadata` |
-| `send_jsonrpc` | Send a raw JSON-RPC 2.0 message | `method`, `params`, `id` |
-| `call_tool` | Invoke a tool by name | `tool_name`, `arguments` |
-| `inject_description` | Modify a tool description | `tool_name`, `injected_text` |
-| `register_tool` | Register a new tool | `tool_name`, `description`, `schema` |
-| `modify_context` | Alter agent context/memory | `context_key`, `new_value` |
-| `http_request` | Send an arbitrary HTTP request | `method`, `url`, `headers`, `body` |
+| `send_message` | Send a message to the target (live: A2A `message/send`) | `role`, `content`, `metadata` |
+| `send_jsonrpc` | Send a raw JSON-RPC 2.0 message (live) | `method`, `params`, `id` |
+| `call_tool` | Invoke a tool by name (live: MCP `tools/call`) | `tool_name`, `arguments` |
+| `inject_description` | Modify a tool description (simulated) | `tool_name`, `injected_text` |
+| `register_tool` | Register a new tool (simulated) | `tool_name`, `description`, `schema` |
+| `modify_context` | Alter agent context/memory (simulated) | `context_key`, `new_value` |
+| `http_request` | Record an outbound HTTP request (simulated, never sent) | `method`, `url`, `headers`, `body` |
 | `wait` | Pause execution | `duration_ms` |
-| `assert_state` | Check intermediate state | `condition`, `expected` |
+| `assert_state` | Check intermediate state (local) | `condition`, `expected` |
 
-Custom actions are allowed. The runner will attempt to map them to the appropriate harness method. If no mapping exists, the step is skipped with a warning.
+The action vocabulary is closed: `action` must be one of the names above, and
+validation rejects any other. The set is derived from the runner's dispatch
+table (`VALID_ACTIONS` in `community_runner.py`), so a new action is valid the
+moment it has a handler and not before.
+
+### Live execution and the adapter
+
+Only three actions contact the target: `send_message`, `send_jsonrpc` and
+`call_tool`. They are sent through one adapter, JSON-RPC 2.0 over HTTP POST to
+the `--url` given on the command line, and only for patterns whose
+`framework` is `mcp`, `a2a` or `generic`. `send_message` is sent as an A2A
+`message/send` request (`role`, one text part holding `content`, `metadata`);
+`call_tool` as an MCP `tools/call` request (`name`, `arguments`);
+`send_jsonrpc` verbatim. The other actions are local simulations and say so
+in their step record (`"live": false`); they never open a socket.
+
+A pattern's assertions are evaluated only when the target was actually
+reached. Each of the following is INCONCLUSIVE for every assertion, never a
+PASS, and the result carries `requests_sent` and `requests_answered` so a
+reader can see why:
+
+- no `--url` was given (`no adapter bound; the target was not contacted`);
+- the `framework` has no live adapter (`autogen`, `crewai`, `langgraph`,
+  `x402`, `l402`): these have no wire protocol the runner can speak;
+- every step was a simulated action, so nothing was sent;
+- requests were sent and the target answered none of them (closed port, DNS
+  failure, timeout). Any HTTP status counts as an answer.
+
+Before the fourth external review (2026-09-08) the three live actions returned a fabricated `sent` status
+with `response: null`, so a run with `--url` never contacted the target and
+an absence assertion passed against a host that was never reached. That is
+the defect this section exists to make impossible to reintroduce.
 
 ## Assertions
 
@@ -140,6 +171,11 @@ Each assertion checks a condition after all attack steps complete.
 | `field_equals` | Field must equal a specific value | `field`, `value` |
 | `field_matches` | Field must match a regex | `field`, `value` (regex) |
 
+The assertion vocabulary is closed in the same way as actions
+(`VALID_ASSERTION_TYPES`, derived from the evaluator's dispatch table); an
+unknown `type` is a validation error. A pattern may declare at most **50**
+assertions (`MAX_ASSERTIONS`).
+
 ### Regex bound for `field_matches`
 
 The regex in a `field_matches` assertion is evaluated under a hard budget,
@@ -155,6 +191,26 @@ reported as INCONCLUSIVE (`pattern evaluation exceeded budget`), not as PASS
 and not as FAIL, and a pattern containing one is INCONCLUSIVE as a whole
 (`not_evaluated: true` in the result). Keep patterns simple and unambiguous:
 `(a|aa)+$` is 8 characters and never finishes.
+
+### Whole-pattern budget
+
+Independently of the per-regex bound, a pattern has **120 seconds** of wall
+clock (`MAX_PATTERN_EXECUTION_TIMEOUT_S`) across all of its steps and all of
+its assertions. The deadline is checked before and after every step, after
+every assertion, and once at the end. Overrunning it is INCONCLUSIVE
+(`pattern execution exceeded budget`, with where it was detected), never a
+PASS and never a FAIL. The per-regex timeout is not a whole-pattern deadline;
+fifty bounded regexes can still exceed the pattern budget, and now do so
+visibly.
+
+### Dry run
+
+`--dry-run` walks the pattern without executing any step or evaluating any
+assertion. Every assertion is reported as `INCONCLUSIVE - (dry run — not
+evaluated)`, the pattern is INCONCLUSIVE (`not_evaluated: true`,
+`assertions_passed: 0`), the summary counts it under `inconclusive`, and the
+CLI exits 2. A dry run cannot produce a PASS: it never asked the target
+anything.
 
 ## Evidence Schema
 
@@ -216,8 +272,11 @@ The runner validates each pattern before execution:
 6. `assertions` must have at least one assertion.
 7. Each attack step must have `action`, `target`, and `payload`.
 8. Each assertion must have `type`.
-9. `evidence_schema` keys must map to valid types.
+9. `evidence_schema` must be an object whose keys map to valid types.
 10. `id` must be unique across all loaded patterns.
+11. Each step's `action` must be one of the action types above.
+12. Each assertion's `type` must be one of the assertion types above.
+13. `attack_steps` has at most 20 entries; `assertions` has at most 50.
 
 Validation errors are reported with the file path and field name. Invalid patterns are skipped (not executed).
 
@@ -242,6 +301,10 @@ agent-security-harness validate --community
 # List all discovered community patterns
 agent-security-harness list --community
 ```
+
+Exit codes: `0` every pattern passed; `1` at least one pattern failed; `2`
+none failed but at least one is INCONCLUSIVE (a dry run, a target never
+contacted, a budget overrun). An unevaluated pattern is not a green run.
 
 ## Appendix: OWASP Agentic Top 10 Categories
 

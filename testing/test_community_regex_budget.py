@@ -25,6 +25,8 @@ from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX, is_inconclusive
 CATASTROPHIC_PATTERN = "(a|aa)+$"
 CATASTROPHIC_INPUT = "a" * 37 + "!"
 WALL_CLOCK_LIMIT_S = 2.0
+#: Never connected to: the adapter below answers in place of a real target.
+TARGET = "http://127.0.0.1:9/rpc"
 
 
 def _evaluate(pattern: str, text: str) -> tuple[bool, str]:
@@ -95,13 +97,40 @@ class TestBenignPatternsKeepTheirVerdicts(unittest.TestCase):
         self.assertFalse(is_inconclusive(detail))
 
 
+class _AnsweringAdapter:
+    """A target that answers every request, so the assertion phase is reachable.
+
+    These two tests used to call ``run_pattern`` on a pattern with no attack
+    steps and no target URL, and read the verdict its assertions produced.
+    Since R4-07 that is INCONCLUSIVE by construction: a pattern that contacted
+    nothing has no verdict to give about a target, so the evaluator is never
+    reached and the regex-budget property below would be tested vacuously --
+    "INCONCLUSIVE" for the wrong reason. The second test in particular pinned
+    the defect directly: it asserted that a non-matching regex is a FAIL of a
+    target the runner never asked (CLAUDE.md item 8).
+
+    Binding a stub target that answers restores exactly what these tests are
+    for -- what the runner concludes about a regex it could or could not
+    evaluate -- with the target contact that conclusion requires.
+    """
+
+    def send_jsonrpc(self, message):
+        return {"_status": 200, "_body": "{}", "response": {"result": {}}}
+
+
 class TestPatternVerdictCarriesInconclusive(unittest.TestCase):
     """A pattern with an unevaluable assertion is INCONCLUSIVE, structurally."""
+
+    #: One live step, so the target is contacted and the assertions are
+    #: evaluated on what it said.
+    STEP = {"action": "send_jsonrpc", "target": "server",
+            "payload": {"method": "tools/list", "params": {}}}
 
     def _pattern(self, regex: str) -> cr.AttackPattern:
         return cr.AttackPattern(
             id="CT-R307", version="1.0.0", name="regex budget", description="",
-            framework="generic", severity="low", owasp_category="ASI01", attack_steps=[],
+            framework="generic", severity="low", owasp_category="ASI01",
+            attack_steps=[self.STEP],
             evidence_schema={"field": "string"},
             assertions=[
                 {"type": "field_matches", "field": "field", "value": regex,
@@ -111,17 +140,22 @@ class TestPatternVerdictCarriesInconclusive(unittest.TestCase):
             ],
         )
 
-    def test_budget_exceeded_pattern_is_not_evaluated_and_not_passed(self):
-        pattern = self._pattern(CATASTROPHIC_PATTERN)
-        executor = cr.StepExecutor(pattern)
-        executor.evidence["field"] = CATASTROPHIC_INPUT
+    def _run(self, pattern: cr.AttackPattern, evidence: str | None = None) -> cr.PatternResult:
+        executor = cr.StepExecutor(pattern, target_url=TARGET, adapter=_AnsweringAdapter())
+        if evidence is not None:
+            executor.evidence["field"] = evidence
         # Drive run_pattern through its public path with the evidence injected.
         original = cr.StepExecutor
         try:
             cr.StepExecutor = lambda *a, **k: executor  # type: ignore[assignment]
-            result = cr.run_pattern(pattern)
+            return cr.run_pattern(pattern, target_url=TARGET)
         finally:
             cr.StepExecutor = original
+
+    def test_budget_exceeded_pattern_is_not_evaluated_and_not_passed(self):
+        result = self._run(self._pattern(CATASTROPHIC_PATTERN), CATASTROPHIC_INPUT)
+        self.assertEqual((result.requests_sent, result.requests_answered), (1, 1),
+                         "the regex verdict must be reached through a contacted target")
         self.assertFalse(result.passed)
         self.assertTrue(result.not_evaluated)
         self.assertEqual(result.assertions_inconclusive, 1)
@@ -131,11 +165,19 @@ class TestPatternVerdictCarriesInconclusive(unittest.TestCase):
         self.assertTrue(is_inconclusive(result.to_dict()))
 
     def test_plain_failure_is_not_inconclusive(self):
-        pattern = self._pattern(r"^will-not-match$")
-        result = cr.run_pattern(pattern)
+        result = self._run(self._pattern(r"^will-not-match$"))
+        self.assertEqual((result.requests_sent, result.requests_answered), (1, 1))
         self.assertFalse(result.passed)
         self.assertFalse(result.not_evaluated)
         self.assertFalse(is_inconclusive(result))
+        self.assertIn("does not match", result.details)
+
+    def test_the_same_pattern_without_a_target_is_inconclusive_not_a_fail(self):
+        """The R4-07 half: no contact, so no verdict -- not even a FAIL."""
+        result = cr.run_pattern(self._pattern(r"^will-not-match$"))
+        self.assertFalse(result.passed)
+        self.assertTrue(result.not_evaluated)
+        self.assertIn(cr.NO_ADAPTER_DETAIL, result.details)
 
 
 if __name__ == "__main__":
