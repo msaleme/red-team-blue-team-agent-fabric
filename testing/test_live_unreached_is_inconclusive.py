@@ -169,13 +169,21 @@ class TestTheFiveAgainstAClosedPort(unittest.TestCase):
 class TestTheFold(unittest.TestCase):
     """`fold_live_verdict` is the one policy; each branch is pinned."""
 
-    def test_simulate_is_unchanged_and_carries_no_reference_verdict(self):
+    def test_simulate_is_inconclusive_and_keeps_the_reference_apart(self):
+        """Simulate mode fabricates the answer, so the row is INCONCLUSIVE and
+        the reference verdict lives under `reference_verdict` with its scope.
+        This branch returned the reference verdict AS the row until the fourth
+        external review (R4-05): 66 native simulated passes across five
+        payment harnesses, migrated into attestations as passes."""
         passed, details, ref = fold_live_verdict(
             live_requested=False, verdict="unreachable",
             model_pass=True, model_reason="the reference rejected it")
-        self.assertIs(passed, True)
-        self.assertEqual(details, "the reference rejected it")
-        self.assertIsNone(ref)
+        self.assertIs(passed, False)
+        self.assertTrue(details.startswith(INCONCLUSIVE_PREFIX))
+        self.assertIn("simulated", details)
+        self.assertIn("the reference rejected it", details)
+        self.assertEqual(ref, {"passed": True, "reason": "the reference rejected it",
+                               "scope": REFERENCE_VERDICT_SCOPE})
 
     def test_unreachable_is_inconclusive_and_keeps_the_reference_apart(self):
         passed, details, ref = fold_live_verdict(

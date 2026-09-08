@@ -2,6 +2,7 @@
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
 **Generated:** `scripts/generate_test_catalog.py` at commit `464805c`
+**Generated:** `scripts/generate_test_catalog.py` at commit `52cb5e1`
 **Test count:** 623 unique test IDs across 46 registered harness modules (45 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -71,6 +72,18 @@ AIUC-F002a | Test refusal of chemical weapon synthesis instructions. | protocol_
 AIUC-F002b | Test refusal of biological weapon creation instructions. | protocol_tests/aiuc1_compliance_harness.py:763
 AIUC-F002c | Test refusal of radiological/nuclear weapon instructions. | protocol_tests/aiuc1_compliance_harness.py:768
 AIUC-F002d | CBRN Dual-Use Detection | protocol_tests/aiuc1_compliance_harness.py:803
+AIUC-C003a | Harmful Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:814
+AIUC-C003b | Deceptive Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:847
+AIUC-C004a | Out-of-Scope Execution Refusal | protocol_tests/aiuc1_compliance_harness.py:895
+AIUC-C004b | Scope Creep Detection | protocol_tests/aiuc1_compliance_harness.py:943
+AIUC-C004c | Authority Impersonation Refusal | protocol_tests/aiuc1_compliance_harness.py:976
+AIUC-E001 | Incident Detection Latency | protocol_tests/aiuc1_compliance_harness.py:114
+AIUC-E002 | Incident Containment | protocol_tests/aiuc1_compliance_harness.py:575
+AIUC-E003 | Incident Audit Trail | protocol_tests/aiuc1_compliance_harness.py:648
+AIUC-F002a | Test refusal of chemical weapon synthesis instructions. | protocol_tests/aiuc1_compliance_harness.py:732
+AIUC-F002b | Test refusal of biological weapon creation instructions. | protocol_tests/aiuc1_compliance_harness.py:737
+AIUC-F002c | Test refusal of radiological/nuclear weapon instructions. | protocol_tests/aiuc1_compliance_harness.py:742
+AIUC-F002d | CBRN Dual-Use Detection | protocol_tests/aiuc1_compliance_harness.py:777
 ```
 
 ### AP2 Mandate Chain (`protocol_tests/ap2_harness.py`) — 17 tests
@@ -93,6 +106,23 @@ AP2-014 | Symmetric/Keyed-MAC Signature Scheme | protocol_tests/ap2_harness.py:7
 AP2-015 | Funding-Instrument Scope Binding | protocol_tests/ap2_harness.py:782
 AP2-016 | Premature Credential Release | protocol_tests/ap2_harness.py:814
 AP2-017 | vct Exact-Match Enforcement | protocol_tests/ap2_harness.py:839
+AP2-001 | Checkout Hash Tamper | protocol_tests/ap2_harness.py:432
+AP2-002 | Stale / Cross-Session Cart | protocol_tests/ap2_harness.py:455
+AP2-003 | Amount Cap Escalation (Intent→Cart) | protocol_tests/ap2_harness.py:480
+AP2-004 | Merchant Allowlist Constraint | protocol_tests/ap2_harness.py:501
+AP2-005 | Line-Item / SKU Constraint | protocol_tests/ap2_harness.py:520
+AP2-006 | Unknown Constraint Fail-Closed | protocol_tests/ap2_harness.py:546
+AP2-007 | Mandate Chain Link (transaction_id) | protocol_tests/ap2_harness.py:570
+AP2-008 | Open-Mandate Substitution (sd_hash) | protocol_tests/ap2_harness.py:593
+AP2-009 | Agent Key Forgery (cnf mismatch) | protocol_tests/ap2_harness.py:616
+AP2-010 | Missing User Signature (human-present) | protocol_tests/ap2_harness.py:635
+AP2-011 | Payment Mandate Replay (jti) | protocol_tests/ap2_harness.py:660
+AP2-012 | Expired Payment Mandate | protocol_tests/ap2_harness.py:680
+AP2-013 | Double-Spend on Open Mandate | protocol_tests/ap2_harness.py:705
+AP2-014 | Symmetric/Keyed-MAC Signature Scheme | protocol_tests/ap2_harness.py:734
+AP2-015 | Funding-Instrument Scope Binding | protocol_tests/ap2_harness.py:775
+AP2-016 | Premature Credential Release | protocol_tests/ap2_harness.py:807
+AP2-017 | vct Exact-Match Enforcement | protocol_tests/ap2_harness.py:832
 ```
 
 ### autogen_harness.py (`protocol_tests/autogen_harness.py`) — 10 tests
@@ -152,6 +182,18 @@ CTK-009 | Consent-Policy Binding | protocol_tests/card_token_harness.py:531
 CTK-010 | Channel / Domain Binding | protocol_tests/card_token_harness.py:554
 CTK-011 | PAN De-Tokenization Protection | protocol_tests/card_token_harness.py:578
 CTK-012 | Cross-Network Token Substitution | protocol_tests/card_token_harness.py:601
+CTK-001 | Agent Holder-Key Binding | protocol_tests/card_token_harness.py:340
+CTK-002 | Token Merchant Scope | protocol_tests/card_token_harness.py:359
+CTK-003 | Per-Transaction Amount Cap | protocol_tests/card_token_harness.py:389
+CTK-004 | Cumulative Velocity Cap | protocol_tests/card_token_harness.py:414
+CTK-005 | Cryptogram Freshness (counter replay) | protocol_tests/card_token_harness.py:439
+CTK-006 | Cryptogram-Amount Binding | protocol_tests/card_token_harness.py:464
+CTK-007 | Token Expiry | protocol_tests/card_token_harness.py:483
+CTK-008 | Token Revocation / Suspension | protocol_tests/card_token_harness.py:506
+CTK-009 | Consent-Policy Binding | protocol_tests/card_token_harness.py:525
+CTK-010 | Channel / Domain Binding | protocol_tests/card_token_harness.py:548
+CTK-011 | PAN De-Tokenization Protection | protocol_tests/card_token_harness.py:572
+CTK-012 | Cross-Network Token Substitution | protocol_tests/card_token_harness.py:595
 ```
 
 ### CBRN Prevention (`protocol_tests/cbrn_harness.py`) — 8 tests
@@ -729,6 +771,14 @@ DSET-005 | Self-Asserted Finality (no authentic receipt) | protocol_tests/settle
 DSET-006 | Escrow Atomicity | protocol_tests/settlement_finality_harness.py:394
 DSET-007 | Grant Idempotency (double consume) | protocol_tests/settlement_finality_harness.py:417
 DSET-008 | Revoke-on-Nonfinality (post-grant remediation) | protocol_tests/settlement_finality_harness.py:442
+DSET-001 | Release Before Finality (broadcast-only) | protocol_tests/settlement_finality_harness.py:285
+DSET-002 | Insufficient Confirmations | protocol_tests/settlement_finality_harness.py:302
+DSET-003 | Reorg / Reverted-Settlement Revocation | protocol_tests/settlement_finality_harness.py:325
+DSET-004 | Finality Deadline (withheld settlement) | protocol_tests/settlement_finality_harness.py:350
+DSET-005 | Self-Asserted Finality (no authentic receipt) | protocol_tests/settlement_finality_harness.py:372
+DSET-006 | Escrow Atomicity | protocol_tests/settlement_finality_harness.py:393
+DSET-007 | Grant Idempotency (double consume) | protocol_tests/settlement_finality_harness.py:416
+DSET-008 | Revoke-on-Nonfinality (post-grant remediation) | protocol_tests/settlement_finality_harness.py:441
 ```
 
 ### skill_security_harness.py (`protocol_tests/skill_security_harness.py`) — 8 tests
@@ -770,6 +820,18 @@ UCP-003 | Journey Step-Order (skip consent) | protocol_tests/ucp_acp_harness.py:
 UCP-004 | Quote Integrity (quote-vs-checkout) | protocol_tests/ucp_acp_harness.py:447
 UCP-005 | Cart Scope vs Stated Intent | protocol_tests/ucp_acp_harness.py:469
 UCP-006 | Agent Profile Takeover (rebind) | protocol_tests/ucp_acp_harness.py:493
+ACP-001 | Checkout-Session Binding | protocol_tests/ucp_acp_harness.py:513
+ACP-002 | Delegated-Token Merchant Scope | protocol_tests/ucp_acp_harness.py:536
+ACP-003 | Delegated-Token Amount Scope | protocol_tests/ucp_acp_harness.py:559
+ACP-004 | Order Idempotency (replay) | protocol_tests/ucp_acp_harness.py:583
+ACP-005 | Product-Feed Authenticity | protocol_tests/ucp_acp_harness.py:607
+ACP-006 | Checkout-Session Expiry | protocol_tests/ucp_acp_harness.py:626
+UCP-001 | Agent Profile Owner-Key Binding | protocol_tests/ucp_acp_harness.py:375
+UCP-002 | Cross-Merchant Line-Item Injection | protocol_tests/ucp_acp_harness.py:397
+UCP-003 | Journey Step-Order (skip consent) | protocol_tests/ucp_acp_harness.py:419
+UCP-004 | Quote Integrity (quote-vs-checkout) | protocol_tests/ucp_acp_harness.py:441
+UCP-005 | Cart Scope vs Stated Intent | protocol_tests/ucp_acp_harness.py:463
+UCP-006 | Agent Profile Takeover (rebind) | protocol_tests/ucp_acp_harness.py:487
 ```
 
 ### watermark_harness.py (`protocol_tests/watermark_harness.py`) — 5 tests
@@ -802,6 +864,23 @@ FB-014 | Batch Voucher Replay / Monotonicity | protocol_tests/x402_fireblocks_ha
 FB-015 | Voucher Resource-Hash Binding | protocol_tests/x402_fireblocks_harness.py:979
 FB-016 | Expired Voucher Rejection | protocol_tests/x402_fireblocks_harness.py:1000
 FB-017 | Escrow Over-Redemption | protocol_tests/x402_fireblocks_harness.py:1030
+FB-001 | Recipient Tamper (payTo swap) | protocol_tests/x402_fireblocks_harness.py:524
+FB-002 | Amount Tamper (overcharge) | protocol_tests/x402_fireblocks_harness.py:548
+FB-003 | Network/Asset Tamper (cross-chain swap) | protocol_tests/x402_fireblocks_harness.py:572
+FB-004 | Expired Integrity Envelope | protocol_tests/x402_fireblocks_harness.py:597
+FB-005 | Future-Dated Envelope (skew abuse) | protocol_tests/x402_fireblocks_harness.py:622
+FB-006 | Integrity Downgrade (strip envelope) | protocol_tests/x402_fireblocks_harness.py:648
+FB-007 | Signed-Field Boundary (resource.url SSRF) | protocol_tests/x402_fireblocks_harness.py:685
+FB-008 | Canonicalization Bypass Attempt | protocol_tests/x402_fireblocks_harness.py:716
+FB-009 | did:web Resolution SSRF | protocol_tests/x402_fireblocks_harness.py:753
+FB-010 | Destination Allowlist Enforcement | protocol_tests/x402_fireblocks_harness.py:779
+FB-011 | Per-Transaction Amount Cap | protocol_tests/x402_fireblocks_harness.py:799
+FB-012 | Velocity / Window Budget Limit | protocol_tests/x402_fireblocks_harness.py:827
+FB-013 | Approval Quorum Above Threshold | protocol_tests/x402_fireblocks_harness.py:916
+FB-014 | Batch Voucher Replay / Monotonicity | protocol_tests/x402_fireblocks_harness.py:944
+FB-015 | Voucher Resource-Hash Binding | protocol_tests/x402_fireblocks_harness.py:971
+FB-016 | Expired Voucher Rejection | protocol_tests/x402_fireblocks_harness.py:992
+FB-017 | Escrow Over-Redemption | protocol_tests/x402_fireblocks_harness.py:1022
 ```
 
 ### x402 Payment (`protocol_tests/x402_harness.py`) — 54 tests

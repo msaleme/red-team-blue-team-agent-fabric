@@ -95,6 +95,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 
 from protocol_tests._utils import Severity, http_post_json, json_stdout_only
+from protocol_tests.harness_base import build_report, exit_status, write_report
 from protocol_tests.http_helpers import (fold_live_verdict, is_inconclusive,
                                          live_run_scope, payment_outcome,
                                          run_summary, summary_lines)
@@ -1116,27 +1117,20 @@ def main() -> None:
     with json_stdout_only(args.json):
         results = suite.run_all()
 
-    report = {
-        "suite": "x402 Fireblocks Security-Extension Conformance",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "mode": "simulate" if simulate else "live",
-        # `mode` is what was REQUESTED. This is what was REACHED: a report
-        # could say `mode: live` over rows that observed nothing live.
-        "verdict_scope": live_run_scope(results, live_requested=not simulate,
-                                        target=suite.url),
-        # PASS, FAIL and INCONCLUSIVE kept distinct; no rate over nothing.
-        "summary": run_summary(results),
-        "results": [asdict(r) for r in results],
-    }
-
-    if args.json:
-        print(json.dumps(report, indent=2, default=str))
-    if args.report:
-        with open(args.report, "w") as f:
-            json.dump(report, f, indent=2, default=str)
-        print(f"Report written to {args.report}", file=sys.stderr)
-
-    sys.exit(1 if any(not r.passed for r in results) else 0)
+    # One writer for the six native-simulate harnesses (harness_base). `mode`
+    # is what was REQUESTED; `verdict_scope` is what was REACHED; every row of
+    # a simulated run is published INCONCLUSIVE with the reference verdict
+    # kept apart, and the summary is the three-state run_summary over the rows
+    # as written (R4-05).
+    report = build_report(
+        results, simulate=simulate, target=suite.url,
+        head={
+            "suite": "x402 Fireblocks Security-Extension Conformance",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "mode": "simulate" if simulate else "live",
+        })
+    write_report(report, args.report, json_stdout=args.json)
+    sys.exit(exit_status(report))
 
 
 if __name__ == "__main__":

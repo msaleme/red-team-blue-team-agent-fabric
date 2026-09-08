@@ -154,8 +154,28 @@ def run_with_trials(test_fn: Callable, n_trials: int = 10,
                     test_id: str = "", test_name: str = "") -> TrialResult:
     """Run a test function multiple times and compute statistical metrics.
 
-    The test function should return an object with a .passed attribute (bool)
-    and optionally .elapsed_s (float).
+    The older of two helpers with this name. ``trial_runner.run_with_trials``
+    is the shared multi-trial runner (whole suites, test-ID matching); this one
+    repeats a single callable. It was the second trial runner in the package to
+    have its own idea of what a trial's outcome is: it read ``.passed`` and
+    nothing else, so five results carrying the structural INCONCLUSIVE flag
+    (``passed`` false with the inconclusive field set) became five failures over five
+    serviced trials with a pass rate of 0.0 and an interval, and an empty run
+    returned a numeric ``(0.0, 0.0)`` interval rather than none (fourth external
+    review, R4-10, 2026-09-08). The classifier is not reimplemented here: each
+    result is classified by ``trial_runner._trial_state``, the one predicate,
+    and the counts follow ``TrialResult``'s contract -- an unserviced trial is
+    neither failed nor serviced, and ``pass_rate`` / ``ci_95`` are ``None``
+    when nothing was serviced.
+
+    A trial that raises establishes nothing about the control -- the harness
+    failed, not the target -- and is recorded as INCONCLUSIVE, never as a
+    failure.
+
+    The test function should return an object (or dict) with a ``passed``
+    attribute, optionally ``elapsed_s``, and optionally one of the structural
+    INCONCLUSIVE fields (``http_helpers.INCONCLUSIVE_FIELDS``) or the
+    INCONCLUSIVE prefix on ``details``.
 
     Args:
         test_fn: Callable that runs the test and returns a result object
@@ -164,25 +184,35 @@ def run_with_trials(test_fn: Callable, n_trials: int = 10,
         test_name: Test name for reporting
 
     Returns:
-        TrialResult with statistical metrics
+        TrialResult with three-state statistical metrics
     """
-    results = []
-    elapsed_times = []
+    # Lazy: trial_runner imports TrialResult from this module.
+    from protocol_tests.trial_runner import FAIL, INCONCLUSIVE, PASS, _field, _trial_state
 
-    for i in range(n_trials):
+    states: list[str] = []
+    per_trial: list[bool] = []
+    elapsed_times: list[float] = []
+
+    for _ in range(n_trials):
         try:
             result = test_fn()
-            passed = getattr(result, 'passed', False)
-            elapsed = getattr(result, 'elapsed_s', 0.0)
-            results.append(passed)
-            elapsed_times.append(elapsed)
         except Exception:
-            results.append(False)
+            states.append(INCONCLUSIVE)
+            per_trial.append(False)
             elapsed_times.append(0.0)
+            continue
+        state = _trial_state(result)
+        states.append(state)
+        per_trial.append(state == PASS)
+        elapsed_times.append(float(_field(result, "elapsed_s", 0.0) or 0.0))
 
-    n_passed = sum(1 for r in results if r)
-    pass_rate = n_passed / n_trials if n_trials > 0 else 0.0
-    ci = wilson_ci(n_passed, n_trials)
+    n_passed = states.count(PASS)
+    n_inconclusive = states.count(INCONCLUSIVE)
+    serviced = n_passed + states.count(FAIL)
+    # `None`, not 0.0 and not (0.0, 0.0), when nothing was serviced: a rate of
+    # zero is a claim, and absence is not (http_helpers.run_summary).
+    pass_rate = round(n_passed / serviced, 4) if serviced else None
+    ci = wilson_ci(n_passed, serviced) if serviced else None
     mean_elapsed = sum(elapsed_times) / len(elapsed_times) if elapsed_times else 0.0
 
     return TrialResult(
@@ -190,10 +220,12 @@ def run_with_trials(test_fn: Callable, n_trials: int = 10,
         test_name=test_name or "unknown",
         n_trials=n_trials,
         n_passed=n_passed,
-        pass_rate=round(pass_rate, 4),
+        pass_rate=pass_rate,
         ci_95=ci,
-        per_trial=results,
+        per_trial=per_trial,
         mean_elapsed_s=round(mean_elapsed, 3),
+        n_inconclusive=n_inconclusive,
+        per_trial_state=states,
     )
 
 

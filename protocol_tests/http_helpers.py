@@ -664,7 +664,12 @@ def run_summary(results) -> dict:
     results = list(results)
     total = len(results)
     inconclusive = sum(1 for r in results if is_inconclusive(r))
-    passed = sum(1 for r in results if getattr(r, "passed", False))
+    # A row is an object in-process and a dict once written. `getattr` on a
+    # dict returns the default for every key, so a summary computed over
+    # written rows would count zero passes whatever they said; `is_inconclusive`
+    # already reads both shapes and this reads the same two.
+    passed = sum(1 for r in results if not is_inconclusive(r) and bool(
+        r.get("passed", False) if isinstance(r, dict) else getattr(r, "passed", False)))
     failed = total - passed - inconclusive
     serviced = passed + failed
 
@@ -775,6 +780,12 @@ def inconclusive_detail(resp, details: str | None) -> str | None:
 REFERENCE_VERDICT_SCOPE = (
     "reference model in this module; not an observation of the target")
 
+#: The row-level ``verdict_scope`` every simulated (fabricated-answer) row
+#: carries. Same wording as ``delegation_chain_harness.DelegationResult``, so a
+#: row consumer meets one vocabulary. A row that carries it was never about a
+#: target: the module answered its own question and then checked the answer.
+SIMULATED_ROW_SCOPE = "reference-model self-test (no target)"
+
 
 def fold_live_verdict(*, live_requested: bool, verdict: str | None,
                       model_pass: bool, model_reason: str,
@@ -788,10 +799,16 @@ def fold_live_verdict(*, live_requested: bool, verdict: str | None,
     ``live_requested`` is ``not simulate``. ``verdict`` is what `_live_rejected`
     returned, or ``None`` when the row defines no live probe at all.
 
-    - Simulate mode: the reference verdict is the whole row, unchanged, and
-      ``reference_verdict`` is ``None`` because there is nothing to separate it
-      from. (The simulate rows of these modules are grandfathered as unlabelled
-      in `testing/test_simulated_passes_are_scoped.py`; this does not touch them.)
+    - Simulate mode: INCONCLUSIVE. The module fabricated the target's answer
+      and checked it, so ``passed`` would be true by construction and is not a
+      statement about anything; the reference verdict is preserved under
+      ``reference_verdict`` with its scope, never in ``passed``. Until the
+      fourth external review (R4-05, 2026-09-08) this branch returned the
+      reference verdict as the row, and the five payment harnesses' native
+      ``--simulate --report`` wrote 66 ``passed: true`` rows with a serviced
+      denominator and a Wilson interval, which `attestation.migrate_legacy_report`
+      then published as 66 passes. The CLI facade intercepted the same run
+      correctly, so the tests that existed covered only the facade.
     - Live ``accepted``: the target let the attack through. FAIL, control absent.
     - Live ``rejected`` WITH a positive control: PASS. The row established both
       that the attack was refused and that the legitimate variant was not.
@@ -814,10 +831,15 @@ def fold_live_verdict(*, live_requested: bool, verdict: str | None,
     consumer can always see what the reference model said and always sees that
     it is about the reference model.
     """
-    if not live_requested:
-        return bool(model_pass), model_reason, None
     reference = {"passed": bool(model_pass), "reason": model_reason,
                  "scope": REFERENCE_VERDICT_SCOPE}
+    if not live_requested:
+        return (False,
+                f"{INCONCLUSIVE_PREFIX}simulated run ({SIMULATED_ROW_SCOPE}): no "
+                f"target was contacted, so this control was not exercised. "
+                f"Reference-model verdict preserved under reference_verdict and "
+                f"not scored: {model_reason}",
+                reference)
     if verdict == "accepted":
         return (False,
                 accepted_detail or
