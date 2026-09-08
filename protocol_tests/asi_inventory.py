@@ -149,3 +149,96 @@ def by_category() -> dict[str, list[str]]:
     for tid, asi in corpus_asi().items():
         inv.setdefault(asi, []).append(tid)
     return {k: sorted(v) for k, v in inv.items()}
+
+
+# ---------------------------------------------------------------------------
+# Which registered modules record a target response.
+#
+# Until 2026-09-07 two consumers -- testing/test_serviced_guard.py and
+# scripts/audit_verdict_taint.py -- each carried the same source-text rule:
+# a module recorded a response if its file contained the literal text of a
+# `_record` def AND the literal `response_received`. A module that inherits
+# `_record` from `harness_base.RecordingHarness` defines none of its own, so
+# `agent_data_injection` and `delegation_chain_harness` -- the two modules
+# written the way CLAUDE.md item 7 asks for -- were invisible to both. An
+# invisible module is neither guarded nor counted in UNREVIEWED; it drops out
+# of the remainder that CLAUDE.md item 10 says is the progress metric. The
+# same rule had already been replaced in scripts/dead_host_sweep.py the same
+# morning (R3-02); this is the same replacement for the other two.
+#
+# The denominator is the CLI registry, as in dead_host_sweep.registry_coverage,
+# plus the module that defines the shared base. The fact is read off the
+# imported module rather than its text: a class defined in the module has a
+# callable `_record` -- its own or inherited -- and a result dataclass in the
+# module's namespace carries a `response_received` field, which is the one
+# field the shared guard reads. Every module the text rule found satisfies
+# both; the two it missed satisfy both; nothing the text rule found fails.
+# ---------------------------------------------------------------------------
+
+def harness_modules() -> list[str]:
+    """Every dotted module the CLI registry names, plus the shared base.
+
+    `protocol_tests.cli.HARNESSES` is the one list a harness has to be on to
+    be runnable, and `harness_base` is where the inherited `_record` lives.
+    A module that is on neither is not a harness this package ships.
+    """
+    from protocol_tests.cli import HARNESSES
+    from protocol_tests.harness_base import RecordingHarness
+    out: list[str] = []
+    for info in HARNESSES.values():
+        if info["module"] not in out:
+            out.append(info["module"])
+    if RecordingHarness.__module__ not in out:
+        out.append(RecordingHarness.__module__)
+    return out
+
+
+def recording_facts(module: str) -> dict:
+    """The import-level facts a records-a-response classification is built on.
+
+    ``defines_record``   a class defined in the module has `_record` in its own
+                         namespace
+    ``inherits_record``  a class defined in the module has a callable `_record`
+                         it did not define
+    ``response_field``   a dataclass in the module namespace, defined or
+                         imported, has a field named `response_received`
+    ``records_response`` (defines_record or inherits_record) and response_field
+    """
+    import dataclasses
+    import importlib
+    import inspect
+
+    mod = importlib.import_module(module)
+    defines = inherits = response_field = False
+    for obj in list(vars(mod).values()):
+        if not inspect.isclass(obj):
+            continue
+        if dataclasses.is_dataclass(obj) and any(
+                f.name == "response_received" for f in dataclasses.fields(obj)):
+            response_field = True
+        if obj.__module__ != mod.__name__:
+            continue
+        if "_record" in vars(obj):
+            defines = True
+        elif callable(getattr(obj, "_record", None)):
+            inherits = True
+    return {
+        "module": module,
+        "defines_record": defines,
+        "inherits_record": inherits,
+        "response_field": response_field,
+        "records_response": (defines or inherits) and response_field,
+    }
+
+
+def response_recording_modules(modules: list[str] | None = None) -> set[str]:
+    """Stems of the modules that record a target response, from `modules`.
+
+    Defaults to `harness_modules()`. The ONE derivation behind
+    testing/test_serviced_guard.py and scripts/audit_verdict_taint.py; the
+    two used to carry a copy each of a text rule, and a copy is where a rule
+    drifts.
+    """
+    names = harness_modules() if modules is None else list(modules)
+    return {m.rsplit(".", 1)[-1] for m in names
+            if recording_facts(m)["records_response"]}

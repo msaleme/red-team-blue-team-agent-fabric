@@ -274,6 +274,38 @@ INCONCLUSIVE as a whole and never `passed`, and the batch summary counts
 pins the bound (under 2 s wall clock), the verdict (never PASS), and that
 benign matches and non-matches keep their verdicts. Documented in the module
 docstring and `docs/PLUGIN_SPEC.md`.
+### Fixed — the serviced guard and the taint audit discovered harnesses by source text, and three registered modules were in neither (register derivation, second instance)
+
+`testing/test_serviced_guard.py::_candidate_modules` and
+`scripts/audit_verdict_taint.py::candidate_modules` each carried a copy of the
+rule R3-02 had already retired from the host sweeps that morning: a module
+recorded a response if its file contained the literal text of a `_record` def
+and the literal `response_received`. A module that inherits `_record` from
+`harness_base.RecordingHarness` -- what CLAUDE.md item 7 asks every new
+harness to do -- has no such text. So `agent_data_injection` and
+`delegation_chain_harness`, the two modules written the recommended way, were
+invisible to both: not guarded, not in `UNREVIEWED`, and absent from the
+remainder item 10 calls the progress metric. Reproduced by seeding a
+`RecordingHarness` subclass carrying neither literal beside the suite: the
+suite stayed green and the auditor reported "no candidate module".
+
+Both consumers now call one function, `asi_inventory.response_recording_modules`,
+which starts from `cli.HARNESSES` plus the shared base and reads the fact off
+the imported module: a class defined there has a callable `_record`, its own
+or inherited, and a result dataclass in its namespace carries
+`response_received`. The old set (36) is a strict subset of the new (39). The
+three that entered -- the two above and `mcp_supplychain`, which records
+`mcp_harness.MCPTestResult` and so carries the field -- are registered in
+`UNREVIEWED` with their verdicts untouched; the tripwire moves 2 -> 5 because
+the count was wrong, not because the backlog grew. The eight registered
+modules whose result type has no `response_received` field are in a new
+`NO_RESPONSE_FIELD` register, each with the place its absent-target handling
+is measured instead, and the suite asserts that the derived set and that
+register partition the registry. A floor (39), a real inheriting module
+checked by AST, and a seeded module in a temporary package guard the
+derivation against narrowing back. With its own seeded control the guard
+suite leaves the `UNCONTROLLED` queue in
+`testing/test_static_detectors_can_fire.py`, which shrinks by one.
 
 ## [4.21.0] - 2026-09-07
 

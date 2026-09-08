@@ -12,7 +12,9 @@ the five unserviced conditions and must not yield a pass for any of them.
 
 from __future__ import annotations
 
+import ast
 import sys
+import tempfile
 import unittest
 from dataclasses import fields
 from pathlib import Path
@@ -20,6 +22,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
+from protocol_tests.asi_inventory import (  # noqa: E402
+    harness_modules, recording_facts, response_recording_modules)
 from protocol_tests.http_helpers import _serviced, inconclusive_detail  # noqa: E402
 
 # The five ways a target can fail to service a request. The first three are
@@ -136,13 +140,20 @@ GUARDED = [
 # Derived, never hand-written: #348 was scoped to five harnesses by reading five files, and
 # a sixth and seventh with the same defect survived it. A hand-maintained coverage list is
 # the same failure the guard exists to prevent, one level up.
+#
+# Derived HOW matters as much. Until 2026-09-07 this was a source-text rule: a
+# module was a candidate if its file contained the literal text of a `_record`
+# def AND the literal `response_received`. A module that inherits `_record` from
+# harness_base.RecordingHarness -- what CLAUDE.md item 7 asks every new harness
+# to do -- has no such text, so the two written that way (agent_data_injection,
+# delegation_chain_harness) were invisible: not guarded, not in UNREVIEWED, and
+# absent from the remainder item 10 calls the progress metric. The derivation now
+# lives in protocol_tests.asi_inventory, is the same function
+# scripts/audit_verdict_taint.py calls, starts from the CLI registry, and reads
+# the fact off the imported module. NO_RESPONSE_FIELD below carries the rest of
+# the registry, each with a reason, so the union is the whole registry.
 def _candidate_modules() -> set[str]:
-    out = set()
-    for path in sorted((REPO_ROOT / "protocol_tests").glob("*.py")):
-        src = path.read_text()
-        if "def _record" in src and "response_received" in src:
-            out.add(path.stem)
-    return out
+    return response_recording_modules()
 
 
 # Guarding a module requires THREE things to be true, not one. The #351 sweep
@@ -335,6 +346,55 @@ NO_NETWORK_TARGET = {
 UNREVIEWED = {
     "mcp_harness",
     "prompt_caching_harness",
+    # 2026-09-07: entered the derived set the day discovery stopped being a
+    # source-text rule. All three were always in the remainder; the rule could
+    # not see them. None has been read against the three preconditions, so this
+    # is the bucket, and the tripwire below moved 2 -> 5 because the count was
+    # wrong, not because the backlog grew. Their verdicts are untouched.
+    #   agent_data_injection     inherits RecordingHarness._record; synthesises
+    #                            {"_status": 200, "replies": [...]} around a model
+    #                            reply, which is precondition 1 unread
+    #   delegation_chain_harness inherits RecordingHarness._record; has a
+    #                            simulate mode whose marking is unread
+    #   mcp_supplychain          own _record, records mcp_harness.MCPTestResult
+    #                            (which carries the field); one npm-registry HEAD
+    #                            at its only network call, whose failure path is
+    #                            unread. Excused from the host sweeps as having no
+    #                            --url, which is a different question.
+    "agent_data_injection",
+    "delegation_chain_harness",
+    "mcp_supplychain",
+}
+
+#: Registered modules whose result type carries no `response_received` field, so
+#: the shared guard has nothing to read and none of the buckets above applies.
+#: NOT a clean bill of health: each reason names where that module's handling of
+#: an absent target is measured instead, or says it has no target to be absent.
+#: Every registered module is in exactly one of: the derived candidate set, or
+#: this dict. An entry that starts carrying the field, or leaves the registry,
+#: is stale and fails the suite -- the #537 shape, applied to this file.
+NO_RESPONSE_FIELD = {
+    "ap2_harness": (
+        "reference-model verdict folded with a live probe kept under "
+        "live_evidence; an unreached target is INCONCLUSIVE through "
+        "http_helpers.fold_live_verdict (R3-01), pinned through the CLI in "
+        "testing/test_live_unreached_is_inconclusive.py"),
+    "card_token_harness": "as ap2_harness: fold_live_verdict, live_evidence",
+    "ucp_acp_harness": "as ap2_harness: fold_live_verdict, live_evidence",
+    "settlement_finality_harness": "as ap2_harness: fold_live_verdict, live_evidence",
+    "x402_fireblocks_harness": "as ap2_harness: fold_live_verdict, live_evidence",
+    "hitl_harness": (
+        "v4.13.1: the site where _serviced was first written and never promoted; "
+        "keeps a module-local _serviced at every probe and records under "
+        "`evidence`. 0 against the dead and refusing hosts; 4 of 8 against the "
+        "allow-all host, in the permissive read-list register in "
+        "testing/test_permissive_host_state.py"),
+    "receipt_claim_harness": (
+        "claim-level verifier over local fixtures; no target is contacted in any "
+        "mode (also dead_host_sweep.NOT_APPLICABLE)"),
+    "community_runner": (
+        "YAML-driven runner with no _record and no result type of its own; the "
+        "per-protocol adapter it drives is what records"),
 }
 
 # Concrete subclasses for the two adapter modules, whose guard lives on an ABC base rather
@@ -543,11 +603,83 @@ class TestCoverageListIsDerived(unittest.TestCase):
             stale, set(), f"listed but no longer record a response: {sorted(stale)}")
 
     def test_unreviewed_does_not_grow(self) -> None:
-        """A tripwire on the honest number, so the backlog cannot quietly expand."""
+        """A tripwire on the honest number, so the backlog cannot quietly expand.
+
+        2 until 2026-09-07; 5 since. The three that entered were not new work,
+        they were work the text rule could not see; see the UNREVIEWED comment.
+        """
         self.assertLessEqual(
-            len(UNREVIEWED), 2,
+            len(UNREVIEWED), 5,
             "UNREVIEWED grew. A new module recording a response should be guarded or "
             "reviewed, not appended to the backlog.")
+
+    def test_every_registered_module_is_derived_or_excused(self) -> None:
+        """The denominator is the registry. Nothing registered may drop out."""
+        registry = {m.rsplit(".", 1)[1] for m in harness_modules()}
+        candidates = _candidate_modules()
+        self.assertEqual(
+            set(NO_RESPONSE_FIELD) & candidates, set(),
+            "excused as carrying no response_received field, but the derivation "
+            "says it does now: stale entry, classify it above instead")
+        self.assertEqual(
+            set(NO_RESPONSE_FIELD) - registry, set(),
+            "excused but not registered: an excuse for something that does not "
+            "exist is a stale entry")
+        self.assertEqual(
+            registry - candidates - set(NO_RESPONSE_FIELD), set(),
+            "registered, neither derived as recording a response nor excused by "
+            "name with a reason. This is the gap the text rule hid.")
+        for stem, reason in NO_RESPONSE_FIELD.items():
+            with self.subTest(stem):
+                self.assertTrue(isinstance(reason, str) and len(reason) > 20,
+                                f"{stem}: the reason has to be about the module")
+
+    def test_derivation_sees_at_least_the_population_it_saw_when_written(self) -> None:
+        """Anti-vacuity. 39 on 2026-09-07: the text rule's 36, plus the three
+        it could not see. A derivation returning fewer has narrowed, not the
+        repository."""
+        self.assertGreaterEqual(len(_candidate_modules()), 39)
+
+    def test_a_module_that_inherits_record_without_defining_it_is_seen(self) -> None:
+        """The defect, on a real module. delegation_chain_harness defines no
+        _record -- checked by AST, not by text -- and the old rule needed one."""
+        src = (REPO_ROOT / "protocol_tests" / "delegation_chain_harness.py").read_text()
+        defs = {n.name for n in ast.walk(ast.parse(src)) if isinstance(n, ast.FunctionDef)}
+        self.assertNotIn("_record", defs, "the fixture changed shape; pick another")
+        facts = recording_facts("protocol_tests.delegation_chain_harness")
+        self.assertTrue(facts["inherits_record"] and not facts["defines_record"])
+        self.assertIn("delegation_chain_harness", _candidate_modules())
+
+    def test_a_seeded_module_carrying_neither_literal_is_seen(self) -> None:
+        """Seeded, so the test does not depend on any real module keeping its
+        shape. Neither literal the old rule matched on appears in the source;
+        the field name is assembled at runtime so the assertion below is real."""
+        src = (
+            "from dataclasses import dataclass\n"
+            "from protocol_tests.harness_base import HarnessResult, RecordingHarness\n"
+            "@dataclass\n"
+            "class SeedResult(HarnessResult):\n    pass\n"
+            "class SeedTests(RecordingHarness):\n"
+            "    def run_all(self):\n"
+            "        return [self._record(SeedResult(test_id='SEED-001', name='s',\n"
+            "            category='s', owasp_asi='', severity='LOW', passed=True,\n"
+            "            details='held', **{'response_' + 'received': {'_status': 0}}))]\n"
+        )
+        self.assertNotIn("def _rec" + "ord", src)
+        self.assertNotIn("response_" + "received", src)
+        with tempfile.TemporaryDirectory() as tmp:
+            pkg = Path(tmp) / "zz_seed_pkg"
+            pkg.mkdir()
+            (pkg / "__init__.py").write_text("")
+            (pkg / "seed_harness.py").write_text(src)
+            sys.path.insert(0, tmp)
+            try:
+                seen = response_recording_modules(["zz_seed_pkg.seed_harness"])
+            finally:
+                sys.path.remove(tmp)
+                sys.modules.pop("zz_seed_pkg.seed_harness", None)
+                sys.modules.pop("zz_seed_pkg", None)
+        self.assertEqual(seen, {"seed_harness"})
 
 
 if __name__ == "__main__":

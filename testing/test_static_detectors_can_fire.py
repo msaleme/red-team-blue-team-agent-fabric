@@ -385,9 +385,11 @@ UNCONTROLLED = {
     # Globs for `def _record` to derive the prose-graded class as a
     # DENOMINATOR for its ratchet.
     "test_refusal_establishes_a_pass.py",
-    # Globs for `_record` + `response_received` to enumerate harnesses, then
-    # FEEDS each the five unserviced conditions.
-    "test_serviced_guard.py",
+    # test_serviced_guard.py left this queue 2026-09-07. It globbed for
+    # `_record` + `response_received` to enumerate harnesses; that rule could
+    # not see a harness inheriting `_record`, and was replaced by a registry
+    # derivation in protocol_tests.asi_inventory with its own seeded control
+    # (a temporary package carrying neither literal, asserted seen).
 }
 
 
