@@ -11,7 +11,7 @@ authors:
 repository-code: "https://github.com/msaleme/red-team-blue-team-agent-fabric"
 url: "https://pypi.org/project/agent-security-harness/"
 license: Apache-2.0
-date-released: "2026-09-07"
+date-released: "2026-09-08"
 keywords:
   - agent-security
   - mcp
