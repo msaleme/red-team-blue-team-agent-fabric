@@ -892,9 +892,14 @@ def live_run_scope(results, *, live_requested: bool, target: str | None) -> dict
             "statement": ("reference-model self-test (no target); every verdict "
                           "is about the reference model in this module"),
         }
+    # Rows reach here as dataclasses from a live run and as dicts from a
+    # written report, and `getattr` alone read every dict as unobserved --
+    # so a report whose 17 rows each carried a live verdict said "NOT
+    # reached". Same dict-vs-object read as `is_inconclusive` above.
     observed = sum(
         1 for r in results
-        if ((getattr(r, "live_evidence", None) or {}).get("verdict")
+        if (((r.get("live_evidence") if isinstance(r, dict)
+              else getattr(r, "live_evidence", None)) or {}).get("verdict")
             in ("accepted", "rejected", "undecided")))
     scored = sum(1 for r in results if not is_inconclusive(r))
     if observed == 0:
