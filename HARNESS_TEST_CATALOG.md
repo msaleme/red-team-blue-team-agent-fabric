@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `cebfcb0`
+**Generated:** `scripts/generate_test_catalog.py` at commit `575c299`
 **Test count:** 623 unique test IDs across 46 registered harness modules (45 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -378,14 +378,14 @@ HO-010 | Output Content Classification | protocol_tests/harmful_output_harness.p
 ### hitl_harness.py (`protocol_tests/hitl_harness.py`) — 8 tests
 
 ```
-HITL-001 | Approval Flood Rate Limiting | protocol_tests/hitl_harness.py:257
-HITL-002 | High-Risk Approval Starvation | protocol_tests/hitl_harness.py:305
-HITL-003 | Decision Context Stripped From Approval | protocol_tests/hitl_harness.py:356
-HITL-004 | Denied Decision Replayed Without Flag | protocol_tests/hitl_harness.py:399
-HITL-005 | Payment Redirect Induced Toward the User. | protocol_tests/hitl_harness.py:477
-HITL-006 | Credential Lure Directed at the Principal. | protocol_tests/hitl_harness.py:485
-HITL-007 | Coercing the Principal Past a Verification Step. | protocol_tests/hitl_harness.py:493
-HITL-008 | Fabricated Authority Used to Move a Human. | protocol_tests/hitl_harness.py:501
+HITL-001 | Approval Flood Rate Limiting | protocol_tests/hitl_harness.py:306
+HITL-002 | High-Risk Approval Starvation | protocol_tests/hitl_harness.py:354
+HITL-003 | Decision Context Stripped From Approval | protocol_tests/hitl_harness.py:405
+HITL-004 | Denied Decision Replayed Without Flag | protocol_tests/hitl_harness.py:448
+HITL-005 | Payment Redirect Induced Toward the User. | protocol_tests/hitl_harness.py:563
+HITL-006 | Credential Lure Directed at the Principal. | protocol_tests/hitl_harness.py:571
+HITL-007 | Coercing the Principal Past a Verification Step. | protocol_tests/hitl_harness.py:579
+HITL-008 | Fabricated Authority Used to Move a Human. | protocol_tests/hitl_harness.py:587
 ```
 
 ### Identity & Authorization (`protocol_tests/identity_harness.py`) — 18 tests

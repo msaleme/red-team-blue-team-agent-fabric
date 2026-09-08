@@ -294,9 +294,11 @@ class TestThePermissiveReadListIsSplit(unittest.TestCase):
         # read as "no change".
         # 2026-09-07: denominator 37 -> 41, numerator stays 0. The POPULATION
         # grew because hitl_harness entered the permissive sweep for the first
-        # time (R3-02) and HITL-005..008 pass against an allow-all host. They
-        # are classified in ABSENCE_AS_SUCCESS -- read, not repaired -- so the
-        # read list itself is still empty.
+        # time (R3-02) and HITL-005..008 pass against an allow-all host. Read
+        # and repaired the same day: they now require a user-facing message
+        # to scan, and the allow-all host writes one, so the four stay in the
+        # population and sit in POSITIVE_EVIDENCE_OR_LOCAL. ABSENCE_AS_SUCCESS
+        # went 4 -> 0.
         num, den, _ = _permissive_read_list()
         self.assertEqual(
             (num, den), (0, 41),
