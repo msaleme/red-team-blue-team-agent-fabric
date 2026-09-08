@@ -776,11 +776,16 @@ class TestRegFireblocks(unittest.TestCase):
                                     "resource_hash": "rh", "expiry": 999}, 0)[0])
 
     def test_suite_all_pass_in_simulate(self):
+        """The reference verifier passes every check under `reference_verdict`;
+        no row does. A simulated row is INCONCLUSIVE (R4-05)."""
         from protocol_tests.x402_fireblocks_harness import X402FireblocksTests
         results = X402FireblocksTests(simulate=True).run_all()
         self.assertEqual(len(results), 17)
-        self.assertTrue(all(r.passed for r in results),
-                        [r.test_id for r in results if not r.passed])
+        self.assertTrue(all(r.reference_verdict and r.reference_verdict["passed"] for r in results),
+                        [r.test_id for r in results
+                         if not (r.reference_verdict or {}).get("passed")])
+        self.assertTrue(all(r.not_evaluated and not r.passed for r in results),
+                        [r.test_id for r in results if r.passed or not r.not_evaluated])
 
 
 # ─── R34: AP2 mandate-chain conformance ───
@@ -853,11 +858,18 @@ class TestRegAP2(unittest.TestCase):
         self.assertFalse(AP2Verifier().verify_payment(checkout, payment, 1000).ok)
 
     def test_suite_all_pass_in_simulate(self):
+        """The reference verifier still passes every check under --simulate;
+        the row does not. `passed` is about a target, and a simulated run has
+        none: every row is INCONCLUSIVE with the reference verdict kept apart
+        under `reference_verdict` (R4-05, fourth external review)."""
         from protocol_tests.ap2_harness import AP2MandateTests
         results = AP2MandateTests(simulate=True).run_all()
         self.assertEqual(len(results), 17)
-        self.assertTrue(all(r.passed for r in results),
-                        [r.test_id for r in results if not r.passed])
+        self.assertTrue(all(r.reference_verdict and r.reference_verdict["passed"] for r in results),
+                        [r.test_id for r in results
+                         if not (r.reference_verdict or {}).get("passed")])
+        self.assertTrue(all(r.not_evaluated and not r.passed for r in results),
+                        [r.test_id for r in results if r.passed or not r.not_evaluated])
 
 
 if __name__ == "__main__":

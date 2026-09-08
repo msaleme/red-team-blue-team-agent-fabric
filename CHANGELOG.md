@@ -284,6 +284,77 @@ detected), never PASS. Tested with a 50 ms budget and a 200 ms `wait` step,
 and with a slow assertion phase. `docs/PLUGIN_SPEC.md` documents the closed
 vocabularies, the caps, the adapter and dry-run semantics, and the exit
 codes.
+### Fixed — native `--simulate` published passes; the older trial runner counted unserviced trials as failures (R4-05 High, R4-10 Medium; fourth external review, 2026-09-08)
+
+**Native simulation became PASS in exported attestations (R4-05).** Five
+payment harnesses handle `--simulate` in their own `main()`: run directly as
+`python -m protocol_tests.<module> --simulate --report`, ap2, x402_fireblocks,
+ucp_acp, card_token and settlement_finality wrote 17/17/12/12/8 = 66 rows
+`passed: true` with `serviced: N`, a pass rate of 1.0 and a Wilson interval.
+`attestation.migrate_legacy_report` turned them into attestations carrying 66
+passes; `telemetry.verdict_counts` counted 66 passed. The CLI facade
+(`agent-security test ap2 --simulate`) was correct because `cli._simulate_harness`
+intercepts it, so the tests that existed covered the facade and never the
+module entry points. These five were the grandfathered "fake-the-answer"
+modules in `testing/test_simulated_passes_are_scoped.py`; a grandfather list
+does not stop a consumer publishing the rows as target evidence. The sixth,
+`aiuc1_compliance_harness`, marked its rows INCONCLUSIVE and then summarised
+them as `passed 0 / failed 12` with a per-requirement coverage block reading
+every requirement FAIL -- two answers in one file. Maintainer reproduced all
+of it before changing anything.
+
+The shared policy the five already route every row through,
+`http_helpers.fold_live_verdict`, returned the reference model's verdict AS
+the row in simulate mode. It now returns INCONCLUSIVE: `passed: False`,
+`not_evaluated: True`, an `INCONCLUSIVE - simulated run` details string, and
+the fabricated verdict preserved under `reference_verdict` with the scope
+statement `#537` introduced for live folds. The six report writers were six
+private copies of the same block (CLAUDE.md item 7, one layer up); they now
+go through one writer in `harness_base` -- `build_report` / `write_report` /
+`exit_status` -- which labels every row of a simulated run (`simulated`,
+`verdict_scope: "reference-model self-test (no target)"`, the same names the
+reference self-test modules use), computes the summary with the shared
+three-state `run_summary` over the rows exactly as written (`serviced 0`,
+`pass_rate None`, no interval), and exits non-zero only on a serviced FAIL --
+ap2 and x402_fireblocks exited 1 on a wholly-inconclusive run and the other
+three never set a status. aiuc1's `AIUCTestResult` gained `reference_verdict`
+so its synthetic outcome is a field rather than a phrase in `details`, and its
+requirement coverage is three-state (`INCONCLUSIVE` when nothing was
+exercised). `run_summary` reads `passed` off a dict as well as an object, so a
+summary over written rows is not silently zero.
+
+`testing/test_native_simulate_is_scoped.py` runs the six module entry points
+in a subprocess, as a consumer would, and checks the rows, the summary, the
+exit status, aiuc1's coverage block, and every row consumer against the NATIVE
+file: attestation migration, `scripts/evidence_pack.py`, `scripts/html_report.py`,
+`scripts/top10_failures.py` and `telemetry.verdict_counts` each publish zero
+passes and zero failures. The five payment modules left
+`GRANDFATHERED_UNLABELLED` (8 -> 3; the seed and floor rules stand).
+`test_code_quality.test_suite_all_pass_in_simulate` now asserts what it
+meant: the reference verifier passes every check under `reference_verdict`,
+and no row does. Fault-injected: restoring the old simulate branch in
+`fold_live_verdict`, removing the writer's row labels, and removing aiuc1's
+`not_evaluated` marking each fail the new tests.
+
+**`statistical.run_with_trials` counted unserviced trials as failed and
+serviced (R4-10).** The older of two helpers with that name read `.passed` and
+nothing else, so five objects with `passed=False, not_evaluated=True` became
+five failed / five serviced / pass rate 0.0 with an interval, and an empty run
+returned a numeric `(0.0, 0.0)` interval; `enhance_report` carried those
+numbers into its statistical summary. The newer `trial_runner.run_with_trials`
+was right. The older helper now classifies each result with
+`trial_runner._trial_state`, the one predicate (objects and dicts, structural
+fields and the prefix), so an unserviced trial is neither failed nor serviced,
+a raising trial is INCONCLUSIVE rather than a failure, and `pass_rate` /
+`ci_95` are `None` when nothing was serviced -- including the empty run.
+`per_trial_state` is now populated. Tests in `testing/test_statistical.py`
+pin all of it, including that `enhance_report` publishes no rate and no
+interval for zero serviced trials; the helper's existing tests fed
+`MagicMock` objects, whose auto-created attributes read as INCONCLUSIVE
+fields, and use plain objects now. Fault-injected: restoring the old counting
+fails them.
+
+No test IDs were added or removed; the count stays at 623.
 
 ## [4.21.1] - 2026-09-07
 

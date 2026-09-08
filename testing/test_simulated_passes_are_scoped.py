@@ -35,10 +35,14 @@ from protocol_tests.cli import HARNESSES, _module_declares_flag
 ROW_MARKERS = ("verdict_scope", "_simulated", "simulated", "not_evaluated")
 
 #: Simulated PASS rows carry no row-level marker. Seeded 2026-09-07. Shrink only.
+#: 2026-09-08 (R4-05): the five payment harnesses left the list -- their native
+#: simulate rows are now INCONCLUSIVE with `simulated`, `verdict_scope`,
+#: `not_evaluated` and the reference verdict under `reference_verdict`, written
+#: by the one writer in harness_base; testing/test_native_simulate_is_scoped.py
+#: pins the native path and every row consumer against it.
 SEEDED_UNLABELLED_COUNT = 8
 GRANDFATHERED_UNLABELLED = frozenset({
-    "ap2", "card-token", "cloud-agents", "crewai-cve", "mcp-tool-poisoning",
-    "settlement-finality", "ucp-acp", "x402-fireblocks",
+    "cloud-agents", "crewai-cve", "mcp-tool-poisoning",
 })
 #: Declares --simulate but writes no readable report we can inspect. Shrink only.
 SEEDED_UNREADABLE_COUNT = 4

@@ -45,11 +45,21 @@ the base.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import json
+import sys
+from dataclasses import asdict, dataclass, field, is_dataclass
 from datetime import datetime, timezone
 from typing import Any
 
-from protocol_tests.http_helpers import inconclusive_detail
+from protocol_tests.http_helpers import (
+    INCONCLUSIVE_PREFIX,
+    REFERENCE_VERDICT_SCOPE,
+    SIMULATED_ROW_SCOPE,
+    inconclusive_detail,
+    is_inconclusive,
+    live_run_scope,
+    run_summary,
+)
 
 
 @dataclass
@@ -80,10 +90,17 @@ class HarnessResult:
     elapsed_s: float = 0.0
     timestamp: str = ""
     extra: dict[str, Any] = field(default_factory=dict)
+    #: INCONCLUSIVE as a field, not only as a prefix on ``details``
+    #: (http_helpers.INCONCLUSIVE_FIELDS). ``asdict()`` serialises declared
+    #: fields; it does not serialise English. The base result carries it so a
+    #: subclass cannot be inconclusive without saying so structurally.
+    not_evaluated: bool = False
 
     def __post_init__(self) -> None:
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
+        if is_inconclusive(self.details):
+            self.not_evaluated = True
 
 
 class RecordingHarness:
@@ -115,3 +132,108 @@ class RecordingHarness:
             result.passed = False
             result.details = detail
         return result
+
+
+# ---------------------------------------------------------------------------
+# Report writing
+# ---------------------------------------------------------------------------
+#
+# Six harnesses that handle ``--simulate`` natively (the five payment
+# conformance suites and aiuc1_compliance) each assembled and wrote their own
+# report dict. Five of them wrote every simulated row as ``passed: true`` with a
+# serviced denominator and a Wilson interval, and the sixth wrote rows marked
+# INCONCLUSIVE under a summary that said ``failed: 12`` -- two answers in one
+# file. The CLI facade (`cli._simulate_harness`) intercepts ``--simulate`` and
+# was correct, so the tests that existed covered the facade and not the module
+# entry points a consumer can run directly (fourth external review, R4-05,
+# 2026-09-08). That is CLAUDE.md item 7 one layer up: six writers, one defect,
+# each repair reaching only the file someone opened. This is the one writer.
+
+
+def simulated_row(row: dict) -> dict:
+    """The published form of one row from a simulated (fabricated-answer) run.
+
+    A simulated row is INCONCLUSIVE by construction: the module authored the
+    target's answer, so a check against it establishes nothing about a target.
+    The fabricated outcome is kept apart under ``reference_verdict`` with its
+    scope, ``passed`` is false, and the row carries the structural marker
+    (``not_evaluated``, http_helpers.INCONCLUSIVE_FIELDS) plus the two row-level
+    labels a row consumer already knows from the reference self-test modules
+    (``simulated``, ``verdict_scope``). A consumer that reads only ``passed``
+    sees no pass; one that reads the shared predicate sees INCONCLUSIVE; one
+    that looks for the reference verdict finds it labelled.
+    """
+    row = dict(row)
+    if row.get("reference_verdict") is None:
+        row["reference_verdict"] = {
+            "passed": bool(row.get("passed", False)),
+            "reason": str(row.get("details", "")),
+            "scope": REFERENCE_VERDICT_SCOPE,
+        }
+    details = str(row.get("details", "") or "")
+    if not details.startswith(INCONCLUSIVE_PREFIX):
+        row["details"] = (f"{INCONCLUSIVE_PREFIX}simulated run ({SIMULATED_ROW_SCOPE}): "
+                          f"no target was contacted, so this control was not "
+                          f"exercised. Reference-model verdict preserved under "
+                          f"reference_verdict and not scored: {details}")
+    row["passed"] = False
+    row["not_evaluated"] = True
+    row["simulated"] = True
+    row["verdict_scope"] = SIMULATED_ROW_SCOPE
+    return row
+
+
+def report_rows(results, *, simulate: bool) -> list[dict]:
+    """Serialise result objects for a report; label every row of a simulated run."""
+    rows = [asdict(r) if is_dataclass(r) else dict(r) for r in results]
+    if simulate:
+        rows = [simulated_row(r) for r in rows]
+    return rows
+
+
+def build_report(results, *, simulate: bool, target: str | None,
+                 head: dict, tail: dict | None = None,
+                 live_scope: bool = True) -> dict:
+    """Assemble a report: ``head`` keys, ``verdict_scope``, ``summary``, ``results``, ``tail``.
+
+    ``summary`` is the shared three-state `run_summary`, computed over the rows
+    exactly as written, so the summary and the rows in one file cannot disagree:
+    a simulated run reports ``serviced 0``, ``pass_rate None`` and no interval.
+    ``verdict_scope`` is `live_run_scope`, the report-level statement of what
+    was REACHED beside ``mode``, which says what was REQUESTED; ``live_scope``
+    is false for a module whose live rows carry no ``live_evidence`` verdict
+    (aiuc1_compliance), which then states a scope only for a simulated run.
+    """
+    rows = report_rows(results, simulate=simulate)
+    report = dict(head)
+    if simulate or live_scope:
+        report["verdict_scope"] = live_run_scope(
+            rows, live_requested=not simulate, target=target)
+    report["summary"] = run_summary(rows)
+    report["results"] = rows
+    report.update(tail or {})
+    return report
+
+
+def write_report(report: dict, path: str | None, *, json_stdout: bool = False,
+                 quiet: bool = False) -> None:
+    """Print the report to stdout when asked, and write it to ``path`` when given."""
+    if json_stdout:
+        print(json.dumps(report, indent=2, default=str))
+    if path:
+        with open(path, "w") as f:
+            json.dump(report, f, indent=2, default=str)
+        if not quiet:
+            print(f"Report written to {path}", file=sys.stderr)
+
+
+def exit_status(report: dict) -> int:
+    """1 when a serviced test FAILED, else 0.
+
+    INCONCLUSIVE is not a failure: a fail asserts the control did not hold, and
+    an unserviced or simulated row asserts nothing. ap2 and x402_fireblocks used
+    ``any(not r.passed ...)``, which made a wholly-inconclusive run exit 1;
+    ucp_acp, card_token and settlement_finality never set an exit status at all.
+    One rule now.
+    """
+    return 1 if report["summary"]["failed"] else 0

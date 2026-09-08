@@ -56,8 +56,10 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
 
+from protocol_tests.harness_base import build_report, exit_status, write_report
 from protocol_tests.http_helpers import (
     INCONCLUSIVE_PREFIX,
+    REFERENCE_VERDICT_SCOPE,
     agent_message_text,
     silence_detail,
     silence_evidence,
@@ -98,6 +100,11 @@ class AIUCTestResult:
     #: _record under --simulate; asdict() serialises only declared fields, so an
     #: attribute assigned ad hoc never reached the report.
     not_evaluated: bool = False
+    #: Under --simulate, the outcome of the check against the synthetic answer,
+    #: kept apart from ``passed`` with a scope that says what it is about. The
+    #: details string carried it as English ("Original synthetic outcome: ...");
+    #: a consumer reads fields (R4-05).
+    reference_verdict: dict | None = None
 
     def __post_init__(self):
         # The prefix implies the field, whoever constructed the row. `_record`
@@ -379,6 +386,9 @@ class AIUC1ComplianceTests:
             # with the HTML rendering them as passes -- under the AIUC-1
             # compliance harness, the worst place for it. Nothing was
             # exercised; nothing passed.
+            result.reference_verdict = {
+                "passed": bool(result.passed), "reason": str(result.details),
+                "scope": REFERENCE_VERDICT_SCOPE}
             result.passed = False
             result.not_evaluated = True
             result.details = (f"{INCONCLUSIVE_PREFIX}simulated run; the target's "
@@ -1191,49 +1201,47 @@ def main():
         results = suite.run_all(categories=categories)
         all_results.extend(results)
 
-    # Build report
-    report = {
-        "harness": "AIUC-1 Compliance Test Harness",
-        "version": "1.0.0",
-        "standard": "AIUC-1",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "mode": "simulation" if args.simulate else "live",
-        "trials": args.trials,
-        "results": [asdict(r) for r in all_results],
-        "summary": {
-            "total": len(all_results),
-            "passed": sum(1 for r in all_results if r.passed),
-            "failed": sum(1 for r in all_results if not r.passed),
-        },
-    }
-
-    # Add per-requirement coverage to report
+    # Per-requirement coverage. `failed` was a residual (`not r.passed`), so a
+    # simulated run whose rows were all INCONCLUSIVE reported every requirement
+    # FAIL while its rows said nothing had been exercised -- the second summary
+    # the fourth external review found disagreeing with the first (R4-05).
+    # Three states here too; a requirement no row exercised is INCONCLUSIVE.
     req_coverage: dict[str, dict] = {}
     for r in all_results:
         if r.aiuc1_req:
-            if r.aiuc1_req not in req_coverage:
-                req_coverage[r.aiuc1_req] = {"passed": 0, "failed": 0, "total": 0}
-            req_coverage[r.aiuc1_req]["total"] += 1
-            if r.passed:
-                req_coverage[r.aiuc1_req]["passed"] += 1
+            counts = req_coverage.setdefault(
+                r.aiuc1_req, {"passed": 0, "failed": 0, "inconclusive": 0, "total": 0})
+            counts["total"] += 1
+            if r.not_evaluated:
+                counts["inconclusive"] += 1
+            elif r.passed:
+                counts["passed"] += 1
             else:
-                req_coverage[r.aiuc1_req]["failed"] += 1
+                counts["failed"] += 1
     for req_id, counts in req_coverage.items():
-        counts["status"] = "PASS" if counts["failed"] == 0 else "FAIL"
-    report["aiuc1_requirement_coverage"] = req_coverage
+        counts["status"] = ("FAIL" if counts["failed"]
+                            else "PASS" if counts["passed"]
+                            else "INCONCLUSIVE")
 
-    if args.report:
-        with open(args.report, "w") as f:
-            json.dump(report, f, indent=2, default=str)
-        if not json_output:
-            print(f"Report saved to {args.report}")
+    # One writer for the six native-simulate harnesses (harness_base): the
+    # summary is the shared three-state run_summary over the rows as written,
+    # so `passed 0 / failed 12` over twelve INCONCLUSIVE rows cannot recur.
+    report = build_report(
+        all_results, simulate=args.simulate, target=args.url, live_scope=False,
+        head={
+            "harness": "AIUC-1 Compliance Test Harness",
+            "version": "1.0.0",
+            "standard": "AIUC-1",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "mode": "simulation" if args.simulate else "live",
+            "trials": args.trials,
+        },
+        tail={"aiuc1_requirement_coverage": req_coverage})
 
-    if json_output:
-        print(json.dumps(report, indent=2, default=str))
+    write_report(report, args.report, json_stdout=json_output, quiet=json_output)
 
-    # Exit code
-    failed = sum(1 for r in all_results if not r.passed)
-    sys.exit(1 if failed > 0 else 0)
+    # Exit code: a serviced FAIL, never an INCONCLUSIVE row.
+    sys.exit(exit_status(report))
 
 
 if __name__ == "__main__":

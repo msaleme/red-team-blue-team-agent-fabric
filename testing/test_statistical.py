@@ -4,7 +4,7 @@ import os
 import sys
 import tempfile
 import unittest
-from unittest.mock import MagicMock
+from types import SimpleNamespace
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -46,12 +46,63 @@ class TestBootstrapCI(unittest.TestCase):
 
 
 class TestRunWithTrials(unittest.TestCase):
-    def _r(self, p=True):
-        r = MagicMock(); r.passed = p; r.elapsed_s = 0.1; return r
+    def _r(self, p=True, **extra):
+        # A plain object, not a mock: a MagicMock answers every attribute with
+        # a truthy child, including the INCONCLUSIVE fields the classifier reads.
+        return SimpleNamespace(passed=p, elapsed_s=0.1, **extra)
     def test_all_pass(self): self.assertEqual(run_with_trials(lambda: self._r(True), n_trials=5).n_passed, 5)
-    def test_all_fail(self): self.assertEqual(run_with_trials(lambda: self._r(False), n_trials=5).n_passed, 0)
+    def test_all_fail(self):
+        tr = run_with_trials(lambda: self._r(False), n_trials=5)
+        self.assertEqual((tr.n_passed, tr.n_failed, tr.n_serviced, tr.pass_rate), (0, 5, 5, 0.0))
     def test_exception(self):
-        self.assertEqual(run_with_trials(lambda: (_ for _ in ()).throw(RuntimeError), n_trials=3).n_passed, 0)
+        """A trial that raises establishes nothing: INCONCLUSIVE, not FAIL."""
+        tr = run_with_trials(lambda: (_ for _ in ()).throw(RuntimeError), n_trials=3)
+        self.assertEqual((tr.n_passed, tr.n_failed, tr.n_inconclusive), (0, 0, 3))
+
+    # R4-10 (fourth external review, 2026-09-08): this helper counted objects
+    # with `passed=False, not_evaluated=True` as failed AND serviced -- five
+    # unserviced trials became "five failed / five serviced, pass rate 0.0" --
+    # and an empty run returned a numeric (0.0, 0.0) interval. The newer
+    # trial_runner.run_with_trials was right; two helpers, one name, two
+    # semantics. Now one classifier.
+    def test_unserviced_trials_are_neither_failed_nor_serviced(self):
+        tr = run_with_trials(lambda: self._r(False, not_evaluated=True), n_trials=5)
+        self.assertEqual((tr.n_trials, tr.n_passed, tr.n_failed, tr.n_inconclusive, tr.n_serviced),
+                         (5, 0, 0, 5, 0))
+        self.assertIsNone(tr.pass_rate)
+        self.assertIsNone(tr.ci_95)
+        self.assertEqual(tr.per_trial_state, ["inconclusive"] * 5)
+    def test_prefix_only_inconclusive_is_read_by_the_shared_predicate(self):
+        from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX
+        tr = run_with_trials(lambda: self._r(False, details=INCONCLUSIVE_PREFIX + "x"), n_trials=2)
+        self.assertEqual((tr.n_failed, tr.n_inconclusive), (0, 2))
+    def test_dict_results_are_classified_the_same(self):
+        tr = run_with_trials(lambda: {"passed": False, "not_evaluated": True}, n_trials=2)
+        self.assertEqual((tr.n_failed, tr.n_inconclusive, tr.pass_rate, tr.ci_95), (0, 2, None, None))
+    def test_empty_run_has_no_interval(self):
+        tr = run_with_trials(lambda: self._r(True), n_trials=0)
+        self.assertEqual((tr.n_trials, tr.n_passed, tr.n_inconclusive), (0, 0, 0))
+        self.assertIsNone(tr.pass_rate)
+        self.assertIsNone(tr.ci_95)
+        self.assertEqual(tr.to_dict()["ci_95_lower"], None)
+    def test_mixed_trials_keep_the_rate_over_serviced_only(self):
+        seq = iter([self._r(True), self._r(False, not_evaluated=True), self._r(True), self._r(False)])
+        tr = run_with_trials(lambda: next(seq), n_trials=4)
+        self.assertEqual((tr.n_passed, tr.n_failed, tr.n_inconclusive, tr.n_serviced), (2, 1, 1, 3))
+        self.assertEqual(tr.pass_rate, round(2 / 3, 4))
+        self.assertEqual(tr.per_trial_state, ["pass", "inconclusive", "pass", "fail"])
+    def test_enhance_report_publishes_no_interval_for_zero_serviced(self):
+        """The old helper's numbers flowed into `enhance_report`'s statistical
+        summary. Zero serviced trials must publish no rate and no interval,
+        per test and in aggregate."""
+        tr = run_with_trials(lambda: self._r(False, not_evaluated=True), n_trials=5)
+        s = enhance_report({"suite": "t", "results": []}, trial_results=[tr])["statistical_summary"]
+        self.assertIsNone(s["aggregate_pass_rate"])
+        self.assertIsNone(s["aggregate_ci_95"])
+        self.assertEqual(s["n_tests_with_a_serviced_trial"], 0)
+        per = s["per_test"][0]
+        self.assertEqual((per["n_failed"], per["n_serviced"], per["pass_rate"],
+                          per["ci_95_lower"], per["ci_95_upper"]), (0, 0, None, None, None))
 
 
 class TestTrialResult(unittest.TestCase):
