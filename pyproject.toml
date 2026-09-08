@@ -64,6 +64,9 @@ Research = "https://doi.org/10.5281/zenodo.19162104"
 [project.scripts]
 agent-security = "protocol_tests.cli:main"
 ash = "protocol_tests.cli:main"
+# The quickstart's mock target, shipped (R3-12). Same module as
+# `python -m protocol_tests.mock_mcp_server`.
+agent-security-mock-mcp = "protocol_tests.mock_mcp_server:main"
 
 [tool.setuptools.packages.find]
 include = ["protocol_tests*", "scripts*", "mcp_server*"]

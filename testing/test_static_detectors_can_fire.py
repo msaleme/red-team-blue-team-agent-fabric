@@ -307,6 +307,53 @@ def _run_provenance_header_detector(directory: pathlib.Path) -> list[str]:
     return offenders
 
 
+# --------------------------------------------------------------------------
+# Detector 6 — a shipped script resolving data relative to the checkout
+#
+# R3-12 (2026-09-07): four scripts in the wheel read `ROOT / "docs/..."` with
+# ROOT two levels above their own file. In a clone that is the checkout; in a
+# wheel it is site-packages, and the file is not there. The control is the
+# closest legitimate form: sys.path setup from the same root, the resolver for
+# shipped data, and a join onto a package that IS in site-packages.
+# --------------------------------------------------------------------------
+
+_CHECKOUT_JOIN_VIOLATION = '''"""A shipped script that reads a checkout-only path."""
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+MAPPING = ROOT / "docs/coverage/owasp-agentic-v1.1.yaml"
+
+
+def load():
+    return MAPPING.read_text()
+'''
+
+_CHECKOUT_JOIN_CONTROL = '''"""The correct form: the resolver for shipped data, the root only for imports."""
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from protocol_tests.package_data import data_path  # noqa: E402
+
+MAPPING = data_path("coverage", "owasp-agentic-v1.1.yaml")
+SOURCES = (ROOT / "protocol_tests").glob("*.py")  # in site-packages too
+
+
+def load():
+    return MAPPING.read_text()
+'''
+
+
+def _run_checkout_join_detector(directory: pathlib.Path) -> list[str]:
+    import test_packaged_scripts_resolve as mod
+    offenders = []
+    for path in sorted(directory.glob("*.py")):
+        if mod.checkout_relative_join_lines(path.read_text(encoding="utf-8")):
+            offenders.append(path.name)
+    return offenders
+
+
 #: detector name -> (runner, seeded violation, legitimate control, guarded file)
 #:
 #: The fourth element is load-bearing. The queue's ratchet used to compare
@@ -335,6 +382,9 @@ DETECTORS = {
     "report writer with no provenance header": (
         _run_provenance_header_detector, _PROVENANCE_VIOLATION,
         _PROVENANCE_CONTROL, "test_report_states_its_provenance.py"),
+    "shipped script resolving data relative to the checkout": (
+        _run_checkout_join_detector, _CHECKOUT_JOIN_VIOLATION,
+        _CHECKOUT_JOIN_CONTROL, "test_packaged_scripts_resolve.py"),
 }
 
 #: Derived, never written down: the files that have a seeded control pair.

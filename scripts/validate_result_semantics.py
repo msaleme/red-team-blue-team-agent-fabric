@@ -61,6 +61,13 @@ and tests/test_attestation_can_say_inconclusive.py.
     python3 scripts/validate_result_semantics.py
     python3 scripts/validate_result_semantics.py --declaration path/to/other.json
     python3 scripts/validate_result_semantics.py --json
+
+## From an installed copy
+
+The two schemas are resolved through `protocol_tests.package_data` and are in
+the wheel. The default declaration, `docs/result-semantics.json`, is
+checkout-only: without `--declaration` an installed copy exits 2 with one line
+saying so (never a traceback, never a pass).
 """
 
 from __future__ import annotations
@@ -71,9 +78,15 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from protocol_tests.package_data import data_path  # noqa: E402
+
+#: Checkout-only default (not in the wheel); see "From an installed copy".
 DECLARATION = REPO_ROOT / "docs" / "result-semantics.json"
-SCHEMA = REPO_ROOT / "schemas" / "result-semantics.schema.json"
-ATTESTATION_SCHEMA = REPO_ROOT / "schemas" / "attestation-report.json"
+SCHEMA = data_path("schemas", "result-semantics.schema.json")
+ATTESTATION_SCHEMA = data_path("schemas", "attestation-report.json")
 
 OK, BAD = "PASS", "FAIL"
 
@@ -388,7 +401,13 @@ def main() -> int:
     ap.add_argument("--json", action="store_true", help="emit machine-readable results")
     args = ap.parse_args()
 
-    rows, cannot_check = run(args.declaration)
+    if args.declaration == DECLARATION and not DECLARATION.is_file():
+        rows, cannot_check = [], (
+            f"checkout-only resource missing: docs/result-semantics.json (expected at "
+            f"{DECLARATION}). It is not shipped in the wheel; run from a clone or pass "
+            f"--declaration PATH.")
+    else:
+        rows, cannot_check = run(args.declaration)
 
     if cannot_check is not None:
         if args.json:

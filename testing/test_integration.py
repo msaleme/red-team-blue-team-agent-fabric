@@ -65,7 +65,7 @@ class TestMCPIntegration(unittest.TestCase):
             signal.alarm(TEST_TIMEOUT_S)
 
         cls.server_proc = subprocess.Popen(
-            [sys.executable, "-m", "testing.mock_mcp_server"],
+            [sys.executable, "-m", "protocol_tests.mock_mcp_server"],
             cwd=PROJECT_ROOT,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

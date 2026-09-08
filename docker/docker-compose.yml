@@ -88,7 +88,7 @@ services:
   # ── MCP JSON-RPC Server (existing mock, containerized) ──
   mock-mcp-jsonrpc:
     build:
-      context: ../testing
+      context: ../protocol_tests
       dockerfile: ../docker/Dockerfile.mcp
     networks:
       - gw-internal

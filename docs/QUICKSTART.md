@@ -48,11 +48,12 @@ agent-security version
 
 ## Try It Without a Server (Mock MCP Server)
 
-A bundled mock MCP server lets you validate the harness works without setting up your own target:
+A bundled mock MCP server lets you validate the harness works without setting up your own target. It ships in the package, so this works from `pip install agent-security-harness` as well as from a checkout:
 
 ```bash
 # Terminal 1: Start the mock server (has one deliberately vulnerable tool)
-python -m testing.mock_mcp_server
+python -m protocol_tests.mock_mcp_server
+# or, equivalently:  agent-security-mock-mcp   (add --port / --host to change the bind)
 
 # Terminal 2: Run the harness against it
 agent-security test mcp --transport http --url http://localhost:8402/mcp

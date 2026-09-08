@@ -40,6 +40,13 @@ revision into a failure for callers that can guarantee a full clone.
     python3 scripts/verify_release_claims.py --require-regenerate  # fail if a revision is unreachable
     python3 scripts/verify_release_claims.py --json                # machine-readable result
 
+## Checkout-only
+
+The manifest (`docs/release-claims.json`), every surface it names (`README.md`,
+`pyproject.toml`, ...) and the git history REGENERATE needs are not in the
+wheel. From an installed copy the script exits 2 with one line naming the
+manifest, rather than a traceback (R3-12).
+
 ## What this does not establish
 
 Provenance, not truth. A reproduced count proves the command yields that value at that
@@ -59,12 +66,21 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+#: Checkout-only (not in the wheel); see the docstring.
 MANIFEST = REPO_ROOT / "docs" / "release-claims.json"
 
 OK, BAD, SKIP = "PASS", "FAIL", "SKIP"
 
+EXIT_CANNOT_CHECK = 2
+
 
 def _load() -> dict:
+    if not MANIFEST.is_file():
+        print(f"verify_release_claims.py: checkout-only resource missing: "
+              f"docs/release-claims.json (expected at {MANIFEST}). The manifest, its "
+              f"surfaces and the git history are not shipped in the wheel; run from a clone.",
+              file=sys.stderr)
+        raise SystemExit(EXIT_CANNOT_CHECK)
     with MANIFEST.open(encoding="utf-8") as fh:
         return json.load(fh)
 

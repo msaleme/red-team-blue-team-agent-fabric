@@ -4,7 +4,7 @@ This directory contains test files for the red-team-blue-team-agent-fabric secur
 
 ## Mock MCP Server
 
-The `mock_mcp_server.py` provides a minimal MCP (Model Context Protocol) server for testing the security harness without requiring a real MCP server.
+`protocol_tests/mock_mcp_server.py` provides a minimal MCP (Model Context Protocol) server for testing the security harness without requiring a real MCP server. It lives in the shipped package so the quickstart works from an installed wheel; `testing/mock_mcp_server.py` is a thin alias kept for the checkout.
 
 ### Features
 
@@ -18,12 +18,13 @@ The `mock_mcp_server.py` provides a minimal MCP (Model Context Protocol) server 
 
 Start the server:
 ```bash
-python -m testing.mock_mcp_server
+python -m protocol_tests.mock_mcp_server
+# or: agent-security-mock-mcp
 ```
 
 Or with custom port:
 ```bash
-python -m testing.mock_mcp_server 9000
+python -m protocol_tests.mock_mcp_server --port 9000
 ```
 
 Default port: 8402
