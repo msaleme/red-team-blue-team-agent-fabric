@@ -15,6 +15,12 @@ prints the tests and the commands that run them.
     python scripts/owasp_agentic_select.py --list
 
 Exit code 1 if a selector resolves to nothing, so it is usable in scripts.
+
+Works from an installed wheel as well as a checkout: the mapping is resolved
+through `protocol_tests.package_data` (R3-12 -- it used to be read relative to
+this file's location and raised FileNotFoundError outside the checkout). The
+only checkout-only input is the legacy `red_team_automation.py`; when it is
+absent the tests it defines show a module of `?` in the control/playbook views.
 """
 from __future__ import annotations
 
@@ -30,8 +36,19 @@ except ImportError:  # pragma: no cover
     print("PyYAML is required: pip install pyyaml", file=sys.stderr)
     raise SystemExit(2)
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-MAPPING = ROOT / "docs/coverage/owasp-agentic-v1.1.yaml"
+# Makes `protocol_tests` importable when this file is run from a clone; on an
+# installed copy parents[1] is site-packages and the insert is harmless.
+_ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+import protocol_tests  # noqa: E402
+from protocol_tests.package_data import data_path  # noqa: E402
+
+MAPPING = data_path("coverage", "owasp-agentic-v1.1.yaml")
+PACKAGE_DIR = pathlib.Path(protocol_tests.__file__).resolve().parent
+#: Checkout-only legacy module; not in the wheel. Optional -- see the docstring.
+LEGACY_MODULE = PACKAGE_DIR.parent / "red_team_automation.py"
 
 
 def _load() -> dict:
@@ -40,13 +57,13 @@ def _load() -> dict:
 
 def _test_index() -> dict[str, str]:
     idx: dict[str, str] = {}
-    srcs = list((ROOT / "protocol_tests").glob("*.py")) + [ROOT / "red_team_automation.py"]
+    srcs = list(PACKAGE_DIR.glob("*.py")) + [LEGACY_MODULE]
     for p in srcs:
         if not p.exists():
             continue
         txt = p.read_text(encoding="utf-8", errors="replace")
         for m in re.finditer(r'test_id\s*=\s*["\']([A-Z0-9]+-\d{3})["\']', txt):
-            idx.setdefault(m.group(1), str(p.relative_to(ROOT)))
+            idx.setdefault(m.group(1), str(p.relative_to(PACKAGE_DIR.parent)))
     return idx
 
 

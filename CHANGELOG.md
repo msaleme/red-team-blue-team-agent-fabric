@@ -306,6 +306,54 @@ checked by AST, and a seeded module in a temporary package guard the
 derivation against narrowing back. With its own seeded control the guard
 suite leaves the `UNCONTROLLED` queue in
 `testing/test_static_detectors_can_fire.py`, which shrinks by one.
+### Fixed — the quickstart promised a mock server the wheel does not ship, and four shipped scripts read the checkout (third external review, R3-12)
+
+`docs/QUICKSTART.md` told a pip user to run `python -m testing.mock_mcp_server`.
+`testing/` is not in package discovery (`protocol_tests*`, `scripts*`,
+`mcp_server*`), so from an installed wheel the command was
+`ModuleNotFoundError: No module named 'testing'` -- reproduced from a clean
+`python -m build` sdist-to-wheel install in a fresh venv, run from a neutral
+directory. Four scripts that ARE in the wheel bypassed the resolver #526
+added: `owasp_agentic_select` and `validate_owasp_agentic_mapping` (`ROOT /
+"docs/coverage/..."`), `validate_result_semantics` (`REPO_ROOT / "schemas" /
+...`) and `verify_release_claims` (`REPO_ROOT / "docs" / ...`), with the root
+two levels above their own file: the checkout in a clone, `site-packages` in
+a wheel. Three of the four died with a FileNotFoundError traceback.
+
+The mock server now lives at `protocol_tests/mock_mcp_server.py` (standard
+library only, ~13 KB) with a `python -m` entry, `--port` / `--host` /
+`--help`, and a console script `agent-security-mock-mcp`;
+`testing/mock_mcp_server.py` re-exports it so the checkout and
+`test_integration` keep working, and `docker/Dockerfile.mcp` copies the
+shipped file and passes `--host 0.0.0.0` instead of `sed`-patching the bind.
+The quickstart was then run end to end from the installed wheel: shipped
+server on a loopback port, `agent-security test mcp --transport http --url
+...` against it, MCP-001 FAIL on the poisoned description and MCP-002..007
+PASS -- the shape `test_integration` asserts.
+
+The three scripts that read a shipped file resolve it through
+`protocol_tests.package_data`. What is legitimately checkout-only --
+`docs/result-semantics.json`, `docs/release-claims.json`, `pyproject.toml`,
+`red_team_automation.py`, the generated OWASP views and git history -- is
+named in each docstring and, when absent, is one line to stderr naming the
+resource and exit 2. Never a traceback, never a pass.
+
+`testing/test_packaged_scripts_resolve.py` is the ratchet. The set of scripts
+it checks is derived from `pyproject.toml` package discovery, not listed; a
+join onto a root two levels above the file (`ROOT / "x"`,
+`os.path.join(ROOT, ..)`, `ROOT.joinpath(..)`, `Path(__file__).parent.parent
+/ ..`) is found by AST, so renaming the constant does not hide it; a join onto
+a package that is itself in site-packages (`ROOT / "protocol_tests"`) is
+exempt by the same derivation. Eight scripts carry a shrink-only floor; the
+four named here sit at 0, 6, 1 and 2. The detector is registered in
+`test_static_detectors_can_fire.DETECTORS` with a seeded violation and
+control, and was fault-injected: `_ROOT / "docs" / "x.json"` appended to
+`owasp_agentic_select.py` failed the ratchet naming the line, and passed once
+removed.
+
+Not established: that every remaining floor is legitimately checkout-only.
+`check_public_metadata`, `generate_test_catalog`, `monthly_security_report`
+and `aiuc1_prep` were counted, not read.
 
 ## [4.21.0] - 2026-09-07
 

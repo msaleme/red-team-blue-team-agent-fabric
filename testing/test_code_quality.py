@@ -513,14 +513,18 @@ class TestRegCI(unittest.TestCase):
 
 
 class TestMockServer(unittest.TestCase):
+    # The server ships in protocol_tests/ (R3-12); testing/ keeps a thin alias.
     def test_exists(self):
+        self.assertTrue(os.path.isfile(os.path.join(REPO_ROOT, "protocol_tests", "mock_mcp_server.py")))
         self.assertTrue(os.path.isfile(os.path.join(REPO_ROOT, "testing", "mock_mcp_server.py")))
     def test_importable(self):
         sys.path.insert(0, os.path.join(REPO_ROOT, "testing"))
         import mock_mcp_server
         self.assertTrue(hasattr(mock_mcp_server, "MockMCPHandler"))
+        from protocol_tests import mock_mcp_server as shipped
+        self.assertIs(mock_mcp_server.MockMCPHandler, shipped.MockMCPHandler)
     def test_no_literal_secrets(self):
-        with open(os.path.join(REPO_ROOT, "testing", "mock_mcp_server.py")) as f: c = f.read()
+        with open(os.path.join(REPO_ROOT, "protocol_tests", "mock_mcp_server.py")) as f: c = f.read()
         self.assertFalse(re.search(r'sk-prod-[a-zA-Z0-9]{10,}', c))
 
 

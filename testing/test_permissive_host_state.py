@@ -481,7 +481,7 @@ clean tools and refuses resource reads: 12 of 32 pass, including
 `MCP-016: 6/6 SSRF resource URIs blocked` and
 `MCP-001: Found 2 tools, none suspicious`. The module can still pass.
 
-testing/mock_mcp_server.py gained prompts and sampling capabilities. MCP-006 and
+protocol_tests/mock_mcp_server.py gained prompts and sampling capabilities. MCP-006 and
 MCP-007 had been asserted as passing in test_integration.py while reporting "not
 applicable", because the mock declared neither. Extending the mock makes those
 two rows mean something rather than weakening the assertion.

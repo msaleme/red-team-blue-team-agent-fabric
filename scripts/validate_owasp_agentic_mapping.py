@@ -7,6 +7,12 @@ Generated views:  docs/OWASP-AGENTIC-V1.1-COVERAGE.md            (T1-T17)
 
     python scripts/validate_owasp_agentic_mapping.py
     python scripts/validate_owasp_agentic_mapping.py --skip-reports
+
+Checkout-only. The mapping itself is resolved through
+`protocol_tests.package_data` (it is in the wheel), but the rules also read the
+generated views, the generator, `pyproject.toml`, `red_team_automation.py` and
+the git history, none of which ship. From an installed copy the script exits 2
+with one line naming the first missing resource rather than a traceback.
 """
 from __future__ import annotations
 
@@ -24,10 +30,30 @@ except ImportError:  # pragma: no cover
     raise SystemExit(2)
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-MAPPING = ROOT / "docs/coverage/owasp-agentic-v1.1.yaml"
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from protocol_tests.package_data import data_path  # noqa: E402
+
+MAPPING = data_path("coverage", "owasp-agentic-v1.1.yaml")
+# Checkout-only resources (not in the wheel); gated by _require_checkout().
 COMPLETE = ROOT / "docs/OWASP-AGENTIC-V1.1-COVERAGE.md"
 SUBMISSION = ROOT / "docs/OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md"
 GENERATOR = ROOT / "scripts/generate_owasp_agentic_coverage.py"
+PYPROJECT = ROOT / "pyproject.toml"
+LEGACY_MODULE = ROOT / "red_team_automation.py"
+GIT_DIR = ROOT / ".git"
+
+
+def _require_checkout() -> None:
+    """One line naming the missing checkout resource, exit 2, no traceback."""
+    for path in (PYPROJECT, LEGACY_MODULE, GIT_DIR):
+        if not path.exists():
+            print(f"validate_owasp_agentic_mapping.py: checkout-only resource missing: "
+                  f"{path.name} (expected at {path}). This validator reads pyproject.toml, "
+                  f"red_team_automation.py, the generated reports and git history, which "
+                  f"the wheel does not ship; run it from a clone.", file=sys.stderr)
+            raise SystemExit(2)
 
 TITLES = {
     "T1": "Memory Poisoning", "T2": "Tool Misuse", "T3": "Privilege Compromise",
@@ -55,7 +81,7 @@ PROHIBITED = [
 
 def _index() -> dict[str, set[str]]:
     idx: dict[str, set[str]] = collections.defaultdict(set)
-    srcs = list((ROOT / "protocol_tests").glob("*.py")) + [ROOT / "red_team_automation.py"]
+    srcs = list((ROOT / "protocol_tests").glob("*.py")) + [LEGACY_MODULE]
     for p in srcs:
         if not p.exists():
             continue
@@ -80,6 +106,7 @@ def _symbol_ok(module: pathlib.Path, symbol: str) -> bool:
 
 def validate(check_reports: bool = True) -> list[str]:
     fails: list[str] = []
+    _require_checkout()
 
     def fail(rule: str, detail: str) -> None:
         fails.append(f"[{rule}] {detail}")
@@ -238,7 +265,7 @@ def validate(check_reports: bool = True) -> list[str]:
         if m and int(m.group(1)) != d["assessment"]["total_repository_tests"]:
             fail("r15_total", f"mapping {d['assessment']['total_repository_tests']} vs {m.group(1)}")
 
-    version = re.search(r'^version = "([^"]+)"', (ROOT / "pyproject.toml").read_text(), re.MULTILINE).group(1)
+    version = re.search(r'^version = "([^"]+)"', PYPROJECT.read_text(), re.MULTILINE).group(1)
     if d["assessment"]["harness_version"] != version:
         fail("r15_version", f"mapping {d['assessment']['harness_version']} vs pyproject {version}")
     sha = d["assessment"]["git_commit"]
