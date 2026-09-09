@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.21.3] - 2026-09-09
+
+A patch release for the fifth external review, run against the published 4.21.2
+wheel. The fourth round's repairs held; this round asked whether the checks that
+guard them can fail. Several could not. Nine findings, two High:
+
+  R5-01  the workflow contract tests passed with every `run` step disabled
+  R5-02  nine of twelve register denominators could be replaced by a constant
+  R5-03  a flat `role: user` echo published four HITL agent-refusal PASS rows
+  R5-04  `{"allowed": true, "denied": false}` classified as rejected, on a key name
+  R5-05  an HTTP 403/404/500/503 envelope satisfied a community absence assertion
+  R5-06  the new outbound path had no origin, response-size or hard-deadline bound
+  R5-07  the installed release gate did not catch a reintroduced simulated pass
+  R5-08  duplicate test IDs within a trial inflated the statistical sample size
+  R5-09  the comparison document mixed an April feature table with September data
+
+Test count unchanged at 623. Version bumped in pyproject.toml, CITATION.cff, the
+two OWASP coverage documents and the coverage manifest pair; README timeline
+extended.
+
+Changelog dates are the UTC date the GitHub release publishes, which is what
+CITATION.cff `date-released` records. The 4.21.2 heading below said 2026-09-08,
+the local date its tag was cut at 19:44 CDT; the release published 00:55 UTC on
+2026-09-09 and that heading is corrected to match. The fifth review recorded the
+disagreement between those two surfaces.
+
 ### Fixed — the operator's own probe text still read as four agent refusals, and a payment decision was read from a substring of the body (R5-03 High, R5-04 Medium; fifth external review, 2026-09-09)
 
 **A flat user-role echo became four agent-refusal PASS rows (R5-03).**
@@ -295,7 +321,7 @@ other than where the gate ran.
   coverage.
 
 
-## [4.21.2] - 2026-09-08
+## [4.21.2] - 2026-09-09
 
 A patch release for the fourth external review, run against the published
 4.21.1 wheel. It confirmed R3-01 closed -- five payment harnesses report 66
