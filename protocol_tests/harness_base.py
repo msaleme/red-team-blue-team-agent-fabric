@@ -203,15 +203,39 @@ def build_report(results, *, simulate: bool, target: str | None,
     was REACHED beside ``mode``, which says what was REQUESTED; ``live_scope``
     is false for a module whose live rows carry no ``live_evidence`` verdict
     (aiuc1_compliance), which then states a scope only for a simulated run.
+
+    ``tail`` appends the module's own sections AFTER the computed ones. It
+    cannot replace ``summary``: a ``tail`` whose ``summary`` differs from the
+    one derived from the rows raises `ValueError`, because `exit_status` reads
+    ``summary["failed"]`` and a replaced summary would let a report exit 0 over
+    a serviced FAIL.
     """
     rows = report_rows(results, simulate=simulate)
     report = dict(head)
     if simulate or live_scope:
         report["verdict_scope"] = live_run_scope(
             rows, live_requested=not simulate, target=target)
-    report["summary"] = run_summary(rows)
+    summary = run_summary(rows)
+    report["summary"] = summary
     report["results"] = rows
-    report.update(tail or {})
+    for key, value in (tail or {}).items():
+        # `tail` appends a module's own sections; it is not a channel for
+        # rewriting the verdict. A caller that passed `{"summary": {...}}`
+        # replaced the counts computed from the rows, and `exit_status` reads
+        # `summary["failed"]`, so a report carrying a serviced FAIL could exit
+        # 0 (fifth external review, C table, 2026-09-09). No caller does it;
+        # the hazard is that nothing stopped one. A tail that agrees with the
+        # rows is redundant and allowed; one that disagrees is refused here
+        # rather than published.
+        if key == "summary":
+            if value != summary:
+                raise ValueError(
+                    "build_report: `tail` may not replace the computed summary "
+                    f"({summary}); it disagrees with the rows ({value}). The "
+                    "summary is derived from `results` so the two cannot "
+                    "contradict each other in one file.")
+            continue
+        report[key] = value
     return report
 
 

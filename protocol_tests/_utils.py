@@ -253,13 +253,40 @@ RESERVED_TRANSPORT_KEYS = frozenset({
 })
 
 
+def _strip_node(node, stripped: list, _depth: int = 0):
+    """*node* with every underscore-prefixed key removed, at every depth.
+
+    Recurses through objects AND arrays of objects. The top-level-only strip
+    that preceded it left ``{"result": {"allowed": true, "_error": true,
+    "_denied": true}}`` intact, and ``_denied`` reached the payment
+    classifier's lexical scan (fifth external review, R5-04, 2026-09-09). A
+    reserved key is the transport's namespace wherever it appears, so no
+    application JSON can inject one at any depth.
+    """
+    if _depth > 40:
+        return node
+    if isinstance(node, dict):
+        out = {}
+        for key, value in node.items():
+            if isinstance(key, str) and key.startswith("_"):
+                stripped.append(key)
+                continue
+            out[key] = _strip_node(value, stripped, _depth + 1)
+        return out
+    if isinstance(node, list):
+        return [_strip_node(v, stripped, _depth + 1) for v in node]
+    return node
+
+
 def _strip_reserved(body: dict) -> tuple[dict, list[str]]:
     """``(application_body, stripped_keys)``: the server's JSON with every
-    underscore-prefixed key removed. Done once here, for every consumer."""
-    stripped = sorted(k for k in body if isinstance(k, str) and k.startswith("_"))
+    underscore-prefixed key removed, at every depth. Done once here, for every
+    consumer. A body that carried none is returned unchanged, by identity."""
+    stripped: list[str] = []
+    cleaned = _strip_node(body, stripped)
     if not stripped:
         return body, []
-    return {k: v for k, v in body.items() if k not in stripped}, stripped
+    return cleaned, sorted(set(stripped))
 
 
 def http_post_json(

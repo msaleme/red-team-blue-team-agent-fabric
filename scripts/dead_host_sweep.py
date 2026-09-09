@@ -107,6 +107,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
+from protocol_tests.http_helpers import row_field  # noqa: E402
+
 #: Nothing listens here. Same target the serviced-guard suite uses.
 CLOSED_PORT = "http://127.0.0.1:9"
 
@@ -327,9 +329,9 @@ def sweep(target: str = CLOSED_PORT) -> list[dict]:
                              "total": 0, "passed": 0, "errors": 0,
                              "passing_ids": []})
                 continue
-            passed = [_test_id(r) for r in results if getattr(r, "passed", False)]
+            passed = [_test_id(r) for r in results if row_field(r, "passed", False)]
             errored = [_test_id(r) for r in results
-                       if str(getattr(r, "name", "")).startswith("ERROR")]
+                       if str(row_field(r, "name", "") or "").startswith("ERROR")]
             rows.append({
                 "module": label,
                 "status": "ran",
@@ -354,7 +356,14 @@ def sweep(target: str = CLOSED_PORT) -> list[dict]:
 
 
 def _test_id(result) -> str:
-    return str(getattr(result, "test_id", None) or getattr(result, "name", "?"))
+    """Row identity, dict or dataclass.
+
+    Attribute-only reads made every dict-shaped row anonymous and unpassing,
+    which is the class of defect `live_run_scope` shipped as R4-12 (fifth
+    external review, C table). No currently selected suite returns dict rows;
+    the sweep is not the place to find that out.
+    """
+    return str(row_field(result, "test_id") or row_field(result, "name") or "?")
 
 
 def main() -> int:
