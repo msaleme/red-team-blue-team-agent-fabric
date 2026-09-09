@@ -41,6 +41,26 @@ INCONCLUSIVE.
   N INCONCLUSIVE, serviced 0, no pass rate, and the scope statement says
   the rows observed a live response and none was scored.
 
+## R5-04 (fifth external review, 2026-09-09)
+
+Rejection was read from ``json.dumps(app)``, which put the FIELD NAMES into
+the scanned text: ``{"allowed": true, "denied": false}`` classified as
+`rejected` because the key ``denied`` matched the term ``denied``, and the
+installed AP2 report published 17 INCONCLUSIVE rows carrying
+``live_evidence.verdict: rejected`` instead of the accepted-attack FAIL. And
+`_utils._strip_reserved` stripped the top level only, so
+``{"result": {"allowed": true, "_error": true, "_denied": true}}`` kept both
+keys and ``_denied`` reached the same scan; arrays of objects likewise.
+
+Pinned below: a negative flag denies only when its VALUE does; a field name
+alone is not text the target wrote; a rejection term in a value still rejects;
+a stated denial still beats ``settlement_id`` / ``authorization_code`` /
+``tx_hash``, and each of those alone is still an acceptance; reserved keys are
+stripped at arbitrary depth, through arrays, over the wire, and a clean body
+is still returned by identity. Also here because it is the same writer seam:
+`build_report`'s ``tail`` can no longer replace the computed ``summary``, so
+`exit_status` cannot return 0 over a serviced FAIL.
+
 ## What this does not establish
 
 That the acceptance vocabulary is complete for any real verifier. It is
@@ -69,8 +89,10 @@ from protocol_tests._utils import (  # noqa: E402
     _strip_reserved,
     http_post_json,
 )
+from protocol_tests.harness_base import build_report  # noqa: E402
 from protocol_tests.http_helpers import (  # noqa: E402
     INCONCLUSIVE_PREFIX,
+    PAYMENT_REJECT_FLAGS,
     PAYMENT_VERDICTS,
     fold_live_verdict,
     is_inconclusive,
@@ -470,6 +492,168 @@ class TestAP2AgainstAnEmptyAnswer(unittest.TestCase):
 
     def test_the_console_reports_no_failure(self):
         self.assertNotIn("FAIL", self.stdout)
+
+
+# ---------------------------------------------------------------------------
+# 5. R5-04: the decision is a typed field, not a substring of the body
+# ---------------------------------------------------------------------------
+
+class TestANegativeKeyIsNotADenial(unittest.TestCase):
+    """Fifth external review, R5-04 (2026-09-09).
+
+    `payment_outcome` scanned ``json.dumps(app)`` for rejection terms, which
+    put the FIELD NAMES into the scanned text. ``{"allowed": true,
+    "denied": false}`` therefore classified as `rejected`: the key ``denied``
+    matched the term ``denied``, and the classifier suppressed the
+    accepted-attack path over an explicit positive flag. The installed AP2
+    report published 17 INCONCLUSIVE rows carrying
+    ``live_evidence.verdict: rejected``.
+    """
+
+    def test_the_review_fixture_is_accepted_not_rejected(self):
+        self.assertEqual(
+            payment_outcome({"_status": 200, "allowed": True, "denied": False})[0],
+            "accepted",
+            "a negative key spelled with a FALSE value was read as a denial")
+
+    def test_every_negative_flag_denies_only_when_its_value_does(self):
+        for key in PAYMENT_REJECT_FLAGS:
+            for value, want in ((True, "rejected"), (False, "accepted"),
+                                (None, "accepted"), (0, "accepted"),
+                                ("", "accepted"), ("false", "accepted"),
+                                ("no", "accepted"), ([], "accepted"),
+                                ("policy block", "rejected"), (1, "rejected")):
+                with self.subTest(key=key, value=value):
+                    self.assertEqual(
+                        payment_outcome({"_status": 200, "allowed": True,
+                                         key: value})[0], want)
+
+    def test_a_field_name_alone_is_not_text_the_target_wrote(self):
+        """The general property: keys are not the answer's words."""
+        for key in ("denied", "rejected_at", "invalid_after", "forbidden_paths"):
+            with self.subTest(key=key):
+                self.assertEqual(
+                    payment_outcome({"_status": 200, "allowed": True, key: []})[0],
+                    "accepted")
+
+    def test_a_rejection_term_in_a_value_still_rejects(self):
+        """The term vocabulary is not removed, only pointed at values."""
+        self.assertEqual(
+            payment_outcome({"_status": 200, "allowed": True,
+                             "reason": "signature invalid"})[0], "rejected")
+        self.assertEqual(
+            payment_outcome({"_status": 200,
+                             "detail": {"note": "the mandate was denied"}})[0],
+            "rejected")
+
+    def test_a_denial_beats_every_effect_identifier(self):
+        """Astra confirmed this precedence; it must not regress."""
+        for effect in ("settlement_id", "authorization_code", "tx_hash"):
+            for denial in ({"denied": True}, {"allowed": False},
+                           {"status": "declined"},
+                           {"reason": "the transfer was rejected"}):
+                with self.subTest(effect=effect, denial=list(denial)[0]):
+                    body = {"_status": 200, effect: "e-1", **denial}
+                    self.assertEqual(payment_outcome(body)[0], "rejected")
+                self.assertEqual(
+                    payment_outcome({"_status": 200, effect: "e-1"})[0],
+                    "accepted", "the effect alone must still be an acceptance")
+
+    def test_an_array_of_objects_is_read_for_terms_but_not_for_decisions(self):
+        self.assertEqual(
+            payment_outcome({"_status": 200, "allowed": True,
+                             "checks": [{"name": "aml", "note": "denied"}]})[0],
+            "rejected")
+        self.assertEqual(
+            payment_outcome({"_status": 200,
+                             "checks": [{"allowed": True}]})[0],
+            "undecided",
+            "a decision inside an arbitrary array is an echo, not a verdict")
+
+
+class TestReservedKeysAreStrippedAtEveryDepth(unittest.TestCase):
+    """R5-04, second half: the strip was top level only.
+
+    ``{"result": {"allowed": true, "_error": true, "_denied": true}}`` kept
+    both underscore keys, and ``_denied`` reached the lexical scan, so the
+    answer classified as `rejected`. Arrays of objects likewise.
+    """
+
+    def test_the_review_nested_fixture_is_stripped_and_accepted(self):
+        body = {"result": {"allowed": True, "_error": True, "_denied": True}}
+        app, stripped = _strip_reserved(body)
+        self.assertEqual(app, {"result": {"allowed": True}})
+        self.assertEqual(stripped, ["_denied", "_error"])
+        self.assertEqual(payment_outcome({"_status": 200, **app})[0], "accepted")
+
+    def test_an_array_of_objects_is_stripped(self):
+        app, stripped = _strip_reserved(
+            {"items": [{"allowed": True, "_denied": True},
+                       {"note": "ok", "_status": 503}]})
+        self.assertEqual(app, {"items": [{"allowed": True}, {"note": "ok"}]})
+        self.assertEqual(stripped, ["_denied", "_status"])
+
+    def test_arbitrary_depth_is_stripped(self):
+        deep = {"a": {"b": [{"c": {"d": {"_denied": True, "keep": 1}}}]}}
+        app, stripped = _strip_reserved(deep)
+        self.assertEqual(stripped, ["_denied"])
+        self.assertEqual(app, {"a": {"b": [{"c": {"d": {"keep": 1}}}]}})
+
+    def test_a_clean_nested_body_is_still_returned_by_identity(self):
+        body = {"result": {"allowed": True, "items": [{"id": 1}]}}
+        app, stripped = _strip_reserved(body)
+        self.assertIs(app, body)
+        self.assertEqual(stripped, [])
+
+    def test_the_classifier_strips_nested_keys_it_is_handed_directly(self):
+        """A caller that never went through the transport is covered too."""
+        self.assertEqual(
+            payment_outcome({"_status": 200,
+                             "result": {"allowed": True, "_denied": True}})[0],
+            "accepted")
+
+    def test_over_the_wire_a_nested_forgery_does_not_change_the_verdict(self):
+        with _Fixed(200, '{"result": {"allowed": true, "_error": true, '
+                         '"_denied": true}}') as srv:
+            resp = http_post_json(srv.url, {"payment_mandate": {"id": "pm-1"}},
+                                  timeout=5)
+        self.assertEqual(resp["_status"], 200)
+        self.assertEqual(resp["result"], {"allowed": True})
+        self.assertEqual(resp["_stripped_keys"], ["_denied", "_error"])
+        self.assertEqual(payment_outcome(resp)[0], "accepted")
+
+
+class TestTheTailCannotRewriteTheVerdict(unittest.TestCase):
+    """`build_report`'s ``tail`` appended a module's own sections and could
+    replace the computed ``summary``, so `exit_status` would return 0 over a
+    serviced FAIL (fifth external review, C table)."""
+
+    ROWS = [{"test_id": "T-1", "passed": False, "details": "control absent",
+             "not_evaluated": False}]
+
+    def _report(self, tail=None):
+        return build_report(self.ROWS, simulate=False, target="http://t",
+                            head={"suite": "s"}, tail=tail)
+
+    def test_a_serviced_failure_exits_one(self):
+        from protocol_tests.harness_base import exit_status
+        self.assertEqual(exit_status(self._report()), 1)
+
+    def test_a_contradicting_tail_summary_is_refused(self):
+        with self.assertRaises(ValueError) as ctx:
+            self._report({"summary": {"total": 1, "passed": 1, "failed": 0,
+                                      "inconclusive": 0, "serviced": 1}})
+        self.assertIn("may not replace the computed summary", str(ctx.exception))
+
+    def test_an_agreeing_tail_summary_is_allowed(self):
+        computed = self._report()["summary"]
+        self.assertEqual(self._report({"summary": computed})["summary"], computed)
+
+    def test_other_tail_sections_are_still_appended(self):
+        report = self._report({"notes": ["x"], "coverage": {"t": 1}})
+        self.assertEqual(report["notes"], ["x"])
+        self.assertEqual(report["coverage"], {"t": 1})
+        self.assertEqual(report["summary"]["failed"], 1)
 
 
 if __name__ == "__main__":
