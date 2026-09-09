@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.21.2] - 2026-09-08
+
+A patch release for the fourth external review, run against the published
+4.21.1 wheel. It confirmed R3-01 closed -- five payment harnesses report 66
+INCONCLUSIVE against a closed port -- and then asked the harder question: what
+does each repaired layer assume about the layer beneath it. Sixteen findings,
+eight High. The recurring answer: a target that ANSWERS without deciding was
+still being scored. Against a server returning 200 `{}` to everything, 47 rows
+reported a control held; the fold that closed R3-01 read "no rejection word" as
+an accepted attack; HITL read a backend error and the operator's own echoed
+probe text as the agent refusing; the free scanner published its own
+`NoneType` crash as five security findings with a grade of F; the CLI recorded
+a child's exit code and discarded it; and the community runner passed
+assertions against a URL it never contacted.
+
+Every finding was reproduced -- on the published package or in a clean
+worktree -- before it was fixed, and every fix was fault-injected afterwards to
+show its test fails without it. No test IDs were added or removed; the count
+stays at 623. From this release forward the publish workflow cannot upload a
+wheel that has not been installed in a neutral directory and tested, and the
+MCP reference calibration can no longer skip its way to green.
+
 ### Fixed — a payment target that answered without deciding was scored, and its body could forge the transport (R4-02, R4-03, High; fourth external review, 2026-09-08)
 
 **200 with no decision read as the attack getting through (R4-02).**
