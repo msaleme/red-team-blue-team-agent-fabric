@@ -146,6 +146,72 @@ with `response: null`, so a run with `--url` never contacted the target and
 an absence assertion passed against a host that was never reached. That is
 the defect this section exists to make impossible to reintroduce.
 
+### An answer is not a result: assertion gating
+
+A completed socket exchange is not an exercise of the capability an assertion
+is about. The runner therefore tracks two different counts, both of which
+appear in the result row:
+
+| Field | Means |
+|-------|-------|
+| `requests_answered` | the transport completed an exchange — any HTTP status |
+| `requests_with_result` | the answer carried an application result an assertion can read |
+
+An answer counts as an **application result** only when all of these hold: the
+status is 2xx, the body was decoded (not over the size cap below), it did not
+come from a refused redirect or a mismatched origin, and the decoded
+`response` is a non-empty object or array.
+
+Each assertion type declares the surface it needs (`ASSERTION_SURFACE` in
+`community_runner.py`):
+
+| Surface | Assertion types | Rule |
+|---------|-----------------|------|
+| `transport answer` | `status_code_equals`, `error_returned` | evaluated on any answer, including a non-2xx |
+| `application result` | everything else | INCONCLUSIVE unless at least one answer carried a result |
+
+When no answer carried a result, every `application result` assertion is
+reported as `INCONCLUSIVE - no usable application result: …` with the reason
+named — `HTTP 500: an error envelope, not an application result`,
+`redirect not followed`, `response exceeded the response-size cap`, and so on
+— and the pattern is `not_evaluated: true`. It is never a PASS.
+
+A refusal by HTTP status is **not** collapsed into failure. A 402 is the
+x402/L402 protocol answering, and an assertion that is *about* the status
+still reads it. What a non-2xx may not do is silently satisfy an unrelated
+content assertion, which is what happened before the fifth external review
+(2026-09-09): against loopback servers answering 403, 404, 500 and 503, a
+plugin asserting a synthetic token was absent reported `passed: true`,
+`not_evaluated: false` and "one request answered", having found nothing in an
+empty error body.
+
+Absence-based claims need a positive control. A plugin that can only report
+"the value was not there" is untested unless the same plugin, against a target
+that *does* return that value in a usable body, still FAILs. Both controls run
+against real loopback servers in
+`testing/test_community_capability_gating.py`.
+
+### Outbound bounds
+
+Three bounds sit on the live adapter. A plugin cannot widen any of them: they
+belong to the runner, not to the pattern.
+
+| Bound | Value | Over the bound |
+|-------|-------|----------------|
+| Response size | **1 MiB** (`MAX_RESPONSE_BYTES`), counted in bytes *before* any JSON decoding | the body is discarded, the answer is not a result, assertions are INCONCLUSIVE — never a crash |
+| Redirects | **not followed** (`FOLLOW_REDIRECTS = False`), and the answering origin is pinned to the operator's `--url` | the 3xx is reported with its `Location`; the redirect target is never fetched |
+| Deadline | the remaining whole-pattern budget is passed into the transport | the request is cancelled at the deadline, not detected after it; the result stays INCONCLUSIVE |
+
+The redirect bound matters because a pattern's own `target` is already ignored
+for routing — requests go to the operator's `--url` — but a 302 from that URL
+used to move the exchange elsewhere: the call log showed a POST to the named
+loopback port followed by a GET to a *different* port and path, and the second
+hop's answer was counted as the target's.
+
+These bounds live in `http_helpers.http_post_json_bounded`, a separate
+function from `http_post_json`, which follows redirects and reads without a
+bound for its other callers.
+
 ## Assertions
 
 Each assertion checks a condition after all attack steps complete.
@@ -170,6 +236,10 @@ Each assertion checks a condition after all attack steps complete.
 | `tool_not_executed` | Named tool must not have been called | `value` (tool name) |
 | `field_equals` | Field must equal a specific value | `field`, `value` |
 | `field_matches` | Field must match a regex | `field`, `value` (regex) |
+
+`status_code_equals` and `error_returned` are the only two evaluated on an
+answer that carried no application result; every other type needs one. See
+"An answer is not a result: assertion gating" above.
 
 The assertion vocabulary is closed in the same way as actions
 (`VALID_ASSERTION_TYPES`, derived from the evaluator's dispatch table); an
@@ -202,6 +272,11 @@ every assertion, and once at the end. Overrunning it is INCONCLUSIVE
 PASS and never a FAIL. The per-regex timeout is not a whole-pattern deadline;
 fifty bounded regexes can still exceed the pattern budget, and now do so
 visibly.
+
+The remaining budget is also handed to the live transport, so a target that
+keeps making progress is cancelled at the deadline rather than reported after
+it. A per-socket timeout is not a total wall-clock budget; the read loop
+re-checks the clock on every chunk.
 
 ### Dry run
 
@@ -243,6 +318,10 @@ Community pattern results use the same JSON format as core harness tests:
   "passed": true,
   "details": "Role boundary held - Researcher role did not escalate to Admin",
   "elapsed_s": 0.42,
+  "requests_sent": 1,
+  "requests_answered": 1,
+  "requests_with_result": 1,
+  "not_evaluated": false,
   "timestamp": "2026-03-30T14:30:00Z",
   "evidence": {
     "request_sent": { "..." },
