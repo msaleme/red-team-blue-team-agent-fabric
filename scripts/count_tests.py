@@ -73,11 +73,17 @@ MODULE_NAMES = {
 }
 
 
-def main():
-    all_ids: set[str] = set()
-    module_ids: dict[str, set[str]] = defaultdict(set)
-    duplicates: dict[str, list[str]] = defaultdict(list)
+def module_ids() -> dict[str, set[str]]:
+    """{module filename: its unique test IDs}, for every test-bearing module.
 
+    The derivation `main()` prints, exposed so a consumer does not have to
+    re-implement the glob and the three exclusion rules to ask the same
+    question. `testing/test_comparison_doc_is_current.py` checks the counts in
+    `docs/COMPARISON.md` against this; before it existed, that test carried a
+    second copy of this loop, which is a second source of truth for the count
+    this file exists to be the only source of.
+    """
+    found: dict[str, set[str]] = {}
     for pyfile in sorted(HARNESS_DIR.glob("*.py")):
         if pyfile.name.startswith("__"):
             continue
@@ -86,12 +92,17 @@ def main():
         ids |= set(ARG_ID_RE.findall(text))
         ids -= EXCLUDE_IDS  # drop synthetic error IDs
         ids = {i for i in ids if not i.endswith(_ERR_SUFFIX)}  # catch any *-ERR
-        if not ids:
-            continue
+        if ids:
+            found[pyfile.name] = ids
+    return found
 
-        fname = pyfile.name
-        module_ids[fname] = ids
 
+def main():
+    all_ids: set[str] = set()
+    per_module = module_ids()
+    duplicates: dict[str, list[str]] = defaultdict(list)
+
+    for fname, ids in per_module.items():
         for tid in ids:
             if tid in all_ids:
                 duplicates[tid].append(fname)
@@ -104,8 +115,8 @@ def main():
     print()
 
     total = 0
-    for fname in sorted(module_ids.keys()):
-        ids = module_ids[fname]
+    for fname in sorted(per_module):
+        ids = per_module[fname]
         label = MODULE_NAMES.get(fname, fname)
         count = len(ids)
         total += count

@@ -157,6 +157,92 @@ body PASSes — and each of the three gates was fault-injected to show its
 tests fail without it. No test IDs were added or removed; the count stays at
 623.
 
+### Fixed — nine register denominators could be fabricated, and a duplicated test ID counted as another trial (R5-02, R5-08 Medium, R5-09 Low; fifth external review, 2026-09-09)
+
+**Nine of twelve registers could be replaced with a constant and the file
+stayed green (R5-02).** The review swapped nine `REGISTERS` callables in
+`testing/test_evidence_integrity_registers.py` for functions returning
+`(0, 2, "fabricated")` and all 11 tests and 56 subtests passed. Reproduced on
+the untouched tree before any change: same mutation, same green run. Two
+reasons, both repaired. `test_every_register_denominator_moves_with_the_tree`
+never moved the tree -- it asserted `den > 1`, and the third review's rejected
+`(0, 1, ...)` becomes acceptable by writing 2. And the tests that did recompute
+a population called the helper functions beside the table, so replacing a table
+entry left them measuring code that was no longer exported.
+
+A register is no longer a bare callable. It is a `Register` carrying its
+numerator source and its population source separately, because a declared
+ratchet and a derived denominator are different facts and the file was not
+saying which was which. Every check now reaches its register as
+`REGISTERS[name]` -- the table the reporting consumes -- and seeds a real
+change: a member is added to the register's own source and the exported
+numerator must move by one, a member is removed and it must move back, and a
+sweep is made to produce one more row and the exported denominator must say so.
+The four registers over an enumerable population (`KNOWN_DUPLICATES`,
+`GRANDFATHERED`, `GRANDFATHERED_UNLABELLED`, `GRANDFATHERED_UNREADABLE`) are
+compared by SET IDENTITY against an enumeration built by a different instrument
+-- `pkgutil` against a directory glob, an AST walk against a source regex --
+so agreement is evidence rather than a restatement. A constant cannot move,
+whatever its value: the same nine-entry mutation now fails 27 subtests, and
+fabricating all twelve fails 24 seeded subtests plus every set-identity check.
+
+`test_every_register_denominator_moves_with_the_tree` is renamed
+`test_no_denominator_is_a_bare_one`, which is what it actually did.
+
+**Two emissions of one test_id in one trial were counted as two trials
+(R5-08).** `protocol_tests/trial_runner.py` appended rows by id without asking
+whether that id had already appeared in the same trial. Five trials returning
+two identical PASS rows with `test_id='QA'` reported `trials_requested: 5` and
+`trials_completed: 5` alongside `trials_per_test: 10`, `n_trials: 10`,
+`n_serviced: 10`, and a per-test Wilson lower bound of **0.7225** where five
+observations support **0.5655**. The aggregate verdict was never wrong -- a
+mixed pass/fail duplicate fixture still FAILs -- the sample size and the width
+of the interval were.
+
+One trial of one test_id is now one observation. Repeated emissions are
+consolidated into the trial they belong to, under the aggregation rule one
+level down: a serviced failure anywhere in the trial means the control gave way
+in that trial. The repetition is published as `aggregation.duplicate_test_ids`
+with the per-trial states, and printed, rather than silently dropped -- a suite
+writing one id twice per run is a defect in that suite. The report now names
+its own observation unit (`aggregation.observation_unit`), since a reader of
+`n_trials` was left to infer it. The duplicate fixture's interval is now
+identical to the unique-observation baseline.
+
+**`docs/COMPARISON.md` presented a frozen table and a live one as one snapshot
+(R5-09).** Headed April 2026, it said MCP had 18 tests and behavioural
+profiling was "Planned (v3.10)", directly above an ASI section describing the
+September remap, beside a README describing the current surface. Nothing was
+fabricated; a reader simply could not tell which cells had been re-examined.
+The competitor columns are now declared frozen with their date and the explicit
+statement that no competitor system was examined for this revision -- it is an
+archive, not a fresh review. The self-product half is regenerated from
+`scripts/count_tests.py` and `protocol_tests/asi_inventory.py`, names the
+modules each row is summed from, and is enforced by
+`testing/test_comparison_doc_is_current.py`, so adding a row adds a check. The
+ASI table was stale too (ASI01 77 -> 79, ASI02 84 -> 87, ASI07 26 -> 29, no
+primary 48 -> 52), and the document now states why its rows sum to the 613
+tagged tests rather than to the 623 test IDs: 10 tests carry no ASI tag site at
+all, and untagged is a third state, not "no primary".
+
+`scripts/count_tests.py` gained `module_ids()`, the derivation `main()` already
+printed, exposed so a consumer can ask it rather than copy it. The new document
+test carried its own copy of that glob first, which made it a second source of
+truth for the number `count_tests.py` exists to be the only source of -- and put
+it into the source-scanning population of `test_static_detectors_can_fire.py`,
+whose uncontrolled queue flagged it on the first full-suite run. The queue was
+right, and the repair was to stop scanning source rather than to add a name to
+the queue: this test reads a catalog.
+
+**Structural point I.8: exception debt now carries a deadline.** Each of the
+twelve registers names an owner, the positive control that would retire it --
+what a target must be observed to DO, not "read the list again" -- and an ISO
+review date the suite enforces. "Less than the old seed" permitted growth below
+the seed and set no repair date; a label is not a completed control.
+
+No test IDs were added or removed; the count stays at 623.
+
+
 ## [4.21.2] - 2026-09-08
 
 A patch release for the fourth external review, run against the published
