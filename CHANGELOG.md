@@ -242,6 +242,58 @@ the seed and set no repair date; a label is not a completed control.
 
 No test IDs were added or removed; the count stays at 623.
 
+### Fixed — the release gate now runs, instead of being described (R5-01, R5-07 Medium; fifth external review, 2026-09-09)
+
+Both findings had the same shape: the gate's strength was asserted somewhere
+other than where the gate ran.
+
+- **R5-01 — the workflow contract tests accepted a disabled test job.**
+  `testing/test_release_is_gated_on_the_wheel.py` checked `test-wheel` by
+  searching the job's concatenated shell text for phrases, filenames and
+  command names. Wrapping every `run:` step in `if false; then … fi` leaves all
+  of that text in place and executes none of it: reproduced here on the
+  untouched tree, **15 tests and 17 subtests still passed**. The checks now live
+  in `scripts/verify_wheel_gate.py`, which the workflow runs against the
+  installed wheel and which the regression file runs against deliberately bad
+  artifacts — one implementation, two callers. The file's remaining text
+  assertions are labelled WIRING and named for what they read; the new
+  EXECUTION class runs each `run:` body under bash against recorders and
+  asserts the resulting execution trace, so a body that contains every right
+  word and runs none of it records nothing and fails. Under the same `if false`
+  mutation that file now fails **8 tests and 3 subtests**.
+
+- **R5-07 — the gate did not catch a reintroduced native simulated pass.**
+  The gate ran nine hand-listed files from `tests/`, all of which reach
+  `--simulate` through the CLI facade. Replacing the installed
+  `harness_base.simulated_row` with `return dict(row)` strips the `simulated`
+  and `verdict_scope` labels from all 66 rows of the six native writers and the
+  nine files stay green (**78 tests, 69 subtests**, reproduced); break
+  `http_helpers.fold_live_verdict` as well and the same six modules write **66
+  `passed: true` rows with `serviced: 17` and `pass_rate: 1.0`** — the R4-05
+  defect — with the nine files still green. The gate now runs the six native
+  `--simulate` entry points and checks every layer of what they write: each
+  row's verdict, structural marker, two labels, details prefix and scoped
+  reference verdict, and the three-state summary underneath them. Both
+  mutations, and a revert of the closed-port fold, now fail it.
+
+- **The nine-file list is derived rather than remembered.** Every file in
+  `tests/` is classified in `scripts/verify_wheel_gate.py` as gate-eligible or
+  as needing a named checkout resource, and the gate runs all thirty from the
+  neutral directory and requires each to behave as classified — an eligible
+  file must produce at least one testcase with no failure, error or skip, and
+  an excluded file must not. An exclusion whose file starts passing fails the
+  gate, which is the review the hand-maintained list never got. **Twelve of
+  thirty are now eligible**, up from nine: installing the `mcp-server` extra
+  brings the three MCP server and SDK boundary contracts in, and the other
+  eighteen carry the resource each one actually reads.
+
+- **The pinned reference calibration is a publish dependency.** Section E
+  observed that a Release cut from a tag with no green ordinary CI still only
+  had to pass the wheel gate. `needs:` cannot cross workflows, so the
+  calibration now also runs in `publish-pypi.yml` and `publish` needs it; a
+  test holds the two copies identical, because a drifted copy still reads as
+  coverage.
+
 
 ## [4.21.2] - 2026-09-08
 

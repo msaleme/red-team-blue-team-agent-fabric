@@ -140,6 +140,15 @@ jobs:
   # the wheel; neither establishes that it works. This job installs the exact
   # wheel the publish job uploads, into a fresh venv, from a directory that is
   # NOT the checkout, and runs it there.
+  # Fifth external review (2026-09-09, R5-01/R5-07): this job's checks lived in
+  # shell here, and the regression file that guarded them searched that shell
+  # for phrases. Wrapping every `run:` step in `if false; then … fi` left every
+  # phrase in place, executed nothing, and all 15 tests still passed. The
+  # checks now live in `scripts/verify_wheel_gate.py`, which this job runs
+  # against the installed wheel and which
+  # `testing/test_release_is_gated_on_the_wheel.py` runs against deliberately
+  # bad artifacts. One implementation, two callers, and neither can pass by
+  # containing the right words.
   test-wheel:
     name: Test the built wheel from a neutral directory
     needs: build
@@ -147,8 +156,9 @@ jobs:
     permissions:
       contents: read
     steps:
-      # The checkout is here for tests/ and nothing else. No step below runs
-      # with the checkout as its working directory.
+      # The checkout is here for tests/ and for the gate script, and nothing
+      # else. No step below runs with the checkout as its working directory,
+      # and the gate refuses to run next to a source tree.
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Set up Python
@@ -162,6 +172,11 @@ jobs:
           name: dist
           path: dist/
 
+      # An sdist-only build leaves nothing to install and so nothing to test;
+      # a stray file in dist/ is how v4.16.0 failed to publish on 2026-08-30.
+      - name: The built artifact is one wheel and one sdist and nothing else
+        run: python "$GITHUB_WORKSPACE/scripts/verify_wheel_gate.py" dist-shape --dist "$GITHUB_WORKSPACE/dist"
+
       - name: Install the wheel into a fresh venv, outside the checkout
         run: |
           set -euo pipefail
@@ -170,71 +185,100 @@ jobs:
           [ "${#wheels[@]}" -eq 1 ] || { echo "::error::expected one wheel, found ${#wheels[@]}"; exit 1; }
           cd "$RUNNER_TEMP"
           python -m venv wheel-venv
-          ./wheel-venv/bin/pip install -q "${wheels[0]}" pytest pyyaml cryptography jsonschema
-          # The import must resolve inside the venv, not to the checkout.
-          ./wheel-venv/bin/python -c '
-          import protocol_tests, scripts
-          for m in (protocol_tests, scripts):
-              d = list(m.__path__)[0]
-              assert "site-packages" in d, f"{m.__name__} resolved to {d}, not the installed wheel"
-              print(m.__name__, "->", d)
-          '
+          # The mcp-server extra is installed on purpose: without it the three
+          # MCP server/SDK boundary contracts collect-error in a neutral
+          # directory, and a file that cannot be collected is not a file that
+          # was excluded for needing the checkout.
+          ./wheel-venv/bin/pip install -q "${wheels[0]}[mcp-server]" \
+            pytest pytest-subtests pyyaml cryptography jsonschema
 
-      - name: Smoke the installed package
-        run: |
-          set -euo pipefail
-          cd "$RUNNER_TEMP"
-          PY=./wheel-venv/bin/python
-          ./wheel-venv/bin/agent-security --version
-          "$PY" -m protocol_tests.mock_mcp_server --help > /dev/null
-          "$PY" -m scripts.registry_reference_server --help > /dev/null
-
-      # R3-01 reproduction, now a release gate: the installed 4.21.0 reported
-      # 17/17 PASS for this exact invocation against a port nothing listens on.
-      - name: A payment harness against a closed port passes nothing
-        run: |
-          set -euo pipefail
-          cd "$RUNNER_TEMP"
-          rc=0
-          ./wheel-venv/bin/agent-security test ap2 --url http://127.0.0.1:9 \
-            --report "$RUNNER_TEMP/ap2-closed-port.json" || rc=$?
-          echo "harness exit code: $rc"
-          ./wheel-venv/bin/python - <<'EOF'
-          import json, os, sys
-          report = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "ap2-closed-port.json")))
-          s = report["summary"]
-          print("summary:", s)
-          if s.get("total", 0) < 1:
-              sys.exit("the closed-port run produced no verdicts: unmeasured, not clean")
-          if s.get("passed", 0) != 0:
-              sys.exit(f"{s['passed']} of {s['total']} PASS against a port nothing listens on (R3-01)")
-          EOF
-
-      # The packaged-behaviour tests that can run against an installed copy.
-      # Copied out of the checkout so `sys.path.insert(0, parents[1])` in each
-      # file points at a directory with no source tree in it. The other files
-      # in tests/ read checkout-only resources (docs/, benchmarks/, git) and
-      # belong to CI, not to this gate.
-      - name: Packaged-behaviour tests against the installed wheel
+      # Everything the gate asserts, executed by the venv's interpreter from a
+      # directory with no source tree in it: that the imports resolve to
+      # site-packages, that the documented entry points run, that a payment
+      # harness against a closed port passes nothing (R3-01), that the six
+      # native `--simulate` entry points the CLI facade never reaches publish
+      # no pass anywhere a row is read (R4-05, and R5-07's escape from it), and
+      # that every file in tests/ behaves as it is classified.
+      #
+      # The gate script comes from the checkout, not from the wheel: a wheel
+      # that ships a broken gate would otherwise certify itself.
+      - name: Run the release gate against the installed wheel
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/neutral"
           cp -r "$GITHUB_WORKSPACE/tests" "$RUNNER_TEMP/neutral/tests"
           cd "$RUNNER_TEMP/neutral"
-          "$RUNNER_TEMP/wheel-venv/bin/python" -m pytest -q -p no:cacheprovider -rs \
-            tests/test_auroc.py \
-            tests/test_evidence_pack_declares_its_denominator.py \
-            tests/test_fallback_validator_matches_schema.py \
-            tests/test_fb013_quorum_binds_distinct_approvers.py \
-            tests/test_fria_evidence.py \
-            tests/test_imported_risk_score_needs_a_denominator.py \
-            tests/test_mcp021_auth_fail_open.py \
-            tests/test_registry_schema_validity_is_enforced.py \
-            tests/test_simulate_does_not_claim_a_pass.py
+          "$RUNNER_TEMP/wheel-venv/bin/python" \
+            "$GITHUB_WORKSPACE/scripts/verify_wheel_gate.py" verify --tests tests
+
+  # Fifth external review, section E: "a release from a tag with no green
+  # ordinary CI can still enter this release workflow; the wheel gate must
+  # pass, but the separate CI calibration is not a dependency of publish."
+  # That was true. `needs:` cannot cross workflows, and CI fires on push and
+  # pull_request, so a Release cut from any ref reached `publish` without the
+  # pinned reference-server calibration ever having run on that ref. This job
+  # is the same calibration, in the release graph, so the dependency is real
+  # rather than assumed from branch protection nobody verified.
+  #
+  # The two copies are held identical by
+  # `test_the_release_calibration_is_the_same_job_as_the_ci_one`; a divergent
+  # copy is worse than none, because it reads as coverage.
+  calibration:
+    name: MCP reference-server calibration (pinned, non-skippable)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package and test tools
+        run: pip install -e . pyyaml pytest
+
+      - name: Populate the npm cache with the exact pinned reference server
+        run: |
+          set -euo pipefail
+          pin=$(python -c "from scripts.mcp_reference_calibration import REFERENCE_SERVER; print(REFERENCE_SERVER)")
+          case "$pin" in
+            @modelcontextprotocol/server-everything@20[0-9][0-9].[0-9]*.[0-9]*) echo "pin: $pin" ;;
+            *) echo "::error::REFERENCE_SERVER is not the pinned package: $pin"; exit 1 ;;
+          esac
+          npx -y -p "$pin" -c true
+          echo "$pin" > "$RUNNER_TEMP/reference-server.pin"
+
+      - name: Prove the pinned server launches offline
+        run: |
+          set -euo pipefail
+          pin=$(cat "$RUNNER_TEMP/reference-server.pin")
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' > "$RUNNER_TEMP/init.json"
+          timeout 30 npx --offline -y "$pin" stdio < "$RUNNER_TEMP/init.json" > "$RUNNER_TEMP/init.out" 2> "$RUNNER_TEMP/init.err" || true
+          grep -q '"serverInfo"' "$RUNNER_TEMP/init.out" || {
+            echo "::error::the pinned server did not answer initialize offline"
+            cat "$RUNNER_TEMP/init.err"; exit 1; }
+          head -c 200 "$RUNNER_TEMP/init.out"; echo
+
+      - name: Run the calibration and fail on any skip
+        run: |
+          set -euo pipefail
+          python -m pytest testing/test_mcp_reference_calibration.py \
+            -p no:cacheprovider -rs -v --tb=short \
+            --junitxml="$RUNNER_TEMP/calibration.xml"
+          if grep -q '<skipped' "$RUNNER_TEMP/calibration.xml"; then
+            echo "::error::the reference calibration reported a skip: UNMEASURED, not clean"
+            grep -o '<skipped[^>]*>' "$RUNNER_TEMP/calibration.xml"
+            exit 1
+          fi
+          ran=$(grep -o '<testcase ' "$RUNNER_TEMP/calibration.xml" | wc -l)
+          echo "testcases run: $ran"
+          [ "$ran" -ge 5 ] || { echo "::error::expected at least 5 calibration testcases, saw $ran"; exit 1; }
 
   publish:
     name: Publish to PyPI
-    needs: [build, test-wheel]
+    needs: [build, test-wheel, calibration]
     runs-on: ubuntu-latest
     environment:
       name: pypi
