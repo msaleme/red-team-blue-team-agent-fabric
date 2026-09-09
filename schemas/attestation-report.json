@@ -723,7 +723,7 @@
           "description": "What this block does not establish, in plain words."
         }
       },
-      "description": "What produced this run. Every key is always present; absence of knowledge is null paired with an `_absent_reason`. Deliberately NOT recorded: hostname, username, working directory and absolute paths. docs/PRIVACY.md lists infrastructure topology under what never travels, and a report a user is invited to publish is held to the same line as telemetry. Their absence is a decision, not an omission."
+      "description": "What produced this run. Every key is always present; absence of knowledge is null paired with an `_absent_reason`. Deliberately NOT recorded: username, working directory, absolute filesystem paths, and the path, query and fragment of any URL in argv -- each URL keeps its scheme, host and port and nothing else. A target hostname IS therefore recorded, deliberately: a run whose target cannot be named is not reproducible, and claiming otherwise while embedding one is the contradiction this wording removes. Their absence is a decision, not an omission."
     },
     "subject": {
       "type": "object",

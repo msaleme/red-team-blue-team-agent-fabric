@@ -35,9 +35,12 @@ if str(REPO) not in sys.path:
 import protocol_tests.telemetry as tel  # noqa: E402
 import protocol_tests.cli as cli  # noqa: E402
 
-#: The exact flat payload docs/PRIVACY.md promises. There is no JSON schema for
-#: telemetry; this key set is the schema, and PRIVACY.md is its consumer.
-PAYLOAD_KEYS = {"v", "module", "tests", "passed", "failed", "inconclusive", "os", "py", "ts"}
+#: The exact flat payloads docs/PRIVACY.md promises. There is no JSON schema for
+#: telemetry; these key sets are the schema, and PRIVACY.md is its consumer.
+#: Two shapes (R4-12): counts present, or counts absent with a fixed reason.
+PAYLOAD_KEYS = {"v", "module", "counts_available", "tests", "passed", "failed",
+                "inconclusive", "os", "py", "ts"}
+PAYLOAD_KEYS_UNAVAILABLE = {"v", "module", "counts_available", "reason", "os", "py", "ts"}
 
 
 @dataclass
@@ -136,7 +139,8 @@ class VerdictCountsAreExact(unittest.TestCase):
 class LivePathCountsAreThreeState(unittest.TestCase):
     def test_result_list_in_namespace(self):
         c = cli._live_run_counts({"results": mixed_rows_as_objects()})
-        self.assertEqual(c, {"tests": 6, "passed": 2, "failed": 1, "inconclusive": 3})
+        self.assertEqual(c, {"tests": 6, "passed": 2, "failed": 1, "inconclusive": 3,
+                             "counts_available": True})
 
     def test_unittest_style_skipped_is_inconclusive_not_passed(self):
         class TR:
@@ -145,11 +149,57 @@ class LivePathCountsAreThreeState(unittest.TestCase):
             errors = [object(), object()]
             skipped = [object(), object(), object()]
         c = cli._live_run_counts({"_test_result": TR()})
-        self.assertEqual(c, {"tests": 10, "passed": 4, "failed": 3, "inconclusive": 3})
+        self.assertEqual(c, {"tests": 10, "passed": 4, "failed": 3, "inconclusive": 3,
+                             "counts_available": True})
 
-    def test_empty_namespace_claims_nothing(self):
-        self.assertEqual(cli._live_run_counts({}),
-                         {"tests": 0, "passed": 0, "failed": 0, "inconclusive": 0})
+    def test_empty_namespace_and_no_report_is_unavailable_not_zero(self):
+        """R4-12. An installed AP2 run whose report held 17 rows was sent as
+        0/0/0/0. Zero observations and unavailable counts are different
+        states; the event must carry no count at all, with a fixed reason."""
+        c = cli._live_run_counts({})
+        self.assertEqual(c, {"counts_available": False,
+                             "reason": cli.COUNTS_UNAVAILABLE_REASON})
+        for key in ("tests", "passed", "failed", "inconclusive"):
+            self.assertNotIn(key, c, f"{key} present: absence sent as a number")
+        self.assertIn(cli.COUNTS_UNAVAILABLE_REASON, tel.COUNTS_UNAVAILABLE_REASONS)
+
+    def test_a_written_report_is_read_when_the_namespace_is_empty(self):
+        """The CLI already has the report the harness wrote; that is real data."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "run.json"
+            path.write_text(json.dumps({"summary": {"total": 6},
+                                        "results": mixed_rows_as_dicts()}))
+            c = cli._live_run_counts({}, report_path=str(path))
+        self.assertEqual(c, {"tests": 6, "passed": 2, "failed": 1, "inconclusive": 3,
+                             "counts_available": True})
+
+    def test_a_missing_or_empty_report_is_unavailable_not_zero(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = Path(tmp) / "never-written.json"
+            self.assertFalse(cli._live_run_counts({}, report_path=str(missing))["counts_available"])
+            empty = Path(tmp) / "empty.json"
+            empty.write_text(json.dumps({"summary": {"total": 0}, "results": []}))
+            self.assertFalse(cli._live_run_counts({}, report_path=str(empty))["counts_available"])
+            junk = Path(tmp) / "junk.json"
+            junk.write_text("{not json")
+            self.assertFalse(cli._live_run_counts({}, report_path=str(junk))["counts_available"])
+
+    def test_namespace_results_win_over_a_report(self):
+        """One run, one answer: the in-memory rows are the primary source."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "run.json"
+            path.write_text(json.dumps({"results": [{"test_id": "T", "passed": True}]}))
+            c = cli._live_run_counts({"results": mixed_rows_as_objects()}, report_path=str(path))
+        self.assertEqual(c["tests"], 6)
+
+    def test_the_live_call_site_passes_the_report_path(self):
+        """Source-level: the dispatcher must hand the report path to the
+        counter, or the report branch is dead code and 0/0/0/0 is back."""
+        src = (REPO / "protocol_tests" / "cli.py").read_text(encoding="utf-8")
+        self.assertIn("_live_run_counts(ns, report_path=_report_path_from(filtered_args))", src)
 
 
 class ThePayloadMatchesItsDocumentedShape(unittest.TestCase):
@@ -177,25 +227,63 @@ class ThePayloadMatchesItsDocumentedShape(unittest.TestCase):
     def test_sent_payload_has_exactly_the_documented_keys(self):
         payload = self._sent_payload(module="mcp", tests=6, passed=2, failed=1, inconclusive=3)
         self.assertEqual(set(payload), PAYLOAD_KEYS)
+        self.assertIs(payload["counts_available"], True)
         self.assertEqual((payload["tests"], payload["passed"], payload["failed"],
                           payload["inconclusive"]), (6, 2, 1, 3))
         for key in ("tests", "passed", "failed", "inconclusive"):
             self.assertIsInstance(payload[key], int)
 
+    def test_unavailable_counts_are_omitted_not_zero(self):
+        """R4-12. The event for a run of unknown size carries NO count field.
+        `tests: 0` and `tests` absent are different facts, and the first one
+        was being sent for a 17-row run."""
+        payload = self._sent_payload(module="ap2", counts_available=False,
+                                     reason=cli.COUNTS_UNAVAILABLE_REASON)
+        self.assertEqual(set(payload), PAYLOAD_KEYS_UNAVAILABLE)
+        self.assertIs(payload["counts_available"], False)
+        self.assertEqual(payload["reason"], cli.COUNTS_UNAVAILABLE_REASON)
+        for key in ("tests", "passed", "failed", "inconclusive"):
+            self.assertNotIn(key, payload)
+
+    def test_the_live_counter_output_is_sendable_in_both_states(self):
+        """What `_live_run_counts` returns is exactly what the sender takes."""
+        for state in (cli._live_run_counts({}),
+                      cli._live_run_counts({"results": mixed_rows_as_objects()})):
+            with self.subTest(counts_available=state["counts_available"]):
+                payload = self._sent_payload(module="mcp", **state)
+                self.assertEqual(payload["counts_available"], state["counts_available"])
+
+    def test_the_reason_is_a_closed_vocabulary(self):
+        with self.assertRaises(ValueError):
+            self._sent_payload(module="mcp", counts_available=False, reason="target was slow")
+        with self.assertRaises(ValueError):
+            self._sent_payload(module="mcp", counts_available=False, reason=None)
+
+    def test_available_counts_cannot_be_sent_with_a_count_missing(self):
+        with self.assertRaises(ValueError):
+            self._sent_payload(module="mcp", tests=None, passed=None, failed=None)
+
     def test_inconclusive_defaults_to_zero_for_older_callers(self):
         payload = self._sent_payload(module="mcp", tests=1, passed=1, failed=0)
         self.assertEqual(payload["inconclusive"], 0)
 
-    def test_example_payload_matches_the_shape_and_sums(self):
+    def test_example_payloads_match_both_shapes(self):
         ex = tel.telemetry_payload_example()
         self.assertEqual(set(ex), PAYLOAD_KEYS)
         self.assertEqual(ex["tests"], ex["passed"] + ex["failed"] + ex["inconclusive"])
+        ex2 = tel.telemetry_payload_example_counts_unavailable()
+        self.assertEqual(set(ex2), PAYLOAD_KEYS_UNAVAILABLE)
+        self.assertIn(ex2["reason"], tel.COUNTS_UNAVAILABLE_REASONS)
 
-    def test_privacy_doc_lists_the_inconclusive_field(self):
+    def test_privacy_doc_lists_both_shapes(self):
         doc = (REPO / "docs" / "PRIVACY.md").read_text(encoding="utf-8")
         self.assertIn("| Inconclusive count |", doc)
-        self.assertIn("Nine fields", doc)
+        self.assertIn("| Counts available |", doc)
+        self.assertIn("| Reason |", doc)
+        self.assertIn("Ten fields when the counts are available, seven when they are not", doc)
+        self.assertNotIn("Nine fields", doc)
         self.assertNotIn("Eight fields", doc)
+        self.assertIn(cli.COUNTS_UNAVAILABLE_REASON, doc)
 
 
 class TheDefectCannotBeReintroducedBySource(unittest.TestCase):

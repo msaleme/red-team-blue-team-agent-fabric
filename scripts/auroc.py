@@ -17,6 +17,7 @@ Tracks GitHub issue #155.
 from __future__ import annotations
 
 import json
+import sys
 from typing import Any
 
 
@@ -171,12 +172,36 @@ _METHODOLOGY = (
 )
 
 
+def main(argv: "list[str] | None" = None) -> int:
+    """`--help` is a request for help, not a filename.
+
+    This read `sys.argv[1]` directly, so `python -m scripts.auroc --help`
+    opened a file called `--help` and raised FileNotFoundError -- the only one
+    of 29 shipped scripts that answered a help request with a traceback
+    (fourth external review, R4-15).
+    """
+    import argparse
+
+    ap = argparse.ArgumentParser(
+        prog="python -m scripts.auroc",
+        description="Compute trapezoidal AUROC from a harness report.")
+    ap.add_argument("report", help="path to a harness report JSON file, or - for stdin")
+    args = ap.parse_args(argv)
+
+    try:
+        if args.report == "-":
+            data = json.load(sys.stdin)
+        else:
+            with open(args.report, encoding="utf-8") as fh:
+                data = json.load(fh)
+    except (OSError, ValueError) as exc:
+        print(f"auroc: could not read a JSON report from {args.report!r}: {exc}",
+              file=sys.stderr)
+        return 2
+
+    print(json.dumps(compute_all_auroc(data), indent=2))
+    return 0
+
+
 if __name__ == "__main__":
-    import sys
-    if len(sys.argv) < 2:
-        print("Usage: python scripts/auroc.py <report.json>")
-        sys.exit(1)
-    with open(sys.argv[1]) as f:
-        data = json.load(f)
-    result = compute_all_auroc(data)
-    print(json.dumps(result, indent=2))
+    sys.exit(main())

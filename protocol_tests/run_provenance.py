@@ -37,13 +37,18 @@ Two things are forbidden and both have bitten this repository:
 
 ## What is deliberately NOT recorded
 
-No hostname, no username, no working directory, no absolute paths.
-`docs/PRIVACY.md` lists "Hostnames, paths, or any part of your infrastructure
-topology" under what is never collected, and a report a user is invited to
-publish is held to the same line as telemetry. EVERY absolute path in argv is
-reduced to its basename for that reason -- not only `argv[0]`. On a developer
-machine `--report /home/<username>/evidence/run.json` carries a username and a
-directory tree just as surely as the interpreter path does.
+No username, no working directory, no absolute paths, and no URL path, query
+or fragment. EVERY absolute path in argv is reduced to its basename -- not only
+`argv[0]`. On a developer machine `--report /home/<username>/evidence/run.json`
+carries a username and a directory tree just as surely as the interpreter path
+does.
+
+A URL's scheme, host and port ARE recorded, deliberately, and this module does
+not claim otherwise. `docs/PRIVACY.md` says telemetry never collects hostnames;
+telemetry sends counts and this block records the command that was run, and a
+run whose target cannot be named is not reproducible by anyone. The line is
+drawn at the URL authority: what was contacted travels, what was asked for
+does not.
 
 ## Argv redaction is the load-bearing part
 
@@ -60,12 +65,29 @@ names, and a credential passed under a name not on that list survives. That is
 why the field is `argv_redacted` (something was replaced) and not
 `argv_is_safe` (a claim about what remains).
 
-URLs are the exception to name-matching. A query parameter's NAME is chosen by
-the target, so inside a URL query (and fragment) every value is replaced unless
-the name is on `_QUERY_PARAM_ALLOWLIST` -- a short list of protocol/format
-selectors. Scheme, host, port and path are kept as sent. The allowlist is
-stated in the block's `not_claimed`, so a `[REDACTED]` query value is read as
-"not on the allowlist", not as "a credential was here".
+## The URL contract, stated once
+
+A published record keeps **scheme, host and port, and nothing else** of a URL.
+Path, query and fragment are each replaced whole with `[REDACTED]`.
+
+That is one rule, and it replaces an allowlist of parameter NAMES that could
+not settle the question. An allowlist works on the half of a URL whose
+vocabulary someone else controls only if every secret arrives as `name=value`
+under a name nobody chose adversarially, and the fourth external review walked
+four shapes through it: a token as a PATH segment (`/v1/<token>/run`), a token
+as a FRAGMENT (`#<token>`), a bare query token with no `=` at all, and a token
+as the value of an allowlisted name (`format=<token>`). None of the four is
+exotic; the third and fourth are not even unusual.
+
+Reproducibility does not need the secret half. Scheme, host and port say what
+was contacted and which service answered; a path that is a capability URL is
+not a reproduction step a third party can use anyway.
+
+The same review noted the previous text claimed "no hostname is recorded" while
+argv retained a URL host. Both cannot be true. The hostname IS recorded, and
+the record now says so: hostname yes, path/query/fragment no. `not_claimed`
+carries that sentence, so a reader is not left to reconcile a promise with the
+document beside it.
 """
 from __future__ import annotations
 
@@ -257,25 +279,11 @@ def _split_attached_short(arg: str) -> tuple[str, str] | None:
 _URL_USERINFO_RE = re.compile(r"^([a-zA-Z][a-zA-Z0-9+.-]*://)([^/@\s]+)@")
 _URL_SHAPED_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
 
-#: Query-parameter NAMES whose value survives into the record verbatim.
-#:
-#: This is an allowlist, and the only one in this module, because a URL query
-#: is the one place in argv where the NAME of a credential is chosen by the
-#: target rather than by the harness. `?api_key=` was caught by the name
-#: regex; `?sig=`, `?k=`, `?access=`, `?code=` were not, and no name list can
-#: be complete against a vocabulary someone else controls. Everything else in
-#: argv (subcommands, model tags, counts, flag names) is the harness's own
-#: vocabulary, where a deny-list of auth-shaped names is checkable and an
-#: allowlist would eat the command.
-#:
-#: The names here select a protocol or format variant. None of them can carry
-#: an authority, and none of them matches `_AUTH_NAME_RE` -- asserted below so
-#: a later edit cannot quietly allow one that does.
-_QUERY_PARAM_ALLOWLIST = frozenset({
-    "transport", "protocol", "version", "api-version", "api_version", "v",
-    "format", "mode", "stream", "model",
-})
-assert not any(_AUTH_NAME_RE.search(n) for n in _QUERY_PARAM_ALLOWLIST)
+#: What survives from a URL, in one sentence, so `not_claimed` and this module
+#: cannot drift: the AUTHORITY (scheme, host, port). Path, query and fragment
+#: are replaced whole.
+URL_RETAINED = "scheme, host and port"
+URL_REPLACED = "path, query and fragment"
 
 
 def _strip_url_userinfo(arg: str) -> str:
@@ -283,58 +291,57 @@ def _strip_url_userinfo(arg: str) -> str:
 
     Credentials in URL userinfo are a credential under another name; the
     flag-name paths never see them because the argument is a URL, not a flag.
+    Still applied first, so a record never carries userinfo even in the
+    degenerate case where `urlsplit` refuses the rest of the string.
     """
     return _URL_USERINFO_RE.sub(rf"\1{REDACTED}@", arg)
 
 
-def _redact_query_params(query: str) -> tuple[str, bool]:
-    """Replace the value of every query parameter not on the allowlist.
-
-    Operates on the raw `name=value&name=value` text rather than through
-    `parse_qsl`/`urlencode`, so the parameters that survive are byte-for-byte
-    what was sent -- a re-encoded query is a different reproduction step.
-    Names are percent-decoded and lower-cased ONLY for the allowlist test.
-    """
-    if not query:
-        return query, False
-    out, replaced = [], False
-    for part in query.split("&"):
-        name, sep, value = part.partition("=")
-        key = urllib.parse.unquote(name).strip().lower()
-        if sep and value and key not in _QUERY_PARAM_ALLOWLIST:
-            out.append(f"{name}={REDACTED}")
-            replaced = True
-        else:
-            out.append(part)
-    return "&".join(out), replaced
-
-
 def _redact_url(arg: str) -> tuple[str, bool]:
-    """Scrub the credential-bearing parts of a URL, keep the rest.
+    """Keep the URL authority; replace path, query and fragment whole.
 
-    Scheme, host, port and path survive: they are what makes a run
-    reproducible. Userinfo is replaced whole. Query and fragment values are
-    replaced unless the parameter name is on `_QUERY_PARAM_ALLOWLIST`.
+    The previous version kept the path as sent and replaced query and fragment
+    VALUES whose parameter name was off an allowlist. Four shapes walked
+    through it (fourth external review, 2026-09-08):
 
-    `--url=http://host/?api_key=<secret>` survived the previous version with
-    `argv_redacted=False`: the userinfo strip does not look at the query, and
-    the equals-form flag hid the query's own `=` from the inline matcher (the
-    separated form `--url http://host/?api_key=...` was caught by that matcher
-    only because `partition("=")` happened to split at the right place).
-    Found by the third external review, 2026-09-07.
+        http://host/v1/<token>/run     the token is a path segment
+        http://host/cb#<token>         the token is the fragment, no `name=`
+        http://host/?<token>           a bare query token, no `=` to split on
+        http://host/?format=<token>    the name was on the allowlist
+
+    The first two the allowlist never looked at; the third has no name to test;
+    the fourth was allowed by name while its value was chosen by whoever
+    issued the credential. An allowlist of names cannot prove an allowed
+    VALUE is nonsecret, which is what an auditor needs from this field.
+
+    So the rule is positional rather than lexical, and it is the same rule for
+    every URL: `scheme://host:port` is kept, and each of path, query and
+    fragment that was present becomes `[REDACTED]`. Replacing a present
+    component sets `argv_redacted`, because something was removed; a URL with
+    no path, query or fragment is returned unchanged and sets nothing.
     """
-    stripped = _strip_url_userinfo(arg)
-    replaced = stripped != arg
+    # Split BEFORE removing userinfo. Substituting `[REDACTED]@` first puts
+    # brackets in the netloc and `urlsplit` then raises "invalid IPv6 URL", so
+    # the old order returned early on exactly the arguments that carried a
+    # credential -- and left their path intact.
     try:
-        parts = urllib.parse.urlsplit(stripped)
+        parts = urllib.parse.urlsplit(arg)
     except ValueError:
-        return stripped, replaced
-    query, q_replaced = _redact_query_params(parts.query)
-    fragment, f_replaced = _redact_query_params(parts.fragment)
-    if not (q_replaced or f_replaced):
-        return stripped, replaced
+        return _strip_url_userinfo(arg), True
+    netloc, replaced = parts.netloc, False
+    if "@" in netloc:
+        netloc = f"{REDACTED}@{netloc.rsplit('@', 1)[1]}"
+        replaced = True
+    # `urlsplit` gives "" for an absent component and "/" for a bare root; a
+    # bare root carries nothing, so it is kept rather than redacted to noise.
+    path = REDACTED if parts.path not in ("", "/") else parts.path
+    query = REDACTED if parts.query else ""
+    fragment = REDACTED if parts.fragment else ""
+    if not replaced and (path, query, fragment) == (
+            parts.path, parts.query, parts.fragment):
+        return arg, False
     rebuilt = urllib.parse.urlunsplit(
-        (parts.scheme, parts.netloc, parts.path, query, fragment))
+        (parts.scheme, netloc, path, query, fragment))
     return rebuilt, True
 
 
@@ -714,19 +721,23 @@ def run_provenance(**overrides: Any) -> dict[str, Any]:
             "operator intended, or that anything about the target is secure.",
             "argv_redacted true means something was replaced. It is not a claim "
             "that no credential remains: redaction matches a list of auth-shaped "
-            "names and a credential passed under another name survives.",
-            "No hostname, username, working directory or absolute path is "
-            "recorded, by the rule in docs/PRIVACY.md. Every absolute path in "
-            "argv -- POSIX, drive-letter, UNC and ~user forms, bare or after "
-            "--flag= -- is reduced to its basename, unconditionally and without "
-            "setting argv_redacted, so a bare filename here was never a full "
-            "path in this record. Their absence is a decision, not an omission.",
-            "URL query and fragment values are replaced unless the parameter "
-            "name is on a short allowlist of protocol/format selectors "
-            f"({', '.join(sorted(_QUERY_PARAM_ALLOWLIST))}). A [REDACTED] "
-            "query value is therefore not evidence that a credential was "
-            "there; it is evidence that the name was not on the allowlist. "
-            "Scheme, host, port and path are kept as sent.",
+            "names and a credential passed under another name survives. Nor is "
+            "it a claim that a credential was FOUND: a URL carrying any path, "
+            "query or fragment sets it, because that component was removed by "
+            "the rule below whatever it contained.",
+            "No username, working directory or absolute filesystem path is "
+            "recorded. Every absolute path in argv -- POSIX, drive-letter, UNC "
+            "and ~user forms, bare or after --flag= -- is reduced to its "
+            "basename, unconditionally and without setting argv_redacted, so a "
+            "bare filename here was never a full path in this record. Their "
+            "absence is a decision, not an omission.",
+            f"A URL keeps {URL_RETAINED} and nothing else: {URL_REPLACED} are "
+            f"each replaced whole with {REDACTED}. So a target HOSTNAME IS "
+            f"recorded here, deliberately, because a run whose target cannot "
+            f"be named is not reproducible; what was asked of that target is "
+            f"not. A {REDACTED} URL component means the component was present "
+            f"and removed by this rule -- never that a credential was found "
+            f"there, and never that the component was absent.",
         ],
     }
     statement.update(overrides)

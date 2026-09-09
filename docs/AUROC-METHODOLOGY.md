@@ -44,7 +44,7 @@ No sklearn dependency — implemented with the trapezoidal rule for zero-depende
 python -m protocol_tests.cli --url http://your-agent --report results.json
 
 # Compute AUROC from the report
-python scripts/auroc.py results.json
+python -m scripts.auroc results.json
 ```
 
 The AUROC computation is deterministic given the same test results. Multi-trial runs (`--trials N`) produce confidence intervals on the AUROC via Wilson score.

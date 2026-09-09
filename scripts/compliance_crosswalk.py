@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Compliance framework crosswalk loader and mapper.
 
+**This is a LIBRARY MODULE, not an operator CLI.** It is imported by
+`scripts/compliance_report.py` and by the CLI; running it directly does no
+work, and before 2026-09-08 running it with `--help` printed nothing at all
+and exited 0, which is indistinguishable from a command that succeeded
+(fourth external review, R4-15). Its `__main__` now prints what it is and
+which commands do the work.
+
 Loads crosswalk YAML files and maps harness test results to framework
 controls for EU AI Act, ISO 42001, and AIUC-1 compliance reporting.
 
@@ -205,3 +212,24 @@ def compliance_summary(crosswalk: dict[str, Any], results: list[dict[str, Any]])
 def list_frameworks() -> list[str]:
     """Return list of available framework identifiers."""
     return list(FRAMEWORK_FILES.keys())
+
+
+def _usage() -> int:
+    """What this module is, and where the operator commands live."""
+    print(__doc__.strip().splitlines()[0])
+    print()
+    print("This is a library module, not a command. It has no operator behaviour")
+    print("of its own; importing it is the supported use:")
+    print()
+    print("    from scripts.compliance_crosswalk import load_crosswalk, apply_crosswalk")
+    print()
+    print(f"Frameworks available: {', '.join(list_frameworks())}")
+    print()
+    print("The commands that use it:")
+    print("    python -m scripts.compliance_report --report REPORT --output OUTPUT")
+    print("    agent-security test aiuc1 --url URL")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_usage())

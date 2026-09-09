@@ -39,6 +39,7 @@ from __future__ import annotations
 import ast
 import fnmatch
 import re
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -71,6 +72,31 @@ R3_12_SCRIPTS = (
     "validate_result_semantics",
     "validate_owasp_agentic_mapping",
     "verify_release_claims",
+)
+
+#: Shipped modules that are LIBRARIES, not operator commands. The only
+#: exemption from the `--help` contract below, and every entry must say so in
+#: its own docstring -- asserted, so the list cannot become a way to excuse a
+#: broken CLI. SHRINK ONLY in the sense that matters: an entry here is a claim
+#: about the module, not a waiver.
+LIBRARY_MODULES = {
+    "compliance_crosswalk",
+    "count_tests",
+}
+
+#: Every shipped script whose real work needs a resource the wheel does not
+#: carry. Each must say "checkout-only" in its docstring and answer with the
+#: one-line "checkout-only resource missing" message and exit 2, never a
+#: traceback and never an empty success. `generate_test_catalog` (--check and
+#: the default destination) and `monthly_security_report` (the default target
+#: list) joined this list on 2026-09-08 (R4-15); before that their messages
+#: were understandable but inconsistent with the contract the other four use.
+CHECKOUT_ONLY_GATED = (
+    "validate_result_semantics",
+    "validate_owasp_agentic_mapping",
+    "verify_release_claims",
+    "generate_test_catalog",
+    "monthly_security_report",
 )
 
 
@@ -345,14 +371,135 @@ class TestShippedScriptsDoNotBypassPackageData(unittest.TestCase):
 
     def test_the_checkout_only_scripts_say_so_and_exit_two(self) -> None:
         """A missing checkout resource is one line and exit 2, never a traceback."""
-        for stem in ("validate_result_semantics", "validate_owasp_agentic_mapping",
-                     "verify_release_claims"):
+        for stem in CHECKOUT_ONLY_GATED:
             src = (REPO_ROOT / "scripts" / f"{stem}.py").read_text(encoding="utf-8")
             doc = ast.get_docstring(ast.parse(src)) or ""
             with self.subTest(script=stem):
                 self.assertIn("checkout-only", doc.lower(),
                               "docstring must state which resources are checkout-only")
                 self.assertIn("checkout-only resource missing", src)
+                # Exit 2, however each script spells it: `sys.exit(2)`,
+                # `raise SystemExit(2)`, `return 2`, or a named constant whose
+                # value is 2. The code is the contract; the spelling is not.
+                self.assertRegex(
+                    src, r"(SystemExit|sys\.exit|return)\s*\(?\s*(2\b|EXIT_CANNOT_CHECK)",
+                    f"scripts/{stem}.py names the missing resource but does not exit 2")
+
+    def test_the_two_new_gates_actually_exit_two_from_a_non_checkout_root(self) -> None:
+        """R4-15. `generate_test_catalog --check` and a default
+        `monthly_security_report` printed understandable messages and exited 1,
+        which is the same code a real drift or a real missing config uses. The
+        gate is exercised here rather than asserted from source: the module
+        constants are pointed at a directory with no checkout in it, which is
+        what site-packages looks like."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            catalog = (
+                "import pathlib, sys\n"
+                f"sys.path.insert(0, {str(REPO_ROOT)!r})\n"
+                "import scripts.generate_test_catalog as g\n"
+                f"g.DEFAULT_OUT = pathlib.Path({tmp!r}) / 'HARNESS_TEST_CATALOG.md'\n"
+                "sys.argv = ['generate_test_catalog', '--check']\n"
+                "print('rc', g.main())\n")
+            done = subprocess.run([sys.executable, "-c", catalog], cwd=tmp,
+                                  capture_output=True, text=True, timeout=120)
+            self.assertIn("rc 2", done.stdout, done.stderr[-400:])
+            self.assertIn("checkout-only resource missing", done.stderr)
+            self.assertNotIn("Traceback", done.stderr)
+
+            monthly = (
+                "import sys\n"
+                f"sys.path.insert(0, {str(REPO_ROOT)!r})\n"
+                "import scripts.monthly_security_report as m\n"
+                f"m.REPO_ROOT = {tmp!r}\n"
+                "sys.argv = ['monthly_security_report']\n"
+                "try:\n"
+                "    m.main()\n"
+                "except SystemExit as exc:\n"
+                "    print('rc', exc.code)\n")
+            done = subprocess.run([sys.executable, "-c", monthly], cwd=tmp,
+                                  capture_output=True, text=True, timeout=120)
+            self.assertIn("rc 2", done.stdout, done.stderr[-400:])
+            self.assertIn("checkout-only resource missing", done.stderr)
+            self.assertNotIn("Traceback", done.stderr)
+
+
+# --------------------------------------------------------------------------
+# Every shipped script answers --help, or is a declared library module
+# --------------------------------------------------------------------------
+
+class TestEveryShippedScriptAnswersHelp(unittest.TestCase):
+    """R4-15. A help page is the cheapest observable contract a command has.
+
+    Of the 29 shipped script modules, `auroc` treated `--help` as a filename
+    and raised FileNotFoundError, `verify_attestation_record` treated it as a
+    filename and returned a one-line error, `discord_scan_bot` answered with
+    its missing optional dependency, and `compliance_crosswalk` printed
+    nothing and exited 0 -- indistinguishable from a command that worked.
+
+    The rule is derived, not listed: every `scripts/*.py` the wheel carries
+    must exit 0 on `--help`, or be in LIBRARY_MODULES and say in its own
+    docstring that it is a library. A script added tomorrow is covered
+    without anyone remembering this file.
+    """
+
+    @staticmethod
+    def _help(stem: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, "-m", f"scripts.{stem}", "--help"],
+            cwd=REPO_ROOT, capture_output=True, text=True, timeout=120)
+
+    def test_the_set_under_test_is_derived_and_nonempty(self) -> None:
+        stems = {p.stem for p in shipped_scripts()}
+        self.assertGreater(len(stems), 20, "the derived set collapsed; this would be vacuous")
+        for stem in LIBRARY_MODULES:
+            self.assertIn(stem, stems, f"{stem} is not a shipped script; remove the entry")
+
+    def test_every_shipped_script_exits_zero_on_help(self) -> None:
+        for path in shipped_scripts():
+            if path.stem in LIBRARY_MODULES:
+                continue
+            with self.subTest(script=path.stem):
+                done = self._help(path.stem)
+                self.assertEqual(
+                    done.returncode, 0,
+                    f"scripts/{path.name} --help exited {done.returncode}. A help "
+                    f"request is not a failed read and not a missing dependency; "
+                    f"answer it before anything else, or declare the module a "
+                    f"library in LIBRARY_MODULES.\n{done.stdout[-400:]}\n{done.stderr[-400:]}")
+                self.assertTrue(done.stdout.strip(),
+                                f"scripts/{path.name} --help printed nothing; silence "
+                                f"reads as a command that succeeded")
+
+    def test_the_four_named_scripts_answer_help_with_a_usage_page(self) -> None:
+        """The specific ones the review found. `auroc` raised a traceback."""
+        for stem in ("auroc", "verify_attestation_record", "discord_scan_bot", "free_scan"):
+            with self.subTest(script=stem):
+                done = self._help(stem)
+                self.assertEqual(done.returncode, 0, done.stderr[-400:])
+                self.assertNotIn("Traceback", done.stderr)
+                self.assertNotIn("FileNotFoundError", done.stderr)
+
+    def test_library_modules_say_they_are_libraries(self) -> None:
+        """The exemption is a claim about the module, so the module must make
+        it. Otherwise this list is a place to hide a broken command."""
+        for stem in LIBRARY_MODULES:
+            src = (REPO_ROOT / "scripts" / f"{stem}.py").read_text(encoding="utf-8")
+            doc = (ast.get_docstring(ast.parse(src)) or "").lower()
+            with self.subTest(script=stem):
+                self.assertTrue(
+                    "library module" in doc or "single source of truth" in doc
+                    or "not an operator" in doc,
+                    f"scripts/{stem}.py claims a library exemption its docstring "
+                    f"does not state")
+
+    def test_the_library_module_still_says_what_it_is(self) -> None:
+        """`compliance_crosswalk` exited 0 having printed NOTHING, which is the
+        same observable as a command that ran and had no work to do."""
+        done = self._help("compliance_crosswalk")
+        self.assertEqual(done.returncode, 0)
+        self.assertIn("library module", done.stdout.lower())
+        self.assertIn("compliance_report", done.stdout)
 
 
 # --------------------------------------------------------------------------

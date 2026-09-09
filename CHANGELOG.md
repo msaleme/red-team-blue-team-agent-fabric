@@ -355,6 +355,109 @@ fields, and use plain objects now. Fault-injected: restoring the old counting
 fails them.
 
 No test IDs were added or removed; the count stays at 623.
+### Fixed — release gate, contract enforcement and script surfaces (R4-09, R4-11, R4-12, R4-13, R4-15, R4-16 Medium; fourth external review, 2026-09-08)
+
+Six Medium findings. Each was reproduced before it was fixed -- on the installed
+wheel, on a loopback server, or by quoting the line -- and each fix was
+fault-injected to show its test fails without it. No test IDs were added or
+removed; the count stays at 623.
+
+**Release publication was not gated on any test of the artifact being published
+(R4-16).** `publish` depended on `build` and on nothing else. The workflow built
+distributions, wrote and attested a provenance statement, and uploaded -- so it
+established who built the artifact and that it corresponds to the tagged source,
+and nothing about whether the artifact works. CI is a separate push/PR workflow
+whose install check runs inside the checkout, where `import protocol_tests` can
+resolve to the source tree instead of to the installed wheel: a wheel missing a
+file entirely can pass a check performed next to the sources. A new `test-wheel`
+job downloads the built wheel, installs it into a fresh venv from `$RUNNER_TEMP`,
+asserts both packages resolve under `site-packages`, runs `agent-security
+--version` and `python -m protocol_tests.mock_mcp_server --help`, reproduces
+R3-01 (a payment harness against `http://127.0.0.1:9` must pass nothing, and a
+run that produced no verdicts fails as unmeasured), and runs nine packaged-
+behaviour test files against the installed copy. `publish` now needs
+`[build, test-wheel]`. Identity is not QA.
+
+**The pinned MCP reference calibration could skip, and a skip read green
+(R4-16).** `testing/test_mcp_reference_calibration.py` skips when the npm cache
+lacks `@modelcontextprotocol/server-everything@2026.8.18` -- correctly, because
+unmeasured is not clean -- but nothing made it run. A new required CI job reads
+the pin from the script rather than restating it, populates the npm cache with
+that exact version, proves the server answers `initialize` offline, then runs
+the file with `--junitxml` and fails on any `<skipped` element or fewer than
+five testcases. CI also installs `cryptography` and `jsonschema`, without which
+the registry contract tests `importorskip` and report green having run nothing.
+
+**A correctly signed report with an unknown `evidence_class` was stored with 201
+(R4-11).** `scripts/registry_reference_server.py` implemented contract 5 step 5
+-- "validate `payload.report` against `schemas/attestation-report.json`, reject
+422" -- as a check that the schema's required TOP-LEVEL keys were present. A
+signed submission carrying `evidence_class: "E9"`, a value no version of the
+enum has contained, was stored, returned on GET, and issued the claim label
+"Tested with Agent Security Harness". The server now runs full JSON Schema
+validation before storage and rejects with 422 carrying the validator's own
+message (an `anyOf` failure names its sub-rules rather than echoing the whole
+document back). Every stored record carries `validation_level`, `"schema"` or
+`"required-keys"`, so a consumer on a host without `jsonschema` cannot mistake
+the weaker answer for the stronger one. A signature establishes who sent the
+bytes; required-key presence is not report conformance. The fixture in
+`tests/test_registry_server_contract.py` was itself schema-invalid, which is why
+the wire tests passed throughout.
+
+**Live telemetry reported an empty run for a report with 17 rows (R4-12).**
+Every harness `main()` ends in `sys.exit()`, `SystemExit` carries no namespace,
+and results live on a harness instance, so `_live_run_counts` received `{}` and
+sent `tests:0, passed:0, failed:0, inconclusive:0` for a run whose report held
+17 inconclusive rows. Zero observations and unavailable counts are different
+states. When a report was requested and written, the counts are now read from it
+-- real data the CLI already had. With neither, the event omits the four count
+fields entirely and carries `counts_available: false` and one fixed `reason`
+token from a closed list, so a consumer summing `tests` sees a missing key
+rather than a zero. `docs/PRIVACY.md` documents both payload shapes.
+
+**The harness-base detector matched one spelling of a definition (R4-13).**
+`_modules_with_own_record` was `"def _record" in text`. A module written
+`def  _record(` -- two spaces, valid Python -- was invisible, so a 45th parallel
+recording implementation could land with all twelve tests green. It now walks
+the AST for a `_record` method on a class, which also stops counting a comment,
+a string or a call site as an implementation. Seeded controls cover two spaces,
+a tab, `async def` and a decorated form, and the detector is cross-checked
+against `asi_inventory.recording_facts()` on every registered harness, so the
+two derivations of one fact cannot drift.
+
+**Published provenance kept secret-bearing URL paths and contradicted its own
+hostname claim (R4-09).** The parameter-name allowlist could not settle four
+shapes: a token as a path segment (`/v1/<token>/run`), a token as the fragment,
+a bare query token with no `=`, and a token under an allowlisted name
+(`format=<token>`). An allowlist of names cannot prove an allowed value is
+nonsecret. The rule is now positional and the same for every URL: **scheme, host
+and port are kept; path, query and fragment are each replaced whole.**
+Reproducibility needs what was contacted, not what was asked for. The block's
+`not_claimed` and the schema description said "no hostname is recorded" while
+argv retained a URL host; both now state the actual contract -- the hostname IS
+recorded, deliberately; the path, query and fragment are not -- and that a
+`[REDACTED]` component means the component was present and removed by the rule,
+never that a credential was found there. Userinfo removal now happens after the
+split, because substituting `[REDACTED]@` first made `urlsplit` raise "invalid
+IPv6 URL" and return early on exactly the arguments that carried a credential.
+
+**Installed documentation and script contracts were uneven (R4-15).**
+`docs/QUICKSTART.md` told a pip user to run `python scripts/free_scan.py` and
+`python scripts/aiuc1_prep.py`, paths that do not exist outside a checkout; they
+are now `python -m scripts.free_scan` and `python -m scripts.aiuc1_prep`, as are
+the operator invocations in `ADVANCED.md` and `AUROC-METHODOLOGY.md`.
+`scripts/auroc.py` read `sys.argv[1]` directly and answered `--help` with a
+`FileNotFoundError` traceback; it and `verify_attestation_record.py` now use
+argparse. `compliance_crosswalk.py` exited 0 having printed nothing -- the same
+observable as a command that worked -- and now declares itself a library module
+and prints the commands that use it. `discord_scan_bot.py` answered a help
+request with its missing optional dependency; the help page no longer requires
+it. `generate_test_catalog --check` and a default `monthly_security_report` now
+implement the same one-line "checkout-only resource missing" message and exit 2
+that the other gated scripts use. The ratchet in
+`testing/test_packaged_scripts_resolve.py` is extended: every shipped
+`scripts/*.py` must exit 0 on `--help` with something on stdout, or be on a
+documented library-module list whose entries say so in their own docstrings.
 
 ## [4.21.1] - 2026-09-07
 

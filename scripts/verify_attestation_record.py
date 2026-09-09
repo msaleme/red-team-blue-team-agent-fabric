@@ -142,11 +142,22 @@ def verify(record: dict) -> bool:
     return failures == 0
 
 
-def main() -> int:
-    if len(sys.argv) != 2:
-        print(__doc__)
-        return 2
-    source = sys.argv[1]
+def main(argv: "list[str] | None" = None) -> int:
+    """`--help` was read as a filename and answered with a one-line error.
+
+    Correct in that it did not traceback, wrong in that a help request is not
+    a failed read (R4-15). argparse answers it and exits 0.
+    """
+    import argparse
+
+    ap = argparse.ArgumentParser(
+        prog="python -m scripts.verify_attestation_record",
+        description=(__doc__ or "").strip().splitlines()[0] if __doc__ else None,
+        epilog="Exit 0: all applicable checks passed. 1: verification failed. "
+               "2: the record could not be read.")
+    ap.add_argument("record", help="path to a registry record JSON file, or - for stdin")
+    args = ap.parse_args(argv)
+    source = args.record
     try:
         text = sys.stdin.read() if source == "-" else open(source, encoding="utf-8").read()
         record = json.loads(text)

@@ -93,15 +93,19 @@ Works in single-run and multi-trial modes.
 Quick 5-test scan with A-F grading:
 
 ```bash
-python scripts/free_scan.py --url http://server:port/mcp --format markdown
+python -m scripts.free_scan --url http://server:port/mcp --format markdown
 ```
+
+`python -m scripts.free_scan` works from an installed package and from a
+checkout. `python scripts/free_scan.py` is a checkout-only spelling: a pip
+install has no `scripts/` directory in the working directory to point at.
 
 ---
 
 ## AIUC-1 Certification Prep
 
 ```bash
-python scripts/aiuc1_prep.py --url http://your-agent --simulate
+python -m scripts.aiuc1_prep --url http://your-agent --simulate
 ```
 
 Maps results to all 24 AIUC-1 requirements with gap analysis.

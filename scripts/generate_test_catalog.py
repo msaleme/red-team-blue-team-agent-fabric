@@ -11,10 +11,17 @@ Extraction constants are imported from scripts/count_tests.py rather than
 redefined here, so catalog membership and the canonical count are derived from
 one set of patterns and cannot disagree.
 
+Checkout-only resources: `HARNESS_TEST_CATALOG.md` and
+`benchmarks/decision_behavior_corpus.py` are not shipped in the wheel. Writing
+or checking the catalog therefore needs a clone; from an installed package the
+command prints one line naming the missing resource and exits 2, rather than
+producing an empty catalog or a confident FAIL about drift that was really an
+absence (fourth external review, R4-15).
+
 Usage:
-    python scripts/generate_test_catalog.py                 # write the catalog
-    python scripts/generate_test_catalog.py --check         # verify, exit 1 on drift
-    python scripts/generate_test_catalog.py --out PATH      # write elsewhere
+    python -m scripts.generate_test_catalog                 # write the catalog
+    python -m scripts.generate_test_catalog --check         # verify, exit 1 on drift
+    python -m scripts.generate_test_catalog --out PATH      # write elsewhere
 """
 
 from __future__ import annotations
@@ -218,12 +225,24 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
     args = ap.parse_args()
 
+    # One line, exit 2, no traceback -- the same gate the other checkout-only
+    # scripts use. `--out PATH` is an explicit destination and is not gated;
+    # the DEFAULT destination and `--check` both live in the checkout.
+    if args.out == DEFAULT_OUT and not DEFAULT_OUT.parent.is_dir():
+        print(f"generate_test_catalog.py: checkout-only resource missing: "
+              f"HARNESS_TEST_CATALOG.md (expected at {DEFAULT_OUT}). The catalog "
+              f"and benchmarks/ are not shipped in the wheel; run from a clone or "
+              f"pass --out PATH.", file=sys.stderr)
+        return 2
+    if args.check and not args.out.exists():
+        print(f"generate_test_catalog.py: checkout-only resource missing: "
+              f"{args.out.name} (expected at {args.out}). There is nothing to check "
+              f"against; run from a clone.", file=sys.stderr)
+        return 2
+
     content, total, unnamed = build()
 
     if args.check:
-        if not args.out.exists():
-            print(f"FAIL: {args.out} does not exist", file=sys.stderr)
-            return 1
         current = args.out.read_text(encoding="utf-8")
 
         # Compare the WHOLE generated body, not just which IDs appear.

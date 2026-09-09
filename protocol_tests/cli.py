@@ -231,8 +231,34 @@ def _simulate_harness(harness_name: str, info: dict,
     except Exception:
         pass
 
-def _live_run_counts(ns: dict) -> dict:
-    """Three-state telemetry counts from a harness module namespace.
+#: The one reason a live event can give for carrying no counts. A fixed
+#: token, not free text: the payload is documented field by field in
+#: docs/PRIVACY.md and a free-text field is an undocumented one.
+COUNTS_UNAVAILABLE_REASON = "results_not_exposed_and_no_report_written"
+
+
+def _report_counts(report_path: str | None) -> dict | None:
+    """Three-state counts read back from a report the harness wrote, or None.
+
+    The rows are counted with the same `verdict_counts` the namespace path
+    uses, so a written report and an in-memory result list can only give one
+    answer for one run."""
+    if not report_path:
+        return None
+    try:
+        with open(report_path, encoding="utf-8") as fh:
+            report = _json.load(fh)
+    except (OSError, ValueError):
+        return None
+    rows = report.get("results") if isinstance(report, dict) else None
+    if not isinstance(rows, list) or not rows:
+        return None
+    from protocol_tests.telemetry import verdict_counts
+    return verdict_counts(rows)
+
+
+def _live_run_counts(ns: dict, report_path: str | None = None) -> dict:
+    """Three-state telemetry counts for a live run, or an explicit absence.
 
     Reads the same names the inline version read (`_results`, `results`,
     `test_results`, then a unittest-style `_test_result` / `test_result`) and
@@ -243,18 +269,29 @@ def _live_run_counts(ns: dict) -> dict:
     scored every skipped test as a pass. Here `skipped` is INCONCLUSIVE and
     `passed` is what is left after both, so the four counts always sum.
 
-    Known limit, not fixed here: every harness `main()` ends in `sys.exit()`,
-    `SystemExit` carries no namespace, and results live on a harness instance
-    rather than at module level, so in practice `ns` is `{}` and the live
-    event reports 0/0/0/0. That is an empty claim, not a false one; the false
-    one was the simulated path.
+    Every harness `main()` ends in `sys.exit()`, `SystemExit` carries no
+    namespace, and results live on a harness instance rather than at module
+    level, so in practice `ns` is `{}`. Until 2026-09-08 that case returned
+    0/0/0/0: an installed AP2 run whose report held 17 rows sent
+    `tests:0, passed:0, failed:0, inconclusive:0` (fourth external review,
+    R4-12). Zero observations and unavailable counts are different states,
+    and an event about a known non-empty run must not publish measured-looking
+    zeros. So, in order:
+
+    1. results in the namespace -- counted;
+    2. a unittest result in the namespace -- counted;
+    3. a report the harness wrote to `report_path` -- its rows counted, which
+       is real data the CLI already has;
+    4. otherwise `counts_available: False` with a fixed `reason`, and NO
+       count fields. The sender omits them rather than sending null, so a
+       consumer summing `tests` across events cannot read absence as zero.
     """
     from protocol_tests.telemetry import verdict_counts
 
     for key in ("_results", "results", "test_results"):
         result_list = ns.get(key)
         if isinstance(result_list, (list, tuple)) and result_list:
-            return verdict_counts(result_list)
+            return {**verdict_counts(result_list), "counts_available": True}
 
     for key in ("_test_result", "test_result"):
         tr = ns.get(key)
@@ -264,9 +301,13 @@ def _live_run_counts(ns: dict) -> dict:
             inconclusive = len(getattr(tr, "skipped", []))
             passed = max(tests - failed - inconclusive, 0)
             return {"tests": tests, "passed": passed, "failed": failed,
-                    "inconclusive": inconclusive}
+                    "inconclusive": inconclusive, "counts_available": True}
 
-    return {"tests": 0, "passed": 0, "failed": 0, "inconclusive": 0}
+    from_report = _report_counts(report_path)
+    if from_report is not None:
+        return {**from_report, "counts_available": True}
+
+    return {"counts_available": False, "reason": COUNTS_UNAVAILABLE_REASON}
 
 HARNESSES = {
     "mcp": {
@@ -826,11 +867,15 @@ def main():
             ns = getattr(exc, "_ns", None) or {}
 
         # Send anonymous telemetry after harness completes (#112).
-        # Extract actual test counts from the harness namespace if available.
-        # Harnesses typically store results in _results, results, or similar.
+        # Extract actual test counts from the harness namespace if available;
+        # failing that, from the report the harness wrote (`--report PATH`, or
+        # the throwaway one --html asked for). With neither, the event says
+        # the counts are unavailable rather than zero (R4-12).
         try:
             from protocol_tests.telemetry import send_telemetry_event
-            send_telemetry_event(module=harness_name, **_live_run_counts(ns))
+            send_telemetry_event(
+                module=harness_name,
+                **_live_run_counts(ns, report_path=_report_path_from(filtered_args)))
         except Exception:
             pass  # Telemetry must never break the CLI
 
