@@ -20,6 +20,23 @@ Usage:
     # List discovered patterns
     python -m protocol_tests.community_runner --list
 
+Capability gating and outbound bounds (R5-05, R5-06)
+---------------------------------------------------
+The live adapter reaching a target is not the same event as the target
+exercising the capability an assertion is about. An HTTP 403, 404, 500 or 503
+carries ``_status``, no ``_exception`` and an empty body, so "the synthetic
+token is absent" was true of an empty error envelope and reported PASS.
+Assertions are therefore gated on the response surface they need
+(``ASSERTION_SURFACE``): content assertions require an answer that carried an
+application result, and get INCONCLUSIVE naming the missing surface when none
+did. Assertions about the answer itself keep working on a non-2xx, so an
+x402/L402 402 still reads as the protocol answering.
+
+The outbound path is bounded three ways: redirects are refused and the origin
+is pinned to ``--url``, at most MAX_RESPONSE_BYTES are read before any JSON
+decoding, and the remaining pattern budget is passed into the transport as a
+real deadline instead of being checked after the fact.
+
 Regex evaluation bound (R3-07)
 ------------------------------
 ``field_matches`` assertions carry an attacker-controlled regular expression:
@@ -50,7 +67,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX, http_post_json, is_inconclusive
+from protocol_tests.http_helpers import (
+    DEFAULT_MAX_RESPONSE_BYTES,
+    INCONCLUSIVE_PREFIX,
+    http_post_json_bounded,
+    is_inconclusive,
+)
 
 try:
     import yaml
@@ -80,6 +102,51 @@ REGEX_BUDGET_EXCEEDED = "pattern evaluation exceeded budget"
 MAX_ATTACK_STEPS = 20  # Max number of attack steps per pattern
 MAX_ASSERTIONS = 50  # Max number of assertions per pattern (R4-14)
 PATTERN_BUDGET_EXCEEDED = "pattern execution exceeded budget"
+
+# Outbound bounds for the live adapter (R5-06). A plugin cannot widen any of
+# them: they are the runner's, not the pattern's.
+#: Bytes of response body read before any JSON decoding. Over the cap the
+#: answer is discarded and the assertions that needed it are INCONCLUSIVE --
+#: never a crash and never a PASS off a body nobody parsed.
+MAX_RESPONSE_BYTES = DEFAULT_MAX_RESPONSE_BYTES  # 1 MiB
+#: Redirects are refused, not followed, and the answering origin is pinned to
+#: the operator's ``--url``. A target that answers 302 does not get to move the
+#: exchange to another host, port or path and have the final answer counted.
+FOLLOW_REDIRECTS = False
+NO_APP_RESULT = "no usable application result"
+RESPONSE_CAP_EXCEEDED = "response exceeded the response-size cap"
+REDIRECT_REFUSED = "redirect not followed"
+ORIGIN_MISMATCH = "answer came from a different origin"
+DEADLINE_PASSED = "pattern deadline passed before the request was sent"
+
+#: What each assertion needs before its verdict means anything about a target.
+#:
+#: ``SURFACE_ANSWER`` -- any HTTP answer will do, because the assertion is
+#: *about* the answer's status. A non-2xx is a real answer there: an x402/L402
+#: 402 is the protocol working, and collapsing it into failure would invert
+#: those flows (CLAUDE.md item 8).
+#:
+#: ``SURFACE_APP_RESULT`` -- the assertion reads content, so it needs content
+#: the application actually produced. An error envelope has ``_status`` and an
+#: empty ``response``; "the token is not in it" is true of every empty body
+#: and says nothing about the control (R5-05).
+SURFACE_ANSWER = "transport answer"
+SURFACE_APP_RESULT = "application result"
+
+#: Every assertion type is listed. An unlisted one falls back to the stricter
+#: surface; testing/test_community_capability_gating.py fails if the map and
+#: VALID_ASSERTION_TYPES drift apart, so a new assertion type has to be placed.
+ASSERTION_SURFACE = {
+    "status_code_equals": SURFACE_ANSWER,
+    "error_returned": SURFACE_ANSWER,
+    "response_must_contain": SURFACE_APP_RESULT,
+    "response_must_not_contain": SURFACE_APP_RESULT,
+    "role_boundary_held": SURFACE_APP_RESULT,
+    "no_data_exfiltration": SURFACE_APP_RESULT,
+    "tool_not_executed": SURFACE_APP_RESULT,
+    "field_equals": SURFACE_APP_RESULT,
+    "field_matches": SURFACE_APP_RESULT,
+}
 
 #: Frameworks for which a live adapter exists. The adapter speaks JSON-RPC 2.0
 #: over HTTP POST to ``--url``: MCP and A2A are JSON-RPC protocols and
@@ -164,6 +231,10 @@ class PatternResult:
     # Zero answered means no assertion can be evaluated (R4-07).
     requests_sent: int = 0
     requests_answered: int = 0
+    # How many answers carried a usable application result. answered counts
+    # sockets; this counts the capability an assertion is about. Zero here with
+    # a non-zero requests_answered is the error-envelope case (R5-05).
+    requests_with_result: int = 0
 
     def __post_init__(self):
         if not self.timestamp:
@@ -572,21 +643,109 @@ class HttpJsonRpcAdapter:
     opened a socket and an absence assertion passed against a target that
     was never reached (R4-07, fourth external review, 2026-09-08).
 
-    Every call returns the namespaced dict ``http_post_json`` produces:
-    ``_status`` when the target answered (any HTTP status is an answer),
-    ``_exception`` when it did not.
+    Every call returns the namespaced dict ``http_post_json_bounded``
+    produces: ``_status`` when the target answered (any HTTP status is an
+    answer), ``_exception`` when it did not.
+
+    Three bounds sit on the outbound path (R5-06, fifth external review,
+    2026-09-09), because a plugin's payload is untrusted and the operator's
+    endpoint is not necessarily well behaved:
+
+    * redirects are refused and the answering origin is pinned to ``--url``;
+    * at most MAX_RESPONSE_BYTES are read, before any JSON decoding;
+    * ``set_deadline`` hands the remaining pattern budget to the transport, so
+      a server that keeps making progress cannot outlive it.
+
+    ``answered`` and ``usable_result`` are two different questions and this
+    class answers both separately (R5-05). A socket exchange that completed is
+    not an exercise of the application capability an assertion is about.
     """
 
-    def __init__(self, url: str, timeout_s: int = 15):
+    def __init__(self, url: str, timeout_s: int = 15,
+                 max_response_bytes: int = MAX_RESPONSE_BYTES):
         self.url = url
         self.timeout_s = timeout_s
+        self.max_response_bytes = max_response_bytes
+        self._deadline: float | None = None
+
+    def set_deadline(self, deadline: float | None) -> None:
+        """Pin a ``time.monotonic()`` instant this adapter's calls must not outlive.
+
+        A separate method rather than an argument to ``send_jsonrpc`` so that
+        subclasses overriding ``send_jsonrpc(self, message)`` -- the spy in
+        testing/test_community_live_adapter.py is one -- keep working and
+        still inherit the bound through ``super()``.
+        """
+        self._deadline = deadline
+
+    def _remaining(self) -> float | None:
+        if self._deadline is None:
+            return None
+        return self._deadline - time.monotonic()
 
     def send_jsonrpc(self, message: dict) -> dict:
-        return http_post_json(self.url, message, timeout=self.timeout_s)
+        remaining = self._remaining()
+        if remaining is not None and remaining <= 0:
+            # Nothing was put on the wire, so this is not a request sent.
+            return {"_error": True, "_not_sent": True, "response": {},
+                    "_exception": DEADLINE_PASSED}
+        timeout = self.timeout_s if remaining is None else min(self.timeout_s, remaining)
+        return http_post_json_bounded(
+            self.url, message, timeout=timeout,
+            max_bytes=self.max_response_bytes,
+            deadline=self._deadline,
+            follow_redirects=FOLLOW_REDIRECTS,
+        )
 
     @staticmethod
     def answered(resp: dict) -> bool:
+        """True when the transport completed an exchange -- nothing more.
+
+        Any HTTP status is an answer, including a 402: that is the payment
+        protocol working, not a failure. What an answer does *not* establish
+        is that the application produced a result; see ``usable_result``.
+        """
         return isinstance(resp, dict) and "_status" in resp and "_exception" not in resp
+
+    @staticmethod
+    def usable_result(resp: dict) -> tuple[bool, str]:
+        """Did the application produce a result an assertion can read?
+
+        Returns ``(usable, why_not)``. ``why_not`` names the missing surface
+        so an INCONCLUSIVE detail can say what was absent rather than only
+        that something was.
+
+        This is the R5-05 gate. ``answered`` was doing this job and could not:
+        an HTTP 403/404/500/503 carries ``_status``, no ``_exception``, and an
+        empty ``response``, so an assertion that a synthetic token is *absent*
+        passed by finding nothing in an empty error body.
+        """
+        if not isinstance(resp, dict):
+            return False, "the adapter returned no response object"
+        if "_exception" in resp:
+            return False, f"the target did not answer ({resp['_exception']})"
+        status = resp.get("_status")
+        if status is None:
+            return False, "the answer carried no HTTP status"
+        if resp.get("_redirect_refused"):
+            return False, (f"HTTP {status}: {REDIRECT_REFUSED} "
+                           f"(Location: {resp.get('_redirect_location') or 'unset'})")
+        if resp.get("_origin_mismatch"):
+            return False, (f"HTTP {status}: {ORIGIN_MISMATCH} "
+                           f"({resp.get('_final_origin')} != {resp.get('_expected_origin')})")
+        if resp.get("_truncated"):
+            return False, (f"HTTP {status}: {RESPONSE_CAP_EXCEEDED} "
+                           f"({resp.get('_max_bytes')} bytes); the body was never decoded")
+        try:
+            code = int(status)
+        except (TypeError, ValueError):
+            return False, f"the answer carried an unreadable HTTP status ({status!r})"
+        if not 200 <= code < 300:
+            return False, f"HTTP {code}: an error envelope, not an application result"
+        payload = resp.get("response")
+        if not isinstance(payload, (dict, list)) or len(payload) == 0:
+            return False, f"HTTP {code}: the answer carried no application result body"
+        return True, ""
 
 
 def bind_adapter(framework: str, target_url: str):
@@ -612,7 +771,8 @@ class StepExecutor:
     """
 
     def __init__(self, pattern: AttackPattern, target_url: str = "",
-                 verbose: bool = False, adapter=None):
+                 verbose: bool = False, adapter=None,
+                 deadline: float | None = None):
         self.pattern = pattern
         self.target_url = target_url
         self.verbose = verbose
@@ -622,27 +782,57 @@ class StepExecutor:
             pattern.framework, target_url)
         self.requests_sent = 0
         self.requests_answered = 0
+        #: Answers that carried an application result an assertion can read.
+        #: ``requests_answered`` counts sockets; this counts capabilities.
+        self.requests_with_result = 0
+        #: Why each answer was not a usable result, in order, for the detail.
+        self.no_result_reasons: list[str] = []
+        #: ``time.monotonic()`` instant the whole pattern must not outlive.
+        self.deadline = deadline
 
     def _live(self, target: str, message: dict, extra: dict) -> dict:
-        """Send *message* through the adapter and record whether it was answered."""
+        """Send *message* through the adapter and record what came back.
+
+        Three counters, not one: sent, answered (a socket exchange completed),
+        and answered *with a usable application result*. The third is what an
+        assertion about the target's behaviour needs (R5-05).
+        """
         if self.adapter is None:
             return {"status": "not_sent", "target": target,
                     "reason": NO_ADAPTER_DETAIL, **extra}
-        self.requests_sent += 1
+        # Hand the remaining pattern budget to the transport so the deadline is
+        # a cancellation, not a post-hoc overrun check (R5-06).
+        set_deadline = getattr(self.adapter, "set_deadline", None)
+        if set_deadline is not None:
+            set_deadline(self.deadline)
         resp = self.adapter.send_jsonrpc(message)
+        not_sent = isinstance(resp, dict) and resp.get("_not_sent")
+        if not not_sent:
+            self.requests_sent += 1
         answered = HttpJsonRpcAdapter.answered(resp)
+        usable, why_not = HttpJsonRpcAdapter.usable_result(resp)
         if answered:
             self.requests_answered += 1
+        if usable:
+            self.requests_with_result += 1
+        elif not not_sent:
+            self.no_result_reasons.append(why_not)
+        status_code = resp.get("_status") if isinstance(resp, dict) else None
         record = {
             "status": "sent" if answered else "unanswered",
             "target": target,
             "request_sent": message,
             "response": resp.get("response") if isinstance(resp, dict) else None,
-            "http_status": resp.get("_status") if isinstance(resp, dict) else None,
+            "http_status": status_code,
+            # The assertion vocabulary calls it status_code; the transport
+            # calls it _status. Recording both is why status_code_equals can
+            # see a live answer at all.
+            "status_code": status_code,
+            "application_result": usable,
             **extra,
         }
-        if not answered:
-            record["error"] = resp.get("_exception", "no answer") if isinstance(resp, dict) else "no answer"
+        if not usable:
+            record["error"] = why_not
         return record
 
     def execute_step(self, step: dict) -> dict:
@@ -813,12 +1003,31 @@ class AssertionEvaluator:
         return False, f"Required value '{required}' not found in {field_name}"
 
     def _check_status_code_equals(self, assertion: dict) -> tuple[bool, str]:
+        """Compare the answered HTTP status.
+
+        Reads ``status_code`` or ``http_status``: the live step record writes
+        both, and before R5-05 it wrote only the latter, so this assertion
+        could never match a live answer and reported "not found" -- a FAIL
+        manufactured from a key name. With no status anywhere there is nothing
+        to compare and the honest verdict is INCONCLUSIVE, not FAIL.
+        """
         expected = assertion.get("value")
+        seen: list[int] = []
         for resp in self.responses:
-            code = resp.get("status_code")
-            if code is not None and int(code) == int(expected):
+            code = resp.get("status_code", resp.get("http_status"))
+            if code is None:
+                continue
+            try:
+                code = int(code)
+            except (TypeError, ValueError):
+                continue
+            seen.append(code)
+            if code == int(expected):
                 return True, f"Status code {expected} matched"
-        return False, f"Expected status code {expected} not found"
+        if not seen:
+            return False, (f"{INCONCLUSIVE_PREFIX}no step recorded an HTTP status, "
+                           f"so status {expected} could not be compared")
+        return False, f"Expected status code {expected} not found (saw {seen})"
 
     def _check_role_boundary_held(self, assertion: dict) -> tuple[bool, str]:
         expected_role = assertion.get("expected_role", "")
@@ -985,6 +1194,7 @@ def _budget_result(pattern: AttackPattern, elapsed: float, where: str,
         not_evaluated=True,
         requests_sent=executor.requests_sent if executor else 0,
         requests_answered=executor.requests_answered if executor else 0,
+        requests_with_result=executor.requests_with_result if executor else 0,
     )
 
 
@@ -1012,7 +1222,16 @@ def run_pattern(
       not contacted``.
     * adapter bound but the target answered none of the requests sent (or no
       step contacts the target at all): every assertion is INCONCLUSIVE.
+    * the transport answered but no answer carried an application result --
+      an HTTP error envelope, a refused redirect, an over-cap body: every
+      content assertion is INCONCLUSIVE with a detail naming what was
+      missing. Assertions about the answer itself (``status_code_equals``,
+      ``error_returned``) are still evaluated, so a 402 keeps its protocol
+      meaning (R5-05).
     * otherwise the assertions are evaluated against what the target said.
+
+    The pattern deadline is also handed to the transport (R5-06), so a slow
+    target is cancelled at the budget rather than detected after it.
     """
     start_time = time.monotonic()
 
@@ -1020,7 +1239,9 @@ def run_pattern(
         elapsed = time.monotonic() - start_time
         return elapsed if elapsed > MAX_PATTERN_EXECUTION_TIMEOUT_S else None
 
-    executor = StepExecutor(pattern, target_url=target_url, verbose=verbose, adapter=adapter)
+    executor = StepExecutor(pattern, target_url=target_url, verbose=verbose,
+                            adapter=adapter,
+                            deadline=start_time + MAX_PATTERN_EXECUTION_TIMEOUT_S)
 
     # Execute attack steps
     if verbose:
@@ -1074,6 +1295,19 @@ def run_pattern(
         unevaluable = (f"the target answered none of {executor.requests_sent} "
                        f"request(s); nothing to evaluate")
 
+    # The target answered, but did it produce anything an assertion can read?
+    # A 403/404/500/503 has a status, no exception and an empty body, so
+    # "the token is absent" was true of nothing at all (R5-05). Assertions
+    # that are *about* the status (SURFACE_ANSWER) are still evaluable: a 402
+    # is the payment protocol answering, not a failure.
+    missing_surface: str | None = None
+    if unevaluable is None and executor.requests_with_result == 0:
+        why = "; ".join(executor.no_result_reasons) or "no reason recorded"
+        missing_surface = (
+            f"{NO_APP_RESULT}: the transport answered "
+            f"{executor.requests_answered} of {executor.requests_sent} "
+            f"request(s), none with a body the application produced [{why}]")
+
     # Evaluate assertions
     evaluator = AssertionEvaluator(evidence, executor.responses)
     assertions_passed = 0
@@ -1083,9 +1317,15 @@ def run_pattern(
 
     n_assertions = len(pattern.assertions)
     for i, assertion in enumerate(pattern.assertions):
+        atype = str(assertion.get("type", ""))
+        needs = ASSERTION_SURFACE.get(atype, SURFACE_APP_RESULT)
         if unevaluable is not None:
             passed = False
             detail = f"{INCONCLUSIVE_PREFIX}{unevaluable}"
+        elif missing_surface is not None and needs == SURFACE_APP_RESULT:
+            passed = False
+            detail = (f"{INCONCLUSIVE_PREFIX}{missing_surface}; "
+                      f"'{atype}' needs an {SURFACE_APP_RESULT}")
         else:
             passed, detail = evaluator.evaluate(assertion)
 
@@ -1140,6 +1380,7 @@ def run_pattern(
         assertions_inconclusive=assertions_inconclusive,
         requests_sent=executor.requests_sent,
         requests_answered=executor.requests_answered,
+        requests_with_result=executor.requests_with_result,
     )
 
     if verbose:

@@ -17,7 +17,9 @@ from functools import lru_cache
 
 import json
 import re
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 # ---------------------------------------------------------------------------
@@ -82,6 +84,159 @@ def http_post_json(url: str, body: dict, headers: dict | None = None,
         except Exception:
             pass
         return {"_error": True, "_status": e.code, "_body": body_text, "response": {}}
+    except Exception as e:
+        return {"_error": True, "_exception": str(e), "response": {}}
+
+
+#: Default byte cap for :func:`http_post_json_bounded` (1 MiB). ``resp.read()``
+#: with no argument is unbounded, and a 2,000-character ``_body`` excerpt bounds
+#: only the excerpt: the full body was still read and decoded (R5-06).
+DEFAULT_MAX_RESPONSE_BYTES = 1024 * 1024
+
+
+class _RefuseRedirects(urllib.request.HTTPRedirectHandler):
+    """Never follow a 3xx.
+
+    Returning ``None`` from ``redirect_request`` leaves the 3xx unhandled, so
+    urllib raises it as an ``HTTPError`` carrying the original status and the
+    ``Location`` header. The caller decides what a redirect means; the
+    transport does not silently answer from somewhere else.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+@lru_cache(maxsize=1)
+def _no_redirect_opener() -> urllib.request.OpenerDirector:
+    """An opener with the redirect handler replaced by :class:`_RefuseRedirects`."""
+    return urllib.request.build_opener(_RefuseRedirects)
+
+
+def request_origin(url: str) -> str:
+    """``scheme://host:port`` of *url*, lowercased -- the unit an origin pin compares."""
+    parts = urllib.parse.urlsplit(url)
+    return f"{parts.scheme}://{parts.netloc}".lower()
+
+
+def _read_capped(resp, max_bytes: int, deadline: float | None) -> tuple[bytes, bool, bool]:
+    """Read at most ``max_bytes + 1`` bytes from *resp*, stopping at *deadline*.
+
+    Returns ``(data, over_cap, deadline_hit)``. The one extra byte is what
+    proves the cap was passed; nothing is decoded here, so an oversized or
+    late body costs the caller a bounded read and no JSON parse.
+
+    *deadline* is a ``time.monotonic()`` instant. A per-socket timeout bounds
+    one ``recv``; it does not bound a server that keeps making progress, which
+    is why the loop re-checks the clock on every chunk.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    while total <= max_bytes:
+        if deadline is not None and time.monotonic() >= deadline:
+            return b"".join(chunks), False, True
+        want = min(65536, max_bytes + 1 - total)
+        try:
+            chunk = resp.read(want)
+        except TimeoutError:
+            return b"".join(chunks), False, True
+        if not chunk:
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+    return b"".join(chunks), total > max_bytes, False
+
+
+def http_post_json_bounded(
+    url: str,
+    body: dict,
+    headers: dict | None = None,
+    timeout: int | float = 30,
+    max_bytes: int = DEFAULT_MAX_RESPONSE_BYTES,
+    deadline: float | None = None,
+    follow_redirects: bool = False,
+) -> dict:
+    """POST *body* as JSON under a byte cap, an origin pin and a read deadline.
+
+    A separate function on purpose (R5-06, fifth external review, 2026-09-09):
+    :func:`http_post_json` follows redirects and reads without a bound, and
+    every existing caller depends on that behaviour unchanged. Only the
+    community plugin adapter -- which sends untrusted plugin payloads to an
+    operator-named URL -- needs these three bounds today.
+
+    Returns the same namespaced dict as :func:`http_post_json`, plus, when the
+    answer is not a usable application result, one of:
+
+    ``_redirect_refused`` / ``_redirect_location``
+        the target answered 3xx; it was not followed.
+    ``_origin_mismatch`` / ``_final_origin`` / ``_expected_origin``
+        the answer came from an origin other than the one addressed.
+    ``_truncated`` / ``_bytes_read`` / ``_max_bytes``
+        the body passed *max_bytes* before any JSON decoding.
+    ``_deadline_exceeded``
+        *deadline* (a ``time.monotonic`` instant) passed mid-read.
+    """
+    data = json.dumps(body).encode("utf-8")
+    hdrs = {
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/event-stream",
+        **(headers or {}),
+    }
+    req = urllib.request.Request(url, data=data, headers=hdrs, method="POST")
+    expected = request_origin(url)
+    opener = urllib.request.build_opener() if follow_redirects else _no_redirect_opener()
+    try:
+        with opener.open(req, timeout=timeout) as resp:
+            status = getattr(resp, "status", None)
+            final = request_origin(resp.geturl())
+            if final != expected:
+                return {"_error": True, "_status": status, "_origin_mismatch": True,
+                        "_final_origin": final, "_expected_origin": expected,
+                        "response": {}}
+            raw, over_cap, deadline_hit = _read_capped(resp, max_bytes, deadline)
+            if deadline_hit:
+                return {"_error": True, "_status": status, "_deadline_exceeded": True,
+                        "_exception": f"read deadline exceeded after {len(raw)} byte(s)",
+                        "response": {}}
+            if over_cap:
+                return {"_error": True, "_status": status, "_truncated": True,
+                        "_bytes_read": len(raw), "_max_bytes": max_bytes,
+                        "response": {}}
+            ct = resp.headers.get("Content-Type", "")
+            text = raw.decode("utf-8", "replace")
+            if "application/json" in ct:
+                try:
+                    server_data = json.loads(text) if text else {}
+                except json.JSONDecodeError as exc:
+                    return {"_error": True, "_status": status, "_undecodable": True,
+                            "_exception": f"response was not JSON: {exc}",
+                            "_body": text[:2000], "response": {}}
+                return {"_status": status, "_body": text[:2000], "response": server_data}
+            if "text/event-stream" in ct:
+                for line in reversed(text.strip().split("\n")):
+                    if line.startswith("data: "):
+                        try:
+                            return {"_status": status, "response": json.loads(line[6:])}
+                        except json.JSONDecodeError:
+                            break
+                return {"_raw_sse": text[:500], "_status": status, "response": {}}
+            return {"_raw": text[:500], "_status": status, "response": {}}
+    except urllib.error.HTTPError as e:
+        body_text = ""
+        try:
+            body_text = e.read(2048).decode("utf-8", "replace")[:500]
+        except Exception:
+            pass
+        out = {"_error": True, "_status": e.code, "_body": body_text, "response": {}}
+        if 300 <= e.code < 400 and not follow_redirects:
+            location = ""
+            try:
+                location = e.headers.get("Location", "") or ""
+            except Exception:
+                location = ""
+            out["_redirect_refused"] = True
+            out["_redirect_location"] = location
+        return out
     except Exception as e:
         return {"_error": True, "_exception": str(e), "response": {}}
 

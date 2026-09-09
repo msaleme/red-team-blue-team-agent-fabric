@@ -95,6 +95,68 @@ decision read, the value-only term scan, the recursive strip, the `tail` guard,
 the sweep's row read), each shown to fail the new tests and then restored. No
 test IDs were added or removed; the count stays at 623.
 
+### Fixed — an HTTP error envelope satisfied a community absence assertion, and the new outbound path had no bounds (R5-05 High, R5-06 Medium; fifth external review, 2026-09-09)
+
+**A completed socket exchange was read as an exercised capability (R5-05).**
+The fourth review's repair bound a real HTTP adapter into
+`community_runner.py`, so a `--url` run finally reached a target. The fifth
+review found the layer that exposed: `HttpJsonRpcAdapter.answered` was
+`isinstance(resp, dict) and "_status" in resp and "_exception" not in resp`,
+and an HTTP 403, 404, 500 or 503 carries exactly that plus an empty
+`response`. A plugin asserting that a synthetic token is *absent* passed by
+finding nothing in an empty error body — `passed: true`,
+`not_evaluated: false`, "one request answered". Reproduced on the untouched
+worktree with a hash-bound synthetic plugin against loopback servers
+answering each of the four statuses: four PASS rows, zero inconclusive.
+
+Assertions are now gated on the response surface they actually need
+(`ASSERTION_SURFACE`). `answered` still means only that the transport
+answered; the new `HttpJsonRpcAdapter.usable_result` asks the separate
+question of whether the application produced a body an assertion can read,
+and returns the reason when it did not. A content assertion with no usable
+result anywhere is INCONCLUSIVE with a detail naming what was missing
+(`no usable application result: the transport answered 1 of 1 request(s) …
+[HTTP 500: an error envelope, not an application result]`), never PASS. A
+non-2xx is not collapsed into failure: `status_code_equals` and
+`error_returned` are *about* the answer, so they are still evaluated, and a
+402 keeps its x402/L402 protocol meaning (CLAUDE.md item 8's exemption). The
+result row carries `requests_with_result` beside `requests_answered`, so
+"the socket answered" and "the application produced a result" are countable
+apart in the serialized record. Both controls run against real loopback
+servers: a usable body containing the token still FAILs, a usable body
+without it still PASSes.
+
+`status_code_equals` read `resp["status_code"]` while the live step record
+wrote `http_status`, so it could never match a live answer and reported a
+FAIL manufactured from a key name. It now reads either, and returns
+INCONCLUSIVE — not FAIL — when no step recorded a status at all.
+
+**Origin, size and deadline on the new outbound path (R5-06).** A plugin's
+own `target` was already ignored for routing, but when the operator's server
+answered 302, `urlopen` followed it: the call log showed a POST to the named
+loopback port and then a GET to a *different* port and path, whose answer was
+counted. Redirects are now refused and the answering origin is pinned to the
+operator's `--url`; a 3xx is reported as `redirect not followed` with its
+`Location` and is not a usable result. `resp.read()` was unbounded and
+accepted a 2,097,152-character JSON field; at most `MAX_RESPONSE_BYTES`
+(1 MiB) are now read *before* any JSON decoding, and an over-cap body is
+INCONCLUSIVE rather than a crash or a parse. The pattern deadline was a
+post-hoc overrun check — a 250 ms fixture under a 50 ms budget returned at
+251 ms and only then said INCONCLUSIVE; the remaining budget is now handed to
+the transport through `HttpJsonRpcAdapter.set_deadline`, the same run returns
+at ~53 ms, and the correct INCONCLUSIVE is preserved.
+
+The three bounds live in a new `http_helpers.http_post_json_bounded`, not in
+`http_post_json`: the existing helper follows redirects and reads without a
+bound, and every other caller depends on that unchanged.
+
+`testing/test_community_capability_gating.py` holds the truth table — four
+error statuses, an empty 200 body, a refused redirect, an over-cap body and a
+cancelled deadline are INCONCLUSIVE; the token-bearing body FAILs; the clean
+body PASSes — and each of the three gates was fault-injected to show its
+tests fail without it. No test IDs were added or removed; the count stays at
+623.
+
 ## [4.21.2] - 2026-09-08
 
 A patch release for the fourth external review, run against the published
