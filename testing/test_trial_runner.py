@@ -469,6 +469,124 @@ class TestTrialsPerTest:
         assert s["trials_per_test_uniform"] is True
 
 
+class TestDuplicateIdsWithinATrialAreNotExtraObservations:
+    """R5-08: two emissions of one test_id in one trial were counted as two trials.
+
+    Five trials returning two identical PASS rows with `test_id='QA'` reported
+    `trials_requested: 5`, `trials_completed: 5` -- and `trials_per_test: 10`,
+    `n_trials: 10`, `n_serviced: 10`, with a per-test Wilson lower bound of
+    0.7225 against the 0.5655 that five observations support. The aggregate
+    verdict was never wrong; the SAMPLE SIZE and the width of the interval were.
+    Rows were appended by id without asking whether that id had already been
+    seen in the same trial (fifth external review, 2026-09-09).
+
+    Repeated emissions are now consolidated into the one observation the trial
+    actually is, and the repetition is published rather than dropped.
+    """
+
+    @staticmethod
+    def _qa(*rows: _MockResult):
+        return _make_run_fn(list(rows))
+
+    def test_duplicate_rows_give_the_same_interval_as_unique_observations(self):
+        from protocol_tests.trial_runner import run_with_trials
+
+        unique = run_with_trials(
+            self._qa(_MockResult("QA", "qa", True)), trials=5)
+        duplicated = run_with_trials(
+            self._qa(_MockResult("QA", "qa", True),
+                     _MockResult("QA", "qa", True)), trials=5)
+
+        u = unique["statistical_summary"]["per_test"][0]
+        d = duplicated["statistical_summary"]["per_test"][0]
+        assert (d["n_trials"], d["n_serviced"], d["n_passed"]) == (5, 5, 5)
+        assert (d["n_trials"], d["n_serviced"]) == (u["n_trials"], u["n_serviced"])
+        assert (d["ci_95_lower"], d["ci_95_upper"]) == (u["ci_95_lower"], u["ci_95_upper"])
+        # The exact numbers the review reported, so a regression is legible.
+        assert d["ci_95_lower"] == 0.5655
+        assert duplicated["statistical_summary"]["trials_per_test"] == 5
+
+    def test_the_repetition_is_reported_and_not_silently_dropped(self):
+        from protocol_tests.trial_runner import run_with_trials
+
+        report = run_with_trials(
+            self._qa(_MockResult("QA", "qa", True),
+                     _MockResult("QA", "qa", True)), trials=5)
+        diagnostic = report["aggregation"]["duplicate_test_ids"]
+        assert len(diagnostic) == 1
+        entry = diagnostic[0]
+        assert entry["test_id"] == "QA"
+        assert entry["trials_with_repeated_emissions"] == 5
+        assert entry["emissions"] == 10
+        assert entry["extra_emissions_consolidated"] == 5
+        assert entry["states_per_trial"] == [["pass", "pass"]] * 5
+
+    def test_a_clean_run_reports_no_duplicates(self):
+        from protocol_tests.trial_runner import run_with_trials
+
+        report = run_with_trials(
+            self._qa(_MockResult("T-001", "One", True),
+                     _MockResult("T-002", "Two", True)), trials=3)
+        assert report["aggregation"]["duplicate_test_ids"] == []
+
+    def test_a_mixed_duplicate_still_fails(self):
+        """Consolidation must not become a way to lose a failure.
+
+        Within one trial the aggregation rule applies unchanged: a serviced
+        failure means the control gave way in that trial.
+        """
+        from protocol_tests.trial_runner import run_with_trials
+
+        report = run_with_trials(
+            self._qa(_MockResult("QA", "qa", True),
+                     _MockResult("QA", "qa", False)), trials=5)
+        assert report["summary"]["failed"] == 1
+        assert report["summary"]["passed"] == 0
+        per_test = report["statistical_summary"]["per_test"][0]
+        assert (per_test["n_trials"], per_test["n_serviced"]) == (5, 5)
+        assert per_test["n_passed"] == 0
+        assert per_test["per_trial_state"] == ["fail"] * 5
+        assert report["aggregation"]["duplicate_test_ids"][0]["emissions"] == 10
+
+    def test_a_duplicate_of_an_inconclusive_row_stays_inconclusive(self):
+        """Emitting an unserviced result twice does not establish it once."""
+        from protocol_tests.trial_runner import run_with_trials
+
+        report = run_with_trials(
+            self._qa(_inconclusive("QA", "qa"), _inconclusive("QA", "qa")), trials=4)
+        per_test = report["statistical_summary"]["per_test"][0]
+        assert per_test["n_trials"] == 4
+        assert per_test["n_inconclusive"] == 4
+        assert per_test["n_serviced"] == 0
+        assert per_test["pass_rate"] is None
+        assert report["summary"]["inconclusive"] == 1
+
+    def test_unidentified_rows_in_one_trial_are_not_duplicates_of_each_other(self):
+        """Two id-less rows are two tests that could not be matched, not one
+        test emitted twice. They already carry their position in the synthesised
+        id, and must not be folded together."""
+        from protocol_tests.trial_runner import run_with_trials
+
+        report = run_with_trials(
+            self._qa(_MockResult("", "One", True), _MockResult("", "Two", False)),
+            trials=2)
+        assert report["aggregation"]["unidentified_results"] == 4
+        assert report["aggregation"]["duplicate_test_ids"] == []
+        # Four separate entries: the synthesised id carries both the trial and
+        # the position, so nothing was matched across trials and nothing was
+        # folded within one. That is the pre-existing contract, and the
+        # consolidation must not quietly change it.
+        assert report["summary"]["total"] == 4
+
+    def test_the_report_says_what_one_observation_is(self):
+        from protocol_tests.trial_runner import OBSERVATION_UNIT, run_with_trials
+
+        agg = run_with_trials(
+            self._qa(_MockResult("T-001", "One", True)), trials=2)["aggregation"]
+        assert agg["observation_unit"] == OBSERVATION_UNIT == "one-trial-per-test-id"
+        assert "consolidated" in agg["observation_unit_description"].lower()
+
+
 class TestVersion:
     """Unit tests for protocol_tests.version (#88)."""
 

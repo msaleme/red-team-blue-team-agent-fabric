@@ -53,6 +53,23 @@ AGGREGATION_RULE_TEXT = (
     "control did not hold, and an unserviced trial establishes nothing."
 )
 
+#: Machine-readable name of what ONE observation is, published beside the
+#: aggregation rule so a reader of `n_trials` is not left to infer it.
+OBSERVATION_UNIT = "one-trial-per-test-id"
+
+OBSERVATION_UNIT_TEXT = (
+    "One observation is one TRIAL of one test_id. A suite that emits the same "
+    "test_id twice within a single trial has not observed that control twice: "
+    "the emissions are CONSOLIDATED into that trial's single observation -- any "
+    "serviced failure among them makes it a failure, by the same rule that "
+    "governs trials -- and the repetition is reported under "
+    "`aggregation.duplicate_test_ids` rather than counted. Counting two "
+    "emissions as two trials inflates the sample and narrows every interval "
+    "derived from it: five trials each emitting two identical PASS rows "
+    "reported `n_trials: 10` and a Wilson lower bound of 0.7225, where five "
+    "observations give 0.5655 (R5-08, fifth external review, 2026-09-09)."
+)
+
 
 def _field(result: Any, name: str, default: Any = None) -> Any:
     """Read *name* off a result that may be an object or a dict.
@@ -83,6 +100,25 @@ def _trial_state(result: Any) -> str:
     if inconclusive:
         return INCONCLUSIVE
     return PASS if bool(_field(result, "passed", False)) else FAIL
+
+
+def _consolidate_one_trial(emissions: list[tuple[str, Any, float]]) -> tuple[str, Any, float]:
+    """Fold one trial's repeated emissions of one test_id into one observation.
+
+    The state follows ``AGGREGATION_RULE``, one level down: a serviced failure
+    anywhere in the trial means the control gave way in that trial. A PASS is
+    only reported when the trial produced at least one serviced pass and no
+    failure. All-inconclusive stays inconclusive -- nothing was established, and
+    emitting it twice does not establish it.
+
+    The representative object is the emission that carries the resulting state,
+    so the evidence in ``results`` matches the verdict. Elapsed time is summed:
+    it is what that trial spent on that test, across however many rows it wrote.
+    """
+    states = [s for s, _, _ in emissions]
+    state = FAIL if FAIL in states else (PASS if PASS in states else INCONCLUSIVE)
+    obj = next(o for s, o, _ in emissions if s == state)
+    return (state, obj, sum(e for _, _, e in emissions))
 
 
 @dataclass
@@ -132,13 +168,26 @@ def run_with_trials(
     so ``len(report["results"]) == report["summary"]["total"]`` by construction.
     It used to be the final trial's list, which could disagree with the summary,
     silently fall back to an earlier trial's list, or be empty.
+
+    One trial of one test_id is ONE observation, whatever the suite emitted. See
+    ``OBSERVATION_UNIT_TEXT``: repeated emissions of the same id within a trial
+    are consolidated and reported under ``aggregation.duplicate_test_ids``, not
+    counted as further trials.
     """
-    # {test_id: [(state, result_obj, elapsed), ...]} in trial order
+    # {test_id: [(state, result_obj, elapsed), ...]} in trial order, ONE entry
+    # per trial per test_id. See `OBSERVATION_UNIT_TEXT`: a trial that emitted
+    # the same id twice contributes one observation, not two.
     per_test: dict[str, list[tuple[str, Any, float]]] = defaultdict(list)
     # Keep first-seen metadata per test_id
     meta: dict[str, dict[str, str]] = {}
     trial_errors: list[str] = []
     unidentified = 0
+    # {test_id: {"trials": n, "emissions": n, "states_per_trial": [[...], ...]}}
+    # for ids a trial emitted more than once. Kept and published rather than
+    # silently dropped: a suite writing one id twice per run is a defect in that
+    # suite, and consolidating it without saying so hides the defect instead of
+    # the inflated count.
+    duplicated: dict[str, dict[str, Any]] = {}
 
     for trial_idx in range(trials):
         print(f"\n{'#'*60}")
@@ -147,6 +196,12 @@ def run_with_trials(
         try:
             report = run_fn()
             results = report.get(report_key, [])
+            # This trial's emissions, grouped by id, in first-seen order. The
+            # grouping is per TRIAL: rows are no longer appended straight into
+            # `per_test`, because that counted a repeated id as another trial of
+            # the same test (R5-08).
+            emitted: dict[str, list[tuple[str, Any, float]]] = {}
+            order: list[str] = []
             for position, r in enumerate(results):
                 tid = _field(r, "test_id", None)
                 if not tid:
@@ -156,14 +211,28 @@ def run_with_trials(
                     # them failing, collapsed into a single entry that reported
                     # 2/3 and therefore PASSED. Each gets its own entry, and the
                     # count is published so the reader knows matching was not
-                    # possible -- rather than the total quietly shrinking.
+                    # possible -- rather than the total quietly shrinking. The
+                    # id carries the position, so two of them within one trial
+                    # are distinct and are not duplicates of each other.
                     tid = f"unidentified-t{trial_idx + 1}-{position}"
                     unidentified += 1
                 elapsed = _field(r, "elapsed_s", 0.0) or 0.0
-                per_test[tid].append((_trial_state(r), r, float(elapsed)))
+                if tid not in emitted:
+                    emitted[tid] = []
+                    order.append(tid)
+                emitted[tid].append((_trial_state(r), r, float(elapsed)))
                 if tid not in meta:
                     name = _field(r, "name", None) or tid
                     meta[tid] = {"test_name": str(name)}
+            for tid in order:
+                emissions = emitted[tid]
+                if len(emissions) > 1:
+                    record = duplicated.setdefault(
+                        tid, {"trials": 0, "emissions": 0, "states_per_trial": []})
+                    record["trials"] += 1
+                    record["emissions"] += len(emissions)
+                    record["states_per_trial"].append([s for s, _, _ in emissions])
+                per_test[tid].append(_consolidate_one_trial(emissions))
         except Exception:
             msg = traceback.format_exc()
             trial_errors.append(f"Trial {trial_idx + 1}: {msg}")
@@ -242,6 +311,18 @@ def run_with_trials(
             "trials_completed": trials - len(trial_errors),
             "unstable_tests": unstable,
             "unidentified_results": unidentified,
+            "observation_unit": OBSERVATION_UNIT,
+            "observation_unit_description": OBSERVATION_UNIT_TEXT,
+            "duplicate_test_ids": [
+                {
+                    "test_id": tid,
+                    "trials_with_repeated_emissions": rec["trials"],
+                    "emissions": rec["emissions"],
+                    "extra_emissions_consolidated": rec["emissions"] - rec["trials"],
+                    "states_per_trial": rec["states_per_trial"],
+                }
+                for tid, rec in sorted(duplicated.items())
+            ],
             "results_are": ("one representative result per test_id -- the trial "
                             "that carries the verdict -- not the final trial's list"),
         },
@@ -268,6 +349,12 @@ def run_with_trials(
     if unidentified:
         print(f"{unidentified} result(s) carried no test_id and could not be "
               f"matched across trials; each is reported separately.")
+    if duplicated:
+        extra = sum(r["emissions"] - r["trials"] for r in duplicated.values())
+        print(f"{len(duplicated)} test id(s) were emitted more than once within a "
+              f"single trial; {extra} extra emission(s) were consolidated into the "
+              f"trial they belong to and are NOT counted as observations: "
+              f"{', '.join(sorted(duplicated))}")
     if trial_errors:
         print(f"{len(trial_errors)} of {trials} trial(s) raised; see trial_errors.")
 
