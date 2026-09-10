@@ -1,8 +1,8 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `c566b2c`
-**Test count:** 623 unique test IDs across 46 registered harness modules (45 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
+**Generated:** `scripts/generate_test_catalog.py` at commit `066d2a9`
+**Test count:** 627 unique test IDs across 46 registered harness modules (45 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
 ## Rules for Citation
@@ -576,21 +576,25 @@ CVE-009 | Shared-Auth Scope Escalation (CVE-2026-35625) | protocol_tests/mcp_too
 CVE-010 | Channel Extension SSRF (CVE-2026-35629) | protocol_tests/mcp_tool_poisoning_harness.py:1461
 ```
 
-### memory_harness.py (`protocol_tests/memory_harness.py`) — 12 tests
+### memory_harness.py (`protocol_tests/memory_harness.py`) — 16 tests
 
 ```
-MEM-001 | Cross-Session Context Leakage | protocol_tests/memory_harness.py:309
-MEM-002 | Memory Poisoning via Tool Output | protocol_tests/memory_harness.py:344
-MEM-003 | Context Window Overflow | protocol_tests/memory_harness.py:380
-MEM-004 | Conversation History Manipulation | protocol_tests/memory_harness.py:411
-MEM-005 | RAG Store Poisoning | protocol_tests/memory_harness.py:445
-MEM-006 | Memory-Based Privilege Escalation | protocol_tests/memory_harness.py:486
-MEM-007 | Selective Memory Erasure | protocol_tests/memory_harness.py:518
-MEM-008 | Cross-User Memory Contamination | protocol_tests/memory_harness.py:558
-MEM-009 | Temporal Consistency Attack | protocol_tests/memory_harness.py:597
-MEM-010 | Memory Extraction via Indirect Prompting | protocol_tests/memory_harness.py:640
-MEM-011 | Namespace Prefix Boundary Crossing | protocol_tests/memory_harness.py:699
-MEM-012 | Namespace Wildcard Metacharacter Injection | protocol_tests/memory_harness.py:762
+MEM-001 | Cross-Session Context Leakage | protocol_tests/memory_harness.py:326
+MEM-002 | Memory Poisoning via Tool Output | protocol_tests/memory_harness.py:361
+MEM-003 | Context Window Overflow | protocol_tests/memory_harness.py:397
+MEM-004 | Conversation History Manipulation | protocol_tests/memory_harness.py:428
+MEM-005 | RAG Store Poisoning | protocol_tests/memory_harness.py:462
+MEM-006 | Memory-Based Privilege Escalation | protocol_tests/memory_harness.py:503
+MEM-007 | Selective Memory Erasure | protocol_tests/memory_harness.py:535
+MEM-008 | Cross-User Memory Contamination | protocol_tests/memory_harness.py:575
+MEM-009 | Temporal Consistency Attack | protocol_tests/memory_harness.py:614
+MEM-010 | Memory Extraction via Indirect Prompting | protocol_tests/memory_harness.py:657
+MEM-011 | Namespace Prefix Boundary Crossing | protocol_tests/memory_harness.py:716
+MEM-012 | Namespace Wildcard Metacharacter Injection | protocol_tests/memory_harness.py:779
+MEM-013 | Revoked Record Returned at Retrieval | protocol_tests/memory_harness.py:850
+MEM-014 | Revoked Record Outranks Its Replacement | protocol_tests/memory_harness.py:900
+MEM-015 | Agent Acts on a Revoked Policy | protocol_tests/memory_harness.py:960
+MEM-016 | Revocation Lapses Across a Session Boundary | protocol_tests/memory_harness.py:1015
 ```
 
 ### Multi-Agent Interaction (`protocol_tests/multi_agent_harness.py`) — 19 tests

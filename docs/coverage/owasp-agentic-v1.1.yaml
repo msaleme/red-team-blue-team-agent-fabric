@@ -118,7 +118,21 @@ assessment:
       count, so a total left stale would fail rather than mislead. commit and assessed_at
       are deliberately unchanged from 1.1.
 
-  total_repository_tests: 623
+  - report: '1.6'
+    commit: 066d2a957d519c7921cde329416d15f938d0ed15
+    harness: 4.21.3
+    date: '2026-09-10'
+    change: Repository test total 623 -> 627 on the addition of MEM-013..MEM-016, the
+      memory revocation-enforcement family (arXiv:2609.08258, which reports that across
+      five agent-memory systems no system enforces revocation by default). No threat,
+      scenario or control verdict changed and no adjudication was redone. The four are
+      ASI07/ASI03 tests on surfaces this mapping already adjudicates and none is
+      enumerated in a scenario here, so unique_mapped_tests is unchanged at 96 -- this
+      mapping does not claim them. Recorded because r15_total compares the stated total
+      against a live count, so a total left stale would fail rather than mislead. commit
+      and assessed_at are deliberately unchanged from 1.1.
+
+  total_repository_tests: 627
   total_tests_command: python scripts/count_tests.py
   unique_mapped_tests: 96
   adjudicated_by: corpus author - NOT independent review

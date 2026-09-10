@@ -55,7 +55,7 @@ it is summed from, so the derivation is checkable without rerunning anything.
 | A2A | 13 | `a2a_harness.py` |
 | Payment protocols and settlement | 153 | `l402_harness.py`, `x402_harness.py`, `x402_fireblocks_harness.py`, `ap2_harness.py`, `ucp_acp_harness.py`, `card_token_harness.py`, `settlement_finality_harness.py` |
 | Platform and framework adapters | 98 | `cloud_agent_harness.py`, `enterprise_adapters.py`, `extended_enterprise_adapters.py`, `framework_adapters.py` |
-| **All modules, unique test IDs** | **623** | `scripts/count_tests.py` |
+| **All modules, unique test IDs** | **627** | `scripts/count_tests.py` |
 
 The four rows above overlap nothing and cover part of the suite; the remaining
 tests live in the identity, jailbreak, over-refusal, provenance, memory,
@@ -87,17 +87,17 @@ counting them as coverage was the overclaim an external review corrected on
 |---|---|---|
 | ASI01 | Agent Goal Hijack | 79 |
 | ASI02 | Tool Misuse and Exploitation | 87 |
-| ASI03 | Identity and Privilege Abuse | 136 |
+| ASI03 | Identity and Privilege Abuse | 137 |
 | ASI04 | Agentic Supply Chain Vulnerabilities | 65 |
 | ASI05 | Unexpected Code Execution (RCE) | 41 |
 | ASI06 | Memory & Context Poisoning | 33 |
-| ASI07 | Insecure Inter-Agent Communication | 29 |
+| ASI07 | Insecure Inter-Agent Communication | 32 |
 | ASI08 | Cascading Failures | 19 |
 | ASI09 | Human-Agent Trust Exploitation | 59 |
 | ASI10 | Rogue Agents | 13 |
 | — | No ASI primary (positive controls, content safety, robustness) | 52 |
 
-The table's rows sum to 613, not to the 623 unique test IDs above: 10 tests
+The table's rows sum to 617, not to the 627 unique test IDs above: 10 tests
 carry no ASI tag site at all and so are not in the corpus this table is a
 denominator for. Untagged is a third state, and folding it into "no primary"
 would report an unmade decision as a made one.
