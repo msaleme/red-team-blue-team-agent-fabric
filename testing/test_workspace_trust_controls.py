@@ -17,11 +17,16 @@ mirror of #357, where six identity tests could not fail for any input.
     inert        exits 0, ingests nothing, prints nothing        -> WT-001 INCONCLUSIVE
     broken       exits non-zero                                   -> WT-001 INCONCLUSIVE
 
-`inert` is the one that would otherwise be missed, and it is why every test in
-the family runs the command against a clean control repository first. A command
-that never ingests anything also never triggers the sink, so without that run it
-scores as "not vulnerable" -- X4-057's shape exactly: nothing accepted, nothing
-settled, nothing overdrawn, "the control held".
+`inert` is the one that would otherwise be missed, and it is why WT-001 runs the
+command against a clean control repository first. A command that never ingests
+anything also never triggers the sink, so without that run it scores as "not
+vulnerable" -- X4-057's shape exactly: nothing accepted, nothing settled,
+nothing overdrawn, "the control held".
+
+Note which test that is. WT-001 is the only member of the family that invokes
+the command under test at all; WT-002, WT-003 and WT-004 drive local git
+directly. The cases below therefore characterise WT-001, and the two that name
+other tests say so explicitly.
 
 ## WT-003 is the family's own negative control
 
@@ -141,6 +146,61 @@ class WorkspaceTrustControlTests(unittest.TestCase):
         r = _run(NAIVE, "test_wt_002_read_only_ingestion_still_executes")
         self.assertFalse(r.passed, f"WT-002 passed against a live sink: {r.details}")
         self.assertIn("status", r.details, "the failing operation is not named")
+
+
+class WhichTestsObserveTheTargetTests(unittest.TestCase):
+    """The family docstring must match which tests invoke the command under test.
+
+    Added 2026-09-10. The class docstring said "Every test runs the command
+    TWICE"; one test in four did. An external reader checking the claim against
+    the source found it, which is the only way that class of defect surfaces:
+    every test passed, both host sweeps agreed, and the suite was consistent
+    with itself throughout.
+
+    This derives the answer from the source instead of restating it, so adding
+    target invocation to another test fails here until the docstring is updated.
+    """
+
+    TARGET_CALLS = ("_run_against", "_invoke")
+
+    def _tests_that_invoke_the_target(self) -> set[str]:
+        import ast
+        src = (REPO_ROOT / "protocol_tests" / "workspace_trust_harness.py").read_text()
+        tree = ast.parse(src)
+        found = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_wt_"):
+                body = ast.dump(node)
+                if any(f"attr='{c}'" in body or f'attr="{c}"' in body
+                       for c in self.TARGET_CALLS):
+                    found.add(node.name)
+        return found
+
+    def test_only_wt_001_invokes_the_command_under_test(self):
+        self.assertEqual(
+            self._tests_that_invoke_the_target(),
+            {"test_wt_001_repository_supplied_config_executes"},
+            "the set of tests invoking the command under test has changed. Update "
+            "the WorkspaceTrustTests docstring table before changing this "
+            "assertion: a report that reads as four findings about a target when "
+            "only one observes it is the defect this guard exists for.")
+
+    def test_the_docstring_does_not_claim_every_test_invokes_it(self):
+        """The exact sentence that was wrong, kept out by name."""
+        from protocol_tests.workspace_trust_harness import WorkspaceTrustTests
+        doc = (WorkspaceTrustTests.__doc__ or "").lower()
+        self.assertNotIn(
+            "every test runs the command", doc,
+            "the corrected claim has regressed")
+        self.assertIn(
+            "wt-001", doc,
+            "the docstring must name which test observes the target")
+
+    def test_the_detector_can_fail(self):
+        """Anti-vacuity: a detector returning nothing would pass both tests above."""
+        self.assertTrue(
+            self._tests_that_invoke_the_target(),
+            "the derivation returned an empty set, so it is measuring nothing")
 
 
 if __name__ == "__main__":
