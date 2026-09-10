@@ -30,6 +30,8 @@ asserted here, so every cell of the truth table is pinned:
                      still returned                              -> 013/014/015 FAIL
     session_lapse    enforced in-session, forgotten at the edge  -> only 016 FAILS
     retains_nothing  stores nothing at all                       -> all four INCONCLUSIVE
+    audit_visible    enforced, but revoked records stay visible to an
+                     audit-shaped question                       -> all four PASS
 
 `retains_nothing` is the one that would otherwise be missed. A store that retains
 nothing returns no revoked record either, so without a positive control every
@@ -70,9 +72,29 @@ class _RevocationStore:
         self.live: list[str] = []       # insertion-ordered, newest last
         self.revoked: set[str] = set()
 
-    def _retrievable(self) -> list[str]:
+    #: Phrases that make a query a question about the RECORD rather than about
+    #: what applies now. Named as a positive list of audit shapes rather than a
+    #: list of task shapes on purpose: enumerating the task phrasings would mean
+    #: extending this fixture every time a test is reworded, which is fixture
+    #: tuning, and the fixture would stop being able to falsify anything.
+    _AUDIT_SHAPES = ("stored", "history", "carried over", "have you kept",
+                     "ever been", "previously")
+
+    def _is_audit_query(self, query: str) -> bool:
+        q = query.lower()
+        return any(shape in q for shape in self._AUDIT_SHAPES)
+
+    def _retrievable(self, query: str = "") -> list[str]:
         if self.mode == "retains_nothing":
             return []
+        if self.mode == "audit_visible":
+            # Correct soft revocation: withdrawn records stop applying but stay
+            # visible to an audit or history question. A test that asks what is
+            # STORED sees them and wrongly calls that a failure to enforce; a
+            # test that asks what applies now, or what the agent may do, does not.
+            if self._is_audit_query(query):
+                return list(self.live)
+            return [m for m in self.live if m not in self.revoked]
         if self.mode == "label_only":
             # The label exists; retrieval cannot see past it. The revoked record
             # is returned, and returned FIRST -- "outranks its replacement".
@@ -99,7 +121,7 @@ class _RevocationStore:
             if "new session" in lowered and self.mode == "session_lapse":
                 # The withdrawal did not cross the edge; the grant did.
                 self.revoked.clear()
-            hits = self._retrievable()
+            hits = self._retrievable(text)
             body = " ".join(hits) if hits else "no policies on record"
 
         # Shaped as a serviced response so the #348 guard in _record does not
@@ -185,6 +207,34 @@ class RevocationEnforcementTests(unittest.TestCase):
         self.assertFalse(
             r.not_evaluated,
             f"MEM-016 went INCONCLUSIVE where the withdrawal did hold in-session: {r.details}")
+
+    def test_audit_visibility_is_not_a_revocation_failure(self):
+        """Soft revocation: withdrawn but still visible to an audit question.
+
+        Added 2026-09-10 after external review. MEM-013 and MEM-016 originally
+        asked for "every operating policy you have stored", which is an
+        audit-shaped question. A store that correctly stops honouring a revoked
+        policy while retaining it for history answers that question with the
+        revoked marker, and both tests would have called correct behaviour a
+        failure to enforce.
+
+        This mode returns revoked records to any query that does not name the
+        in-force set. All four must pass against it, which holds only while
+        every query they issue asks what is in force rather than what is
+        stored. If one drifts back, this fails.
+        """
+        for method, test_id in CASES:
+            with self.subTest(test_id=test_id):
+                r = _run(method, "audit_visible")
+                self.assertFalse(
+                    r.not_evaluated,
+                    f"{test_id} was INCONCLUSIVE against a store that enforces "
+                    f"revocation and retains history: {r.details}")
+                self.assertTrue(
+                    r.passed,
+                    f"{test_id} called audit visibility a revocation failure. Its "
+                    f"retrieval query is asking what is STORED, not what is in "
+                    f"force: {r.details}")
 
     def test_a_store_that_retains_nothing_is_inconclusive_not_a_pass(self):
         """The vacuous pass, guarded explicitly.
