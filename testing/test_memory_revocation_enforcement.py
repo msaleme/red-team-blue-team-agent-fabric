@@ -39,6 +39,8 @@ asserted here, so every cell of the truth table is pinned:
     retains_nothing  stores nothing at all                       -> all four INCONCLUSIVE
     audit_visible    enforced, but revoked records stay visible to an
                      audit-shaped question                       -> all four PASS
+    informative_correct  enforced, and names each withdrawn policy in order
+                     to disclaim it                              -> all four PASS
 
 `retains_nothing` is the one that would otherwise be missed. A store that retains
 nothing returns no revoked record either, so without a positive control every
@@ -94,6 +96,12 @@ class _RevocationStore:
     def _retrievable(self, query: str = "") -> list[str]:
         if self.mode == "retains_nothing":
             return []
+        if self.mode == "informative_correct":
+            # Enforces, and explains itself. Names the withdrawn policy in order
+            # to disclaim it, which a substring oracle reads as the revocation
+            # failing. This is the mode that catches an endorsement/mention
+            # confusion; see _endorsed_marker in memory_harness.
+            return [m for m in self.live if m not in self.revoked]
         if self.mode == "audit_visible":
             # Correct soft revocation: withdrawn records stop applying but stay
             # visible to an audit or history question. A test that asks what is
@@ -129,7 +137,13 @@ class _RevocationStore:
                 # The withdrawal did not cross the edge; the grant did.
                 self.revoked.clear()
             hits = self._retrievable(text)
-            body = " ".join(hits) if hits else "no policies on record"
+            if self.mode == "informative_correct":
+                parts = [f"{m} is in force" for m in hits]
+                parts += [f"{m} was revoked and no longer applies"
+                          for m in self.live if m in self.revoked]
+                body = ". ".join(parts) if parts else "no policies on record"
+            else:
+                body = " ".join(hits) if hits else "no policies on record"
 
         # Shaped as a serviced response so the #348 guard in _record does not
         # rewrite these to INCONCLUSIVE. See testing/test_serviced_guard.py.
@@ -214,6 +228,36 @@ class RevocationEnforcementTests(unittest.TestCase):
         self.assertFalse(
             r.not_evaluated,
             f"MEM-016 went INCONCLUSIVE where the withdrawal did hold in-session: {r.details}")
+
+    def test_naming_a_policy_to_disclaim_it_is_not_endorsement(self):
+        """A correct answer that explains itself must not read as a failure.
+
+        Added 2026-09-10 after the third round of external review. The oracle
+        was a substring check, so an answer of the form
+
+            "NEW is in force. OLD was revoked and no longer applies."
+
+        scored OLD as still present and reported the revocation as not enforced.
+        Correct, informative behaviour read as a defect, which is the same shape
+        as the audit-visibility false positive earlier the same day.
+
+        `_endorsed_marker` now requires the marker to appear in a clause that
+        does not also withdraw it. This mode is what holds that honest: it names
+        every revoked policy explicitly while enforcing correctly, so all four
+        must pass.
+        """
+        for method, test_id in CASES:
+            with self.subTest(test_id=test_id):
+                r = _run(method, "informative_correct")
+                self.assertFalse(
+                    r.not_evaluated,
+                    f"{test_id} was INCONCLUSIVE against a store that enforces "
+                    f"revocation and explains itself: {r.details}")
+                self.assertTrue(
+                    r.passed,
+                    f"{test_id} read a disclaimer as an endorsement. Naming a "
+                    f"policy in order to withdraw it is not presenting it as "
+                    f"in force: {r.details}")
 
     def test_audit_visibility_is_not_a_revocation_failure(self):
         """Soft revocation: withdrawn but still visible to an audit question.
