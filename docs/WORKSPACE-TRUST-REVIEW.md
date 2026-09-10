@@ -77,20 +77,21 @@ machine running the harness. The three are still useful, and none is evidence ab
 The docstring claimed all four until `39fd4d2`. The adversarial read found it.
 
 (The line ranges in this table were wrong in a draft of this document, off by four, written from
-stale offsets rather than derived. They are generated from the AST now. Noted because a miscited
-range is exactly what this document asks you not to accept on trust.)
+stale offsets. They are correct at the pinned revision, which you can confirm by opening them. That
+they were derived rather than typed is my account of how, not a property the repository enforces.)
 
 ## 3. What the positive control actually establishes
 
 WT-001 runs your command against a clean fixture first. That run is treated as "ingested" when it
-**exits zero and writes something to stdout or stderr** (lines 189-194).
+**exits zero** (lines 193-195) **and writes something to stdout or stderr** (lines 196-198).
 
 That is weaker than "the command read the repository". A command that exits zero and prints
 anything, without opening the directory, satisfies it. The check exists to stop a non-ingesting
 command scoring as "not vulnerable"; it does not prove ingestion.
 
-The crafted invocation's return value is **not** checked. The verdict is computed from the clean
-control succeeding plus whether the canary file exists (lines 218-230).
+The crafted invocation's return value is **not** checked: `_run_against` calls `self._invoke(repo)`
+at **line 207** and discards what it returns. The verdict is computed from the clean control
+succeeding plus whether the canary file exists (lines 200-209).
 
 ## 4. Where it works, and the one path that leaves
 
@@ -98,12 +99,16 @@ control succeeding plus whether the canary file exists (lines 218-230).
 - `cleanup()`, **lines 379-380**: `shutil.rmtree(self._tmp, ignore_errors=True)`, called in a
   `finally`. `ignore_errors=True` means deletion is attempted, not verified. It says nothing about
   processes your command may have left running.
-- **`--report` leaves the temp directory twice.** Line 428 writes to the path you pass; a relative
-  path resolves against your working directory and `write_text` overwrites an existing file. And
-  line 418 calls `run_provenance()`, which runs further git subprocesses **against the harness
-  checkout, not the fixture** (`protocol_tests/run_provenance.py`, line 191): `rev-parse HEAD`,
-  `describe --tags --exact-match`, `status --porcelain`, and a version probe. Those calls carry
-  **no timeout**.
+- **`--report` adds two behaviours, neither confined to the temp directory by the harness.**
+  Line 428 writes to the path you pass. You choose it, so it may or may not sit outside the temp
+  root; a relative path resolves against your working directory and `write_text` overwrites an
+  existing file. Separately, line 418 calls `run_provenance()`, which runs git **against the harness
+  checkout rather than the fixture** (`run_provenance.py`, the repo root is selected at line 687,
+  the shared subprocess helper is line 191). The calls it *may* make, all without a timeout, are
+  `rev-parse HEAD` (line 643, skipped when `GITHUB_SHA` is set), `describe --tags --exact-match`
+  (line 654, skipped when `GITHUB_REF_NAME` is set), `status --porcelain --untracked-files=no`
+  (line 656), and a `--version` probe reached only on failure (line 645). Which of them run depends
+  on your environment.
 
 If `--report` is not passed, neither happens.
 
@@ -134,7 +139,9 @@ double-quoted shell string; treat it as the quoting that is there, not as a gene
 - **Line 291**, WT-003: `git clone -q <fixture> <temp path>`, both local.
 
 `_git` **inherits `os.environ`** (line 152) and overrides only identity and terminal prompting. It
-does not isolate your git configuration or hooks. Global and system git config apply.
+does not isolate your git configuration or hooks. What that establishes is the absence of isolation,
+not that global and system config invariably load: an inherited environment can itself alter or
+suppress normal config loading.
 
 Those are the direct subprocess calls in this file, plus §1 and the `run_provenance` path in §4.
 
@@ -153,18 +160,25 @@ What is checkable:
   that rather than accept it.
 - The `git clone` at line 291 clones a local path.
 
-Similarly, "no modification of your repositories or environment" is **not** claimed. The harness's
-own git calls are scoped to the temp directory, but your command is unrestricted and `run_provenance`
-reads the harness checkout.
+Similarly, "no modification of your repositories or environment" is **not** claimed. The `_git`
+helper's calls are scoped to the temp directory, but that is not all of this module's own logic:
+`run_provenance` reads the harness checkout (§4), and your command is unrestricted.
 
 ## 8. Controls
 
-`testing/test_workspace_trust_controls.py` pins WT-001 to FAIL against a naive ingester, PASS against
-one that sanitises, and INCONCLUSIVE against a command that ingests nothing or exits non-zero. It
-also derives from the AST which tests invoke the command and asserts the set is exactly `{WT-001}`.
+`testing/test_workspace_trust_controls.py` pins WT-001 against four target shapes defined at
+**lines 51-54**, asserted at **lines 70-117**: FAIL against a naive ingester, PASS against one that
+sanitises, and INCONCLUSIVE against `true` (silent, exits zero) and against `exit 3`.
 
-CI at merge: 8 checks, Python 3.10 through 3.13.
-PR: `https://github.com/msaleme/red-team-blue-team-agent-fabric/pull/569`
+Note the narrowness. Those are the two non-ingesting shapes tested. A command that produces output
+without reading the directory satisfies the control (§3) and is not covered by either.
+
+**Lines 151-203** derive from the AST which tests invoke the command and assert the set is exactly
+`{WT-001}`.
+
+CI: 8 checks including Python 3.10 through 3.13 on PR #569
+(`https://github.com/msaleme/red-team-blue-team-agent-fabric/pull/569`). That run predates the
+correction in `39fd4d2` and therefore does not establish that the AST guard above passed.
 
 ## 9. Statements about process, marked as unverifiable
 
@@ -193,7 +207,9 @@ know which line.
 
 ## Correction history
 
-Nine findings from the second-agent read of the first version, all incorporated:
+Nine correction-history entries from the second-agent read of the first version. Not a defect
+count: that read covered nine sections, some carrying several observations and some, like item 2,
+recording a claim that was already supported and was retained.
 
 1. INCONCLUSIVE generalised: only the clean control is checked; the crafted return is discarded (§3)
 2. Fixture confinement, correctly scoped in v1, retained
