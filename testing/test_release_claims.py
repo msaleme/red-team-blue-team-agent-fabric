@@ -106,6 +106,61 @@ class TestReleaseClaimsManifest(unittest.TestCase):
                     commit, r"^[0-9a-f]{40}$",
                     f"claim {claim['id']!r} pins a commit, so it must be a full 40-char SHA.")
 
+    def test_a_release_claim_names_the_version_the_tree_is_at(self):
+        """The manifest inside a tag must be about THAT tag.
+
+        Four consecutive releases shipped a manifest bound to their predecessor:
+
+            v4.21.0  pyproject 4.21.0  manifest v4.20.0   (and the previous VALUE, 611)
+            v4.21.1  pyproject 4.21.1  manifest v4.21.0
+            v4.21.2  pyproject 4.21.2  manifest v4.21.1
+            v4.21.3  pyproject 4.21.3  manifest v4.21.2
+
+        The cause is ordering, not carelessness. The release PR bumps the version, the
+        tag is cut at that commit, and a SEPARATE later PR rebinds the claim -- so the
+        tree the tag points at always names the release before it. `main` reconciles a
+        few minutes later, which is why nothing noticed: every check that runs on main
+        sees an agreeing pair.
+
+        This is not cosmetic. `docs/release-claims.json` states its purpose as binding
+        each release-facing fact to "the revision, command, and value that produced it",
+        and inside every release it was bound to the wrong revision. It also propagates:
+        an external nightly sentinel pinned at v4.21.3 was sent by this manifest to
+        regenerate a value at v4.21.2, a tag its shallow clone could not contain, and
+        reported the check as not reproduced (2026-09-10).
+
+        Asserting against `pyproject.toml` rather than against `git tag` is deliberate,
+        twice over. It needs no tag object, so it holds in the depth-1 clone CI uses.
+        And it fires in the RELEASE COMMIT ITSELF -- the moment the version bumps and
+        the manifest has not followed -- which is the only place the fix belongs. On any
+        other commit the two already agree and this is silent.
+
+        Rebind the claim in the release PR. See docs/RELEASING.md.
+        """
+        from protocol_tests.version import get_harness_version
+
+        want = f"v{get_harness_version()}"
+        release_claims = [c for c in self.manifest["claims"] if c.get("release_tag")]
+        self.assertTrue(release_claims, "no claim carries a release_tag")
+
+        for claim in release_claims:
+            with self.subTest(claim=claim["id"]):
+                self.assertEqual(
+                    claim["release_tag"], want,
+                    f"claim {claim['id']!r} is bound to {claim['release_tag']!r} but this "
+                    f"tree is version {want}. If this is the release PR, rebind the claim "
+                    f"here rather than in a follow-up -- a tag cut now would carry a "
+                    f"manifest about the previous release. See docs/RELEASING.md.")
+
+                # The prose is a surface too. v4.21.0 shipped a `fact` naming both the
+                # wrong tag and the wrong value, so agreeing on release_tag alone would
+                # have let half of that through.
+                self.assertIn(
+                    want, claim.get("fact", ""),
+                    f"claim {claim['id']!r} is bound to {want} but its `fact` reads "
+                    f"{claim.get('fact', '')!r}. The sentence a reader sees must name the "
+                    f"same release the claim is bound to.")
+
     def test_every_surface_states_the_manifest_value(self):
         """The check that would have caught 603 going stale."""
         from verify_release_claims import check_surfaces
