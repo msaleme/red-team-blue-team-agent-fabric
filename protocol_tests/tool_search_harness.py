@@ -53,6 +53,7 @@ from protocol_tests._utils import (
     jsonrpc_request,
 )
 from protocol_tests.http_helpers import (
+    console_status,
     INCONCLUSIVE_PREFIX,
     inconclusive_detail,
     is_inconclusive,
@@ -181,7 +182,7 @@ class ToolSearchTests:
             # A site that abstained by wording must not also report a pass.
             # Enforced here so a seventh test cannot set one without the other.
             result.passed = False
-        status = "PASS ✅" if result.passed else "FAIL ❌"
+        status = console_status(result)
         print(f"  {status}  {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
         self.results.append(result)
 

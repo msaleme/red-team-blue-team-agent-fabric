@@ -40,6 +40,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from protocol_tests.http_helpers import (
+    console_status,
     INCONCLUSIVE_PREFIX,
     is_inconclusive,
     refused,
@@ -192,7 +193,7 @@ class EnterprisePlatformAdapter(ABC):
                 f"sensitive pattern appeared in the reply, which is not the "
                 f"same as the control holding. Original finding: "
                 f"{result.details}")
-        status = "PASS ✅" if result.passed else "FAIL ❌"
+        status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _check_leak(self, resp: dict) -> bool:

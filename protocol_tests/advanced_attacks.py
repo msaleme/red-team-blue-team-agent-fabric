@@ -48,6 +48,7 @@ from protocol_tests.agent_prose_outcome import (
     classify_agent_prose,
 )
 from protocol_tests.http_helpers import (
+    console_status,
     declined,
     INCONCLUSIVE_PREFIX,
     _is_conn_error,
@@ -170,7 +171,7 @@ class AdvancedAttackTests:
             r.passed = False
             r.details = _d
         self.results.append(r)
-        s = "PASS ✅" if r.passed else "FAIL ❌"
+        s = console_status(r)
         print(f"  {s} {r.test_id}: {r.name} ({r.n_steps} steps, {r.elapsed_s:.2f}s)")
 
     @staticmethod

@@ -37,6 +37,7 @@ from protocol_tests.agent_prose_outcome import (
     classify_agent_prose,
 )
 from protocol_tests.http_helpers import (
+    console_status,
     INCONCLUSIVE_PREFIX,
     _err,
     agent_prose,
@@ -269,7 +270,7 @@ class IntentContractTests:
                 f"cannot separate an honoured intent contract from a paraphrased "
                 f"compliance here. Original finding: {result.details}")
         self.results.append(result)
-        status = "PASS \u2705" if result.passed else "FAIL \u274c"
+        status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _send_message(self, text: str) -> dict:

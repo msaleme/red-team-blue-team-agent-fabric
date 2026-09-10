@@ -44,6 +44,7 @@ from datetime import datetime, timezone
 
 from protocol_tests._utils import Severity, http_post_json
 from protocol_tests.http_helpers import (
+    console_status,
     INCONCLUSIVE_PREFIX,
     inconclusive_detail,
     is_inconclusive,
@@ -132,7 +133,7 @@ class BenchmarkIntegrityTests:
                 result.details = _u
                 result.not_evaluated = True
         self.results.append(result)
-        status = "PASS \u2705" if result.passed else "FAIL \u274c"
+        status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _target_grades(self) -> tuple[bool, str]:

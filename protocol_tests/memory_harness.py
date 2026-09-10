@@ -42,6 +42,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    console_status,
     is_inconclusive,
     INCONCLUSIVE_PREFIX,
     _err,
@@ -313,7 +314,7 @@ class MemoryTests:
                 f"boundary held is not observable from this reply. "
                 f"Original finding: {result.details}")
         self.results.append(result)
-        status = "PASS \u2705" if result.passed else "FAIL \u274c"
+        status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _send(self, text: str) -> dict:

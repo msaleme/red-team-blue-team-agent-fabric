@@ -49,6 +49,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse, urlunparse
 
 from protocol_tests.http_helpers import (
+    console_status,
     INCONCLUSIVE_PREFIX,
     is_inconclusive,
     refused,
@@ -217,7 +218,7 @@ class FrameworkAdapter(ABC):
                 f"same as the control holding. Original finding: "
                 f"{result.details}")
         self.results.append(result)
-        status = "PASS ✅" if result.passed else "FAIL ❌"
+        status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     @abstractmethod

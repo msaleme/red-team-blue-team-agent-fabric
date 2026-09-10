@@ -361,7 +361,69 @@ def _run_checkout_join_detector(directory: pathlib.Path) -> list[str]:
 #: pair here left that literal stale and the ratchet rejected the improvement.
 #: A register checked by a different instrument than the one that fills it is
 #: the defect this file exists to catch, one level up -- for the second time.
+# --------------------------------------------------------------------------
+# Detector — a console verdict computed from `passed` alone, where the result
+# carries `not_evaluated`. The INCONCLUSIVE row then prints as FAIL.
+# --------------------------------------------------------------------------
+
+_CONSOLE_VIOLATION = '''"""Prints a two-state verdict while carrying the third state."""
+from dataclasses import dataclass
+
+
+@dataclass
+class SeededTestResult:
+    test_id: str
+    name: str
+    passed: bool
+    not_evaluated: bool = False
+
+
+def report(result):
+    status = "PASS \u2705" if result.passed else "FAIL \u274c"
+    print(f"  {status} {result.test_id}: {result.name}")
+'''
+
+_CONSOLE_CONTROL = '''"""The correct form: the third state is its own branch."""
+from dataclasses import dataclass
+
+from protocol_tests.http_helpers import console_status
+
+
+@dataclass
+class SeededTestResult:
+    test_id: str
+    name: str
+    passed: bool
+    not_evaluated: bool = False
+
+
+def report(result):
+    status = console_status(result)
+    print(f"  {status} {result.test_id}: {result.name}")
+'''
+
+
+def _run_console_detector(directory: pathlib.Path) -> list[str]:
+    import test_console_reports_the_third_state as mod
+    offenders = []
+    for path in sorted(directory.glob("*.py")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        source = "\n".join(lines)
+        if "not_evaluated" not in source:
+            continue
+        for i, line in enumerate(lines):
+            if not any(form in line for form in mod.PASS_FORMS):
+                continue
+            if "not_evaluated" not in mod._status_statement(lines, i):
+                offenders.append(path.name)
+            break
+    return offenders
+
+
 DETECTORS = {
+    "console verdict missing the third state": (
+        _run_console_detector, _CONSOLE_VIOLATION, _CONSOLE_CONTROL,
+        "test_console_reports_the_third_state.py"),
     "raw refusal suppression": (
         _run_suppression_detector, _SUPPRESSION_VIOLATION, _SUPPRESSION_CONTROL,
         "test_no_duplicate_refusal_predicate.py"),

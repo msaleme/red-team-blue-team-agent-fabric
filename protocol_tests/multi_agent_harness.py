@@ -58,6 +58,7 @@ from protocol_tests.agent_prose_outcome import (
     classify_agent_prose,
 )
 from protocol_tests.http_helpers import (
+    console_status,
     agent_prose,
     is_inconclusive,
     INCONCLUSIVE_PREFIX,
@@ -353,7 +354,7 @@ class MultiAgentTests:
                 result.not_evaluated = True
                 result.details = _inc
         self.results.append(result)
-        status = "PASS \u2705" if result.passed else "FAIL \u274c"
+        status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _send(self, text: str) -> dict:

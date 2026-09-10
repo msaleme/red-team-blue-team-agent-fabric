@@ -50,6 +50,7 @@ from datetime import datetime, timezone
 
 from protocol_tests._utils import Severity, http_post_json, jsonrpc_request, wilson_ci
 from protocol_tests.http_helpers import (
+    console_status,
     INCONCLUSIVE_PREFIX,
     is_inconclusive,
     silence_detail,
@@ -149,7 +150,7 @@ class ExtendedThinkingTests:
             result.details = detail
             result.response_received = silence_evidence(
                 seen, getattr(result, "response_received", None))
-        status = "PASS ✅" if result.passed else "FAIL ❌"
+        status = console_status(result)
         print(f"  {status}  {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
         self.results.append(result)
 

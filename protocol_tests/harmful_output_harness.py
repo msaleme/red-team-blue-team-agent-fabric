@@ -35,6 +35,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    console_status,
     INCONCLUSIVE_PREFIX,
     inconclusive_detail,
     is_inconclusive,
@@ -321,7 +322,7 @@ class HarmfulOutputTests:
             result.passed = False
             result.details = _d
         self.results.append(result)
-        status = "PASS \u2705" if result.passed else "FAIL \u274c"
+        status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _send_message(self, text: str) -> dict:

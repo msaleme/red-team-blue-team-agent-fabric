@@ -43,6 +43,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from protocol_tests.http_helpers import (
+    console_status,
     is_inconclusive,
     looks_like_refusal,
     INCONCLUSIVE_PREFIX,
@@ -200,7 +201,7 @@ class IdentitySecurityTests:
             r.response_received = silence_evidence(
                 seen, getattr(r, "response_received", None))
         self.results.append(r)
-        s = "INFO ➖" if r.informational else ("PASS ✅" if r.passed else "FAIL ❌")
+        s = "INFO ➖" if r.informational else console_status(r)
         print(f"  {s} {r.test_id}: {r.name} ({r.elapsed_s:.2f}s)")
 
     # ------------------------------------------------------------------
