@@ -1,20 +1,46 @@
-# WT-001..004: what the code does, for someone deciding whether to run it
+# WT-001..004: what the code does, for someone deciding whether to read it
 
-This is a reading guide for `protocol_tests/workspace_trust_harness.py`. It exists because running
-this harness means letting it execute a command on your machine, and you should decide that from the
-source rather than from a description of it.
+A reading guide for `protocol_tests/workspace_trust_harness.py`. It exists because a reviewer asked
+for source, command semantics, fixture behaviour and provenance before deciding whether to review
+this at all, and no such document existed.
 
-**Every claim below cites a line range. Open them.** The point of this document is to shorten your
-search, not to replace it. Where a claim and the code disagree, the code is right and this document
-is wrong.
+**This document authorizes nothing.** It is not a request to install or execute the harness, not a
+safety assessment, and not an audit. It shortens a search. Where it and the code disagree, the code
+is right.
 
-All line numbers are at `a6d27d6` (PR #569, merged 2026-09-10).
+## Immutable provenance
+
+| | |
+|---|---|
+| Repository | `https://github.com/msaleme/red-team-blue-team-agent-fabric` |
+| Revision all citations are pinned to | `39fd4d297eda0f7be1280ef6df7d37fc4af8b054` |
+| Introduced in | PR #569, merged `a6d27d6` 2026-09-10 |
+| Docstring correction | `39fd4d2`, same day, after the adversarial read below |
+
+SHA-256 of the files cited, at that revision:
+
+```
+fcd309b8f0773dbecdb8d630e161f2086142961274bf85d8f9b12be28d407a19  protocol_tests/workspace_trust_harness.py
+1796dd42dd349b3421a3d704286b6f573b15cee1d9a267cc93d790bdc8878c48  testing/test_workspace_trust_controls.py
+1870c10ebd481fff684a8b0635ae0b66161e1af2375d05e871b7145c3d59c38f  protocol_tests/run_provenance.py
+```
+
+Line numbers below are valid at `39fd4d2` and nowhere else. `main` moves; check out the SHA.
+
+## Evidence class
+
+Author-written. **E1/I0.**
+
+A second agent read an earlier version of this document against the source and returned it with nine
+findings, which are corrected below and listed at the end. **That does not make this I1.** A
+different reader improves error detection; it does not make the description independent, and the
+reviewer said so themselves. Nothing here should be taken from me rather than from the source.
 
 ---
 
-## 1. It executes the command you give it, through a shell
+## 1. It executes the command you give it, through a shell, as you
 
-`_invoke`, **lines 145-163**:
+`_invoke`, **lines 176-194**:
 
 ```python
 cmd = self.command.replace("{repo}", str(repo))
@@ -22,27 +48,69 @@ proc = subprocess.run(cmd, shell=True, capture_output=True,
                       text=True, timeout=120, check=False)
 ```
 
-The string you pass to `--command` is run with `shell=True`, after `{repo}` is replaced with a path
-to a fixture repository the harness built. There is no allowlist, no parsing, and no sandbox. If you
-pass a command, that command runs, with your privileges, in your environment.
+The string passed to `--command` runs with `shell=True`, in your process context, with your
+privileges, inheriting this process's working directory and environment. There is no allowlist, no
+parsing, no sandbox and no `cwd` or `env` isolation.
 
-This is the whole mechanism of the harness: it characterises *your* ingesting command, so it has to
-run it. It is also the fact worth deciding on before anything else in this document.
+**Substitution is literal.** `{repo}` is replaced by `str(repo)` with no quoting added. The path is
+a `mkdtemp` path, so it is normally well behaved, but the harness does not guarantee that and does
+not escape it.
 
-Timeout is 120s. A non-zero exit or empty output is treated as "did not ingest" and produces
-INCONCLUSIVE rather than a verdict.
+**The 120s timeout bounds this one invocation.** It does not bound processes the command spawns, and
+it is not a bound on the run. §4 names a separate code path with no timeout at all.
 
-## 2. Where it works
+This is the whole mechanism: the harness characterises *your* ingesting command, so it must run it.
+It is the fact to decide on before anything else here.
 
-**Line 116**: `self._tmp = Path(tempfile.mkdtemp(prefix="wt-harness-"))`
+## 2. Only WT-001 invokes that command
 
-Every fixture repository it builds lives under that one directory.
+| Test | Lines | What it drives |
+|---|---|---|
+| `WT-001` | 213-232 | the command under test, via `_run_against` |
+| `WT-002` | 236-270 | local `git` directly, no invocation |
+| `WT-003` | 274-323 | local `git` directly, no invocation |
+| `WT-004` | 327-363 | local `git` directly, no invocation |
 
-## 3. What the fixture contains
+A run therefore yields **one** observation about your command and three about git's behaviour on the
+machine running the harness. The three are still useful, and none is evidence about your command.
 
-`_build_repo`, **lines 127-143**. For each fixture it creates a directory, writes a `README.md`,
-runs `git init` / `add` / `commit`, and then, only when a canary path is passed, appends this to the
-fixture's own `.git/config`:
+The docstring claimed all four until `39fd4d2`. The adversarial read found it.
+
+(The line ranges in this table were wrong in a draft of this document, off by four, written from
+stale offsets rather than derived. They are generated from the AST now. Noted because a miscited
+range is exactly what this document asks you not to accept on trust.)
+
+## 3. What the positive control actually establishes
+
+WT-001 runs your command against a clean fixture first. That run is treated as "ingested" when it
+**exits zero and writes something to stdout or stderr** (lines 189-194).
+
+That is weaker than "the command read the repository". A command that exits zero and prints
+anything, without opening the directory, satisfies it. The check exists to stop a non-ingesting
+command scoring as "not vulnerable"; it does not prove ingestion.
+
+The crafted invocation's return value is **not** checked. The verdict is computed from the clean
+control succeeding plus whether the canary file exists (lines 218-230).
+
+## 4. Where it works, and the one path that leaves
+
+- `mkdtemp(prefix="wt-harness-")`, **line 147**. Fixtures live under it.
+- `cleanup()`, **lines 379-380**: `shutil.rmtree(self._tmp, ignore_errors=True)`, called in a
+  `finally`. `ignore_errors=True` means deletion is attempted, not verified. It says nothing about
+  processes your command may have left running.
+- **`--report` leaves the temp directory twice.** Line 428 writes to the path you pass; a relative
+  path resolves against your working directory and `write_text` overwrites an existing file. And
+  line 418 calls `run_provenance()`, which runs further git subprocesses **against the harness
+  checkout, not the fixture** (`protocol_tests/run_provenance.py`, line 191): `rev-parse HEAD`,
+  `describe --tags --exact-match`, `status --porcelain`, and a version probe. Those calls carry
+  **no timeout**.
+
+If `--report` is not passed, neither happens.
+
+## 5. What the fixture contains
+
+`_build_repo`, **lines 158-172**. Creates a directory, writes a `README.md`, runs `git init` / `add`
+/ `commit`, and only when a canary path is passed appends to the fixture's own `.git/config`:
 
 ```python
 sink = f'/bin/sh -c "echo fired > {shlex.quote(str(canary))}"'
@@ -50,75 +118,89 @@ sink = f'/bin/sh -c "echo fired > {shlex.quote(str(canary))}"'
 fh.write(f"\n[core]\n\tfsmonitor = {json.dumps(sink)}\n")
 ```
 
-So the sink is a real execution sink, and what it executes is `echo fired > <path>` where `<path>`
-is a file inside the temp directory from line 116. It writes one short file and does nothing else.
-`shlex.quote` is applied to the path.
+The sink is a real execution sink. What it executes is `echo fired > <path>`, writing one short file
+inside the temp directory from §4.
 
-This is the payload. If you are going to check one thing in this document against the source, check
-this line.
+**Scope of that claim:** it describes the string the harness constructs. It is not a runtime
+guarantee about what executes on your machine during a run, because your command also runs (§1) and
+git inherits your configuration (§6). `shlex.quote` is applied to the path, but it sits inside a
+double-quoted shell string; treat it as the quoting that is there, not as a general guarantee.
 
-## 4. Every other process it starts
+## 6. Other processes, and inherited state
 
-- `_git`, **lines 120-125**: `git` with `-c user.email` / `-c user.name` set and
+- `_git`, **lines 151-156**: `git` with `-c user.email` / `-c user.name` and
   `GIT_TERMINAL_PROMPT=0`, always with `cwd` inside the temp directory. Used for `init`, `add`,
-  `commit`, `status`, `diff`, `log`, and `config --local`.
-- **Line 256**, in WT-003: `git clone -q <fixture> <temp path>`, both inside the temp directory.
+  `commit`, `status`, `diff`, `log`, `config --local`.
+- **Line 291**, WT-003: `git clone -q <fixture> <temp path>`, both local.
 
-Those are the only subprocess calls besides §1. There are no others in the file.
+`_git` **inherits `os.environ`** (line 152) and overrides only identity and terminal prompting. It
+does not isolate your git configuration or hooks. Global and system git config apply.
 
-## 5. What it deletes
+Those are the direct subprocess calls in this file, plus §1 and the `run_provenance` path in §4.
 
-`cleanup()`, **lines 344-345**: `shutil.rmtree(self._tmp, ignore_errors=True)`, scoped to the
-directory from line 116. `main()` calls it in a `finally`.
+## 7. Claims of absence, scoped honestly
 
-## 6. Claims of absence, and how to check them
+The earlier version of this document said the harness makes no network calls. **That claim cannot be
+made unconditionally and has been removed.** Your command runs with a shell (§1); anything it does,
+including network access, is outside what this file constrains.
 
-Each of these is checkable from the source; none should be taken on my word.
+What is checkable:
 
-- **No network.** There are no imports of `urllib`, `socket`, `http`, or `requests` in the file, and
-  no subprocess call reaches the network. `git clone` at line 256 clones a local path. Verify by
-  grepping the imports at the top of the file.
-- **No modification of your repositories, git config, or environment.** Every `_git` call passes
-  `cwd` inside the temp directory and sets identity via `-c` flags rather than writing config. There
-  is no `--global`, no `git config --system`, and no write to any path outside line 116's directory,
-  **with one exception in §7.**
+- No direct network client is used by this module's own logic. It imports from
+  `protocol_tests.http_helpers` (**line 79**) for two symbols, `INCONCLUSIVE_PREFIX` and
+  `console_status`. **That module does import `urllib`** (`http_helpers.py` lines 21-23) and defines
+  network helpers; this harness calls neither. An import is reach, not use, and you should confirm
+  that rather than accept it.
+- The `git clone` at line 291 clones a local path.
 
-## 7. The one write outside the temp directory
+Similarly, "no modification of your repositories or environment" is **not** claimed. The harness's
+own git calls are scoped to the temp directory, but your command is unrestricted and `run_provenance`
+reads the harness checkout.
 
-**Line 393**, in `main()`:
+## 8. Controls
 
-```python
-Path(args.report).write_text(json.dumps(report, indent=2, default=str), ...)
-```
+`testing/test_workspace_trust_controls.py` pins WT-001 to FAIL against a naive ingester, PASS against
+one that sanitises, and INCONCLUSIVE against a command that ingests nothing or exits non-zero. It
+also derives from the AST which tests invoke the command and asserts the set is exactly `{WT-001}`.
 
-`--report` writes to whatever path you give it. That is the intended behaviour and it is the only
-filesystem write the harness performs outside its own temp directory. It happens only if you pass
-the flag.
+CI at merge: 8 checks, Python 3.10 through 3.13.
+PR: `https://github.com/msaleme/red-team-blue-team-agent-fabric/pull/569`
 
-Stating it because "writes nothing outside the temp directory" would otherwise be a convenient and
-false summary.
+## 9. Statements about process, marked as unverifiable
 
-## 8. Provenance
+The following are assertions by the author. Git metadata cannot establish any of them, and the
+adversarial read flagged them as uncited. They are kept because withdrawing them would be less
+informative than labelling them:
 
-- Introduced in **PR #569**, merged as **`a6d27d6`** on 2026-09-10.
-- Authored by Michael K. Saleme with AI assistance, in a single session on 2026-09-10.
-- CI at merge: 8 checks, including tests on Python 3.10 through 3.13.
-- Controls: `testing/test_workspace_trust_controls.py`, which pins WT-001 to FAIL against a naive
-  ingester, PASS against a sanitising one, and INCONCLUSIVE against a command that ingests nothing.
-- The mechanics it relies on were reproduced against git 2.43.0 before the module was written:
-  a directory copy carrying the sink fires on `git status`; the same repository obtained by
-  `git clone` does not; `git -c core.fsmonitor=false status` does not.
+- Authored by Michael K. Saleme with AI assistance, in one session on 2026-09-10.
+- The mechanics were reproduced against git 2.43.0 before the module was written: a directory copy
+  carrying the sink fires on `git status`; the same repository obtained by `git clone` does not;
+  `git -c core.fsmonitor=false status` does not. **No execution transcript was retained.**
+- No external review other than the second-agent description check described above.
 
-It has had no external review. This document is the first thing written for an outside reader.
+## 10. What this document does not establish
 
-## 9. What this document does not establish
+That running the harness is safe on your system. That depends on your command, your privileges and
+your machine, none of which are visible here.
 
-It does not establish that running the harness is safe on your system. That depends on what your
-command does, what privileges it holds, and what else is on the machine, and none of those are
-visible from here.
-
-It is written by the author of the code. It is not an audit, not independent, and not a security
-assessment. It says what the code does and points at where to confirm it.
+It is written by the author of the code, corrected after one second-agent read, and remains E1/I0.
+It is descriptive. A completed packet authorizes neither installation nor execution.
 
 If a reading of the source contradicts anything above, the source is correct and I would like to
 know which line.
+
+---
+
+## Correction history
+
+Nine findings from the second-agent read of the first version, all incorporated:
+
+1. INCONCLUSIVE generalised: only the clean control is checked; the crafted return is discarded (§3)
+2. Fixture confinement, correctly scoped in v1, retained
+3. "does nothing else" read as a runtime guarantee, and the `shlex.quote` nesting (§5)
+4. `--report`'s `run_provenance` spawns git outside the fixture root, untimed (§4)
+5. `ignore_errors=True` is attempted, not verified, deletion (§4)
+6. The network claim was wrong unconditionally, and `http_helpers` reaches `urllib` (§7)
+7. A relative `--report` path resolves from the caller's cwd and can overwrite (§4)
+8. Authorship, reproduction and "no external review" are uncited assertions (§9)
+9. Only WT-001 invokes the command, a defect in the code's own docstring, fixed in `39fd4d2` (§2)
