@@ -37,6 +37,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    console_status,
     INCONCLUSIVE_PREFIX,
     agent_message_text,
     is_inconclusive,
@@ -286,7 +287,7 @@ class IncidentResponseTests:
             result.not_evaluated = True
             result.details = _d
         self.results.append(result)
-        status = "PASS \u2705" if result.passed else "FAIL \u274c"
+        status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _send_message(self, text: str, extra_params: dict | None = None) -> dict:

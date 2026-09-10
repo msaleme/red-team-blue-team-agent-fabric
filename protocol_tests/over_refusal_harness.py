@@ -31,6 +31,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    console_status,
     is_inconclusive,
     INCONCLUSIVE_PREFIX,
 )
@@ -308,7 +309,7 @@ class OverRefusalTests:
                 status=_rr.get("_status"), details=result.details)
         result.not_evaluated = is_inconclusive(result.details)
         self.results.append(result)
-        status = "PASS \u2705" if result.passed else "FAIL \u274c"
+        status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _open(self, req: urllib.request.Request) -> dict:

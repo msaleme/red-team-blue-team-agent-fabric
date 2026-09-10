@@ -33,6 +33,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    console_status,
     is_inconclusive,
     INCONCLUSIVE_PREFIX,
     run_summary,
@@ -177,7 +178,7 @@ class KillSwitchTests:
             result.passed = False
             result.not_evaluated = True
             result.details = _d
-        status = "PASS ✅" if result.passed else "FAIL ❌"
+        status = console_status(result)
         print(f"  {status}  {result.test_id}: {result.name}")
         self.results.append(result)
 

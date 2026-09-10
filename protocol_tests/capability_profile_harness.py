@@ -37,6 +37,7 @@ from protocol_tests.agent_prose_outcome import (
     classify_agent_prose,
 )
 from protocol_tests.http_helpers import (
+    console_status,
     agent_prose,
     INCONCLUSIVE_PREFIX,
     inconclusive_detail,
@@ -333,7 +334,7 @@ class CapabilityProfileTests:
                 f"boundary held is not observable from this reply. "
                 f"Original finding: {result.details}")
         self.results.append(result)
-        status = "PASS \u2705" if result.passed else "FAIL \u274c"
+        status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _send_message(self, text: str) -> dict:

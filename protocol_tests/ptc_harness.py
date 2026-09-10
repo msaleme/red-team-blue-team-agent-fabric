@@ -50,6 +50,7 @@ from datetime import datetime, timedelta, timezone
 
 from protocol_tests._utils import Severity, http_post_json, jsonrpc_request, wilson_ci
 from protocol_tests.http_helpers import (
+    console_status,
     is_inconclusive,
     INCONCLUSIVE_PREFIX,
     silence_detail,
@@ -174,7 +175,7 @@ class PTCTests:
             result.details = detail
             result.response_received = silence_evidence(
                 seen, getattr(result, "response_received", None))
-        status = "PASS ✅" if result.passed else "FAIL ❌"
+        status = console_status(result)
         print(f"  {status}  {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
         self.results.append(result)
 

@@ -35,6 +35,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    console_status,
     is_inconclusive,
     INCONCLUSIVE_PREFIX,
     inconclusive_detail,
@@ -331,8 +332,7 @@ class ReturnChannelTests:
                 f"cannot separate sanitised output from a paraphrased compliance "
                 f"here. Original finding: {result.details}")
         self.results.append(result)
-        status = ("N/A \u2796" if result.not_evaluated
-                  else "PASS \u2705" if result.passed else "FAIL \u274c")
+        status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _send_poison(self, text: str) -> dict:

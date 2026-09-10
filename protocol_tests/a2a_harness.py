@@ -48,6 +48,7 @@ from protocol_tests.agent_prose_outcome import (
     classify_agent_prose,
 )
 from protocol_tests.http_helpers import (
+    console_status,
     looks_like_refusal,
     agent_prose,
     INCONCLUSIVE_PREFIX,
@@ -425,7 +426,7 @@ class A2ASecurityTests:
                 f"answered. Original finding: {result.details}")
             result.response_received = silence_evidence(seen, _rr)
         self.results.append(result)
-        status = "PASS ✅" if result.passed else "FAIL ❌"
+        status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _aggregate_evidence(self, attempts: int, answered: int,

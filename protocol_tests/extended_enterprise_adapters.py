@@ -38,6 +38,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from protocol_tests.http_helpers import (
+    console_status,
     INCONCLUSIVE_PREFIX,
     is_inconclusive,
     refused,
@@ -162,7 +163,7 @@ class ExtAdapter(ABC):
                 f"sensitive pattern appeared in the reply, which is not the "
                 f"same as the control holding. Original finding: "
                 f"{r.details}")
-        s = "PASS ✅" if r.passed else "FAIL ❌"
+        s = console_status(r)
         print(f"  {s} {r.test_id}: {r.name} ({r.elapsed_s:.2f}s)")
     def _leak(self, resp):
         s = json.dumps(resp).lower() if resp else ""

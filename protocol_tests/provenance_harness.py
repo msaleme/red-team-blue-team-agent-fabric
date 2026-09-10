@@ -33,6 +33,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    console_status,
     is_inconclusive,
     INCONCLUSIVE_PREFIX,
     run_summary,
@@ -223,7 +224,7 @@ class ProvenanceTests:
                 f"Absence of the claim's own keywords in the reply is not a "
                 f"rejection. Original finding: {result.details}")
         self.results.append(result)
-        status = "PASS \u2705" if result.passed else "FAIL \u274c"
+        status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _resp_accepted_claim(self, resp: dict, claim_keywords: list[str]) -> bool:

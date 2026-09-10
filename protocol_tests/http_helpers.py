@@ -1098,6 +1098,31 @@ def summary_lines(summary: dict) -> list[str]:
     return lines
 
 
+def console_status(result) -> str:
+    """The one-line console verdict, with INCONCLUSIVE as its own state.
+
+    Added 2026-09-10. Twenty-nine modules printed `PASS ✅` / `FAIL ❌` from
+    `result.passed` alone while carrying `not_evaluated`, so every INCONCLUSIVE
+    row appeared on the console as a FAIL. The JSON report was correct
+    throughout; only the human-readable line was wrong, which is the surface an
+    operator actually reads during a run.
+
+    That matters here more than it would elsewhere. `INCONCLUSIVE became a
+    field` is a milestone in this project's own changelog, and #348 exists
+    because collapsing "not measured" into a verdict is the defect the harness
+    is built to detect in other people's systems. Printing it as a FAIL is the
+    same collapse, in the opposite direction: it reports evidence of a defect
+    where there is only absence of evidence.
+
+    Five modules already did this correctly and each had its own copy of the
+    expression. This is the single implementation, so the next repair does not
+    have to find thirty homes (see CLAUDE.md item 7).
+    """
+    if getattr(result, "not_evaluated", False):
+        return "INCONCLUSIVE ➖"
+    return "PASS ✅" if result.passed else "FAIL ❌"
+
+
 def inconclusive_detail(resp, details: str | None) -> str | None:
     """Replacement ``details`` when a result must be INCONCLUSIVE, else ``None``.
 

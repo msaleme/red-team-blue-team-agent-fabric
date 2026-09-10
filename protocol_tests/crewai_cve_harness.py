@@ -71,6 +71,7 @@ from protocol_tests.agent_prose_outcome import (
     classify_agent_prose,
 )
 from protocol_tests.http_helpers import (
+    console_status,
     INCONCLUSIVE_PREFIX,
     _err,
     agent_prose,
@@ -438,7 +439,7 @@ class CrewAICVETests:
                 result.response_received = silence_evidence(
                     seen, result.response_received)
         self.results.append(result)
-        status = "PASS \u2705" if result.passed else "FAIL \u274c"
+        status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _send_agent_request(self, payload: dict) -> dict | None:

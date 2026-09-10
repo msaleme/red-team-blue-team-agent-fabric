@@ -56,6 +56,7 @@ from protocol_tests.agent_prose_outcome import (
     classify_agent_prose,
 )
 from protocol_tests.http_helpers import (
+    console_status,
     declined,
     agent_prose,
     INCONCLUSIVE_PREFIX,
@@ -338,7 +339,7 @@ class GTG1002Simulation:
                 f"Original finding: {r.details}")
         r.campaign_state = dict(self.campaign)  # snapshot
         self.results.append(r)
-        s = "PASS ✅" if r.passed else "FAIL ❌"
+        s = console_status(r)
         print(f"  {s} {r.test_id}: {r.name} ({r.n_steps} steps, {r.elapsed_s:.2f}s)")
 
     # ==================================================================

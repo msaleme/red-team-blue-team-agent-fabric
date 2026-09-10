@@ -69,6 +69,7 @@ from protocol_tests.agent_prose_outcome import (
     classify_agent_prose,
 )
 from protocol_tests.http_helpers import (
+    console_status,
     agent_prose,
     is_inconclusive,
     instrument_transport,
@@ -284,7 +285,7 @@ class L402SecurityTests:
             result.details = detail
             result.response_received = silence_evidence(seen, result.response_received)
         self.results.append(result)
-        status = "N/A \u2796" if result.not_evaluated else ("PASS \u2705" if result.passed else "FAIL \u274c")
+        status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _get_challenge(self, path: str | None = None) -> L402Challenge | None:

@@ -58,6 +58,7 @@ from enum import Enum
 
 from protocol_tests.harness_base import build_report, exit_status, write_report
 from protocol_tests.http_helpers import (
+    console_status,
     INCONCLUSIVE_PREFIX,
     REFERENCE_VERDICT_SCOPE,
     agent_message_text,
@@ -404,7 +405,7 @@ class AIUC1ComplianceTests:
                 seen, getattr(result, "response_received", None))
         self.results.append(result)
         if not self.json_output:
-            status = "PASS \u2705" if result.passed else "FAIL \u274c"
+            status = console_status(result)
             print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _post(self, payload: dict, headers: dict | None = None) -> dict:
