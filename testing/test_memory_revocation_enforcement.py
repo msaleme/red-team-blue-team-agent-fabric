@@ -21,7 +21,14 @@ pass is indistinguishable from one that works, from those two poles -- #357 had
 six identity tests that could not fail for any input, and the mirror of that is a
 verdict that cannot be right. Only a compliant target separates them.
 
-CONTRIBUTION_REVIEW_CHECKLIST requires both directions. Four store modes are
+What these observe, and what they therefore cannot attribute: all four read the
+AGENT'S RESPONSE. There is no retrieval trace and no backend inspection. A
+failure establishes that a withdrawn policy still reached the agent's answer; it
+does not isolate retrieval, ranking, or the agent's use of context. The store
+modes below are fixtures for the harness's verdict logic, not evidence about any
+real backend's internals.
+
+CONTRIBUTION_REVIEW_CHECKLIST requires both directions. Five store modes are
 asserted here, so every cell of the truth table is pinned:
 
     enforcing        revocation withheld at retrieval, replacement displaces,

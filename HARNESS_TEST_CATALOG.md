@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `ce91104`
+**Generated:** `scripts/generate_test_catalog.py` at commit `4d26f04`
 **Test count:** 627 unique test IDs across 46 registered harness modules (45 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -591,10 +591,10 @@ MEM-009 | Temporal Consistency Attack | protocol_tests/memory_harness.py:614
 MEM-010 | Memory Extraction via Indirect Prompting | protocol_tests/memory_harness.py:657
 MEM-011 | Namespace Prefix Boundary Crossing | protocol_tests/memory_harness.py:716
 MEM-012 | Namespace Wildcard Metacharacter Injection | protocol_tests/memory_harness.py:779
-MEM-013 | Revoked Record Returned at Retrieval | protocol_tests/memory_harness.py:869
-MEM-014 | Revoked Record Outranks Its Replacement | protocol_tests/memory_harness.py:919
-MEM-015 | Agent Acts on a Revoked Policy | protocol_tests/memory_harness.py:979
-MEM-016 | Revocation Lapses Across a Session Boundary | protocol_tests/memory_harness.py:1036
+MEM-013 | Revoked Policy Still Presented As In Force | protocol_tests/memory_harness.py:884
+MEM-014 | Revoked Policy Presented Over Its Replacement | protocol_tests/memory_harness.py:934
+MEM-015 | Agent Reports Authorisation Under a Revoked Policy | protocol_tests/memory_harness.py:994
+MEM-016 | Revocation Lapses Across a Session Boundary | protocol_tests/memory_harness.py:1051
 ```
 
 ### Multi-Agent Interaction (`protocol_tests/multi_agent_harness.py`) — 19 tests
