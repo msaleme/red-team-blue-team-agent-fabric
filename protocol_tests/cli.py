@@ -314,6 +314,10 @@ HARNESSES = {
         "module": "protocol_tests.mcp_harness",
         "description": "MCP wire-protocol security tests (33 tests, JSON-RPC 2.0)",
     },
+    "workspace-trust": {
+        "module": "protocol_tests.workspace_trust_harness",
+        "description": "Workspace-trust / repository-ingestion pre-flight tests (4 tests, repo-supplied git config as an execution sink, GitSpawn class)",
+    },
     "mcp-supplychain": {
         "module": "protocol_tests.mcp_supplychain",
         "description": "MCP supply-chain / framework-layer pre-flight tests (4 tests, binary resolution + install scripts + pinning)",

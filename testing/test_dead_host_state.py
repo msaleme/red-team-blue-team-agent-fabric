@@ -54,6 +54,12 @@ from dead_host_sweep import NOT_APPLICABLE, sweep
 #: Every entry is a defect or an explicit not-applicable, and none is acceptable
 #: as a resting state. The comments say which is which as they are established.
 KNOWN_PASSING = {
+    # 2026-09-10, explicit not-applicable rather than a defect. WT-003 and
+    # WT-004 build fixture repositories and run local git against them; neither
+    # invokes the target, so "the target was never there" cannot change either
+    # verdict. WT-001 and WT-002 DO drive the target and correctly report
+    # INCONCLUSIVE here via the family's own clean-repository control.
+    "workspace_trust_harness": 2,
     # x402_harness was here at 44, the largest count in the repository, and
     # l402_harness at 4. Both were in PROTOCOL_EXCEPTION, and that classification
     # did not cover this: precondition 3 excuses the non-2xx rule because a
