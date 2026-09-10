@@ -41,10 +41,17 @@ instead, which is why the date is checked and not only the numbers.
 
 ## Release sequencing, and --apply
 
-The workflow also runs on `release: published`. That run compares the description
-against the tree at the tag that was just published, and it fails whenever the
-description is edited AFTER the release is created, because at that instant the
-description still names the previous version. It failed that way on four
+The workflow also runs on `release: published`. That run compares against the
+tree at the HIGHEST release tag present when the job runs -- `git tag
+--sort=-v:refname | head -1`, not the tag that triggered it -- and it reads the
+remote surfaces live over HTTP at that same moment. Both sides are therefore
+read at run time, not frozen at the tag. One consequence is worth stating
+because it was got wrong once: a failed release run is NOT permanently red. Once
+the surfaces are corrected, re-running it passes, and on 2026-09-09 re-running
+turned v4.21.0 through v4.21.3 green without any change to those tags.
+
+It fails whenever a surface is updated AFTER the release is created, because at
+that instant the surface still names the previous version. It failed that way on four
 consecutive releases (v4.18.0, v4.19.0rc1, v4.19.0, v4.20.0), each time correctly,
 and each time the description was fixed by hand a few minutes later. A red run
 that is always right and always stale is a process defect, not a checker defect.
@@ -60,6 +67,42 @@ what the tree at HEAD implies (`rewrite_description`, pure and tested offline),
 PATCHes it with the caller's token, then runs the normal comparison so the
 output ends in OK or DRIFT rather than in "applied". It refuses to write a
 description the checker itself would still reject.
+
+## The remote surfaces, and --preflight
+
+`--apply` fixes the description and nothing else. REMOTE_READMES and
+REMOTE_PAGES live in OTHER repositories, so no token this script is given can
+rewrite them, and the description being handled is exactly why the remaining gap
+was easy to miss: the release step reported OK while two surfaces stayed stale.
+That recurred on v4.21.0, v4.21.1, v4.21.2 and v4.21.3 -- the same failure the
+section above records for v4.18.0..v4.20.0, arriving through the surfaces that
+`--apply` cannot reach.
+
+Updating those surfaces before the tag exists is NOT the answer on its own: the
+`start-here` line is a copyable GitHub Action pin, and a pin naming a tag that
+has not been pushed resolves to nothing. A pin that 404s is worse than a pin
+that is one version behind but works.
+
+The order that satisfies both -- the pin always resolves, and the release run is
+green when it fires:
+
+    1. merge the release PR            (the version bump lands on main)
+    2. git tag vX.Y.Z && git push      (the tag exists, so the pin resolves)
+    3. update REMOTE_READMES + REMOTE_PAGES, merge, let the page deploy
+    4. python3 scripts/check_public_metadata.py --preflight    -> must be OK
+    5. gh release create vX.Y.Z --verify-tag
+
+`--preflight` exists because steps 2-4 sit in a window where the tag exists but
+the release object does not, so `fetch_release_date` 404s and the normal run
+exits 2 (UNREACHABLE) no matter how correct the surfaces are. A gate that can
+never return 0 is not a gate. Under `--preflight` that one 404 is expected and
+the release-date comparison is skipped -- named in the output, never silent.
+
+The flag is refused once the release is published. Otherwise it would be a way
+to skip a check that could have run, which is the defect this file exists to
+catch, wearing a flag.
+
+See docs/RELEASING.md.
 
 ## What it compares
 
@@ -499,6 +542,9 @@ def main() -> int:
                     help="print the description fields the tree implies, then exit 0")
     ap.add_argument("--apply", action="store_true",
                     help="rewrite the live description to the tree's figures, then check")
+    ap.add_argument("--preflight", action="store_true",
+                    help="check the surfaces BEFORE `gh release create`, when the "
+                         "release object does not exist yet. Refused once it does.")
     args = ap.parse_args()
 
     want = {"count": canonical_count(),
@@ -545,13 +591,36 @@ def main() -> int:
         problems.append(f"CITATION.cff: version says {cff_version}, tree says {want_version}")
 
     unreachable = []
+    released = None
+    release_date_skipped = False
     try:
         released = fetch_release_date(args.repo, f"v{want_version}")
-        if cff_date is not None and released and cff_date != released:
-            problems.append(f"CITATION.cff: date-released says {cff_date}, "
-                            f"v{want_version} was published {released}")
+    except urllib.error.HTTPError as e:
+        if e.code == 404 and args.preflight:
+            # Expected, and ONLY under --preflight: the flag exists for the
+            # window between the release PR merging and `gh release create`, so
+            # there is no release object to date yet. Recorded and printed
+            # rather than passed over -- a check that did not run is not a check
+            # that passed, which is the same rule that makes UNREACHABLE exit 2.
+            release_date_skipped = True
+        else:
+            unreachable.append(f"release date for v{want_version} ({type(e).__name__})")
     except Exception as e:                        # noqa: BLE001
         unreachable.append(f"release date for v{want_version} ({type(e).__name__})")
+
+    # --preflight must not become a way to skip a check that could have run. If
+    # the release is already published there is a real date to compare, so the
+    # flag is refused rather than quietly honoured.
+    if args.preflight and released:
+        problems.append(
+            f"--preflight was passed, but v{want_version} is already published "
+            f"({released}). Preflight covers the window BEFORE "
+            f"`gh release create`; re-run without it so the release date is "
+            f"checked rather than skipped.")
+
+    if cff_date is not None and released and cff_date != released:
+        problems.append(f"CITATION.cff: date-released says {cff_date}, "
+                        f"v{want_version} was published {released}")
 
     for label, repo in REMOTE_READMES:
         try:
@@ -572,10 +641,14 @@ def main() -> int:
             return 2
 
     if not problems:
-        print(f"OK  {args.repo} description, CITATION.cff, "
+        label = "OK (preflight)" if args.preflight else "OK"
+        print(f"{label}  {args.repo} description, CITATION.cff, "
               f"{len(REMOTE_READMES)} remote READMEs and "
               f"{len(REMOTE_PAGES)} published pages match the tree "
               f"({want_count} tests, {want['modules']} modules, v{want_version})")
+        if release_date_skipped:
+            print(f"    Release date NOT checked: v{want_version} is not published "
+                  f"yet. Re-run without --preflight after `gh release create`.")
         return 0
 
     print(f"DRIFT in public metadata for {args.repo}\n")

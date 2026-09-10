@@ -264,6 +264,76 @@ class TestExitCodes(unittest.TestCase):
         self.assertEqual(self._run(exc=err), 2)
 
 
+class TestPreflight(unittest.TestCase):
+    """--preflight covers the window where the tag exists but the release does not.
+
+    Without it the release-date fetch 404s and main() exits 2 no matter how
+    correct every surface is, so a release step could never gate on exit 0.
+    With it, that ONE 404 is expected -- and nothing else is.
+    """
+
+    VERSION = "4.15.0"
+
+    def _run(self, preflight, release_date_exc=None, release_date=None,
+             description=None):
+        description = description or f"{FRESH_COUNT} {_TESTS} ... v{self.VERSION}"
+        argv = ["check_public_metadata.py", "--repo", "o/r"]
+        if preflight:
+            argv.append("--preflight")
+
+        def _date(repo, tag):
+            if release_date_exc:
+                raise release_date_exc
+            return release_date
+
+        with mock.patch.object(sys, "argv", argv), \
+             mock.patch.object(cpm, "fetch_description", lambda r: description), \
+             mock.patch.object(cpm, "canonical_count", lambda: FRESH_COUNT), \
+             mock.patch.object(cpm, "canonical_version", lambda: self.VERSION), \
+             mock.patch.object(cpm, "canonical_modules", lambda: "44"), \
+             mock.patch.object(cpm, "citation_fields",
+                               lambda repo=None: (self.VERSION, "2026-08-07")), \
+             mock.patch.object(cpm, "fetch_release_date", _date), \
+             mock.patch.object(cpm, "REMOTE_READMES", ()), \
+             mock.patch.object(cpm, "REMOTE_PAGES", ()):
+            return cpm.main()
+
+    @staticmethod
+    def _missing():
+        return urllib.error.HTTPError("u", 404, "Not Found", {}, None)
+
+    def test_unreleased_version_exits_two_without_the_flag(self) -> None:
+        """The premise. This is why the flag has to exist at all."""
+        self.assertEqual(self._run(False, release_date_exc=self._missing()), 2)
+
+    def test_unreleased_version_exits_zero_with_the_flag(self) -> None:
+        self.assertEqual(self._run(True, release_date_exc=self._missing()), 0)
+
+    def test_preflight_is_refused_once_the_release_exists(self) -> None:
+        """The flag must not be usable to skip a check that could have run."""
+        self.assertEqual(self._run(True, release_date="2026-08-07"), 1)
+
+    def test_preflight_does_not_excuse_a_non_404(self) -> None:
+        """Only the missing release is expected. A rate limit is still unreachable."""
+        err = urllib.error.HTTPError("u", 403, "rate limited", {}, None)
+        self.assertEqual(self._run(True, release_date_exc=err), 2)
+
+    def test_preflight_does_not_excuse_a_network_error(self) -> None:
+        self.assertEqual(
+            self._run(True, release_date_exc=urllib.error.URLError("no route")), 2)
+
+    def test_preflight_still_fails_on_real_drift(self) -> None:
+        """The whole point of the gate: a stale surface must still block."""
+        stale = f"{FRESH_COUNT} {_TESTS} ... v4.13.1"
+        self.assertEqual(
+            self._run(True, release_date_exc=self._missing(), description=stale), 1)
+
+    def test_preflight_still_fails_on_a_stale_count(self) -> None:
+        stale = f"{STALE_COUNT} {_TESTS} ... v{self.VERSION}"
+        self.assertEqual(
+            self._run(True, release_date_exc=self._missing(), description=stale), 1)
+
+
 class TestSurfaceScoping(unittest.TestCase):
     """A check that fails on a true statement gets muted, so scope matters."""
 
