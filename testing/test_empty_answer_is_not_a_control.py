@@ -65,6 +65,16 @@ EMPTY_ANSWER_PASSES: dict[str, tuple[str, str, str]] = {
     "CREW-002": ("crewai_cve_harness", "local self-test",
                  "check_code_safety's payload coverage; the live loop can only "
                  "ADD to `detected`, so no target can change the verdict."),
+    "WT-003": ("workspace_trust_harness", "local self-test",
+               "clones a fixture repository and asserts the clone carries no "
+               "core.fsmonitor sink. Pure local git; the target under test is "
+               "never invoked, so no answer from it can change the verdict. It "
+               "is the family's own negative control and passes under every "
+               "host shape by construction."),
+    "WT-004": ("workspace_trust_harness", "local self-test",
+               "runs `git status` and `git -c core.fsmonitor=false status` over "
+               "a local fixture to establish the published mitigation suppresses "
+               "the named sink. Local git only; the target is not involved."),
 
     # --- narrow: byte scans over what the target actually returned ----------
     "L4-033": ("l402_harness", "narrow: byte scan",

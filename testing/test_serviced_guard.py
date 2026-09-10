@@ -341,6 +341,13 @@ NARROW_LOCAL_RULE = {
 #: "No skill content found at skill_path").
 NO_NETWORK_TARGET = {
     "skill_security_harness",
+    # Added 2026-09-10. WT-001..004 characterise a LOCAL command that
+    # ingests a directory (GitSpawn class). There is no endpoint, no
+    # request and no response to be serviced or not serviced; the verdict
+    # reads whether an inert canary file appeared. Its own positive
+    # control -- the command must first ingest a clean repository -- is
+    # what plays the role the serviced guard plays elsewhere.
+    "workspace_trust_harness",
 }
 
 UNREVIEWED = {

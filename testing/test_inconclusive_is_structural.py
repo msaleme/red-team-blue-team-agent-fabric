@@ -56,6 +56,11 @@ PROTOCOL_TESTS = pathlib.Path(__file__).resolve().parents[1] / "protocol_tests"
 PREFIX_ONLY: set[str] = set()
 
 
+#: Base classes that declare an INCONCLUSIVE field for all their subclasses.
+#: A subclass of one of these carries the field without restating it.
+INHERITED_CARRIERS = frozenset({"HarnessResult"})
+
+
 def _modules_that_can_be_inconclusive() -> dict[str, bool]:
     """Every module with a result dataclass that can report INCONCLUSIVE.
 
@@ -71,14 +76,35 @@ def _modules_that_can_be_inconclusive() -> dict[str, bool]:
                 and not any(f in text for f in INCONCLUSIVE_FIELDS)):
             continue
         tree = ast.parse(text)
-        carries = any(
-            isinstance(node, ast.ClassDef)
-            and any(
+
+        def _declares(node: ast.ClassDef) -> bool:
+            return any(
                 isinstance(stmt, ast.AnnAssign)
                 and isinstance(stmt.target, ast.Name)
                 and stmt.target.id in INCONCLUSIVE_FIELDS
                 for stmt in node.body
             )
+
+        def _inherits(node: ast.ClassDef) -> bool:
+            """A subclass of harness_base.HarnessResult already carries the field.
+
+            Added 2026-09-10. This read only a class's own body, so a result
+            class that inherits `HarnessResult` -- the pattern harness_base
+            exists to encourage, and the one CLAUDE.md item 7 requires of new
+            modules -- was reported as carrying no field at all. The guard was
+            punishing the correct construction, and the fix a reader would reach
+            for is the one this file forbids in its own message: adding the
+            module to PREFIX_ONLY. See harness_base.HarnessResult, where
+            `not_evaluated` is declared once for every subclass.
+            """
+            return any(
+                (isinstance(b, ast.Name) and b.id in INHERITED_CARRIERS)
+                or (isinstance(b, ast.Attribute) and b.attr in INHERITED_CARRIERS)
+                for b in node.bases
+            )
+
+        carries = any(
+            isinstance(node, ast.ClassDef) and (_declares(node) or _inherits(node))
             for node in ast.walk(tree)
         )
         found[path.stem] = carries

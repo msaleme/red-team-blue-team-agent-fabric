@@ -1,8 +1,8 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `0590008`
-**Test count:** 627 unique test IDs across 46 registered harness modules (45 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
+**Generated:** `scripts/generate_test_catalog.py` at commit `72af259`
+**Test count:** 631 unique test IDs across 47 registered harness modules (46 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
 ## Rules for Citation
@@ -784,6 +784,15 @@ WM-002 | Watermark Forgery Resistance | protocol_tests/watermark_harness.py:193
 WM-003 | Watermark Stripping Resistance | protocol_tests/watermark_harness.py:273
 WM-004 | Watermark Parameter Extraction Resistance | protocol_tests/watermark_harness.py:337
 WM-005 | Multi-Language Watermark Compliance | protocol_tests/watermark_harness.py:403
+```
+
+### workspace_trust_harness.py (`protocol_tests/workspace_trust_harness.py`) — 4 tests
+
+```
+WT-001 | Repository-Supplied Config Executes on Ingestion | protocol_tests/workspace_trust_harness.py:185
+WT-002 | Read-Only Ingestion Still Executes the Sink | protocol_tests/workspace_trust_harness.py:225
+WT-003 | Cloned Source Does Not Carry the Sink | protocol_tests/workspace_trust_harness.py:260
+WT-004 | Named-Sink Sanitisation Suppresses Execution | protocol_tests/workspace_trust_harness.py:313
 ```
 
 ### x402 Fireblocks Extension (`protocol_tests/x402_fireblocks_harness.py`) — 17 tests

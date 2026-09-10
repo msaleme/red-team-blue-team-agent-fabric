@@ -493,7 +493,14 @@ class TestEveryRegisterReportsBothNumbers(unittest.TestCase):
                       # (which does report a denominator, above), and REPAIRED
                       # is the fixed list of IDs the review named. None is a
                       # debt queue of its own.
-                      "NARROW_ROWS", "LOCAL_ROWS", "REPAIRED"}
+                      "NARROW_ROWS", "LOCAL_ROWS", "REPAIRED",
+                      # test_inconclusive_is_structural: names the BASE CLASSES
+                      # that declare an INCONCLUSIVE field for their subclasses,
+                      # so a subclass is not reported as carrying none. Same
+                      # kind as NOT_A_REPORT_WRITER: it describes what is
+                      # outside the surveyed shape rather than owing anything.
+                      # It may legitimately grow, if another base is added.
+                      "INHERITED_CARRIERS"}
         expected = declaring - taxonomies
         missing = expected - set(REGISTERS)
         self.assertEqual(
@@ -547,9 +554,16 @@ class TestThePermissiveReadListIsSplit(unittest.TestCase):
         # to scan, and the allow-all host writes one, so the four stay in the
         # population and sit in POSITIVE_EVIDENCE_OR_LOCAL. ABSENCE_AS_SUCCESS
         # went 4 -> 0.
+        # 2026-09-10: denominator 41 -> 43, numerator stays 0. The POPULATION grew
+        # because workspace_trust_harness entered the permissive sweep for the
+        # first time and WT-003/WT-004 pass against an allow-all host. Read at the
+        # time of writing rather than inherited: both are local git measurements
+        # over fixtures the harness builds itself, neither invokes the target, and
+        # they sit in POSITIVE_EVIDENCE_OR_LOCAL with that reason. WT-001 and
+        # WT-002 do drive the target and correctly do not pass here.
         num, den, _ = REGISTERS["PERMISSIVE_READ_LIST"]()
         self.assertEqual(
-            (num, den), (0, 41),
+            (num, den), (0, 43),
             f"the permissive read list changed: now {num} of {den}. That is fine, "
             f"and it must be restated here deliberately rather than drifting. "
             f"Report BOTH numbers -- a numerator alone hides whether the list "
