@@ -28,19 +28,47 @@ it can fire does not go away with the registry, so:
 
 ## Can it fire
 
-Seven seeded violations, 2026-09-11, each reverted after the run. Every one
+Twelve seeded violations, 2026-09-11, each reverted after the run. Every one
 failed the intended assertion and only that one:
 
-1. a row with disposition `OPEN`                      -> nothing_is_unclassified
-2. `GUARDED` naming a file that does not exist        -> names_a_test_that_exists
-3. `GUARDED` naming a symbol absent from a real file  -> names_a_test_that_exists
-4. `UNGUARDABLE` with "too hard" as the reason        -> unguardable_states_why
-5. an emptied register                                -> register_is_not_empty
-6. a doc pinned to a commit no branch or tag contains -> reachable_beyond_a_local_branch
-7. a doc publishing a hash for another revision       -> hashes_match_the_pinned_revision
+1.  a row with disposition `OPEN`                      -> nothing_is_unclassified
+2.  `GUARDED` naming a file that does not exist        -> names_a_test_that_exists
+3.  `GUARDED` naming a symbol absent from a real file  -> names_a_test_that_exists
+4.  `UNGUARDABLE` with "too hard" as the reason        -> unguardable_states_why
+5.  an emptied register                                -> register_is_not_empty
+6.  a doc pinned to a commit no branch or tag contains -> reachable_beyond_a_local_branch
+7.  a doc publishing a hash for another revision       -> hashes_match_the_pinned_revision
+8.  a doc citing a bare SHA in no repository           -> resolves_here_or_names_its_repository
+9.  a doc citing a real local-only commit              -> reachable_to_someone_else
+10. a SHA regex that matches nothing                   -> derivation_finds_the_documents
+11. the original inverted filter, restored             -> reachability_check_examines_a_non_empty_set
+12. a self-permalink to an unreachable commit          -> reachable_to_someone_else
 
-Seed 6 used a real dangling commit from `git commit-tree`, which is the exact
-shape of the 2026-09-11 BLOCKED: an object that resolves here and nowhere else.
+And two that had to be ACCEPTED rather than flagged, because a guard that fails
+on a correct citation is one that gets muted: the same unknown SHA inside a
+`github.com/<owner>/<repo>/commit/<sha>` URL, and the `/tree/<sha>` form. Both
+are legitimate citations into another repository.
+
+Seeds 6, 9 and 12 used a real dangling commit from `git commit-tree`: an object
+that resolves here and nowhere else, the exact shape of the 2026-09-11 BLOCKED.
+
+**Seed 9 is why this section exists**, and it took three attempts to seed
+correctly, which is its own lesson.
+
+It passed the first time it was run, against a check written specifically to
+catch it. `_git` returns `""` on success and `git cat-file -e` prints nothing, so
+`not _git("cat-file", ...)` was true for every commit that existed and the check
+skipped all of them. Green on the real corpus, and unable to fail on any corpus.
+The suite did not catch that. A seeded violation did.
+
+The first repair added a positive control that derived the population by a
+*separate* path from the test it was guarding. Seeding the bug back left the
+control green, because the control was measuring a different instrument than the
+one that could break. Both now read `_resolvable_cited()`. With the original
+filter restored there, the control fails with `[] is not true` while the
+reachability test still passes on an empty set, which is exactly the division of
+labour a positive control is for.
+
 """
 
 from __future__ import annotations
@@ -110,10 +138,45 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "external reviewer could not resolve them and correctly returned BLOCKED",
      "external provenance gate 2026-09-11", GUARDED,
      "testing/test_review_findings_are_ratcheted.py: PinnedProvenanceTests"),
+
+    # --- 2026-09-11, found by seeding this file's own guards -----------------
+    ("the check on cited commits filtered on `not _git(...)`, but `_git` returns "
+     "\"\" on success, so it skipped every commit that resolved and examined "
+     "nothing. Green on the real corpus and unable to fail on any corpus",
+     "author, seeding this file 2026-09-11", GUARDED,
+     "testing/test_review_findings_are_ratcheted.py: test_the_reachability_check_examines_a_non_empty_set"),
+    ("PINNED_DOCS named one document while thirteen cite a commit, so the class "
+     "was guarded on a sample and would have been reported as covered",
+     "author 2026-09-11", GUARDED,
+     "testing/test_review_findings_are_ratcheted.py: CitedCommitsResolve"),
+    ("widening the accepted link forms briefly made a permalink into THIS "
+     "repository count as a foreign citation, exempting from the reachability "
+     "check the exact links that 404 when a commit is unreachable",
+     "author 2026-09-11, caught by the examined-subtest count dropping 28 to 24",
+     GUARDED,
+     "testing/test_review_findings_are_ratcheted.py: test_the_reachability_check_examines_a_non_empty_set"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.
+#: Only these get the hash check. Every *other* markdown document that cites a
+#: commit is covered by CitedCommitsResolve below, which is derived rather than
+#: listed, because a hand-kept list of one file is how a guard covers a sample
+#: and gets reported as covering the population.
 PINNED_DOCS = [Path("docs/WORKSPACE-TRUST-REVIEW.md")]
+
+#: A bare 40-hex word. The word boundary matters: it stops a 64-char sha256
+#: matching on its first 40 characters.
+_ANY_SHA = re.compile(r"\b[0-9a-f]{40}\b")
+
+#: The shape that makes a foreign commit legitimate: a URL naming the repository
+#: it lives in. `/commit/<sha>`, `/pull/N/commits/<sha>`, and the `/tree/<sha>`
+#: and `/blob/<sha>` forms, which pin a directory or file at a revision and name
+#: the repository just as well. Widened before shipping rather than after a false
+#: positive: the failure mode of a too-narrow rule here is flagging a correct
+#: citation, and a check that fails on a true statement is one that gets muted.
+_FOREIGN_LINK = re.compile(
+    r"https?://[^\s)\]]*?/([\w.-]+/[\w.-]+)/"
+    r"(?:commit|commits|tree|blob|raw)/([0-9a-f]{40})")
 
 _SHA256_LINE = re.compile(r"^([0-9a-f]{64})\s+(\S+)$", re.M)
 _PINNED_COMMIT = re.compile(r"pinned to \|\s*`([0-9a-f]{40})`")
@@ -123,6 +186,43 @@ def _git(*args: str) -> str | None:
     out = subprocess.run(("git", *args), cwd=REPO_ROOT, capture_output=True,
                          text=True, check=False)
     return out.stdout.strip() if out.returncode == 0 else None
+
+
+def _this_repository() -> str:
+    """`owner/name` for this checkout, so a self-link is not mistaken for foreign.
+
+    Derived, not written down. A permalink into *this* repository must still be
+    reachability-checked: `.../blob/<sha>/path` is precisely the link that 404s
+    when the commit it names is unreachable, which is the whole failure being
+    guarded. Treating it as a foreign citation would exempt the most important
+    case, and briefly did, caught by the examined-subtest count dropping.
+    """
+    url = _git("remote", "get-url", "origin") or ""
+    m = re.search(r"[:/]([\w.-]+/[\w.-]+?)(?:\.git)?$", url.strip())
+    return m.group(1).lower() if m else ""
+
+
+def _commit_exists(sha: str) -> bool:
+    """Does this object resolve to a commit here?
+
+    Keyed on the return code, deliberately, and not on `_git`'s return value.
+    ``git cat-file -e`` prints nothing on success, so `_git` hands back ``""``,
+    and ``not _git(...)`` is then true for a commit that *does* exist. That
+    inverted a filter here and made the reachability check below unable to fire:
+    it skipped every resolvable commit and examined only the ones already caught
+    by its sibling. Found 2026-09-11 by a seeded violation, not by the suite,
+    which is the whole argument for seeding.
+    """
+    return subprocess.run(("git", "cat-file", "-e", f"{sha}^{{commit}}"),
+                          cwd=REPO_ROOT, capture_output=True,
+                          check=False).returncode == 0
+
+
+def _foreign_shas(text: str) -> set[str]:
+    """SHAs excused from resolving here: linked, and into a *different* repo."""
+    here = _this_repository()
+    return {sha for repo, sha in _FOREIGN_LINK.findall(text)
+            if repo.lower() != here}
 
 
 def _checkout_can_answer_provenance() -> bool:
@@ -236,8 +336,8 @@ class PinnedProvenanceTests(unittest.TestCase):
             with self.subTest(doc=str(path)):
                 self.assertIsNotNone(m, f"{path} declares no pinned commit")
                 sha = m.group(1)
-                self.assertIsNotNone(
-                    _git("cat-file", "-e", f"{sha}^{{commit}}"),
+                self.assertTrue(
+                    _commit_exists(sha),
                     f"{path} pins {sha[:12]}, which is not a commit in this repository")
 
     def test_the_pinned_commit_is_reachable_beyond_a_local_branch(self):
@@ -278,6 +378,113 @@ class PinnedProvenanceTests(unittest.TestCase):
                         f"{path} publishes {want[:12]} for {rel}, but that file at "
                         f"{sha[:12]} hashes to {got[:12]}. The document describes a "
                         "revision it is not pinned to.")
+
+
+class CitedCommitsResolve(unittest.TestCase):
+    """Every commit a document cites is either resolvable here or names its repo.
+
+    `PinnedProvenanceTests` above checks one document, because one document
+    publishes source hashes. Thirteen carry a commit SHA. Checking the one and
+    reporting the class as guarded is the error this suite is most prone to, so
+    this derives the population instead of listing it.
+
+    The rule has two branches, and the second is not a loophole. A SHA inside a
+    `github.com/<owner>/<repo>/commit/<sha>` URL is a citation into a different
+    repository: `docs/VERIFICATION-DESIGN-DEFECT.md` legitimately cites
+    `token-bleed-benchmark` that way. It cannot be resolved from this checkout
+    without a network call, so what is enforced is that it *names where it
+    lives*. A bare 40-hex with no repository attached is the unverifiable case.
+
+    No grandfather list. When written, 2026-09-11, all four same-repo SHAs cited
+    across seven documents were tag-held and ancestors of main, so there was
+    nothing to grandfather. If this ever needs one, that is a finding.
+    """
+
+    def setUp(self):
+        if not _checkout_can_answer_provenance():
+            self.skipTest(
+                "shallow clone - cited commits are not present, so this "
+                "establishes nothing. Not a pass; enforced by the "
+                "pinned-provenance job with fetch-depth: 0")
+
+    def _documents(self):
+        for path in sorted((REPO_ROOT / "docs").rglob("*.md")):
+            yield path, path.read_text(encoding="utf-8")
+
+    def test_a_cited_commit_resolves_here_or_names_its_repository(self):
+        for path, text in self._documents():
+            foreign = _foreign_shas(text)
+            for sha in sorted(set(_ANY_SHA.findall(text))):
+                if sha in foreign:
+                    continue
+                rel = path.relative_to(REPO_ROOT)
+                with self.subTest(doc=str(rel), sha=sha[:12]):
+                    self.assertTrue(
+                        _commit_exists(sha),
+                        f"{rel} cites {sha[:12]}, which is not a commit in this "
+                        "repository and is not inside a URL naming the repository "
+                        "it does live in. A reader cannot resolve it either way.")
+
+    def _resolvable_cited(self):
+        """The commits the reachability check examines. One derivation, shared.
+
+        `test_a_cited_commit_is_reachable_to_someone_else` iterates this, and
+        `test_the_reachability_check_examines_a_non_empty_set` asserts it is not
+        empty. Both must read the same list or the control is guarding a
+        different instrument than the one that can break.
+        """
+        found = []
+        for path, text in self._documents():
+            foreign = _foreign_shas(text)
+            for sha in sorted(set(_ANY_SHA.findall(text))):
+                if sha not in foreign and _commit_exists(sha):
+                    found.append((path.relative_to(REPO_ROOT), sha))
+        return found
+
+    def test_the_reachability_check_examines_a_non_empty_set(self):
+        """The positive control the reachability check shipped without.
+
+        It had a filter that skipped every commit that resolves, so it examined
+        nothing and passed. Green, and worth nothing. Asserting the population is
+        non-empty is what distinguishes "checked and clean" from "checked
+        nothing".
+
+        This only works because the test above iterates the same call. A first
+        version derived the population separately, which made it useless for its
+        one job: the bug could come back in the test's own filter and this would
+        still see a healthy population and pass.
+        """
+        found = self._resolvable_cited()
+        self.assertTrue(
+            found,
+            "no document cites a commit that resolves in this repository. Either "
+            "the docs stopped citing commits, or the filter feeding the "
+            "reachability check is inverted again and it is examining nothing.")
+
+    def test_a_cited_commit_is_reachable_to_someone_else(self):
+        """Same reason as the pinned case: a local-only commit is not evidence.
+
+        Iterates `_resolvable_cited()` rather than re-deriving the population
+        inline. Deliberate: the control below asserts that same call is
+        non-empty, so the assertion and its control share one code path. When
+        they had two, the inline filter here was inverted, examined nothing, and
+        the separate control kept reporting a healthy population.
+        """
+        for rel, sha in self._resolvable_cited():
+            with self.subTest(doc=str(rel), sha=sha[:12]):
+                remote = _git("branch", "-r", "--contains", sha) or ""
+                tags = _git("tag", "--contains", sha) or ""
+                self.assertTrue(
+                    remote.strip() or tags.strip(),
+                    f"{rel} cites {sha[:12]}, which no remote branch or tag "
+                    "contains. It resolves on this machine and nowhere else.")
+
+    def test_the_derivation_finds_the_documents_it_should(self):
+        """Anti-vacuity: a regex that matches nothing passes both tests above."""
+        seen = sum(1 for _p, t in self._documents() if _ANY_SHA.search(t))
+        self.assertGreaterEqual(
+            seen, 7, "the SHA derivation found almost no documents, which means "
+            "it stopped working rather than that the docs stopped citing commits")
 
 
 if __name__ == "__main__":
