@@ -88,7 +88,7 @@ The tool generates:
 
 The full mapping is in `configs/aiuc1_mapping.yaml`. Key mappings:
 
-- **Security (B001-B005)**: MCP harness (MCP-001 to MCP-010) + Identity harness (ID-001 to ID-018)
+- **Security (B001-B005)**: MCP harness (MCP-001 to MCP-010) + Identity harness (ID-001 to ID-003)
 - **Reliability (C001-C010)**: A2A harness (A2A-001 to A2A-012) + AIUC-1 compliance tests + L402 tests
 - **Transparency (D001-D004)**: Attestation module + Provenance harness + Identity audit tests
 - **Safety (E001-E003)**: AIUC-1 compliance harness (simulation only - gap)

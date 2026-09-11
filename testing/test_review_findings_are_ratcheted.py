@@ -161,6 +161,46 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "author 2026-09-11, caught by the examined-subtest count dropping 28 to 24",
      GUARDED,
      "testing/test_review_findings_are_ratcheted.py: test_the_reachability_check_examines_a_non_empty_set"),
+    # --- 2026-09-11, first outside review round against the register -------
+    ("AIUC1-CROSSWALK.md cited APP-001-030 and ADV-001-010: forty test IDs, none "
+     "of which existed. README cited X4-021 through X4-030 (three absent) and "
+     "aiuc1-prep.md ID-001 to ID-018 (fifteen absent). 58 phantom IDs, every one "
+     "a round number where a derived one belonged",
+     "Ledger claim-tracing review 2026-09-11 (crosswalk); author, deriving the "
+     "class across all documents (README, aiuc1-prep)", GUARDED,
+     "testing/test_documented_test_ids_resolve.py"),
+    ("whether a cited test is apposite to the requirement beside it",
+     "Ledger claim-tracing review 2026-09-11", UNGUARDABLE,
+     "existence is decidable and relevance is not. POLY-002 exists, and a row "
+     "citing it for audit logging would pass every rule in the ID guard and still "
+     "be wrong. Semantic fit between a requirement and a test is the reading task "
+     "the review itself performed."),
+    ("crosswalk D004 claimed 62 wire-protocol tests where the four named modules "
+     "define 133, and '25 cloud platforms' where 5 adapters exist producing 25 "
+     "tests: a test count printed as a platform count",
+     "Ledger claim-tracing review 2026-09-11", UNGUARDABLE,
+     "a derived-count guard is written and correct in principle, but the three "
+     "derivations available here disagreed on the adjacent 'all 631 categorised' "
+     "claim (96 CI-validated mapped, 488 by source kwarg, 579 by the reviewer's "
+     "artifact) because they measure different populations. Until the document "
+     "states which population each number is, a guard would pin the wrong one."),
+    ("crosswalk C010 said the suite 'validates whether safety controls hold under "
+     "attack', and E004 rendered a cited paper's claim as '77 days production "
+     "evidence': runtime and enforcement language inside rows the document itself "
+     "declares mapped/E1",
+     "Hermes evidence-grading F1/F2 and Ledger CW-06/CW-09, independently, "
+     "2026-09-11", UNGUARDABLE,
+     "a forbidden-verb list over mapped rows is writable and would be brittle and "
+     "easily evaded by paraphrase. The durable form needs each row to carry a "
+     "structured evidence class, which the document does not yet have. Recorded "
+     "as the next structural change rather than guarded weakly now."),
+    ("crosswalk E015 claimed JSON reports carry full request/response transcripts "
+     "while l402_harness.py truncates a retained body to 2000 characters",
+     "Ledger claim-tracing review 2026-09-11", UNGUARDABLE,
+     "Ledger proposed a real design: a fake transport emitting a unique marker per "
+     "call with a body past the excerpt boundary, asserting every call is retained "
+     "or explicitly labelled partial. That is a test worth building and is not "
+     "built, so it is recorded here rather than claimed."),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.
