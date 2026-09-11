@@ -40,8 +40,8 @@
     },
     {
       "id": "main-test-count",
-      "fact": "At the HEAD a reader resolves, main carries the number of unique test IDs that `scripts/count_tests.py` reports; 631 at the time of writing.",
-      "value": "631",
+      "fact": "At the HEAD a reader resolves, main carries the number of unique test IDs that `scripts/count_tests.py` reports; 635 at the time of writing.",
+      "value": "635",
       "release_tag": null,
       "commit": "HEAD",
       "command": "python3 scripts/count_tests.py",

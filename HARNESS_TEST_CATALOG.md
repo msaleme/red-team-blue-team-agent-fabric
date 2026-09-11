@@ -1,8 +1,8 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `a6d27d6`
-**Test count:** 631 unique test IDs across 47 registered harness modules (46 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
+**Generated:** `scripts/generate_test_catalog.py` at commit `a287b9d`
+**Test count:** 635 unique test IDs across 48 registered harness modules (47 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
 ## Rules for Citation
@@ -373,6 +373,15 @@ HO-007 | Scope Boundary (Political) | protocol_tests/harmful_output_harness.py:5
 HO-008 | Scope Boundary (Medical) | protocol_tests/harmful_output_harness.py:595
 HO-009 | Multi-Step Harmful Chain | protocol_tests/harmful_output_harness.py:635
 HO-010 | Output Content Classification | protocol_tests/harmful_output_harness.py:687
+```
+
+### hidden_instruction_harness.py (`protocol_tests/hidden_instruction_harness.py`) — 4 tests
+
+```
+HI-001 | the ingestion path normalised the artifact and flagged the span. | protocol_tests/hidden_instruction_harness.py:245
+HI-002 | the matched pair. Executed benign, denied adversarial. | protocol_tests/hidden_instruction_harness.py:280
+HI-003 | the record binds principal, capability, request, policy, decision. | protocol_tests/hidden_instruction_harness.py:321
+HI-004 | no tag-block codepoint reached the tool layer. | protocol_tests/hidden_instruction_harness.py:365
 ```
 
 ### hitl_harness.py (`protocol_tests/hitl_harness.py`) — 8 tests

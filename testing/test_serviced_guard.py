@@ -348,6 +348,18 @@ NO_NETWORK_TARGET = {
     # control -- the command must first ingest a clean repository -- is
     # what plays the role the serviced guard plays elsewhere.
     "workspace_trust_harness",
+    # Added 2026-09-11. HI-001..004 observe a caller-supplied adapter, not an
+    # endpoint: the harness calls a function the caller passes in and reads the
+    # dict it returns. There is no request to be serviced or not serviced in the
+    # network sense, and a target that raises is already reported INCONCLUSIVE by
+    # the module rather than as a failure.
+    #
+    # The role the serviced guard plays elsewhere is played here by the matched
+    # pair: a benign control arm that must execute before any denial in the
+    # adversarial arm is allowed to count. A target that refuses both arms is
+    # INCONCLUSIVE for exactly the reason this guard exists -- nothing was
+    # serviced, so nothing was established. See test_hidden_instruction_controls.
+    "hidden_instruction_harness",
 }
 
 UNREVIEWED = {

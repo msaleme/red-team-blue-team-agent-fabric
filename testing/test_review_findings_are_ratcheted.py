@@ -167,6 +167,14 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "the anchor before writing and to print the resulting count, which is what "
      "surfaced it."),
 
+    # --- 2026-09-11, building HI-001..004 ----------------------------------
+    ("the new hidden-instruction module set test_id from a local variable, so "
+     "count_tests saw none of its four IDs and asi_inventory could attribute "
+     "neither ASI tag. The tags were real and invisible to both instruments",
+     "author, building HI-001..004 hours after documenting the same defect as "
+     "CP-03 in COMPARISON.md", GUARDED,
+     "testing/test_code_quality.py: TestCatalogIsCurrent"),
+
     # --- 2026-09-11, Ledger claim-tracing on COMPARISON.md (CP-01..CP-05) ---
     ("behavioral_profile.py compared runs on the passed flag alone, so "
      "INCONCLUSIVE was indistinguishable from FAIL: FAIL->INCONCLUSIVE scored as "

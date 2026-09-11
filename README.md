@@ -3,7 +3,7 @@
 [![PyPI version](https://badge.fury.io/py/agent-security-harness.svg)](https://pypi.org/project/agent-security-harness/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/security%20tests-631-green.svg)](#three-layers-of-agent-decision-security)
+[![Tests](https://img.shields.io/badge/security%20tests-635-green.svg)](#three-layers-of-agent-decision-security)
 [![OWASP Agentic T1-T17](https://img.shields.io/badge/OWASP%20Agentic%20v1.1-13%2F17%20direct-blue.svg)](docs/OWASP-AGENTIC-V1.1-COVERAGE.md)
 [![ClawScan](https://img.shields.io/badge/ClawScan-Benign-brightgreen)](https://clawhub.ai/msaleme/agent-security-harness)
 [![Static Analysis](https://img.shields.io/badge/Static%20Analysis-Benign-brightgreen)](https://clawhub.ai/msaleme/agent-security-harness)
@@ -77,7 +77,7 @@ Results: 8/10 passed (80% pass rate) - see report.json
 > servicing the request, reports **INCONCLUSIVE** — never PASS. See
 > [v4.13.1](CHANGELOG.md) for why that distinction is enforced rather than assumed.
 
-631 executable security tests across 46 test-bearing modules on `main` (verified 2026-09-10 via `scripts/count_tests.py`; the v4.21.3 release carries 623). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
+635 executable security tests across 47 test-bearing modules on `main` (verified 2026-09-10 via `scripts/count_tests.py`; the v4.21.3 release carries 623). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
 
 If this evidence discipline is useful in your agent-security work, **star this
 repository to follow releases**.
@@ -218,7 +218,7 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 | **Research backing** | - | Cisco blog | Papers | **7 DOIs + 3 NIST submissions** (self-authored; see [Research](#research)) |
 | **MCP server mode** | - | - | - | **Yes - invoke from any AI agent** |
 | **Statistical testing** | - | - | - | **Wilson CIs, multi-trial** |
-| **Total tests** | Config checks | YARA rules | Model probes | **631 active tests across 46 test-bearing modules** |
+| **Total tests** | Config checks | YARA rules | Model probes | **635 active tests across 47 test-bearing modules** |
 
 Star counts verified 2026-08-02 via the GitHub API. Invariant Labs' `mcp-scan` now redirects to
 `snyk/agent-scan` and is listed once rather than as two separate projects. Competitor rows describe
@@ -296,7 +296,7 @@ model, a standards landscape, and the live reference environment the telemetry a
 | Resource | Link |
 |---|---|
 | Expanded Quick Start | [docs/QUICKSTART.md](docs/QUICKSTART.md) |
-| Full Test Inventory (631 tests) | [docs/TEST-INVENTORY.md](docs/TEST-INVENTORY.md) |
+| Full Test Inventory (635 tests) | [docs/TEST-INVENTORY.md](docs/TEST-INVENTORY.md) |
 | OWASP Agentic v1.1 Coverage (T1–T17) | [docs/OWASP-AGENTIC-V1.1-COVERAGE.md](docs/OWASP-AGENTIC-V1.1-COVERAGE.md) |
 | Canonical coverage mapping (source of truth) | [docs/coverage/owasp-agentic-v1.1.yaml](docs/coverage/owasp-agentic-v1.1.yaml) |
 | Release history & known gaps | [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) |
@@ -330,7 +330,7 @@ mapping and the human-in-the-loop harness** · v4.13.1 a correctness fix to that
 endpoint provenance · v4.16.0 three target shapes: a verdict must be able to be wrong AND to be right · v4.17.0 eight modules could not tell a refusal from a compliance · v4.18.0 INCONCLUSIVE became a field, and the read-list emptied · v4.19.0 a correctness disclosure: verdicts moved in both directions · v4.20.0 the last absence-graded verdicts got a positive control · v4.21.0 the instrument was the thing under test: 7 of 9 defects were in the measurement apparatus · v4.21.1 the published wheel reported 17/17 against a host that did not exist · v4.21.2 a fourth review asked what the repaired layer assumes: 47 rows called a control held on a reply that said nothing · **v4.21.3 a fifth review asked whether the checks can fail: the workflow contract tests passed with every step disabled, and nine of twelve register denominators could be replaced by a constant** · v4.15.0 unserviced requests are no longer recorded as passes (see
 [CHANGELOG.md](CHANGELOG.md)).
 
-The release carries **623** tests; `main` is at **631**. They do not agree right now, and the
+The release carries **623** tests; `main` is at **635**. They do not agree right now, and the
 difference is MEM-013..MEM-016, the memory revocation-enforcement family, and WT-001..WT-004, the
 workspace-trust ingestion family, all of which landed after the v4.21.3 tag. At the tag itself they did agree: MCP-021, the MCP authentication fail-open
 differential, and DCA-001..DCA-011, the multi-hop delegated-authority attenuation suite, all
