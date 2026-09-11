@@ -166,6 +166,32 @@ These recur across rounds — always check:
     partly true. Do not report coverage growth as progress while the remainder
     is non-empty.
 
+11. **A review finding becomes a guard, or is recorded as unguardable with a
+    reason.** Item 10 applied to review output. On 2026-09-10 two external
+    reviews returned roughly a dozen findings; five became executable guards and
+    the rest became prose corrections, which means the next review pays to find
+    the same class again.
+
+    `testing/test_review_findings_are_ratcheted.py` forces the choice. Append
+    every review finding as GUARDED, naming a test that must exist, or
+    UNGUARDABLE, with the reason no test can hold it. `OPEN` must stay empty.
+    Unlike the grandfather lists in items 7 and 9, this register **may grow** —
+    new reviews producing new findings is the system working. What may not grow
+    is the unclassified set. Never delete a row to make it pass.
+
+    Ask the reviewer which side a finding falls on. They found it, so their
+    judgement beats yours, and "UNGUARDABLE because X" is a real answer.
+
+    **A document that pins citations to a revision must pin to a reachable one.**
+    `PinnedProvenanceTests` in that file checks it, because an external reviewer
+    returned BLOCKED rather than a review on 2026-09-11: the packet advertised
+    SHAs that existed only on an unpushed local branch. Every hash was correct
+    and none of it was checkable. Note it asserts reachability via a remote
+    branch or tag, **not** ancestry of HEAD as the OWASP guard does — a
+    squash-merged commit is not an ancestor, and tagging before the squash is
+    what keeps the citation alive.
+
+
 ## Docker
 
 Docker is available. Ask to turn it on if not found.
