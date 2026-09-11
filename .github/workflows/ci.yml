@@ -247,6 +247,34 @@ jobs:
           print(f'All {len(method_ids)} test IDs are unique across methods')
           "
 
+  pinned-provenance:
+    name: Documents pinned to a revision cite a resolvable one
+    runs-on: ubuntu-latest
+    steps:
+      # Full history and tags on purpose, same reason as owasp-coverage below.
+      # docs/WORKSPACE-TRUST-REVIEW.md pins every citation to a commit and
+      # publishes source hashes for it; under the default fetch-depth: 1 that
+      # commit is absent, the checks skip, and a packet citing an unresolvable
+      # revision would ship green. That is not hypothetical: an external
+      # reviewer returned BLOCKED on exactly that, 2026-09-11, because the SHAs
+      # had never been pushed.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pytest
+
+      # -rs so a skip is visible rather than counted as a pass. In this job
+      # nothing should skip; if it does, the checkout stopped being full depth.
+      - name: Pinned provenance and the review-findings ratchet
+        run: python -m pytest testing/test_review_findings_are_ratcheted.py -q -rs
+
   owasp-coverage:
     name: OWASP Agentic v1.1 coverage mapping
     runs-on: ubuntu-latest
