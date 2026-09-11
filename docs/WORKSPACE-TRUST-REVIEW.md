@@ -31,8 +31,9 @@ Line numbers below are valid at `39fd4d2` and nowhere else. `main` moves; check 
 
 Author-written. **E1/I0.**
 
-A second agent read an earlier version of this document against the source and returned it with nine
-findings, which are corrected below and listed at the end. **That does not make this I1.** A
+A second agent read earlier versions of this document against the source and returned nine
+correction-history entries, listed at the end. That is sectioned coverage rather than a defect
+count: one of the nine records a claim that was already supported and was retained. **That does not make this I1.** A
 different reader improves error detection; it does not make the description independent, and the
 reviewer said so themselves. Nothing here should be taken from me rather than from the source.
 
@@ -107,8 +108,9 @@ succeeding plus whether the canary file exists (lines 200-209).
   the shared subprocess helper is line 191). The calls it *may* make, all without a timeout, are
   `rev-parse HEAD` (line 643, skipped when `GITHUB_SHA` is set), `describe --tags --exact-match`
   (line 654, skipped when `GITHUB_REF_NAME` is set), `status --porcelain --untracked-files=no`
-  (line 656), and a `--version` probe reached only on failure (line 645). Which of them run depends
-  on your environment.
+  (line 656), and a `--version` probe reached only on failure (line 645). That last one is a
+  different kind of call: it runs with no `cwd`, so it probes whether git is executable at all
+  rather than inspecting any checkout. Which of them run depends on your environment.
 
 If `--report` is not passed, neither happens.
 
