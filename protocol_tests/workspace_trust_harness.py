@@ -94,18 +94,49 @@ class WorkspaceTrustResult(HarnessResult):
 
 
 class WorkspaceTrustTests(RecordingHarness):
-    """Characterise one command that ingests a local repository.
+    """Characterise one command that ingests a local repository, plus local git.
 
-    Every test runs the command TWICE: once against a clean control repository
-    and once against a crafted one. The control run is the positive control and
-    it is not optional. If the command cannot ingest a clean repository -- wrong
-    invocation, missing binary, a `{repo}` placeholder that was never
-    substituted -- then it also will not ingest the crafted one, no canary
-    fires, and without the control that scores as "the sink did not execute".
+    ## Which tests observe the command under test, and which do not
+
+    Until 2026-09-10 this docstring asserted that all four tests invoked the
+    command under test. That was true of one of them, and an external reader
+    checking the claim against the source is what found it. The wrong sentence
+    is described rather than quoted here, because
+    testing/test_workspace_trust_controls.py greps for it and a quoted copy
+    would keep the guard permanently red. Corrected here rather than softened, because a
+    family docstring that overstates what its members observe is the defect this
+    package spent the same day repairing in MEM-013..015.
+
+        WT-001  invokes the command under test, via _run_against      TARGET
+        WT-002  drives local git directly, no invocation              LOCAL GIT
+        WT-003  drives local git directly, no invocation              LOCAL GIT
+        WT-004  drives local git directly, no invocation              LOCAL GIT
+
+    So a run produces ONE observation about the caller's command and three about
+    git's behaviour on the machine the harness is running on. The three are
+    still worth having -- they establish that the fixture fires at all, that a
+    clone does not carry the sink, and that the published mitigation suppresses
+    it -- but none of them is evidence about the ingesting command, and a report
+    that reads as four findings about a target would be wrong.
+
+    ## The positive control, and where it applies
+
+    WT-001 runs the command twice: once against a clean control repository and
+    once against a crafted one. The control run is not optional. If the command
+    cannot ingest a clean repository -- wrong invocation, missing binary, a
+    `{repo}` placeholder that was never substituted -- then it also will not
+    ingest the crafted one, no canary fires, and without the control that scores
+    as "the sink did not execute".
 
     That is X4-057's shape: nothing accepted, nothing settled, nothing
     overdrawn, "the control held". Here it would be nothing ingested, nothing
     executed, "not vulnerable". The control run turns that into INCONCLUSIVE.
+
+    What the control establishes is narrower than "the command ingested the
+    repository": it is exit status zero with output on stdout or stderr. A
+    command that exits zero and prints something without reading the directory
+    satisfies it. That is a weaker precondition than the name suggests and it is
+    stated here so a reader does not assume otherwise.
     """
 
     def __init__(self, command: str, self_test: bool = False):
@@ -149,6 +180,10 @@ class WorkspaceTrustTests(RecordingHarness):
         produced output. It is deliberately not "the command exited 0" alone --
         a stub that does nothing exits 0 too.
         """
+        # Literal substitution, then a shell. No quoting is added around the
+        # path, and the command inherits this process's cwd and environment.
+        # The 120s timeout bounds THIS invocation only: it does not bound
+        # descendants the command spawns, and it is not a bound on the run.
         cmd = self.command.replace("{repo}", str(repo))
         try:
             proc = subprocess.run(cmd, shell=True, capture_output=True,
