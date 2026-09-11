@@ -351,7 +351,7 @@ explicitly *not* goals. Full detail and the anti-goals in [ROADMAP.md](ROADMAP.m
 
 | Who | Use Case |
 |-----|----------|
-| [FransDevelopment / Open Agent Trust Registry](https://github.com/FransDevelopment/open-agent-trust-registry) | OATR SDK v1.2.0 test fixtures (X4-021 through X4-030) -- Ed25519 attestation verification |
+| [FransDevelopment / Open Agent Trust Registry](https://github.com/FransDevelopment/open-agent-trust-registry) | OATR SDK v1.2.0 test fixtures (X4-021 through X4-027) -- Ed25519 attestation verification |
 
 ### Independent reproduction
 

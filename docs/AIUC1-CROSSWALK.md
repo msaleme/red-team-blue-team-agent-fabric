@@ -14,7 +14,7 @@ material no matter how many requirements it covers. Executed evidence requires a
 stated target and a pinned revision; independent review requires a qualified
 outside party.
 
-> **Standard currency:** this mapping was built against **v2026-Q1** (reviewed March 2026). AIUC-1 now revises quarterly — **Q2 (April 2026)** added MCP/A2A protocol-security and agent-identity controls; **Q3 (released 2026-07-15)** modified 8 requirements / 41 controls. Requirement-level rows below remain valid (renumbering happened at sub-control level), but see the **Q3-2026 Currency Note** near the end of this document before citing this crosswalk against the current standard. Last currency review: 2026-07-16. **Requirement titles verified verbatim against the published pillar pages on 2026-09-05** (`/security`, `/safety`, `/reliability`, `/data-and-privacy`, `/accountability`, `/society`); four had drifted from the standard's wording and were corrected, most consequentially A003, which this document called *data collection* where the standard says *data access*. **Next review due on the Q4-2026 release, 2026-10-15**; AIUC-1 ships on a fixed quarterly cadence (Jan/Apr/Jul/Oct 15), so the review date is knowable in advance rather than event-driven.
+> **Standard currency:** this mapping was built against **v2026-Q1** (reviewed March 2026). AIUC-1 now revises quarterly — **Q2 (April 2026)** added MCP/A2A protocol-security and agent-identity controls; **Q3 (released 2026-07-15)** modified 8 requirements / 41 controls. Requirement-level rows below remain valid (renumbering happened at sub-control level), but see the **Q3-2026 Currency Note** near the end of this document before citing this crosswalk against the current standard. Last currency review: 2026-07-16. **The author compared requirement titles against the published pillar pages on 2026-09-05** (`/security`, `/safety`, `/reliability`, `/data-and-privacy`, `/accountability`, `/society`); four had drifted from the standard's wording and were corrected, most consequentially A003, which this document called *data collection* where the standard says *data access*. **Next review due on the Q4-2026 release, 2026-10-15**; AIUC-1 ships on a fixed quarterly cadence (Jan/Apr/Jul/Oct 15), so the review date is knowable in advance rather than event-driven.
 
 ---
 
@@ -25,8 +25,8 @@ outside party.
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
 | **B001** | Third-party testing of adversarial robustness | Harness test vectors may support evidence collection for prompt injection, jailbreaks, polymorphic attacks, multi-step chains, and CVE reproduction. See the [test inventory](TEST-INVENTORY.md) and run the count script for the current test-ID total. |
-| **B002** | Detect adversarial input | MCP tool injection (MCP-001-010), A2A message spoofing (A2A-001-012), prompt injection via operational data (APP-001-030) |
-| **B005** | Implement real-time input filtering | Filter bypass via encoding tricks, nested injection, polymorphic payloads, context displacement (ADV-001-010) |
+| **B002** | Detect adversarial input | MCP tool injection (MCP-001-010), A2A message spoofing (A2A-001-012), prompt injection via operational data (ADI-001, ADI-002, ADI-003) |
+| **B005** | Implement real-time input filtering | Payload-variation probes mapped as potentially relevant: per-attempt payload mutation and encoding variation (POLY-001, POLY-002), nested schema injection (CVE-001), tool-description context displacement (MCP-011, graded as denial-of-service rather than filtering). These observe a target's *responses*; they do not measure a filtering implementation or its latency. |
 | **B009** | Limit output over-exposure | Information leakage detection, output exfiltration tests, API key regex scanning |
 
 ### D. Reliability (all listed requirements mapped)
@@ -34,15 +34,15 @@ outside party.
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
 | **D003** | Restrict unsafe tool calls | MCP capability escalation, unauthorized tool registration, A2A task hijacking, L402/x402 unauthorized payment execution |
-| **D004** | Third-party testing of tool calls | 62 wire-protocol tests (MCP + A2A + L402 + x402) + 83 platform adapter tests across 25 cloud + 20 enterprise platforms |
+| **D004** | Third-party testing of tool calls | 133 wire-protocol tests (MCP 33 + A2A 13 + L402 33 + x402 54) + 83 platform adapter tests (cloud 25 + enterprise core 31 + enterprise extended 27) across 5 cloud + 20 enterprise platform adapters |
 
 ### C. Safety (mapped subset)
 
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
-| **C001** | Define AI risk taxonomy | Framework provides STRIDE + OWASP Agentic + NIST AI 800-2 risk taxonomy with all 631 tests categorized |
+| **C001** | Define AI risk taxonomy | Framework provides STRIDE, OWASP Agentic and NIST AI 800-2 risk categorisation across the repository's 631 tests. Not every test carries a mapping in every taxonomy: for the OWASP Agentic mapped population see the generated `docs/coverage/owasp-agentic-v1.1.json`, which is validated in CI. |
 | **C002** | Conduct pre-deployment testing | Entire framework designed for pre-deployment. `pip install agent-security-harness` and run before shipping. |
-| **C010** | Third-party testing for harmful outputs | Adversarial test suite validates whether safety controls hold under attack |
+| **C010** | Third-party testing for harmful outputs | Adversarial test vectors are mapped as potentially relevant to evidence collection about harmful outputs. An authorized, pinned run with retained results would be needed to characterise whether a target's control held. |
 | **C011** | Third-party testing for out-of-scope outputs | Protocol-level scope violation tests (MCP-003 capability escalation, A2A unauthorized access) |
 
 ### A. Data & Privacy (mapped subset)
@@ -56,9 +56,9 @@ outside party.
 
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
-| **E004** | Assign accountability | [CSG paper](https://doi.org/10.5281/zenodo.19162104) defines 3-tier governance with explicit accountability. 12 mechanisms, 77 days production evidence. |
+| **E004** | Assign accountability | [CSG paper](https://doi.org/10.5281/zenodo.19162104) defines 3-tier governance with explicit accountability. The paper reports 12 mechanisms and 77 days of production operation; that is the cited authors' statement, not a retained operational record held here. |
 | **E006** | Conduct vendor due diligence | A bounded, authorized harness run may contribute technical evidence to a vendor-due-diligence review. It does not replace the review or establish a vendor conclusion on its own. |
-| **E015** | Log AI system activity | JSON reports with full request/response transcripts serve as audit evidence |
+| **E015** | Log AI system activity | JSON reports retain request and response records and may serve as audit evidence. Completeness varies by path and is not guaranteed: some harnesses retain summaries or excerpt response bodies (for example `l402_harness.py` truncates a retained body to 2000 characters), so the reports are not full transcripts. |
 
 ### F. Society (mapped subset)
 

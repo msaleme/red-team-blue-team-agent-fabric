@@ -497,6 +497,20 @@ UNCONTROLLED = {
     # Globs for `def _record` to derive the prose-graded class as a
     # DENOMINATOR for its ratchet.
     "test_refusal_establishes_a_pass.py",
+    # Scans `docs/**/*.md` and README for cited test IDs that do not resolve, so
+    # it DOES forbid a construction and a seeded violation is entirely meaningful
+    # for it. It is here for a narrower reason: `_seed()` builds a throwaway
+    # package containing one `.py` module, and this detector's input is markdown.
+    # A seeded Python file would demonstrate nothing about it, and widening the
+    # shared harness to emit documents for one detector would make the harness
+    # less legible than the exemption.
+    #
+    # Its controls are real and recorded in its own docstring: the two invented
+    # ranges, the prose `through` form, a known-prefix typo, and three cases that
+    # must be ACCEPTED (SHA-256, a proposals-directory ID, a valid range). If the
+    # shared harness ever grows a document seed, move this into DETECTORS.
+    "test_documented_test_ids_resolve.py",
+
     # test_serviced_guard.py left this queue 2026-09-07. It globbed for
     # `_record` + `response_received` to enumerate harnesses; that rule could
     # not see a harness inheriting `_record`, and was replaced by a registry
