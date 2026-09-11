@@ -2,10 +2,16 @@
 
 ## Why
 
-On 2026-09-10 two external reviewers returned roughly a dozen findings across
-four rounds. Five became executable guards. The rest became prose corrections
-with nothing stopping them recurring, which means the next review pays to find
-the same class again.
+On 2026-09-10 and 2026-09-11 three outside readers returned findings across
+several rounds: a content reviewer, a second agent reading the workspace-trust
+packet against its source, and a provenance gate that refused to review at all.
+Five findings became executable guards. The rest became prose corrections with
+nothing stopping them recurring, which means the next review pays to find the
+same class again.
+
+The `source` column below is the honest version of that count, and it shows the
+rest: most rows are the author, and a register that only recorded outside
+findings would flatter the process.
 
 That is the difference between a review as an event and a review as an asset.
 This file is the ledger that forces the distinction: a finding may not sit
