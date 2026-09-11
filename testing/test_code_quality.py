@@ -218,7 +218,7 @@ class TestRegTestCount(unittest.TestCase):
         "testing/CRITICAL_EVALUATION",
         "docs/v3.8-roadmap.md",
         "docs/v3.9-roadmap.md",
-        "docs/AUDIT-R33-INDEPENDENT-REVIEW.md",   # dated external audit
+        "docs/AUDIT-R33-INDEPENDENT-REVIEW.md",   # dated author-run review, not external
         "docs/engagement/WEEKLY_HOOKS",           # dated engagement snapshots
         "docs/blog/",                             # dated posts, counts as-published
     )

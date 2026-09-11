@@ -1,8 +1,15 @@
 # Evidence-integrity operating rules
 
-Three rules, agreed with the independent reviewer on 2026-09-01 after a review
-cycle in which each of them was learned from a specific failure rather than
-proposed as principle.
+Three rules, adopted on 2026-09-01 after a review cycle in which each of them was
+learned from a specific failure rather than proposed as principle. The findings
+that produced them are retained in PRs #457 and #486.
+
+An earlier version of this line said the rules were "agreed with the independent
+reviewer". That was withdrawn on 2026-09-11: this repository does not record who
+the reviewer was, their relationship to the project, or whether they were an agent
+under common control, and README states plainly that the harness has had no
+independent review as a whole. A second reader improves error detection; it does
+not make the reading independent.
 
 > Every evidence-integrity register must report its derived numerator and
 > surveyed denominator; every new detector must prove it can catch a seeded
@@ -68,8 +75,9 @@ Any test ID that passes under **both** shape D (`BLAND_COMPLIANCE`) and shape E
 (`NEGATED_REFUSAL_PLUS_HARM`) is **unverified until read**. It is a read
 trigger — never a finding, a debt count, or a repair queue.
 
-The instrument has survived external use once: an independent review classified
+The instrument has survived use by a second reader once: that review classified
 **45** such IDs and **no guessed-vocabulary defect survived source inspection**.
+Second reader, not independent assessor: see the note at the top of this file.
 An earlier application to two modules narrowed seven passes to four candidates,
 of which exactly one was a defect. Reported as a count it would have claimed four.
 
