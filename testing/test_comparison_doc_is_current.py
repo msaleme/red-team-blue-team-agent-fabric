@@ -139,6 +139,57 @@ class TestEverySelfProductCountMatchesTheCatalog(unittest.TestCase):
                     f"{surface} claims {stated} tests; the modules it names hold "
                     f"{sum(self.counts[m] for m in modules)}")
 
+    def test_the_aiuc1_requirement_row_matches_its_config(self) -> None:
+        """The two-column row the numeric guard above cannot see.
+
+        `test_each_surface_row_sums_to_the_modules_it_names` selects rows with
+        `len(r) == 3`. The AIUC-1 requirement row has two columns, so it was
+        excluded, and it carried "19 of 20 requirements" while
+        `configs/aiuc1_mapping.yaml` declared 24 keys with 23 COVERED and 1 GAP.
+        Wrong in both numbers, through several readings of a document that told
+        the reader every count was recomputed.
+
+        Raised 2026-09-11 as CP-05 by a second reader. Recomputing the row is the
+        repair; describing the guard's limit in prose was the first half of it.
+        """
+        import yaml
+
+        cfg = yaml.safe_load((REPO / "configs" / "aiuc1_mapping.yaml").read_text(encoding="utf-8"))
+
+        def requirement_statuses(node, acc):
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    if (isinstance(key, str) and len(key) == 4
+                            and key[0] in "BCDEF" and key[1:].isdigit()):
+                        acc[key] = (value or {}).get("status") if isinstance(value, dict) else None
+                    else:
+                        requirement_statuses(value, acc)
+            elif isinstance(node, list):
+                for item in node:
+                    requirement_statuses(item, acc)
+            return acc
+
+        statuses = requirement_statuses(cfg, {})
+        self.assertGreater(
+            len(statuses), 10,
+            "no requirement keys were derived from the config, so this rule is "
+            "comparing the document against nothing")
+        covered = sum(1 for s in statuses.values() if s == "COVERED")
+
+        row = re.search(r"\|\s*AIUC-1 requirement mapping\s*\|([^|]+)\|", self.text)
+        self.assertIsNotNone(row, "the AIUC-1 requirement row is missing from the document")
+        claimed = row.group(1)
+
+        numbers = [int(n) for n in re.findall(r"\b(\d+)\b", claimed)]
+        self.assertIn(
+            len(statuses), numbers,
+            f"the AIUC-1 row does not state the config's requirement-key count "
+            f"({len(statuses)}); it says {claimed.strip()!r}")
+        self.assertIn(
+            covered, numbers,
+            f"the AIUC-1 row does not state the config's COVERED count "
+            f"({covered}); it says {claimed.strip()!r}")
+
     def test_the_asi_table_matches_the_inventory(self) -> None:
         from protocol_tests.asi_inventory import by_category
 
