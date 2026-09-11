@@ -84,6 +84,48 @@ def _index_by_test_id(results: list[dict[str, Any]]) -> dict[str, dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
+# Verdict state
+# ---------------------------------------------------------------------------
+
+#: The canonical INCONCLUSIVE markers, imported rather than restated so this
+#: script cannot drift from the harnesses it reads. `row_field` handles a row
+#: arriving as a dataclass in-process or a dict from a written report.
+try:
+    from protocol_tests.http_helpers import INCONCLUSIVE_FIELDS, row_field
+except ImportError:  # running from a checkout without the package importable
+    INCONCLUSIVE_FIELDS = ("not_evaluated", "informational")
+
+    def row_field(row, name, default=None):
+        if isinstance(row, dict):
+            return row.get(name, default)
+        return getattr(row, name, default)
+
+PASS, FAIL, INCONCLUSIVE = "PASS", "FAIL", "INCONCLUSIVE"
+
+
+def verdict_state(row) -> str:
+    """PASS, FAIL, or INCONCLUSIVE for one result row.
+
+    This script read `.get("passed", False)` alone until 2026-09-11, which makes
+    INCONCLUSIVE indistinguishable from FAIL, because an unevaluated result
+    carries `passed=False`. Two consequences, both wrong in the direction that
+    hides a problem:
+
+    * `FAIL -> INCONCLUSIVE` scored as stable with no drift, so a target that
+      stopped answering looked like a target behaving consistently.
+    * `PASS -> INCONCLUSIVE` was reported as `PASS -> FAIL`, a regression alarm
+      naming a cause that did not happen.
+
+    Found by a second reader tracing a comparison-table row to its source. The
+    row advertised behavioural drift detection without disclosing that the
+    observation boundary was two-state.
+    """
+    if any(row_field(row, f, False) for f in INCONCLUSIVE_FIELDS):
+        return INCONCLUSIVE
+    return PASS if row_field(row, "passed", False) else FAIL
+
+
+# ---------------------------------------------------------------------------
 # Stability score
 # ---------------------------------------------------------------------------
 
@@ -93,16 +135,29 @@ def compute_stability(
 ) -> dict[str, Any]:
     """Compute stability score between two runs.
 
-    stability = matching_results / total_results * 100
+    stability = matching_results / comparable_results * 100
 
-    A result "matches" if the passed boolean is the same in both runs.
-    Tests present in only one run count as mismatches.
+    A result "matches" if its verdict state is the same in both runs. The state
+    is three-valued; comparing the `passed` boolean alone scored an unevaluated
+    result as a failure. See `verdict_state`.
+
+    **An INCONCLUSIVE on either side is not comparable.** It is excluded from
+    both numerator and denominator and reported separately, because a run that
+    could not establish a verdict is evidence of nothing about stability. Scoring
+    it as stable would let a target that stopped answering read as consistent;
+    scoring it as drift would raise an alarm naming a cause that did not happen.
     """
     all_ids = sorted(set(baseline_idx) | set(current_idx))
     if not all_ids:
-        return {"score": 100.0, "matching": 0, "total": 0, "details": []}
+        # Not 100.0. A stability score over zero observations asserts perfect
+        # stability from no evidence, which is the same defect one level up.
+        return {"score": None, "matching": 0, "comparable": 0,
+                "inconclusive": 0, "total": 0,
+                "score_basis": "no results compared", "details": []}
 
     matching = 0
+    comparable = 0
+    inconclusive = 0
     details: list[dict[str, Any]] = []
 
     for tid in all_ids:
@@ -118,28 +173,47 @@ def compute_stability(
             })
             continue
 
-        b_passed = b.get("passed", False)
-        c_passed = c.get("passed", False)
+        b_state = verdict_state(b)
+        c_state = verdict_state(c)
 
-        if b_passed == c_passed:
+        if INCONCLUSIVE in (b_state, c_state):
+            inconclusive += 1
+            details.append({
+                "test_id": tid,
+                "stable": None,
+                "reason": "inconclusive",
+                "baseline": b_state,
+                "current": c_state,
+            })
+            continue
+
+        comparable += 1
+        if b_state == c_state:
             matching += 1
-            details.append({"test_id": tid, "stable": True})
+            details.append({"test_id": tid, "stable": True, "baseline": b_state,
+                            "current": c_state})
         else:
             details.append({
                 "test_id": tid,
                 "stable": False,
                 "reason": "result_changed",
-                "baseline": b_passed,
-                "current": c_passed,
+                "baseline": b_state,
+                "current": c_state,
             })
 
     total = len(all_ids)
-    score = (matching / total * 100) if total else 100.0
+    score = (matching / comparable * 100) if comparable else None
 
     return {
-        "score": round(score, 2),
+        "score": round(score, 2) if score is not None else None,
         "matching": matching,
+        "comparable": comparable,
+        "inconclusive": inconclusive,
         "total": total,
+        "score_basis": (
+            "matching / comparable, where comparable excludes pairs with an "
+            "INCONCLUSIVE on either side. score is null when nothing was "
+            "comparable: 100%% over zero tests is not stability."),
         "details": details,
     }
 
@@ -156,9 +230,16 @@ def detect_drift(
 
     Each drift event includes:
       - test_id, test_name
-      - old_result, new_result (PASS / FAIL)
+      - old_result, new_result (PASS / FAIL / INCONCLUSIVE)
       - severity of the test
-      - category: regression (PASS->FAIL), improvement (FAIL->PASS), flaky
+      - category: regression, improvement, evidence_lost, evidence_gained
+
+    A transition into or out of INCONCLUSIVE is reported as a change of
+    *evidence*, never as a regression or an improvement. `PASS -> INCONCLUSIVE`
+    is not a target that started failing; it is a target that stopped being
+    measurable, and calling it a regression names a cause that did not happen.
+    `FAIL -> INCONCLUSIVE` is not stability either, which is what the previous
+    two-state comparison recorded, because both sides carried `passed=False`.
     """
     drifts: list[dict[str, Any]] = []
     common_ids = sorted(set(baseline_idx) & set(current_idx))
@@ -166,21 +247,22 @@ def detect_drift(
     for tid in common_ids:
         b = baseline_idx[tid]
         c = current_idx[tid]
-        b_passed = b.get("passed", False)
-        c_passed = c.get("passed", False)
+        old_result = verdict_state(b)
+        new_result = verdict_state(c)
 
-        if b_passed == c_passed:
+        if old_result == new_result:
             continue
 
-        old_result = "PASS" if b_passed else "FAIL"
-        new_result = "PASS" if c_passed else "FAIL"
-
-        if b_passed and not c_passed:
+        if new_result == INCONCLUSIVE:
+            # The verdict became unavailable. That is a change in what can be
+            # established, not a change in the target's behaviour.
+            category = "evidence_lost"
+        elif old_result == INCONCLUSIVE:
+            category = "evidence_gained"
+        elif old_result == PASS and new_result == FAIL:
             category = "regression"
-        elif not b_passed and c_passed:
-            category = "improvement"
         else:
-            category = "flaky"
+            category = "improvement"
 
         drifts.append({
             "test_id": tid,

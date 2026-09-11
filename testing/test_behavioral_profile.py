@@ -109,9 +109,23 @@ class TestStability:
         assert stab["matching"] == 1
 
     def test_empty_runs(self):
+        """No observations is not perfect stability.
+
+        This asserted `score == 100.0` until 2026-09-11. Comparing two empty runs
+        produced a claim of flawless behavioural stability from zero evidence,
+        which is the repository's oldest defect class wearing a percentage sign:
+        an absence of observed failure reported as an observed pass.
+
+        Raised as CP-04 by a second reader, alongside the two-state comparison in
+        the same script. The score is now `None` when nothing was comparable, and
+        `score_basis` says why.
+        """
         stab = compute_stability({}, {})
-        assert stab["score"] == 100.0
+        assert stab["score"] is None, (
+            "an empty comparison must not report a stability percentage; "
+            "100% over zero tests is a claim with no observation behind it")
         assert stab["total"] == 0
+        assert stab["comparable"] == 0
 
 
 # ---------------------------------------------------------------------------

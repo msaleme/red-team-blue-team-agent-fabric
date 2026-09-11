@@ -155,6 +155,54 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "was guarded on a sample and would have been reported as covered",
      "author 2026-09-11", GUARDED,
      "testing/test_review_findings_are_ratcheted.py: CitedCommitsResolve"),
+    ("the edit adding this batch's rows matched an anchor that exists only on a "
+     "sibling branch and used str.replace with no assertion, so it changed "
+     "nothing and reported success. Caught only because the register count "
+     "printed 18 where 23 was expected",
+     "author 2026-09-11", UNGUARDABLE,
+     "this is a property of how a file was edited, not of the repository, so "
+     "there is nothing in the tree for a test to hold. Recorded because the "
+     "failure mode is the one this whole register exists to answer: a change "
+     "that reports success and does nothing. The practical defence is to assert "
+     "the anchor before writing and to print the resulting count, which is what "
+     "surfaced it."),
+
+    # --- 2026-09-11, Ledger claim-tracing on COMPARISON.md (CP-01..CP-05) ---
+    ("behavioral_profile.py compared runs on the passed flag alone, so "
+     "INCONCLUSIVE was indistinguishable from FAIL: FAIL->INCONCLUSIVE scored as "
+     "stable with no drift, PASS->INCONCLUSIVE was reported as a regression, and "
+     "an empty comparison returned score 100.0. Its own unit test asserted that "
+     "100.0",
+     "Ledger COMPARISON review CP-04, 2026-09-11", GUARDED,
+     "testing/test_behavioral_profile_three_state.py"),
+    ("COMPARISON.md claimed '19 of 20 requirements' where the linked config "
+     "declares 24 requirement keys, 23 COVERED and 1 GAP",
+     "Ledger COMPARISON review CP-05, 2026-09-11", GUARDED,
+     "testing/test_comparison_doc_is_current.py: test_the_aiuc1_requirement_row_matches_its_config"),
+    ("COMPARISON.md told the reader its guard 'recomputes every one' of its "
+     "counts, while the guard selects only three-column rows with a digit in the "
+     "second column. The two-column AIUC-1 row was invisible to it, which is how "
+     "CP-05 survived several readings of a document promising the opposite",
+     "Ledger COMPARISON review CP-02, 2026-09-11", GUARDED,
+     "testing/test_comparison_doc_is_current.py: test_the_aiuc1_requirement_row_matches_its_config"),
+    ("COMPARISON.md said 10 tests 'carry no ASI tag site at all'. They carry "
+     "owasp_asi=ASI09; the extractor cannot attribute a tag when the test ID "
+     "reaches a shared helper as a parameter. An instrument limit stated as an "
+     "absence in the tests, understating our own coverage",
+     "Ledger COMPARISON review CP-03, 2026-09-11", UNGUARDABLE,
+     "the sum-to-621 arithmetic is already guarded and was correct. What went "
+     "wrong was the prose explanation attached to a correct number, and no test "
+     "can decide whether an English sentence names the right cause for a gap. "
+     "The passage now states the attribution limit and names the ten IDs."),
+    ("all 30 competitor cells assert product behaviour with no row-level source "
+     "and no version of the product examined",
+     "Ledger COMPARISON review CP-01, 2026-09-11", UNGUARDABLE,
+     "a citation-presence rule is writable, but the repair that matters is "
+     "retrieving and dating each competitor claim, which requires examining "
+     "other people's products and cannot be done from this repository. The table "
+     "now says plainly that no cell names a version and that a dash means 'not "
+     "found when we looked', so the limit is disclosed rather than guarded."),
+
     ("widening the accepted link forms briefly made a permalink into THIS "
      "repository count as a foreign citation, exempting from the reachability "
      "check the exact links that 404 when a commit is unreachable",

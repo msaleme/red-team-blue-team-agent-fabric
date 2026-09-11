@@ -10,8 +10,13 @@ which is which is the whole point of the split below.
   a date on it.
 - **This suite's own numbers are derived, regenerated 2026-09-08** from
   `scripts/count_tests.py` and `protocol_tests/asi_inventory.py`.
-  `testing/test_comparison_doc_is_current.py` recomputes every one of them and
-  fails if the document drifts from the catalog.
+  `testing/test_comparison_doc_is_current.py` recomputes the counts in the
+  three-column tables below and fails if the document drifts from the catalog. It
+  does **not** recompute every number in this file: it selects three-column rows
+  with a digit in the second column, so a two-column row is invisible to it. That
+  is how the AIUC-1 requirement row below carried a wrong figure through several
+  readings. A green run on that guard is not evidence that every numeric claim
+  here was checked.
 
 The fifth external review (R5-09, 2026-09-09) found the two mixed together: an
 April feature table claiming "MCP: 18 tests" and behavioural profiling "Planned
@@ -30,6 +35,16 @@ adversarial pressure.
 Not re-examined since 2026-04. No competitor system was executed or inspected
 for the 2026-09 revision of this document.
 
+**No cell below names the release it describes, and none carries a row-level
+source.** The links identify products, not the version examined, so a reader
+cannot tell which build any statement was true of, and a dash means "not found
+when we looked in April 2026" rather than "absent from the product". Read every
+competitor cell as unsourced as to version. `testing/test_comparison_doc_is_current.py`
+expressly excludes these cells from its checks and asserts only that the date
+wording is present, so nothing here is machine-verified. Treat this table as an
+archived snapshot of our reading, not as a current assessment of anyone's
+product.
+
 | Capability | [Cisco MCP Scanner](https://github.com/cisco-ai-defense/mcp-scanner) | [Snyk Agent Scan](https://github.com/snyk/agent-scan) | [NVIDIA Garak](https://github.com/NVIDIA/garak) |
 |---|---|---|---|
 | **Approach** | Static + LLM-as-judge | Config scanning + toxic flow | Model-layer probing |
@@ -45,9 +60,11 @@ for the 2026-09 revision of this document.
 
 ## This suite -- DERIVED, regenerated 2026-09-08
 
-Every count in this section is recomputed from source by
-`testing/test_comparison_doc_is_current.py`. The third column names the modules
-it is summed from, so the derivation is checkable without rerunning anything.
+Every count **in this section** is recomputed from source by
+`testing/test_comparison_doc_is_current.py`; the scope limit stated at the top
+applies to the document as a whole, not to these rows. The third column names the
+modules it is summed from, so the derivation is checkable without rerunning
+anything.
 
 | Surface | Tests | Derived from |
 |---|---|---|
@@ -64,9 +81,9 @@ governance and incident-response modules that `count_tests.py` lists in full.
 | Capability | Status |
 |---|---|
 | Approach | Wire-protocol adversarial testing |
-| Behavioural profiling / drift | Shipped: `scripts/behavioral_profile.py` |
+| Behavioural profiling / drift | Shipped: `scripts/behavioral_profile.py`. Compares verdict states across two runs and reports PASS/FAIL transitions as regression or improvement. Transitions into or out of INCONCLUSIVE are reported as changed *evidence*, never as behavioural drift, and pairs with an INCONCLUSIVE on either side are excluded from the stability score rather than counted. Until 2026-09-11 it compared the pass flag alone, which scored an unevaluated result as a failure. |
 | Compliance evidence packs | AIUC-1, OWASP, NIST |
-| AIUC-1 requirement mapping | 19 of 20 requirements |
+| AIUC-1 requirement mapping | `configs/aiuc1_mapping.yaml` declares 24 requirement keys: 23 COVERED, 1 GAP |
 | Statistical multi-trial | Wilson intervals over serviced trials (NIST AI 800-2) |
 | CI/CD integration | GitHub Action + CLI |
 | License | Apache 2.0 |
@@ -97,10 +114,18 @@ counting them as coverage was the overclaim an external review corrected on
 | ASI10 | Rogue Agents | 13 |
 | — | No ASI primary (positive controls, content safety, robustness) | 52 |
 
-The table's rows sum to 621, not to the 631 unique test IDs above: 10 tests
-carry no ASI tag site at all and so are not in the corpus this table is a
-denominator for. Untagged is a third state, and folding it into "no primary"
-would report an unmade decision as a made one.
+The table's rows sum to 621, not to the 631 unique test IDs above. The 10
+missing IDs are `RCL-001`..`RCL-007` and `RCL-009`..`RCL-011`, and they **do**
+carry a tag: `receipt_claim_harness.py` constructs their results with
+`owasp_asi="ASI09"`. The extractor attributes a tag only when the test ID and the
+tag resolve at the same call site, and these IDs are passed into a shared helper,
+so the tag is real and not attributable by this instrument.
+
+That is an attribution limit of the extractor, not an absence in the tests, and
+an earlier version of this passage stated it as the latter. It understates ASI09
+rather than overstating anything. Do not relabel these ten as a deliberate "no
+primary": that would report an unmade decision as a made one, in the opposite
+direction.
 
 **ASI10 Rogue Agents (13) and ASI08 Cascading Failures (19) are thin.**
 That is a true statement about this suite, not a rendering gap. Before the remap
