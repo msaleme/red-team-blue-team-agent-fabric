@@ -1,0 +1,61 @@
+# Retained output for release-claims.json claim: release-test-count
+# Command   : python3 scripts/count_tests.py
+# Revision  : 4c5c7622fa641bdbe43a79314edd506ddb95cd5e (tag v4.21.3)
+# Captured  : 2026-09-11T17:24:38Z by the repository author (E1/I0)
+# Method    : git archive v4.21.3 | tar -x, then run the command in that tree.
+#             The working tree was NOT used, so this output cannot borrow main's count.
+# ---------------------------------------------------------------------------
+============================================================
+Test Count Report
+============================================================
+
+  A2A Protocol                                    13
+  Advanced Attacks                                10
+  agent_data_injection.py                          3
+  AIUC-1 Compliance                               12
+  AP2 Mandate Chain                               17
+  autogen_harness.py                              10
+  benchmark_integrity_harness.py                   7
+  Capability Profile                              10
+  Card-Network Agentic Tokens                     12
+  CBRN Prevention                                  8
+  Cloud Agent Platforms                           25
+  CrewAI CVE Reproduction                         10
+  Delegated-Authority Attenuation                 11
+  Enterprise Platforms (core)                     31
+  Enterprise Platforms (extended)                 27
+  Extended Thinking                                6
+  Framework Adapters                              15
+  governance_modification_harness.py               6
+  GTG-1002 APT Simulation                         17
+  Harmful Output                                  10
+  hitl_harness.py                                  8
+  Identity & Authorization                        18
+  Incident Response                                8
+  intent_contract_harness.py                       8
+  Jailbreak                                       25
+  kill_switch_harness.py                           4
+  L402 Payment                                    33
+  MCP Protocol                                    33
+  MCP Supply-Chain                                 4
+  MCP Tool Poisoning Reproduction                 10
+  memory_harness.py                               12
+  Multi-Agent Interaction                         19
+  Over-Refusal                                    25
+  Prompt Caching                                   6
+  Provenance & Attestation                        15
+  Programmatic Tool Calling                        6
+  receipt_claim_harness.py                        11
+  Return Channel                                   8
+  Denial-of-Settlement / Finality                  8
+  skill_security_harness.py                        8
+  Tool Search (Embeddings)                         6
+  UCP/ACP Merchant Journey                        12
+  watermark_harness.py                             5
+  x402 Fireblocks Extension                       17
+  x402 Payment                                    54
+
+  TOTAL UNIQUE TEST IDS                          623
+  SUM OF PER-MODULE COUNTS                       623
+
+Definitive count: 623

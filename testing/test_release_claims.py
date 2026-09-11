@@ -29,7 +29,9 @@ not be read as having reproduced any value.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -44,7 +46,14 @@ MANIFEST_PATH = REPO_ROOT / "docs" / "release-claims.json"
 REQUIRED_FIELDS = {
     "id", "fact", "value", "release_tag",  "command", "value_extraction",
     "generated_on", "evidence_class", "independence_level", "limitation", "surfaces",
+    "resolution",
 }
+
+#: A claim is resolved against a fixed revision, or against whatever HEAD the
+#: reader has. The distinction was implicit and the two were mixed: the main
+#: count paired `commit: "HEAD"` with `generated_on: "2026-09-10"`, which reads
+#: as a result generated on that date and cannot be substantiated as one.
+PINNED, LIVE = "pinned", "live"
 
 
 class TestReleaseClaimsManifest(unittest.TestCase):
@@ -245,3 +254,107 @@ class TestAnUnresolvableTagIsNotSilentlyHead(unittest.TestCase):
         self.assertIn("HEAD", label)
         self.assertNotEqual(status, verify_release_claims.SKIP)
 
+
+class TestClaimResolutionIsHonest(unittest.TestCase):
+    """A dated result must not be bound to a floating ref, and a pinned claim
+    must carry the output that produced it.
+
+    Both findings came from an outside reader grading evidence classes on
+    2026-09-11 (F3 and F4). Neither was an E1-to-E2 inflation: the labels were
+    right. They were provenance-boundary defects, which is a quieter failure and
+    the reason they survived several careful readings.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+
+    def test_every_claim_declares_how_it_resolves(self):
+        for claim in self.manifest["claims"]:
+            with self.subTest(claim=claim.get("id")):
+                self.assertIn(
+                    claim.get("resolution"), (PINNED, LIVE),
+                    f"claim {claim.get('id')!r} does not say whether it resolves against a "
+                    f"fixed revision or against the reader's HEAD. That is the distinction "
+                    f"the two rules below depend on.")
+
+    def test_a_live_claim_carries_no_generation_date(self):
+        """F3. `commit: HEAD` plus a fixed date asserts a dated observation.
+
+        HEAD is deliberately dynamic and the surface check regenerates tagless
+        claims at current HEAD, which is right for a current-inventory statement.
+        It cannot substantiate the claim as a result produced on a past date
+        without an immutable resolved revision and retained output. So a live
+        claim states no date; if a dated observation is wanted, pin it.
+        """
+        live = [c for c in self.manifest["claims"] if c.get("resolution") == LIVE]
+        self.assertTrue(live, "no live claim: this rule is guarding nothing")
+        for claim in live:
+            with self.subTest(claim=claim["id"]):
+                self.assertIsNone(
+                    claim.get("generated_on"),
+                    f"claim {claim['id']!r} resolves live but carries "
+                    f"generated_on={claim.get('generated_on')!r}. Either drop the date, or "
+                    f"make it pinned with a resolved_revision and a retained artifact.")
+
+    def test_a_pinned_claim_retains_the_output_that_produced_it(self):
+        """F4. A command plus an expected value is a recipe, not a result."""
+        pinned = [c for c in self.manifest["claims"] if c.get("resolution") == PINNED]
+        self.assertTrue(pinned, "no pinned claim: this rule is guarding nothing")
+        for claim in pinned:
+            cid = claim["id"]
+            with self.subTest(claim=cid):
+                rev = claim.get("resolved_revision") or ""
+                self.assertRegex(
+                    rev, r"^[0-9a-f]{40}$",
+                    f"claim {cid!r} is pinned but names no immutable 40-character revision")
+
+                art = claim.get("evidence_artifact")
+                self.assertIsInstance(
+                    art, dict,
+                    f"claim {cid!r} is pinned and retains no evidence_artifact. The manifest's "
+                    f"stated purpose is to bind a fact to the value that produced it; a command "
+                    f"and an expected value are instructions for reproducing it, not the "
+                    f"observation itself.")
+
+                path = REPO_ROOT / art["path"]
+                self.assertTrue(path.is_file(), f"{cid}: artifact {art['path']} is missing")
+
+                actual = hashlib.sha256(path.read_bytes()).hexdigest()
+                self.assertEqual(
+                    actual, art["sha256"],
+                    f"{cid}: {art['path']} hashes to {actual[:12]}, manifest says "
+                    f"{art['sha256'][:12]}. The retained output changed after it was recorded.")
+
+                self.assertEqual(
+                    art.get("revision"), rev,
+                    f"{cid}: the artifact records revision {art.get('revision')!r} but the "
+                    f"claim is pinned to {rev!r}. An artifact from a different revision is "
+                    f"not evidence for this claim.")
+                self.assertEqual(
+                    art.get("command"), claim["command"],
+                    f"{cid}: the artifact records a different command than the claim declares")
+
+                text = path.read_text(encoding="utf-8", errors="replace")
+                found = re.search(claim["value_extraction"], text)
+                self.assertIsNotNone(
+                    found,
+                    f"{cid}: the claim's own value_extraction pattern does not match anything "
+                    f"in the retained output. The artifact does not record this claim's value.")
+                self.assertEqual(
+                    found.group(1), claim["value"],
+                    f"{cid}: the retained output says {found.group(1)!r} where the claim says "
+                    f"{claim['value']!r}.")
+
+    def test_the_artifact_is_not_a_stub(self):
+        """Anti-vacuity: a one-line file satisfies every hash and regex check above."""
+        for claim in self.manifest["claims"]:
+            art = claim.get("evidence_artifact")
+            if not art:
+                continue
+            with self.subTest(claim=claim["id"]):
+                body = (REPO_ROOT / art["path"]).read_text(encoding="utf-8", errors="replace")
+                self.assertGreater(
+                    len(body.splitlines()), 10,
+                    f"{claim['id']}: the retained artifact is a handful of lines. A transcript "
+                    f"trimmed to just the answer is the recipe problem again, one layer down.")

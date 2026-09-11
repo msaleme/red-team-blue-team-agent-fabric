@@ -1,6 +1,6 @@
 {
   "manifest_version": "1.0.0",
-  "purpose": "Bind each release-facing fact to the revision, command, and value that produced it, so a reader can reproduce or reject it without relying on narrative text. See scripts/verify_release_claims.py and GitHub issue #369.",
+  "purpose": "Bind each release-facing fact to the revision, command, and value that produced it, so a reader can reproduce or reject it without relying on narrative text. A pinned claim also carries the retained output of the command that produced it: a command plus an expected value is a recipe for reproduction, not the result that was observed. See scripts/verify_release_claims.py and GitHub issue #369.",
   "not_established": "This manifest records provenance. It does not create independent evidence, change the E-class or I-level of any result, or support a claim that the harness improves the security of any target. A test count is an inventory fact, not a security-efficacy claim.",
   "claims": [
     {
@@ -24,27 +24,40 @@
           "path": "README.md",
           "pattern": "The release carries \\*\\*(\\d+)\\*\\* tests"
         }
-      ]
+      ],
+      "resolution": "pinned",
+      "resolved_revision": "4c5c7622fa641bdbe43a79314edd506ddb95cd5e",
+      "evidence_artifact": {
+        "path": "docs/evidence/release-claims/release-test-count-v4.21.3.txt",
+        "sha256": "5280ca570b86fe02f69db2880d28ded609037c221520c3e874b0ee13a95fb84e",
+        "revision": "4c5c7622fa641bdbe43a79314edd506ddb95cd5e",
+        "command": "python3 scripts/count_tests.py",
+        "captured_by": "repository author",
+        "evidence_class": "E1",
+        "independence_level": "I0",
+        "limitation": "A retained transcript of the author running the command at the pinned revision. It establishes that the value was observed, not that it was observed by anyone independent."
+      }
     },
     {
       "id": "main-test-count",
-      "fact": "main carries 631 unique test IDs.",
+      "fact": "At the HEAD a reader resolves, main carries the number of unique test IDs that `scripts/count_tests.py` reports; 631 at the time of writing.",
       "value": "631",
       "release_tag": null,
       "commit": "HEAD",
       "command": "python3 scripts/count_tests.py",
       "value_extraction": "Definitive count:\\s*(\\d+)",
-      "generated_on": "2026-09-10",
+      "generated_on": null,
       "coverage_report_revision": null,
       "evidence_class": "E1",
       "independence_level": "I0",
-      "limitation": "Same inventory limitation as release-test-count. This value moves with main by design; testing/test_code_quality.py::TestRegTestCount already pins it into pyproject.toml, README, SKILL.md and cli.py, so it is listed here for completeness rather than because it was unguarded.",
+      "limitation": "Same inventory limitation as release-test-count. This claim is LIVE: it is resolved against whatever HEAD the reader has, so it carries no generated_on date. It previously paired commit:HEAD with a fixed date, which cannot be substantiated as a result generated on that date without an immutable revision and retained output. testing/test_code_quality.py::TestRegTestCount pins the current value into pyproject.toml, README, SKILL.md and cli.py.",
       "surfaces": [
         {
           "path": "README.md",
           "pattern": "`main` is at \\*\\*(\\d+)\\*\\*"
         }
-      ]
+      ],
+      "resolution": "live"
     }
   ]
 }

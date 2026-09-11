@@ -201,6 +201,31 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "call with a body past the excerpt boundary, asserting every call is retained "
      "or explicitly labelled partial. That is a test worth building and is not "
      "built, so it is recorded here rather than claimed."),
+    # --- 2026-09-11, Hermes evidence-class grading F3/F4/F5 -----------------
+    ("release-claims.json paired `commit: \"HEAD\"` with a fixed generated_on "
+     "date, asserting a dated observation against a ref that resolves differently "
+     "for every reader",
+     "Hermes evidence-grading F3, 2026-09-11", GUARDED,
+     "testing/test_release_claims.py: test_a_live_claim_carries_no_generation_date"),
+    ("both release claims supplied a command, a regex and an expected value but no "
+     "retained output. A command plus an expected value is a recipe for "
+     "reproduction, not the result that was observed",
+     "Hermes evidence-grading F4, 2026-09-11", GUARDED,
+     "testing/test_release_claims.py: test_a_pinned_claim_retains_the_output_that_produced_it"),
+    ("three documents asserted independent review with nothing behind it: the "
+     "operating rules named 'the independent reviewer' with no party or artifact, "
+     "and AUDIT-R33 was titled 'Independent Review' four lines above a Reviewer "
+     "line naming a language model run by the author, while README states the "
+     "harness has had no independent review",
+     "Hermes evidence-grading F5, 2026-09-11, extended by the author to the R33 "
+     "title", GUARDED,
+     "testing/test_independence_claims_are_disclosed.py"),
+    ("whether a named reviewer was actually independent",
+     "Hermes evidence-grading F5, 2026-09-11", UNGUARDABLE,
+     "reviewer identity, absence of common control, and economic interest are "
+     "relational facts about the world. No test reading this repository can reach "
+     "them. The guard above refuses the bare assertion and requires a party, an "
+     "artifact, or a disclosure; it cannot verify the party is what it says."),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.

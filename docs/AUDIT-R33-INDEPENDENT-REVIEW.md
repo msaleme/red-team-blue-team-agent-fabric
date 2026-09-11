@@ -1,7 +1,15 @@
-# Independent Review R33 — Agent Security Harness v4.1
+# Automated Review R33 — Agent Security Harness v4.1
+
+> **This is not an independent review, despite the file name.** The reviewer below
+> is a language model run by the repository author, so this is E1/I0 the same as
+> any other author-run artifact. The heading was corrected on 2026-09-11; the file
+> name is kept so existing links continue to resolve, and it should not be read as
+> a claim. A separate agent producing a different reading improves error detection
+> and confers no independence. README records that the harness as a whole has had
+> no independent review.
 
 **Date:** April 10, 2026
-**Reviewer:** Claude Opus 4.6 (automated)
+**Reviewer:** Claude Opus 4.6, run by the author (automated; not an independent party)
 **Scope:** Full codebase review of `msaleme/red-team-blue-team-agent-fabric` at commit 4c02e94 (post-v4.1 merge)
 **Focus:** New v4.1/v4.2 modules + overall codebase health
 
