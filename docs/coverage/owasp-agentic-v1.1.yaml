@@ -147,7 +147,21 @@ assessment:
       stated total against a live count, so a total left stale would fail rather than
       mislead. commit and assessed_at are deliberately unchanged from 1.1.
 
-  total_repository_tests: 631
+  - report: '1.8'
+    commit: 72af259ca36e104243ae817452f97f54f936a8ab
+    harness: 4.21.3
+    date: '2026-09-11'
+    change: Repository test total 631 -> 635 on the addition of HI-001..HI-004, the
+      hidden-instruction family (Unicode tag-block payload, U+E0000 to U+E007F,
+      reaching a credentialed irreversible action). Test-bearing modules 46 -> 47.
+      The tests carry ASI01 and ASI02 primaries on their own results, but this
+      mapping does NOT adjudicate them; no scenario here enumerates them, so
+      unique_mapped_tests is unchanged at 96 and this mapping claims none of them.
+      Recorded because r15_total compares the stated total against a live count, so
+      a total left stale would fail rather than mislead. commit and assessed_at are
+      deliberately unchanged from 1.1, following the 1.6 and 1.7 precedent.
+
+  total_repository_tests: 635
   total_tests_command: python scripts/count_tests.py
   unique_mapped_tests: 96
   adjudicated_by: corpus author - NOT independent review

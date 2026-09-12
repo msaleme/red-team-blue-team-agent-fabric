@@ -318,6 +318,10 @@ HARNESSES = {
         "module": "protocol_tests.workspace_trust_harness",
         "description": "Workspace-trust / repository-ingestion pre-flight tests (4 tests, repo-supplied git config as an execution sink, GitSpawn class)",
     },
+    "hidden-instruction": {
+        "module": "protocol_tests.hidden_instruction_harness",
+        "description": "Hidden-instruction pre-flight tests (4 tests, Unicode tag-block payload reaching a credentialed irreversible action; caller supplies the target adapter)",
+    },
     "mcp-supplychain": {
         "module": "protocol_tests.mcp_supplychain",
         "description": "MCP supply-chain / framework-layer pre-flight tests (4 tests, binary resolution + install scripts + pinning)",

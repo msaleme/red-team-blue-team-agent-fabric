@@ -72,7 +72,7 @@ anything.
 | A2A | 13 | `a2a_harness.py` |
 | Payment protocols and settlement | 153 | `l402_harness.py`, `x402_harness.py`, `x402_fireblocks_harness.py`, `ap2_harness.py`, `ucp_acp_harness.py`, `card_token_harness.py`, `settlement_finality_harness.py` |
 | Platform and framework adapters | 98 | `cloud_agent_harness.py`, `enterprise_adapters.py`, `extended_enterprise_adapters.py`, `framework_adapters.py` |
-| **All modules, unique test IDs** | **631** | `scripts/count_tests.py` |
+| **All modules, unique test IDs** | **635** | `scripts/count_tests.py` |
 
 The four rows above overlap nothing and cover part of the suite; the remaining
 tests live in the identity, jailbreak, over-refusal, provenance, memory,
@@ -102,8 +102,8 @@ counting them as coverage was the overclaim an external review corrected on
 
 | ASI | Category | Tests mapped |
 |---|---|---|
-| ASI01 | Agent Goal Hijack | 79 |
-| ASI02 | Tool Misuse and Exploitation | 87 |
+| ASI01 | Agent Goal Hijack | 81 |
+| ASI02 | Tool Misuse and Exploitation | 89 |
 | ASI03 | Identity and Privilege Abuse | 137 |
 | ASI04 | Agentic Supply Chain Vulnerabilities | 65 |
 | ASI05 | Unexpected Code Execution (RCE) | 41 |
@@ -114,7 +114,7 @@ counting them as coverage was the overclaim an external review corrected on
 | ASI10 | Rogue Agents | 13 |
 | — | No ASI primary (positive controls, content safety, robustness) | 52 |
 
-The table's rows sum to 621, not to the 631 unique test IDs above. The 10
+The table's rows sum to 625, not to the 635 unique test IDs above. The 10
 missing IDs are `RCL-001`..`RCL-007` and `RCL-009`..`RCL-011`, and they **do**
 carry a tag: `receipt_claim_harness.py` constructs their results with
 `owasp_asi="ASI09"`. The extractor attributes a tag only when the test ID and the

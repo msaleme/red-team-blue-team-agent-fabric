@@ -40,7 +40,7 @@ outside party.
 
 | AIUC-1 Req | Requirement | Our Coverage |
 |---|---|---|
-| **C001** | Define AI risk taxonomy | Framework provides STRIDE, OWASP Agentic and NIST AI 800-2 risk categorisation across the repository's 631 tests. Not every test carries a mapping in every taxonomy: for the OWASP Agentic mapped population see the generated `docs/coverage/owasp-agentic-v1.1.json`, which is validated in CI. |
+| **C001** | Define AI risk taxonomy | Framework provides STRIDE, OWASP Agentic and NIST AI 800-2 risk categorisation across the repository's 635 tests. Not every test carries a mapping in every taxonomy: for the OWASP Agentic mapped population see the generated `docs/coverage/owasp-agentic-v1.1.json`, which is validated in CI. |
 | **C002** | Conduct pre-deployment testing | Entire framework designed for pre-deployment. `pip install agent-security-harness` and run before shipping. |
 | **C010** | Third-party testing for harmful outputs | Adversarial test vectors are mapped as potentially relevant to evidence collection about harmful outputs. An authorized, pinned run with retained results would be needed to characterise whether a target's control held. |
 | **C011** | Third-party testing for out-of-scope outputs | Protocol-level scope violation tests (MCP-003 capability escalation, A2A unauthorized access) |
