@@ -83,6 +83,43 @@ class TheWheelShipsWhatItReads(unittest.TestCase):
         modules = [n for n in self.names if n.endswith(".py")]
         self.assertGreater(len(modules), 20, "wheel looks empty; build is broken")
 
+    def test_top_level_packages_are_regular_packages(self):
+        """A namespace portion loses to a same-named regular package anywhere.
+
+        `pyproject.toml` uses setuptools' pyproject finder, whose `namespaces`
+        default is true, so a directory with no `__init__.py` still ships -- as
+        a namespace portion. That is not the same thing at import time. Python
+        assembles a namespace package only when NO regular package of that name
+        is found on sys.path, so a namespace portion is defeated by a regular
+        package that appears LATER on the path; a regular package is defeated
+        only by one that appears EARLIER.
+
+        This matters because the top-level names here are generic. `scripts` is
+        the one that bit: `protocol_tests/cli.py` imports `scripts.html_report`
+        at run time on an installed copy, and while `scripts` shipped without an
+        `__init__.py` any unrelated distribution owning a top-level `scripts`
+        silently broke that import.
+
+        The package list is read from the wheel's own `top_level.txt` rather
+        than written out here, so a package added later is covered without
+        anyone remembering to add it.
+        """
+        with zipfile.ZipFile(self.wheel) as z:
+            top_level = next(
+                n for n in self.names if n.endswith(".dist-info/top_level.txt")
+            )
+            declared = z.read(top_level).decode().split()
+        self.assertTrue(declared, "the wheel declares no top-level packages")
+        for pkg in declared:
+            with self.subTest(package=pkg):
+                self.assertTrue(
+                    f"{pkg}/__init__.py" in self.names,
+                    f"the wheel declares top-level `{pkg}` but ships no "
+                    f"`{pkg}/__init__.py`, so it installs as a namespace "
+                    f"portion and any regular `{pkg}` elsewhere on sys.path "
+                    f"defeats it regardless of order",
+                )
+
     def test_every_runtime_data_file_is_in_the_wheel(self):
         for parts in RUNTIME_DATA:
             with self.subTest(data="/".join(parts)):

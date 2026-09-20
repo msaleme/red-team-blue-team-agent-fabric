@@ -282,6 +282,30 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "relational facts about the world. No test reading this repository can reach "
      "them. The guard above refuses the bare assertion and requires a party, an "
      "artifact, or a disclosure; it cannot verify the party is what it says."),
+    # --- 2026-09-11 sentinel FAIL, diagnosed 2026-09-20 ----------------------
+    ("`scripts` shipped with no `__init__.py`, so the wheel installed it as a "
+     "namespace portion rather than a regular package. `protocol_tests/cli.py` "
+     "imports `scripts.html_report` at run time on an installed copy, and a "
+     "namespace portion is defeated by a regular package of the same name found "
+     "ANYWHERE on sys.path, not merely earlier. `scripts` is a generic top-level "
+     "name, so any unrelated distribution owning it broke that import silently",
+     "found while diagnosing Hermes ASH sentinel FAIL, 2026-09-11", GUARDED,
+     "tests/test_the_wheel_ships_what_it_reads.py: "
+     "test_top_level_packages_are_regular_packages"),
+    ("the three installed-consumer failures Hermes reported at a287b9d raised "
+     "ModuleNotFoundError for `scripts` AND `protocol_tests`. On current main all "
+     "three pass, the wheel ships both, and both import from a clean venv at a "
+     "neutral cwd. Packaging config is unchanged between the two commits, so the "
+     "difference is environmental and the reported cause (modules absent from the "
+     "distribution) was not reproduced. The namespace defect above explains a "
+     "`scripts` failure but not a `protocol_tests` one",
+     "Hermes ASH sentinel FAIL, 2026-09-11", UNGUARDABLE,
+     "the failure is a property of the reporting environment, not of this "
+     "repository, and no test run here can reach another machine's sys.path, "
+     "installed distributions or pip resolution. Deciding it needs the retained "
+     "run.log at 2026-09-11T223234Z (sha256 62f38b5c7b35b33cf9ea34294e59ce4d2660"
+     "845463f7574b6106ad7645043979), which holds the pip output and traceback. "
+     "Recorded rather than closed: not reproduced is not the same as not real."),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.
