@@ -217,7 +217,7 @@ jobs:
         # such a bug is a NameError at runtime on exactly the live paths CI cannot exercise.
         run: |
           pip install ruff
-          ruff check --select F821 protocol_tests/ testing/ scripts/ mcp_server/
+          ruff check --select F821 protocol_tests/ testing/ scripts/ mcp_server/ interop/
 
       - name: Check for unique test IDs
         run: |
