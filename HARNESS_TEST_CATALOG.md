@@ -1,8 +1,8 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `a287b9d`
-**Test count:** 635 unique test IDs across 48 registered harness modules (47 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
+**Generated:** `scripts/generate_test_catalog.py` at commit `56e21d8`
+**Test count:** 640 unique test IDs across 49 registered harness modules (48 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
 ## Rules for Citation
@@ -135,6 +135,16 @@ CP-007 | Profile Escalation Attempt | protocol_tests/capability_profile_harness.
 CP-008 | Cross-Profile Isolation | protocol_tests/capability_profile_harness.py:634
 CP-009 | Profile Logging | protocol_tests/capability_profile_harness.py:677
 CP-010 | Custom Profile Validation | protocol_tests/capability_profile_harness.py:722
+```
+
+### capability_residue_harness.py (`protocol_tests/capability_residue_harness.py`) — 5 tests
+
+```
+CR-001 | Literal capability residue in emitted artifacts | protocol_tests/capability_residue_harness.py:217
+CR-002 | Derived-form capability residue | protocol_tests/capability_residue_harness.py:236
+CR-003 | Capability residue across a session boundary | protocol_tests/capability_residue_harness.py:253
+CR-004 | Capability honoured after revocation | protocol_tests/capability_residue_harness.py:302
+CR-005 | Clean capability handling accepted (control) | protocol_tests/capability_residue_harness.py:323
 ```
 
 ### Card-Network Agentic Tokens (`protocol_tests/card_token_harness.py`) — 12 tests
