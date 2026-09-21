@@ -326,6 +326,34 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      GUARDED,
      "tests/test_installed_consumer_diagnoses_itself.py: "
      "test_a_failed_install_is_environment_not_packaging"),
+    ("the helper ran `pip -q install`, and -q suppresses \"already installed with "
+     "the same version as the provided wheel\" -- the one line naming why a wheel "
+     "is resolved, its dependencies installed, and the wheel itself skipped with "
+     "exit 0. Two clean-room reports ten days apart carried a trailing pip upgrade "
+     "notice and nothing else, because the explanation was discarded before anyone "
+     "could read it. The diagnostic also truncated pip output to 400 characters, "
+     "which kept the tail and dropped the head",
+     "Hermes sentinel diagnostic run, 2026-09-21T163325Z", GUARDED,
+     "tests/test_installed_consumer_diagnoses_itself.py: "
+     "test_a_skipped_wheel_install_is_named_not_guessed"),
+    ("the seeded control for a venv resolving elsewhere asserted a sound install "
+     "BEFORE seeding, so it could not run on the one host where the environment was "
+     "actually broken: the 2026-09-21 sentinel hit the precondition and never "
+     "reached the seed. A control that requires a working environment cannot test a "
+     "broken one",
+     "Hermes sentinel diagnostic run, 2026-09-21T163325Z", GUARDED,
+     "tests/test_installed_consumer_diagnoses_itself.py: "
+     "test_a_venv_that_resolves_elsewhere_is_environment"),
+    ("which channel made the distribution appear already-installed on the Hermes "
+     "host. Reproduced here via metadata discoverable on the install interpreter's "
+     "path; their PYTHONPATH root reportedly contains only the generated plugin and "
+     "a skip-report JSON, and their run used the -q helper so pip's own reason was "
+     "never captured. A cwd hypothesis was tested and disproved",
+     "Hermes sentinel diagnostic run, 2026-09-21T163325Z", UNGUARDABLE,
+     "the channel is a property of another machine's environment. No test here can "
+     "enumerate what is on that host's sys.path at pip time. What this repository "
+     "can do is make the next run say so, which is the GUARDED row above. Recorded "
+     "rather than closed: reproducing a signature is not identifying an instance."),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.

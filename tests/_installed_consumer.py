@@ -63,6 +63,27 @@ except Exception as exc:
     out["dist_version"] = None
     out["dist_error"] = f"{type(exc).__name__}: {exc}"
     out["installed"] = []
+# Where, if anywhere, is this distribution's metadata discoverable? pip resolves
+# against the environment it can see, so a dist-info reachable through PYTHONPATH
+# is a candidate explanation for "resolved, dependencies installed, wheel skipped".
+out["metadata_on_path"] = []
+try:
+    import os
+    needle = %(dist)r.replace("-", "_").lower()
+    for entry in sys.path:
+        if not entry or not os.path.isdir(entry):
+            continue
+        try:
+            for name in os.listdir(entry):
+                low = name.lower()
+                if low.startswith(needle) and low.endswith(
+                        (".dist-info", ".egg-info", ".egg-link")):
+                    out["metadata_on_path"].append(os.path.join(entry, name))
+        except OSError:
+            continue
+except Exception as exc:
+    out["metadata_on_path"] = [f"scan failed: {type(exc).__name__}: {exc}"]
+out["pythonpath"] = os.environ.get("PYTHONPATH")
 out["imports"] = {}
 for name in %(packages)r:
     try:
@@ -103,7 +124,11 @@ class InstalledConsumer:
                 "about packaging was tested.\n"
                 f"  parent python : {sys.executable} ({sys.version.split()[0]})\n"
                 f"  stderr        : {made.stderr.strip()[:800]}")
-        got = self._run([str(self.python), "-m", "pip", "-q", "install",
+        # NOT -q. `pip -q install` suppresses "Requirement already satisfied",
+        # which is the one line that names why a wheel was resolved and then not
+        # installed. A clean-room sentinel spent ten days unable to distinguish
+        # that case because this flag threw the answer away before anyone saw it.
+        got = self._run([str(self.python), "-m", "pip", "install",
                          str(self.wheel), *extras])
         if got.returncode != 0:
             raise EnvironmentInconclusive(
@@ -113,7 +138,7 @@ class InstalledConsumer:
                 f"  extras : {list(extras)}\n"
                 f"  stdout : {got.stdout.strip()[:600]}\n"
                 f"  stderr : {got.stderr.strip()[:800]}")
-        self._pip_output = (got.stdout or "") + (got.stderr or "")
+        self._pip_output = ((got.stdout or "") + (got.stderr or "")).strip()
 
     # -- the precondition that was missing -----------------------------------
 
@@ -130,6 +155,19 @@ class InstalledConsumer:
                     f"  stderr : {seen.stderr.strip()[:800]}")
             self._env = json.loads(seen.stdout)
         return self._env
+
+    def pyvenv_cfg(self) -> str:
+        """The venv's own pyvenv.cfg, read while the venv still exists.
+
+        Hermes could not supply this from the 2026-09-21 run because the
+        disposable venvs were cleaned with the temporary run directory. Reading
+        it here means it is in the failure message rather than gone.
+        """
+        cfg = self.venv / "pyvenv.cfg"
+        try:
+            return cfg.read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            return f"<unreadable: {type(exc).__name__}: {exc}>"
 
     def assert_landed(self, case, packages: tuple[str, ...]) -> None:
         """Between install and probe: did the install put the packages here?
@@ -206,7 +244,14 @@ class InstalledConsumer:
         lines.append(f"  sys.path      : {env.get('path')}")
         lines.append(f"  distributions : {env.get('installed')}")
         lines.append(f"  parent python : {sys.executable} ({sys.version.split()[0]})")
+        lines.append(f"  PYTHONPATH    : {env.get('pythonpath')}")
+        found = env.get("metadata_on_path")
+        lines.append(f"  {DIST} metadata on sys.path: {found if found else 'none'}")
+        lines.append("  pyvenv.cfg    : " + self.pyvenv_cfg().replace("\n", " | "))
         pip = getattr(self, "_pip_output", "").strip()
         if pip:
-            lines.append(f"  pip output    : {pip[:400]}")
+            # Untruncated on purpose. The line that names the cause is usually
+            # "Requirement already satisfied", and it is not at the end.
+            lines.append("  --- pip install output, in full ---")
+            lines.extend("  " + ln for ln in pip.splitlines())
         return "\n".join(lines) + "\n"
