@@ -32,6 +32,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import scripts.registry_reference_server as srv  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _installed_consumer import InstalledConsumer  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[1]
 
 
@@ -150,13 +153,8 @@ class TheInstalledRegistryRejectsAnEmptyReport(unittest.TestCase):
                              f"default build failed:\n{done.stdout[-1500:]}\n{done.stderr[-1500:]}")
             wheels = list(out.glob("*.whl"))
             self.assertEqual(len(wheels), 1, wheels)
-            venv = Path(tmp) / "venv"
-            subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True,
-                           capture_output=True)
-            bindir = "Scripts" if sysconfig.get_platform().startswith("win") else "bin"
-            py = venv / bindir / "python"
-            subprocess.run([str(py), "-m", "pip", "-q", "install", str(wheels[0])],
-                           check=True, capture_output=True)
+            consumer = InstalledConsumer(wheels[0], Path(tmp))
+            consumer.assert_landed(self, ("scripts",))
             probe = "\n".join([
                 "import hashlib, sys",
                 "import scripts.registry_reference_server as s",
@@ -174,14 +172,9 @@ class TheInstalledRegistryRejectsAnEmptyReport(unittest.TestCase):
                 "else:",
                 "    print('ACCEPTED'); sys.exit(3)",
             ])
-            # cwd=tmp: NOT the checkout. That is the whole test.
-            done = subprocess.run([str(py), "-c", probe], capture_output=True, text=True,
-                                  cwd=tmp)
-            self.assertEqual(done.returncode, 0,
-                             f"installed registry did not reject an empty report:\n"
-                             f"{done.stdout}\n{done.stderr[-1200:]}")
-            self.assertIn("REJECTED", done.stdout)
-            self.assertIn("schema-required keys", done.stdout)
+            # cwd is the workdir, NOT the checkout. That is the whole test.
+            out = consumer.assert_probe_ok(self, probe, expect="REJECTED")
+            self.assertIn("schema-required keys", out)
 
 
 if __name__ == "__main__":

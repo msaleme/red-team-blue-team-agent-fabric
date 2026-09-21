@@ -135,6 +135,7 @@ CHECKOUT_ONLY = {
     "test_registry_server_contract.py": "runs scripts/verify_attestation_record.py by path",
     "test_report_states_its_provenance.py": "reads docs/evidence/ and attestations/",
     "test_result_semantics_predeclared.py": "reads docs/result-semantics.json",
+    "test_installed_consumer_diagnoses_itself.py": "builds a wheel from the source tree",
     "test_the_wheel_ships_what_it_reads.py": "builds a wheel from the source tree",
     "test_verdict_taint_audit.py": "reads protocol_tests/*.py as files",
 }
