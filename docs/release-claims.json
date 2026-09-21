@@ -5,20 +5,20 @@
   "claims": [
     {
       "id": "release-test-count",
-      "fact": "The v4.21.3 release carries 623 unique test IDs.",
-      "value": "623",
-      "release_tag": "v4.21.3",
+      "fact": "The v4.22.0 release carries 640 unique test IDs.",
+      "value": "640",
+      "release_tag": "v4.22.0",
       "command": "python3 scripts/count_tests.py",
       "value_extraction": "Definitive count:\\s*(\\d+)",
       "generated_on": "2026-09-09",
       "coverage_report_revision": null,
       "evidence_class": "E1",
       "independence_level": "I0",
-      "limitation": "An inventory of test identifiers present at that revision. It says nothing about whether any test executed, whether a target passed, or whether the identifiers are well chosen.",
+      "limitation": "An inventory of test identifiers present at that revision. It says nothing about whether any test executed, whether a target passed, or whether the identifiers are well chosen. Pinned to the release commit's PARENT, not the tag: the tag's SHA cannot exist while the release PR is open. The release commit adds, removes and renames no test IDs, so the value is unchanged at the tag.",
       "surfaces": [
         {
           "path": "README.md",
-          "pattern": "the v4\\.21\\.3 release carries (\\d+)"
+          "pattern": "the v4\\.22\\.0 release carries the same (\\d+)"
         },
         {
           "path": "README.md",
@@ -26,16 +26,15 @@
         }
       ],
       "resolution": "pinned",
-      "resolved_revision": "4c5c7622fa641bdbe43a79314edd506ddb95cd5e",
+      "resolved_revision": "2ed825fefaffe4fc9300fd65e9bf427bcf9264fa",
       "evidence_artifact": {
-        "path": "docs/evidence/release-claims/release-test-count-v4.21.3.txt",
-        "sha256": "5280ca570b86fe02f69db2880d28ded609037c221520c3e874b0ee13a95fb84e",
-        "revision": "4c5c7622fa641bdbe43a79314edd506ddb95cd5e",
+        "path": "docs/evidence/release-claims/release-test-count-v4.22.0.txt",
+        "sha256": "2c5866dd44ff84ccec2cde1ddc5b81f274d7cb6b63373f8f47fe2c5bd704376d",
+        "revision": "2ed825fefaffe4fc9300fd65e9bf427bcf9264fa",
         "command": "python3 scripts/count_tests.py",
         "captured_by": "repository author",
         "evidence_class": "E1",
-        "independence_level": "I0",
-        "limitation": "A retained transcript of the author running the command at the pinned revision. It establishes that the value was observed, not that it was observed by anyone independent."
+        "independence_level": "I0"
       }
     },
     {

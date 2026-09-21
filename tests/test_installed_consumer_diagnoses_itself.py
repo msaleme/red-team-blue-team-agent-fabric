@@ -145,10 +145,16 @@ class InstalledConsumerSeparatesItsFailureModes(unittest.TestCase):
         """
         shadow = tempfile.mkdtemp(prefix="shadow-meta-")
         self.addCleanup(shutil.rmtree, shadow, True)
-        di = Path(shadow) / f"{DIST.replace('-', '_')}-4.21.3.dist-info"
+        # Version is DERIVED from the wheel under test, never written here. The
+        # first draft hardcoded 4.21.3 and stopped seeding the moment the release
+        # PR bumped pyproject: pip saw a different version, installed the wheel
+        # normally, and the seeded skip silently did not happen. A control that
+        # goes quiet on a version bump is not a control.
+        version = self.wheel.name.split("-")[1]
+        di = Path(shadow) / f"{DIST.replace('-', '_')}-{version}.dist-info"
         di.mkdir()
         (di / "METADATA").write_text(
-            f"Metadata-Version: 2.1\nName: {DIST}\nVersion: 4.21.3\n")
+            f"Metadata-Version: 2.1\nName: {DIST}\nVersion: {version}\n")
         (di / "RECORD").write_text("")
         (di / "INSTALLER").write_text("pip\n")
 
