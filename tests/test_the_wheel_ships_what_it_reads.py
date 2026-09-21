@@ -24,6 +24,9 @@ import unittest
 import zipfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _installed_consumer import EnvironmentInconclusive, InstalledConsumer  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[1]
 
 #: Every data file the package opens at run time, as (import-relative parts).
@@ -138,14 +141,16 @@ class TheWheelShipsWhatItReads(unittest.TestCase):
         json.loads(body)  # raises if it shipped as a link target string
 
     def test_validation_works_against_the_installed_copy(self):
-        """The end-to-end property: install it and call the documented function."""
-        venv = Path(self._tmp) / "venv"
-        subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True,
-                       capture_output=True)
-        bindir = "Scripts" if sysconfig.get_platform().startswith("win") else "bin"
-        py = venv / bindir / "python"
-        subprocess.run([str(py), "-m", "pip", "-q", "install", str(self.wheel),
-                        "jsonschema"], check=True, capture_output=True)
+        """The end-to-end property: install it and call the documented function.
+
+        Routed through InstalledConsumer so a failure names its own step. A bare
+        ModuleNotFoundError from the probe cannot distinguish a wheel that ships
+        nothing from a venv that was never populated, and an external sentinel
+        reported the first for ten days when the wheel demonstrably ships both
+        packages.
+        """
+        consumer = InstalledConsumer(self.wheel, Path(self._tmp), ("jsonschema",))
+        consumer.assert_landed(self, ("protocol_tests",))
         probe = (
             "from protocol_tests.attestation import (generate_attestation_report,"
             " validate_attestation_report, SCHEMA_PATH);"
@@ -156,14 +161,7 @@ class TheWheelShipsWhatItReads(unittest.TestCase):
             "assert e == [], e;"
             "print('OK')"
         )
-        done = subprocess.run([str(py), "-c", probe], capture_output=True, text=True,
-                              cwd=self._tmp)
-        self.assertEqual(
-            done.returncode, 0,
-            f"the installed wheel could not validate a report it produced:\n"
-            f"{done.stdout}\n{done.stderr}",
-        )
-        self.assertIn("OK", done.stdout)
+        consumer.assert_probe_ok(self, probe)
 
 
 if __name__ == "__main__":
@@ -219,13 +217,8 @@ class InstalledConsumersCanReadTheirMapping(unittest.TestCase):
             raise unittest.SkipTest("the `build` package is not installed")
         with tempfile.TemporaryDirectory(prefix="consumers-") as tmp:
             wheel = _build_wheel(Path(tmp))
-            venv = Path(tmp) / "venv"
-            subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True,
-                           capture_output=True)
-            bindir = "Scripts" if sysconfig.get_platform().startswith("win") else "bin"
-            py = venv / bindir / "python"
-            subprocess.run([str(py), "-m", "pip", "-q", "install", str(wheel),
-                            "jsonschema", "pyyaml"], check=True, capture_output=True)
+            consumer = InstalledConsumer(wheel, Path(tmp), ("jsonschema", "pyyaml"))
+            consumer.assert_landed(self, ("scripts", "protocol_tests"))
             probe = (
                 "import scripts.html_report as h, scripts.evidence_pack as e,"
                 " scripts.top10_failures as t;"
@@ -236,13 +229,8 @@ class InstalledConsumersCanReadTheirMapping(unittest.TestCase):
                 "assert len(C) == 10, C;"
                 "print('OK', len(i))"
             )
-            # cwd=tmp: NOT the checkout. That is the whole test.
-            done = subprocess.run([str(py), "-c", probe], capture_output=True,
-                                  text=True, cwd=tmp)
-            self.assertEqual(done.returncode, 0,
-                             f"an installed consumer could not read its mapping:\n"
-                             f"{done.stdout}\n{done.stderr[-800:]}")
-            self.assertIn("OK", done.stdout)
+            # cwd is the workdir, NOT the checkout. That is the whole test.
+            consumer.assert_probe_ok(self, probe)
 
 
 class TheDefaultBuildRouteWorks(unittest.TestCase):

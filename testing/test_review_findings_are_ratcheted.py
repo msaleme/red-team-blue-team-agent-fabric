@@ -306,6 +306,26 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "run.log at 2026-09-11T223234Z (sha256 62f38b5c7b35b33cf9ea34294e59ce4d2660"
      "845463f7574b6106ad7645043979), which holds the pip output and traceback. "
      "Recorded rather than closed: not reproduced is not the same as not real."),
+    ("the three installed-consumer tests reported only the probe's stderr on "
+     "failure, so one identical ModuleNotFoundError covered at least four "
+     "distinct causes: the wheel ships nothing, pip claimed success and placed "
+     "nothing, the distribution is present but a package will not import, or the "
+     "probe itself is wrong. Two clean-room reports ten days apart inferred the "
+     "first, which is the one the wheel contents refute, because the assertion "
+     "gave the reader nothing else to reason from",
+     "diagnosing the Hermes ASH sentinel FAILs of 2026-09-11 and 2026-09-21",
+     GUARDED,
+     "tests/test_installed_consumer_diagnoses_itself.py: "
+     "test_an_unimportable_package_is_packaging_not_environment"),
+    ("a venv that could not be built or populated was reported identically to a "
+     "wheel that ships the wrong contents. CLAUDE.md item 8 already forbids the "
+     "same conflation one level down: a target that never serviced the request "
+     "is INCONCLUSIVE, never a pass. Applied inverted here, an environment that "
+     "was never established is not evidence that packaging is broken",
+     "diagnosing the Hermes ASH sentinel FAILs of 2026-09-11 and 2026-09-21",
+     GUARDED,
+     "tests/test_installed_consumer_diagnoses_itself.py: "
+     "test_a_failed_install_is_environment_not_packaging"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.
