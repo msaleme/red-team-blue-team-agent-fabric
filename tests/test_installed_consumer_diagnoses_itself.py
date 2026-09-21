@@ -18,6 +18,8 @@ they no longer can.
 from __future__ import annotations
 
 import glob
+import os
+import shutil
 import sys
 import tempfile
 import unittest
@@ -102,15 +104,76 @@ class InstalledConsumerSeparatesItsFailureModes(unittest.TestCase):
         """
         with tempfile.TemporaryDirectory() as tmp:
             consumer = InstalledConsumer(self.wheel, Path(tmp))
-            consumer.assert_landed(self, ("protocol_tests",))   # sound first
-            (consumer.venv / "pyvenv.cfg").unlink()             # then seeded
+            # Deliberately NOT asserting a sound install first. The earlier
+            # version did, and it could not run on the one host where the
+            # environment was actually broken: Hermes's 2026-09-21 sentinel hit
+            # the precondition and never reached the seed. A control that
+            # requires a working environment cannot test a broken one, which is
+            # the same defect this file exists to catch, one level up.
+            (consumer.venv / "pyvenv.cfg").unlink()
             consumer._env = None
             with self.assertRaises(EnvironmentInconclusive) as caught:
                 consumer.assert_landed(self, ("protocol_tests",))
         message = str(caught.exception)
         self.assertIn("INCONCLUSIVE (environment)", message)
-        self.assertIn("did not resolve to the venv under test", message)
         self.assertNotIn("FAIL (packaging)", message)
+        # Either environment branch is correct here. On a host where the install
+        # lands, removing pyvenv.cfg sends the interpreter to another prefix; on
+        # a host where it does not, the distribution is simply absent. Both are
+        # environment, neither is packaging, and pinning the exact sentence made
+        # this assertion host-dependent.
+        self.assertTrue(
+            "did not resolve to the venv under test" in message
+            or "is not present in the venv" in message, message)
+
+    def test_a_skipped_wheel_install_is_named_not_guessed(self):
+        """Seed pip's own skip: deps install, the wheel does not, and rc is 0.
+
+        This is the signature an external sentinel reported on 2026-09-11 and
+        2026-09-21, and it went ten days unexplained because the helper ran
+        `pip -q install`. The `-q` suppresses the single line that names the
+        cause, so every report carried a trailing "a new release of pip is
+        available" notice and nothing else.
+
+        Seeded by making distribution metadata discoverable on the install
+        interpreter's path. pip then resolves the wheel, installs its
+        dependencies, declines to install the wheel itself, and exits 0.
+
+        The assertion is on the DIAGNOSTIC, not on the cause: this test does not
+        claim to know which channel any particular host used. It claims the
+        failure message now carries enough to tell you.
+        """
+        shadow = tempfile.mkdtemp(prefix="shadow-meta-")
+        self.addCleanup(shutil.rmtree, shadow, True)
+        di = Path(shadow) / f"{DIST.replace('-', '_')}-4.21.3.dist-info"
+        di.mkdir()
+        (di / "METADATA").write_text(
+            f"Metadata-Version: 2.1\nName: {DIST}\nVersion: 4.21.3\n")
+        (di / "RECORD").write_text("")
+        (di / "INSTALLER").write_text("pip\n")
+
+        prior = os.environ.get("PYTHONPATH")
+        os.environ["PYTHONPATH"] = shadow
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                consumer = InstalledConsumer(self.wheel, Path(tmp))
+                with self.assertRaises(AssertionError) as caught:
+                    consumer.assert_landed(self, ("protocol_tests",))
+                report = str(caught.exception)
+        finally:
+            if prior is None:
+                os.environ.pop("PYTHONPATH", None)
+            else:
+                os.environ["PYTHONPATH"] = prior
+
+        # The three things the old message could not say.
+        self.assertIn("already installed with the same version", report,
+                      "pip's own explanation must survive into the report; "
+                      "running pip with -q is what lost it")
+        self.assertIn("metadata on sys.path", report)
+        self.assertIn(shadow, report,
+                      "the diagnostic must name WHERE the shadowing metadata is")
+        self.assertIn("pyvenv.cfg", report)
 
     def test_the_control_passes_and_carries_diagnostics(self):
         """Unseeded. A helper that refuses every environment has diagnosed nothing."""
