@@ -58,6 +58,14 @@ SERVICED = {
 
 # (module, harness class, result class) for every harness carrying the guard.
 GUARDED = [
+    # capability_residue_harness inherits RecordingHarness and adds no _record
+    # of its own, so the serviced guard applies unmodified. Its own INCONCLUSIVE
+    # paths -- capability not accepted, zero artifacts inspected, no working arm
+    # before revocation -- already carry the prefix, and __post_init__ derives
+    # not_evaluated from it, so the base class's rewrite and the module's own
+    # verdicts cannot disagree.
+    ("protocol_tests.capability_residue_harness", "CapabilityResidueHarness",
+     "CapabilityResidueResult"),
     ("protocol_tests.multi_agent_harness", "MultiAgentTests", "MultiAgentTestResult"),
     ("protocol_tests.advanced_attacks", "AdvancedAttackTests", "AdvancedTestResult"),
     ("protocol_tests.memory_harness", "MemoryTests", "MemoryTestResult"),

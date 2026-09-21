@@ -37,7 +37,7 @@ sys.path.insert(0, str(REPO / "scripts"))
 
 #: The date the self-product half was last regenerated. Stated in the document,
 #: asserted here, so the two cannot drift apart silently.
-DERIVED_ON = "2026-09-08"
+DERIVED_ON = "2026-09-21"
 #: The date the competitor half was taken. It is allowed to be old. It is not
 #: allowed to be undeclared.
 COMPETITORS_FROZEN_ON = "April 2026"

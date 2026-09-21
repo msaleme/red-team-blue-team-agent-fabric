@@ -8,7 +8,7 @@ which is which is the whole point of the split below.
   current assessment of Cisco, Snyk or NVIDIA, and any of those projects may
   have shipped in either direction since. Read that section as an archive with
   a date on it.
-- **This suite's own numbers are derived, regenerated 2026-09-08** from
+- **This suite's own numbers are derived, regenerated 2026-09-21** from
   `scripts/count_tests.py` and `protocol_tests/asi_inventory.py`.
   `testing/test_comparison_doc_is_current.py` recomputes the counts in the
   three-column tables below and fails if the document drifts from the catalog. It
@@ -58,7 +58,7 @@ product.
 | **CI/CD integration** | — | Snyk platform | — |
 | **License** | Apache 2.0 | Proprietary | Apache 2.0 |
 
-## This suite -- DERIVED, regenerated 2026-09-08
+## This suite -- DERIVED, regenerated 2026-09-21
 
 Every count **in this section** is recomputed from source by
 `testing/test_comparison_doc_is_current.py`; the scope limit stated at the top
@@ -72,7 +72,7 @@ anything.
 | A2A | 13 | `a2a_harness.py` |
 | Payment protocols and settlement | 153 | `l402_harness.py`, `x402_harness.py`, `x402_fireblocks_harness.py`, `ap2_harness.py`, `ucp_acp_harness.py`, `card_token_harness.py`, `settlement_finality_harness.py` |
 | Platform and framework adapters | 98 | `cloud_agent_harness.py`, `enterprise_adapters.py`, `extended_enterprise_adapters.py`, `framework_adapters.py` |
-| **All modules, unique test IDs** | **635** | `scripts/count_tests.py` |
+| **All modules, unique test IDs** | **640** | `scripts/count_tests.py` |
 
 The four rows above overlap nothing and cover part of the suite; the remaining
 tests live in the identity, jailbreak, over-refusal, provenance, memory,
@@ -94,7 +94,7 @@ Each test carries one ASI primary, or none. A mapping is a claim about which
 category a test's *scenario* evidences; it is not a claim that the category is
 covered. Counts below are the corpus denominator an evidence pack reports
 against, read from source by `protocol_tests/asi_inventory.py`, and regenerated
-2026-09-08. Tests carrying **no primary** do so on purpose: over-refusal
+2026-09-21. Tests carrying **no primary** do so on purpose: over-refusal
 positive controls, content-safety refusal checks, and protocol-robustness rows
 support mitigation work without evidencing a named agentic failure mode, and
 counting them as coverage was the overclaim an external review corrected on
@@ -105,7 +105,7 @@ counting them as coverage was the overclaim an external review corrected on
 | ASI01 | Agent Goal Hijack | 81 |
 | ASI02 | Tool Misuse and Exploitation | 89 |
 | ASI03 | Identity and Privilege Abuse | 137 |
-| ASI04 | Agentic Supply Chain Vulnerabilities | 65 |
+| ASI04 | Agentic Supply Chain Vulnerabilities | 70 |
 | ASI05 | Unexpected Code Execution (RCE) | 41 |
 | ASI06 | Memory & Context Poisoning | 37 |
 | ASI07 | Insecure Inter-Agent Communication | 32 |
@@ -114,7 +114,7 @@ counting them as coverage was the overclaim an external review corrected on
 | ASI10 | Rogue Agents | 13 |
 | — | No ASI primary (positive controls, content safety, robustness) | 52 |
 
-The table's rows sum to 625, not to the 635 unique test IDs above. The 10
+The table's rows sum to 630, not to the 640 unique test IDs above. The 10
 missing IDs are `RCL-001`..`RCL-007` and `RCL-009`..`RCL-011`, and they **do**
 carry a tag: `receipt_claim_harness.py` constructs their results with
 `owasp_asi="ASI09"`. The extractor attributes a tag only when the test ID and the
