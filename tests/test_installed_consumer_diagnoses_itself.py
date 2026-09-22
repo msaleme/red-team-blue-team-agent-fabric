@@ -126,6 +126,37 @@ class InstalledConsumerSeparatesItsFailureModes(unittest.TestCase):
             "did not resolve to the venv under test" in message
             or "is not present in the venv" in message, message)
 
+    def test_an_import_from_outside_the_venv_is_not_a_landed_wheel(self):
+        """Seed the worse half of the PYTHONPATH bug: a silent false pass.
+
+        With the checkout on PYTHONPATH the nested pip skips the wheel, but the
+        packages stay importable from the SOURCE TREE, and the distribution
+        stays discoverable through agent_security_harness.egg-info. So the
+        distribution check passes, every import succeeds, and a check keyed on
+        "did it import" reports a landed wheel while the wheel sat untouched.
+
+        Reproduced against this repo root on 2026-09-22: one test failed loudly
+        and the rest passed for that reason, which is the outcome worth guarding
+        against. Importable is not installed HERE.
+        """
+        checkout = Path(__file__).resolve().parents[1]
+        self.assertTrue((checkout / "protocol_tests").is_dir(),
+                        "seed requires the source tree to be importable")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            consumer = InstalledConsumer(self.wheel, Path(tmp),
+                                         seeded_pythonpath=str(checkout))
+            with self.assertRaises(EnvironmentInconclusive) as caught:
+                consumer.assert_landed(self, ("protocol_tests",))
+        message = str(caught.exception)
+
+        self.assertIn("INCONCLUSIVE (environment)", message)
+        self.assertNotIn("FAIL (packaging)", message)
+        self.assertIn("imported from OUTSIDE", message)
+        # The report must name the path it actually resolved to, so a reader can
+        # see it was the working tree rather than guess.
+        self.assertIn(str(checkout / "protocol_tests"), message)
+
     def test_a_skipped_wheel_install_is_named_not_guessed(self):
         """Seed pip's own skip: deps install, the wheel does not, and rc is 0.
 
@@ -158,19 +189,19 @@ class InstalledConsumerSeparatesItsFailureModes(unittest.TestCase):
         (di / "RECORD").write_text("")
         (di / "INSTALLER").write_text("pip\n")
 
-        prior = os.environ.get("PYTHONPATH")
-        os.environ["PYTHONPATH"] = shadow
-        try:
-            with tempfile.TemporaryDirectory() as tmp:
-                consumer = InstalledConsumer(self.wheel, Path(tmp))
-                with self.assertRaises(AssertionError) as caught:
-                    consumer.assert_landed(self, ("protocol_tests",))
-                report = str(caught.exception)
-        finally:
-            if prior is None:
-                os.environ.pop("PYTHONPATH", None)
-            else:
-                os.environ["PYTHONPATH"] = prior
+        # Seeded through the explicit constructor seam, not os.environ. On
+        # 2026-09-22 the helper began stripping inherited PYTHONPATH from its
+        # subprocesses -- the actual cause of the sentinel's ten-day failure --
+        # and that change silently disarmed this seed: pip stopped seeing the
+        # shadow metadata, installed the wheel normally, and the test passed
+        # while testing nothing. The fix must not be able to switch off the
+        # control that proves it was needed.
+        with tempfile.TemporaryDirectory() as tmp:
+            consumer = InstalledConsumer(self.wheel, Path(tmp),
+                                         seeded_pythonpath=shadow)
+            with self.assertRaises(AssertionError) as caught:
+                consumer.assert_landed(self, ("protocol_tests",))
+            report = str(caught.exception)
 
         # The three things the old message could not say.
         self.assertIn("already installed with the same version", report,

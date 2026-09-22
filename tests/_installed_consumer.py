@@ -38,6 +38,7 @@ Neither state is a skip. An unestablished verdict stays visible.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import sysconfig
@@ -102,9 +103,15 @@ class EnvironmentInconclusive(AssertionError):
 class InstalledConsumer:
     """A throwaway venv holding one built wheel, plus the diagnostics to explain it."""
 
-    def __init__(self, wheel: Path, workdir: Path, extras: tuple[str, ...] = ()):
+    def __init__(self, wheel: Path, workdir: Path, extras: tuple[str, ...] = (),
+                 seeded_pythonpath: str | None = None):
         self.wheel = Path(wheel)
         self.workdir = Path(workdir)
+        # Tests that must reproduce a contaminated environment pass it HERE,
+        # explicitly, rather than through os.environ. Stripping the inherited
+        # PYTHONPATH also strips a test's seed, and a control that a fix
+        # silences is not a control -- it is the fix marking its own homework.
+        self.seeded_pythonpath = seeded_pythonpath
         self.venv = self.workdir / "venv"
         bindir = "Scripts" if sysconfig.get_platform().startswith("win") else "bin"
         self.python = self.venv / bindir / ("python.exe" if bindir == "Scripts" else "python")
@@ -113,7 +120,23 @@ class InstalledConsumer:
 
     # -- construction --------------------------------------------------------
 
+    # A clean room that inherits the developer's PYTHONPATH is not a clean room.
+    # With the checkout on PYTHONPATH, the nested pip finds
+    # agent_security_harness.egg-info in the SOURCE TREE, concludes the
+    # distribution is "already installed with the same version as the provided
+    # wheel", installs the dependencies and skips the wheel. Reproduced
+    # 2026-09-22 against this repo root; it is what a clean-room sentinel had
+    # been reporting for ten days.
+    LEAKED = ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP")
+
+    def _clean_env(self) -> dict:
+        env = {k: v for k, v in os.environ.items() if k not in self.LEAKED}
+        if self.seeded_pythonpath is not None:
+            env["PYTHONPATH"] = self.seeded_pythonpath
+        return env
+
     def _run(self, argv, **kw):
+        kw.setdefault("env", self._clean_env())
         return subprocess.run(argv, capture_output=True, text=True, **kw)
 
     def _create(self, extras: tuple[str, ...]) -> None:
@@ -206,6 +229,22 @@ class InstalledConsumer:
                 "FAIL (packaging): the distribution is installed and these packages "
                 "are still not importable from it.\n"
                 + "".join(f"  {n}: {v}\n" for n, v in broken.items())
+                + self.diagnostics())
+        # Importable is not the same as installed HERE. Under a leaked PYTHONPATH
+        # every one of these imports resolves to the working tree, and a check
+        # keyed on "did it import" passes without the wheel being exercised at
+        # all -- a worse outcome than the failure it replaces, because it is
+        # silent. Prove each one came out of the venv we installed into.
+        # Seeded by test_an_import_from_outside_the_venv_is_not_a_landed_wheel.
+        elsewhere = {n: v for n, v in env["imports"].items()
+                     if v != "<namespace>" and not str(v).startswith(str(self.venv))}
+        if elsewhere:
+            raise EnvironmentInconclusive(
+                "INCONCLUSIVE (environment): these packages imported from OUTSIDE "
+                "the venv under test, so the wheel's copy was never the one "
+                "exercised.\n"
+                + "".join(f"  {n}: {v}\n" for n, v in elsewhere.items())
+                + f"  venv under test : {self.venv}\n"
                 + self.diagnostics())
 
     # -- probing -------------------------------------------------------------
