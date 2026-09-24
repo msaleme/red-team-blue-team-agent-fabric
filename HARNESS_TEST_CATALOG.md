@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `10b3a34`
+**Generated:** `scripts/generate_test_catalog.py` at commit `85f5148`
 **Test count:** 640 unique test IDs across 49 registered harness modules (48 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -536,39 +536,39 @@ L4-033 | Information Disclosure in Errors | protocol_tests/l402_harness.py:2003
 ### MCP Protocol (`protocol_tests/mcp_harness.py`) — 33 tests
 
 ```
-MCP-001 | Tool List Integrity Check | protocol_tests/mcp_harness.py:852
-MCP-002 | Tool Registration via Call Injection | protocol_tests/mcp_harness.py:1631
-MCP-003 | Capability Escalation via Initialize | protocol_tests/mcp_harness.py:1690
-MCP-004 | Protocol Version Downgrade Attack | protocol_tests/mcp_harness.py:1773
-MCP-005 | Resource URI Path Traversal | protocol_tests/mcp_harness.py:1829
-MCP-006 | Prompt Template Injection via Get | protocol_tests/mcp_harness.py:1882
-MCP-007 | Sampling Request Context Exfiltration | protocol_tests/mcp_harness.py:1972
-MCP-008 | Malformed JSON-RPC Handling | protocol_tests/mcp_harness.py:2056
-MCP-009 | Batch Request DoS (1000 messages) | protocol_tests/mcp_harness.py:2149
-MCP-010 | Tool Call Argument Injection | protocol_tests/mcp_harness.py:2272
-MCP-011 | Tool Description Context Displacement DoS | protocol_tests/mcp_harness.py:2372
-MCP-012 | Tool Description Oversized Check | protocol_tests/mcp_harness.py:2477
-MCP-013 | Tool Description Padding / Repetition Detection | protocol_tests/mcp_harness.py:2531
-MCP-014 | Tool Description Injection Pattern Detection | protocol_tests/mcp_harness.py:2605
-MCP-015 | SSRF via URI Parameter | protocol_tests/mcp_harness.py:3079
-MCP-016 | SSRF via Resource URI | protocol_tests/mcp_harness.py:3192
-MCP-017 | STDIO Pre-Handshake Command Execution | protocol_tests/mcp_harness.py:3309
-MCP-018 | Unbounded Request Body DoS (CVE-2026-39313) | protocol_tests/mcp_harness.py:3400
-MCP-019 | Composite Cross-Tool Description Poisoning | protocol_tests/mcp_harness.py:2685
-MCP-020 | Mid-Session Tool Identity Rebinding | protocol_tests/mcp_harness.py:2839
-MCP-021 | Authentication Fail-Open (token validation) | protocol_tests/mcp_harness.py:2970
-MCP-RC-001 | Stateless Header/Body Binding | protocol_tests/mcp_harness.py:903
-MCP-RC-002 | MRTR requestState Integrity | protocol_tests/mcp_harness.py:944
-MCP-RC-003 | MRTR requestState Replay Protection | protocol_tests/mcp_harness.py:1008
-MCP-RC-004 | MRTR requestState Principal Binding | protocol_tests/mcp_harness.py:1083
-MCP-RC-005 | MRTR requestState Request Binding | protocol_tests/mcp_harness.py:1149
-MCP-RC-006 | Explicit Handle Cross-Principal Isolation | protocol_tests/mcp_harness.py:1214
-MCP-RC-007 | Cache Scope Metadata | protocol_tests/mcp_harness.py:1280
-MCP-RC-008 | Cached Capability Revocation | protocol_tests/mcp_harness.py:1320
-MCP-RC-009 | Resource Cache Metadata | protocol_tests/mcp_harness.py:1396
-MCP-RC-010 | Task Cross-Principal Isolation | protocol_tests/mcp_harness.py:1437
-MCP-RC-011 | Trace Context Request Binding | protocol_tests/mcp_harness.py:1522
-MCP-RC-012 | OAuth Issuer Request Binding | protocol_tests/mcp_harness.py:1576
+MCP-001 | Tool List Integrity Check | protocol_tests/mcp_harness.py:857
+MCP-002 | Tool Registration via Call Injection | protocol_tests/mcp_harness.py:1636
+MCP-003 | Capability Escalation via Initialize | protocol_tests/mcp_harness.py:1695
+MCP-004 | Protocol Version Downgrade Attack | protocol_tests/mcp_harness.py:1778
+MCP-005 | Resource URI Path Traversal | protocol_tests/mcp_harness.py:1834
+MCP-006 | Prompt Template Injection via Get | protocol_tests/mcp_harness.py:1887
+MCP-007 | Sampling Request Context Exfiltration | protocol_tests/mcp_harness.py:1977
+MCP-008 | Malformed JSON-RPC Handling | protocol_tests/mcp_harness.py:2061
+MCP-009 | Batch Request DoS (1000 messages) | protocol_tests/mcp_harness.py:2154
+MCP-010 | Tool Call Argument Injection | protocol_tests/mcp_harness.py:2277
+MCP-011 | Tool Description Context Displacement DoS | protocol_tests/mcp_harness.py:2377
+MCP-012 | Tool Description Oversized Check | protocol_tests/mcp_harness.py:2482
+MCP-013 | Tool Description Padding / Repetition Detection | protocol_tests/mcp_harness.py:2536
+MCP-014 | Tool Description Injection Pattern Detection | protocol_tests/mcp_harness.py:2610
+MCP-015 | SSRF via URI Parameter | protocol_tests/mcp_harness.py:3096
+MCP-016 | SSRF via Resource URI | protocol_tests/mcp_harness.py:3209
+MCP-017 | STDIO Pre-Handshake Command Execution | protocol_tests/mcp_harness.py:3326
+MCP-018 | Unbounded Request Body DoS (CVE-2026-39313) | protocol_tests/mcp_harness.py:3417
+MCP-019 | Composite Cross-Tool Description Poisoning | protocol_tests/mcp_harness.py:2690
+MCP-020 | Mid-Session Tool Identity Rebinding | protocol_tests/mcp_harness.py:2844
+MCP-021 | Authentication Fail-Open (token validation) | protocol_tests/mcp_harness.py:2987
+MCP-RC-001 | Stateless Header/Body Binding | protocol_tests/mcp_harness.py:908
+MCP-RC-002 | MRTR requestState Integrity | protocol_tests/mcp_harness.py:949
+MCP-RC-003 | MRTR requestState Replay Protection | protocol_tests/mcp_harness.py:1013
+MCP-RC-004 | MRTR requestState Principal Binding | protocol_tests/mcp_harness.py:1088
+MCP-RC-005 | MRTR requestState Request Binding | protocol_tests/mcp_harness.py:1154
+MCP-RC-006 | Explicit Handle Cross-Principal Isolation | protocol_tests/mcp_harness.py:1219
+MCP-RC-007 | Cache Scope Metadata | protocol_tests/mcp_harness.py:1285
+MCP-RC-008 | Cached Capability Revocation | protocol_tests/mcp_harness.py:1325
+MCP-RC-009 | Resource Cache Metadata | protocol_tests/mcp_harness.py:1401
+MCP-RC-010 | Task Cross-Principal Isolation | protocol_tests/mcp_harness.py:1442
+MCP-RC-011 | Trace Context Request Binding | protocol_tests/mcp_harness.py:1527
+MCP-RC-012 | OAuth Issuer Request Binding | protocol_tests/mcp_harness.py:1581
 ```
 
 ### MCP Supply-Chain (`protocol_tests/mcp_supplychain.py`) — 4 tests

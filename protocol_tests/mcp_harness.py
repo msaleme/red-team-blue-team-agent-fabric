@@ -292,6 +292,11 @@ def jsonrpc_notification(method: str, params: dict | None = None) -> dict:
 def _auth_outcome(response: dict | None) -> str:
     """Classify one authentication probe as served / rejected / indeterminate.
 
+    A 401 or 403 is *rejected* regardless of body; the transport records
+    ``_status`` on every non-2xx, so a plain-text or HTML denial reaches this
+    check intact (pinned over a real socket in
+    ``testing/test_mcp021_http_auth_denial.py``).
+
     Deliberately three-valued. A transport failure, a 5xx, or a response that is
     neither a result nor a client-side refusal is *indeterminate*: the control was
     not exercised, and folding that into either "rejected" or "served" would let a
@@ -2953,6 +2958,18 @@ class MCPSecurityTests:
           authenticating, so token behaviour says nothing), when the configured
           credential is rejected (the control was never exercised), when no
           credential is configured, or when any leg is indeterminate.
+
+        What counts as rejected. An HTTP **401 or 403** on a leg is *rejected*
+        whatever the body: plain text, HTML, empty, or JSON that is not JSON-RPC.
+        Those two statuses are the server's own statement that it refused the
+        credential, and most gateways deny with ordinary HTTP semantics rather than
+        a JSON-RPC error. Other 4xx statuses are rejected as well, since the
+        transport marks every non-2xx as an error; this is unchanged. A leg is
+        *indeterminate* on a transport failure or timeout, on any 5xx (a crashed or
+        misconfigured auth path is not an enforced one), and on any response that
+        establishes neither service nor refusal, such as a 2xx with an unreadable
+        body or a 2xx JSON-RPC error that could be method-not-found as easily as a
+        refusal. *Served* means a JSON-RPC ``result`` on a non-error status.
 
         Scope. The differential runs on ``tools/list`` only. ``tools/call`` would add
         side effects on a live target and its error surface conflates tool-not-found
