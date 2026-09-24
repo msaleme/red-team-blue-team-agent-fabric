@@ -219,25 +219,44 @@ def _jsonrpc_envelope(resp) -> dict | None:
 
 
 def _shows_a2a_surface(resp) -> bool:
-    """Whether *resp* shows a reachable A2A endpoint at the URL it came from.
+    """Whether *resp* shows the target SERVING an A2A endpoint at its URL.
 
-    Three shapes do: any 2xx (the route exists and took the POST), a JSON-RPC
-    envelope under any status (a dispatcher answered), and an explicit 401/403
-    (the endpoint exists and applied an authorization decision). What does not:
-    silence, and a bare 404/405 or other non-2xx with no JSON-RPC body, which is
-    a route that is not there rather than a target refusing this request. The
-    pole-pilot follow-up (2026-09-24) found six tests scoring PASS against a
-    host that answered 404 to everything because they read the second group as
-    the first.
+    Two shapes do: any 2xx (the route exists and took the POST) and a JSON-RPC
+    envelope under any status (a dispatcher answered). What does not: silence,
+    a bare 404/405 or other non-2xx with no JSON-RPC body (a route that is not
+    there), and a bare 401/403. The pole-pilot follow-up (2026-09-24) found six
+    tests scoring PASS against a host that answered 404 to everything.
+
+    A bare 401/403 counted here until the owner decision of 2026-09-24
+    (testing/test_verdicts_need_a_surface.py): a host answering 403 to every
+    verb and path serves nothing, and "credentials rejected before the agent"
+    cannot be told apart from "this request rejected by the agent". MCP-021's
+    served-baseline rule governs: a 401/403 is a rejection only after the
+    target has served something, which ``A2ASecurityTests._surface_present``
+    establishes separately. A 403 WITH a JSON-RPC envelope is still a surface
+    (the refusing-host pole).
     """
     if not isinstance(resp, dict) or not _answered(resp):
         return False
     if _jsonrpc_envelope(resp) is not None:
         return True
     if resp.get("_error"):
-        return resp.get("_status") in (401, 403)
+        return False
     status = resp.get("_status", 200)
     return isinstance(status, int) and 200 <= status < 300
+
+
+def _served_agent_card(resp) -> bool:
+    """Whether *resp* is an Agent Card the target actually served.
+
+    A 2xx whose body parsed to a non-empty JSON object. An error, a non-JSON
+    body (``_raw``) and an empty object are not a card.
+    """
+    if not isinstance(resp, dict) or not _answered(resp) or resp.get("_error"):
+        return False
+    if "_raw" in resp:
+        return False
+    return bool(resp)
 
 
 def _status_summary(responses) -> str:
@@ -548,13 +567,22 @@ class A2ASecurityTests:
             "tasks/get", {"id": f"ash-surface-probe-{uuid.uuid4().hex[:12]}"})
         if _shows_a2a_surface(probe):
             return True, "a benign tasks/get control was answered by the endpoint"
+        # Last control: the Agent Card. A target that serves its card and then
+        # answers every JSON-RPC call 401/403 is an A2A surface enforcing
+        # authorization, and those refusals are rejections. A host that
+        # answers 403 to the card as well has served nothing (owner decision
+        # 2026-09-24, MCP-021's served-baseline rule).
+        card = self.transport.get(self.agent_card_path)
+        if _served_agent_card(card):
+            return True, "the target served its Agent Card"
         return False, (
             f"no A2A JSON-RPC surface was observed at "
             f"{getattr(self.transport, 'base_url', 'the target')}: "
-            f"the test's requests and a benign tasks/get control drew "
-            f"{_status_summary(responses + [probe])}, with no JSON-RPC envelope, "
-            f"2xx or 401/403 among them. A route-level 404/405 or no answer is "
-            f"not the target rejecting this request")
+            f"the test's requests, a benign tasks/get control and the Agent "
+            f"Card drew {_status_summary(responses + [probe, card])}, with no "
+            f"JSON-RPC envelope, 2xx or served card among them. A route-level "
+            f"404/405, a bare 401/403 to everything, or no answer is not the "
+            f"target rejecting this request")
 
     def _record_simulate(self, test_id: str, method_name: str) -> None:
         """Record a passing simulate-mode result for *test_id*."""
@@ -582,6 +610,33 @@ class A2ASecurityTests:
         t0 = time.monotonic()
         resp = self.transport.get(self.agent_card_path)
         elapsed = time.monotonic() - t0
+
+        if (resp.get("_error") and resp.get("_status") in (401, 403)
+                and not self._surface_present([])[0]):
+            # A bare 401/403 to the card from a target that serves nothing
+            # else is no surface (owner decision 2026-09-24, MCP-021's
+            # served-baseline rule): it cannot say whether a card exists, so
+            # neither its absence nor its integrity is observed. With a served
+            # surface the refusal is the card being withheld, and the FAIL
+            # below stands. A 404 is unchanged: the card path is not there.
+            self._record(A2ATestResult(
+                test_id="A2A-001",
+                name="Agent Card Discovery",
+                category="agent_card",
+                owasp_asi="ASI03",
+                severity=Severity.HIGH.value,
+                passed=False,
+                details=(f"{INCONCLUSIVE_PREFIX}the Agent Card request drew "
+                         f"HTTP {resp.get('_status')} and the target served "
+                         f"nothing else (no JSON-RPC envelope or 2xx to a "
+                         f"benign tasks/get), so whether a card exists was "
+                         f"not observed. Supply credentials with --header to "
+                         f"test past the authorization layer."),
+                a2a_method="GET /.well-known/agent.json",
+                response_received=resp,
+                elapsed_s=round(elapsed, 3),
+            ))
+            return
 
         if resp.get("_error"):
             self._record(A2ATestResult(

@@ -23,13 +23,19 @@ The same defect class as the PraisonAI/CrewAI verdicts fixed in #591
 same shape: a positive control for the surface, then three values.
 
     surface absent (404/405 bare, closed port, no answer)    INCONCLUSIVE
-    surface present, request rejected (JSON-RPC error, 401/403, or a non-2xx
-      once the endpoint has shown itself an A2A surface)     PASS
+    surface present, request rejected (JSON-RPC error, or a non-2xx incl.
+      401/403 once the target has served something)          PASS
     surface present, request accepted                        FAIL
 
 "Surface present" is `_shows_a2a_surface` over the test's own responses, or,
-failing that, over a benign `tasks/get` sent to the same URL
-(`A2ASecurityTests._surface_present`).
+failing that, over a benign `tasks/get` sent to the same URL, or, failing
+that, a served Agent Card (`A2ASecurityTests._surface_present`).
+
+Owner decision 2026-09-24 (testing/test_verdicts_need_a_surface.py): a bare
+403 to everything is no surface. #594 originally counted an explicit 401/403
+as surface evidence and pinned PASS on that pole; it now counts only after
+the target has served something (MCP-021's served-baseline rule), and A2A-001
+on a bare 403 is INCONCLUSIVE rather than FAIL.
 
 A2A-013 is the seventh finding: an unavailable Agent Card was a FAIL although
 an absent `limitations` member on a fetched card is already INCONCLUSIVE. The
@@ -189,6 +195,20 @@ def forbidding_endpoint(verb, path, raw, rpc):
     return 403, "Forbidden"
 
 
+def card_then_forbidding(verb, path, raw, rpc):
+    """Serves its Agent Card, then answers every JSON-RPC call with a bare 403."""
+    if verb == "GET":
+        return (200, _CARD) if path.endswith("agent.json") else (404, "no")
+    return 403, "Forbidden"
+
+
+def card_then_accepting_403_card_elsewhere(verb, path, raw, rpc):
+    """Serves JSON-RPC and complies with everything; withholds its card (403)."""
+    if verb == "GET":
+        return 403, "Forbidden"
+    return 200, _rpc_result(rpc)
+
+
 def accepting_dispatcher(verb, path, raw, rpc):
     """A reachable A2A dispatcher that processes everything it is sent."""
     if verb == "GET":
@@ -245,6 +265,35 @@ class TestSurfaceAbsentIsInconclusive(unittest.TestCase):
         self._assert_all_inconclusive(_against(method_not_allowed))
 
 
+class TestBare403EverywhereIsInconclusive(unittest.TestCase):
+    """Owner decision 2026-09-24 (testing/test_verdicts_need_a_surface.py): a
+    bare 403 to every verb and path is no surface. MCP-021's served-baseline
+    rule governs: a 401/403 is a rejection only after the target has served
+    something. #594 pinned PASS here ("an authorization refusal is an answer
+    from an endpoint that exists"); the no-surface sweep registered those six
+    PASSes, and A2A-001's FAIL, as defects."""
+
+    def test_surface_gated_tests(self):
+        rs = _against(forbidding_endpoint)
+        for tid in SURFACE_GATED:
+            with self.subTest(test_id=tid):
+                self.assertEqual(_verdict(rs[tid]), "INCONCLUSIVE", rs[tid].details)
+                self.assertIn("no A2A JSON-RPC surface", rs[tid].details)
+                self.assertIn("HTTP 403", rs[tid].details)
+
+    def test_a2a_001(self):
+        r = _against(forbidding_endpoint, ("A2A-001",))["A2A-001"]
+        self.assertEqual(_verdict(r), "INCONCLUSIVE", r.details)
+        self.assertIn("HTTP 403", r.details)
+
+    def test_401_everywhere(self):
+        ids = ("A2A-001",) + SURFACE_GATED
+        rs = _against(lambda *a: (401, "Unauthorized"), ids)
+        for tid in ids:
+            with self.subTest(test_id=tid):
+                self.assertEqual(_verdict(rs[tid]), "INCONCLUSIVE", rs[tid].details)
+
+
 class TestSurfacePresentAndRejectingIsPass(unittest.TestCase):
     def test_jsonrpc_error_from_a_reachable_dispatcher(self):
         rs = _against(refusing_dispatcher)
@@ -252,9 +301,28 @@ class TestSurfacePresentAndRejectingIsPass(unittest.TestCase):
             with self.subTest(test_id=tid):
                 self.assertEqual(_verdict(rs[tid]), "PASS", rs[tid].details)
 
-    def test_explicit_403_from_the_endpoint(self):
-        """An authorization refusal is an answer from an endpoint that exists."""
-        rs = _against(forbidding_endpoint)
+    def test_served_card_then_403_on_the_attack(self):
+        """An authorization refusal counts once the target has served something.
+
+        Replaces #594's `test_explicit_403_from_the_endpoint`, which pinned
+        PASS on a bare 403 to everything (owner decision 2026-09-24; see
+        `TestBare403EverywhereIsInconclusive`). Here the target serves its
+        Agent Card and answers every JSON-RPC call 403: an A2A surface
+        enforcing authorization, so the refusals are rejections."""
+        rs = _against(card_then_forbidding)
+        for tid in SURFACE_GATED:
+            with self.subTest(test_id=tid):
+                self.assertEqual(_verdict(rs[tid]), "PASS", rs[tid].details)
+
+    def test_served_jsonrpc_baseline_then_403_on_the_attack(self):
+        """The same with no card: the benign tasks/get control is served as
+        JSON-RPC and every other call is a bare 403."""
+        def route(verb, path, raw, rpc):
+            if rpc and rpc.get("method") == "tasks/get" and str(
+                    (rpc.get("params") or {}).get("id", "")).startswith("ash-surface-probe"):
+                return 200, _rpc_error(rpc, -32001, "Task not found")
+            return 403, "Forbidden"
+        rs = _against(route)
         for tid in SURFACE_GATED:
             with self.subTest(test_id=tid):
                 self.assertEqual(_verdict(rs[tid]), "PASS", rs[tid].details)
@@ -282,6 +350,14 @@ class TestSurfacePresentAndRejectingIsPass(unittest.TestCase):
 class TestSurfacePresentAndAcceptingIsFail(unittest.TestCase):
     def test_a_dispatcher_that_processes_everything(self):
         rs = _against(accepting_dispatcher)
+        for tid in SURFACE_GATED:
+            with self.subTest(test_id=tid):
+                self.assertEqual(_verdict(rs[tid]), "FAIL", rs[tid].details)
+
+    def test_a_complying_dispatcher_that_withholds_its_card(self):
+        """A 403 on the card no longer establishes a surface, and it must not
+        mask one: the JSON-RPC answers still make the compliance a FAIL."""
+        rs = _against(card_then_accepting_403_card_elsewhere)
         for tid in SURFACE_GATED:
             with self.subTest(test_id=tid):
                 self.assertEqual(_verdict(rs[tid]), "FAIL", rs[tid].details)
@@ -361,8 +437,11 @@ class TestSurfaceClassifier(unittest.TestCase):
             ({"_error": True, "_status": 500, "_body": "oops"}, False),
             ({"_error": True, "_status": 400,
               "_body": '{"jsonrpc": "2.0", "id": null, "error": {"code": -32700}}'}, True),
-            ({"_error": True, "_status": 401, "_body": ""}, True),
-            ({"_error": True, "_status": 403, "_body": "Forbidden"}, True),
+            # A bare 401/403 is not a served surface (owner decision 2026-09-24).
+            ({"_error": True, "_status": 401, "_body": ""}, False),
+            ({"_error": True, "_status": 403, "_body": "Forbidden"}, False),
+            ({"_error": True, "_status": 403,
+              "_body": '{"jsonrpc": "2.0", "id": "1", "error": {"code": -32001}}'}, True),
             ({"error": {"code": -32601, "message": "Method not found"}}, True),
             ({"result": {}}, True),
             ({}, True),  # a 2xx with an empty body: the route took the POST
@@ -401,7 +480,9 @@ class TestA2A013UnavailableCardIsInconclusive(unittest.TestCase):
 
 
 class TestA2A001IsUnchanged(unittest.TestCase):
-    """Contract-consistent per the review: fetch and validate the Agent Card."""
+    """Contract-consistent per the review: fetch and validate the Agent Card.
+    (Bare 403 everywhere moved to INCONCLUSIVE on 2026-09-24; see
+    `TestBare403EverywhereIsInconclusive`.)"""
 
     def test_404_fails(self):
         r = _against(not_found_everywhere, ("A2A-001",))["A2A-001"]
@@ -415,6 +496,14 @@ class TestA2A001IsUnchanged(unittest.TestCase):
     def test_valid_card_passes(self):
         r = _against(accepting_dispatcher, ("A2A-001",))["A2A-001"]
         self.assertEqual(_verdict(r), "PASS", r.details)
+
+    def test_card_withheld_by_a_served_surface_still_fails(self):
+        """A 403 on the card from a target that serves JSON-RPC is the card
+        being withheld: FAIL, as before. Only the bare-403-everywhere case
+        moved to INCONCLUSIVE."""
+        r = _against(card_then_accepting_403_card_elsewhere, ("A2A-001",))["A2A-001"]
+        self.assertEqual(_verdict(r), "FAIL", r.details)
+        self.assertIn("Could not fetch Agent Card", r.details)
 
 
 if __name__ == "__main__":

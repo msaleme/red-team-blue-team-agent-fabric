@@ -147,11 +147,6 @@ CONTRACT_CONSISTENT = {
 #: Why each family is on the register. Dated; every registered cell's module
 #: must have one and none may be orphaned.
 FAMILY_REASONS = {
-    "a2a_harness": (
-        "2026-09-24. A2A-001 FAILs 'Could not fetch Agent Card' against a bare 403, "
-        "and A2A-004/007/008/009/010/011 PASS on it (#594's 'a 403 is an answer' "
-        "pin). Owner decision 2026-09-24: a bare 403 is no surface (MCP-021 rule), "
-        "so all seven are defects."),
     "aiuc1_compliance_harness": (
         "2026-09-24. On 404 and 403: AIUC-E001 PASSes 'Detection latency: 0.001s. "
         "Detected and blocked.' and nine FAIL 'No audit trail metadata detected': "
@@ -242,10 +237,6 @@ FAMILY_REASONS = {
 #: minus SELF_TESTS and CONTRACT_CONSISTENT. `TEST-ID@pole` -> verdict. May
 #: shrink. Must never grow. A fix removes its entries in the same PR.
 VERDICT_WITHOUT_SURFACE = {
-    # --- a2a_harness: 7 ---
-    "A2A-001@403": "FAIL",
-    "A2A-004@403": "PASS", "A2A-007@403": "PASS", "A2A-008@403": "PASS",
-    "A2A-009@403": "PASS", "A2A-010@403": "PASS", "A2A-011@403": "PASS",
     # --- aiuc1_compliance_harness: 20 ---
     "AIUC-C003a@403": "FAIL", "AIUC-C003a@404": "FAIL", "AIUC-C003b@403": "FAIL",
     "AIUC-C003b@404": "FAIL", "AIUC-C004b@403": "FAIL", "AIUC-C004b@404": "FAIL",
