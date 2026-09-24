@@ -64,21 +64,61 @@ jobs:
 | `total_tests` | Total number of tests executed |
 | `passed` | Number of passed tests |
 | `failed` | Number of failed tests |
-| `critical_failures` | Number of critical test failures |
+| `critical_failures` | Number of failed tests whose severity is critical |
+| `inconclusive` | Number of INCONCLUSIVE / NOT_EXECUTED tests (reported, never gated on) |
 
-The Action gates on the report counts, not on the harness exit status (the run step
-ignores it). `failed` counts genuine FAILs only: INCONCLUSIVE rows, and the NOT_EXECUTED
-rows the MCP harness emits when its handshake is refused, are not failures and are not
-passes. Harness versions before the 2026-09-24 exit-code change counted INCONCLUSIVE MCP
-rows in `failed`.
+### How a row is counted
+
+Both the composite action and the reusable workflow count the report with
+`python -m protocol_tests.report_gate`, which classifies each result row with
+`protocol_tests.http_helpers.row_outcome`, the same function the harness's own
+`summary` block is computed with. The Action and the harness cannot disagree
+about what a FAIL is.
+
+| Row | Counted as |
+|-----|------------|
+| `not_evaluated: true` or `informational: true`, or `details` beginning `INCONCLUSIVE - ` (this includes the MCP harness's NOT_EXECUTED rows when its handshake is refused) | **INCONCLUSIVE**: neither a pass nor a failure, whatever `passed` says |
+| otherwise `passed: true` | PASS |
+| otherwise `passed: false` | **FAIL** |
+| no `passed` field, `status: "PASS"` / `"FAIL"` / `"INCONCLUSIVE"` | that status (no harness in this repository writes this shape; it is honoured for compatibility) |
+
+A FAIL is **critical** when its `severity` is `P0-Critical` (the MCP and most other
+harnesses), `critical` or `CRITICAL`. A row with no severity is never critical: it
+counts toward `fail_on: any`, not `fail_on: critical`.
+
+Counts are recomputed from the rows, not copied from the report's `summary`, because
+several harness writers still put INCONCLUSIVE rows in their own summary's `failed`.
+A report whose rows are not JSON objects (a `--trials` report currently serialises
+each row as a string) cannot be classified and fails the step rather than being
+counted either way. So does a missing or unparseable report.
+
+The composite action imports the gate from its own checkout (`GITHUB_ACTION_PATH`),
+so it matches the action ref you pinned even when `harness_version` pins an older
+package. The reusable workflow has no such checkout and imports it from the installed
+harness; if that harness predates the gate, the workflow fails with an error (unless
+`fail_on: none`) rather than report `critical_failures=0` it cannot vouch for.
+
+Before this change (2026-09-24), `critical_failures` was computed from a `status`
+field no harness writes, compared against the spelling `critical` where the MCP
+harness writes `P0-Critical`, so `fail_on: critical` (the default) never failed a
+build.
 
 ## Fail Thresholds
 
 | `fail_on` | Behavior |
 |-----------|----------|
-| `any` | Fail the workflow if **any** test fails |
-| `critical` | Fail only if tests with `severity: critical` fail (default) |
-| `none` | Never fail - report only, useful for monitoring |
+| `any` | Fail the workflow if **any** test FAILs (INCONCLUSIVE rows do not count) |
+| `critical` | Fail only if a test with critical severity FAILs (default) |
+| `none` | Never fail on results - report only, useful for monitoring |
+
+Any other value is an error; it used to be accepted and silently never failed.
+The Action does not gate on `inconclusive`. To treat "nothing established" as a
+failure in your own pipeline, check the output:
+
+```yaml
+- if: steps.security.outputs.inconclusive != '0'
+  run: exit 1
+```
 
 ## Examples
 
@@ -142,6 +182,7 @@ rows in `failed`.
     echo "Passed: ${{ steps.security.outputs.passed }}"
     echo "Failed: ${{ steps.security.outputs.failed }}"
     echo "Critical: ${{ steps.security.outputs.critical_failures }}"
+    echo "Inconclusive: ${{ steps.security.outputs.inconclusive }}"
 
     if [ "${{ steps.security.outputs.critical_failures }}" -gt 0 ]; then
       echo "Critical failures detected - notifying team"
@@ -202,20 +243,20 @@ See the full [test inventory](../README.md#test-inventory) for details.
 When used in a pull request workflow, the reusable workflow automatically posts (and updates) a summary comment on the PR with test results:
 
 ```
-## 🛡️ Agent Security Harness Results
+### Security Harness Results
 
 | Metric | Count |
 |--------|-------|
 | Total Tests | 11 |
-| ✅ Passed | 9 |
-| ❌ Failed | 2 |
-| 🚨 Critical | 1 |
+| Passed | 8 |
+| Failed | 2 |
+| Critical Failures | 1 |
+| Inconclusive (not counted as failures) | 1 |
 
-### Failed Tests
 | Test | Severity | Details |
 |------|----------|---------|
-| `MCP-003` | critical | Server accepted downgraded protocol version |
-| `MCP-007` | medium | Large payload not rejected within timeout |
+| MCP-003 | P0-Critical | Server accepted downgraded protocol version |
+| MCP-007 | P2-Medium | Large payload not rejected within timeout |
 ```
 
 ## Artifacts
