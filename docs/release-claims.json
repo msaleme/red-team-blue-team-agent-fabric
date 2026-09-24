@@ -5,9 +5,9 @@
   "claims": [
     {
       "id": "release-test-count",
-      "fact": "The v4.22.0 release carries 640 unique test IDs.",
+      "fact": "The v4.23.0 release carries 640 unique test IDs.",
       "value": "640",
-      "release_tag": "v4.22.0",
+      "release_tag": "v4.23.0",
       "command": "python3 scripts/count_tests.py",
       "value_extraction": "Definitive count:\\s*(\\d+)",
       "generated_on": "2026-09-09",
@@ -18,7 +18,7 @@
       "surfaces": [
         {
           "path": "README.md",
-          "pattern": "the v4\\.22\\.0 release carries the same (\\d+)"
+          "pattern": "the v4\\.23\\.0 release carries the same (\\d+)"
         },
         {
           "path": "README.md",
@@ -26,11 +26,11 @@
         }
       ],
       "resolution": "pinned",
-      "resolved_revision": "2ed825fefaffe4fc9300fd65e9bf427bcf9264fa",
+      "resolved_revision": "4622e5f718d79fa902aefa944063f37ff62e204f",
       "evidence_artifact": {
-        "path": "docs/evidence/release-claims/release-test-count-v4.22.0.txt",
-        "sha256": "2c5866dd44ff84ccec2cde1ddc5b81f274d7cb6b63373f8f47fe2c5bd704376d",
-        "revision": "2ed825fefaffe4fc9300fd65e9bf427bcf9264fa",
+        "path": "docs/evidence/release-claims/release-test-count-v4.23.0.txt",
+        "sha256": "4e57c97824e8c1f96f9a59765d6baf11c26429665582a0dfa44ee771e39182b0",
+        "revision": "4622e5f718d79fa902aefa944063f37ff62e204f",
         "command": "python3 scripts/count_tests.py",
         "captured_by": "repository author",
         "evidence_class": "E1",
