@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `1f7a4fe`
+**Generated:** `scripts/generate_test_catalog.py` at commit `4622e5f`
 **Test count:** 640 unique test IDs across 49 registered harness modules (48 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -583,16 +583,16 @@ MCP-F-004 | Launcher Version Pinning | protocol_tests/mcp_supplychain.py:494
 ### MCP Tool Poisoning Reproduction (`protocol_tests/mcp_tool_poisoning_harness.py`) — 10 tests
 
 ```
-CVE-001 | Nested Schema Injection Detection | protocol_tests/mcp_tool_poisoning_harness.py:627
-CVE-002 | Tool Fork Fingerprinting | protocol_tests/mcp_tool_poisoning_harness.py:676
-CVE-003 | Marketplace Contamination Rate | protocol_tests/mcp_tool_poisoning_harness.py:721
-CVE-004 | Cross-Tool Context Leakage | protocol_tests/mcp_tool_poisoning_harness.py:771
-CVE-005 | Supply Chain Signature Bypass | protocol_tests/mcp_tool_poisoning_harness.py:886
-CVE-006 | Description Payload Encoding Detection | protocol_tests/mcp_tool_poisoning_harness.py:986
-CVE-007 | Incremental Poisoning Scanner Coverage (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1100
-CVE-008 | Marketplace Registry Integrity (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1148
-CVE-009 | Shared-Auth Scope Escalation (CVE-2026-35625) | protocol_tests/mcp_tool_poisoning_harness.py:1271
-CVE-010 | Channel Extension SSRF (CVE-2026-35629) | protocol_tests/mcp_tool_poisoning_harness.py:1372
+CVE-001 | Nested Schema Injection Detection | protocol_tests/mcp_tool_poisoning_harness.py:872
+CVE-002 | Tool Fork Fingerprinting | protocol_tests/mcp_tool_poisoning_harness.py:921
+CVE-003 | Marketplace Contamination Rate | protocol_tests/mcp_tool_poisoning_harness.py:966
+CVE-004 | Cross-Tool Context Leakage | protocol_tests/mcp_tool_poisoning_harness.py:1016
+CVE-005 | Supply Chain Signature Bypass | protocol_tests/mcp_tool_poisoning_harness.py:1131
+CVE-006 | Description Payload Encoding Detection | protocol_tests/mcp_tool_poisoning_harness.py:1259
+CVE-007 | Incremental Poisoning Scanner Coverage (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1372
+CVE-008 | Marketplace Registry Integrity (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1420
+CVE-009 | Shared-Auth Scope Escalation (CVE-2026-35625) | protocol_tests/mcp_tool_poisoning_harness.py:1543
+CVE-010 | Channel Extension SSRF (CVE-2026-35629) | protocol_tests/mcp_tool_poisoning_harness.py:1644
 ```
 
 ### memory_harness.py (`protocol_tests/memory_harness.py`) — 16 tests

@@ -59,8 +59,9 @@ def _closed_port() -> int:
 
 
 class _Stub:
-    def __init__(self, shape: str):
-        body = json.dumps(BODIES[shape]).encode()
+    def __init__(self, shape: str | dict):
+        """`shape` names a BODIES entry, or is the JSON body itself."""
+        body = json.dumps(BODIES[shape] if isinstance(shape, str) else shape).encode()
 
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *a):  # silence
@@ -291,30 +292,61 @@ class CrewAICveExitStatus(_Case):
 # ---------------------------------------------------------------------------
 
 class McpToolPoisoningExitStatus(_Case):
-    """0 is NOT achievable in a default run, and that is the report's own verdict.
+    """All three exit codes, with CVE-006 deciding the FAIL and PASS poles.
 
-    CVE-006 scans ENCODED_PAYLOADS with the module's own `scan_tool_fields` and
-    never touches the target; the scanner catches none of the five encodings,
-    so CVE-006 FAILs on every run that includes `payload_encoding`. Every
-    default run therefore contains a FAIL and exits 1. The row always said FAIL;
-    only the exit status used to hide it. Changing CVE-006 is a verdict decision
-    outside this change.
+    Until 2026-09-24 CVE-006 scanned ENCODED_PAYLOADS with the module's own
+    `scan_tool_fields` and never touched the target; the scanner read plain
+    text only, so CVE-006 FAILed 5/5 and every default run exited 1 whatever
+    the target was (#596 documented this). The scanner now decodes the five
+    encodings and CVE-006 scans the target's tools/list, so the exit status
+    follows the target:
+
+    * closed port: every target row INCONCLUSIVE, no FAIL -> 2
+    * a stub publishing the encoded-poisoned fixture tools -> CVE-006 FAIL -> 1
+    * a stub publishing clean tools, `--categories encoding` -> PASS -> 0
+
+    A default live run cannot exit 0: CVE-009/010 are INCONCLUSIVE for every
+    target by design (no advisory-named surface), so the clean pole is measured
+    on the encoding category alone.
     """
 
     MOD = ["-m", "protocol_tests.mcp_tool_poisoning_harness"]
 
-    def test_cve_006_is_a_target_independent_fail(self):
+    @staticmethod
+    def _tools_stub(tools):
+        """A server answering every request with a tools/list of `tools`."""
+        return _Stub({"jsonrpc": "2.0", "id": 1, "result": {"tools": tools}})
+
+    def test_a_default_run_against_a_closed_port_exits_two(self):
         proc, rows = _run([*self.MOD, "--url", f"http://127.0.0.1:{_closed_port()}"])
         by_id = {r["test_id"]: r for r in rows}
+        self.assertIn("INCONCLUSIVE", by_id["CVE-006"]["details"])
+        self.assertEqual(run_summary(rows)["failed"], 0, run_summary(rows))
+        self.assertExits(2, proc, rows)
+
+    def test_encoded_poisoned_tools_fail_cve_006_and_exit_one(self):
+        from protocol_tests.mcp_tool_poisoning_harness import encoded_fixture_tools
+        with self._tools_stub(encoded_fixture_tools()) as stub:
+            proc, rows = _run([*self.MOD, "--url", stub.url])
+        by_id = {r["test_id"]: r for r in rows}
         self.assertFalse(by_id["CVE-006"]["passed"])
-        self.assertFalse(by_id["CVE-006"].get("not_evaluated"))
+        self.assertNotIn("INCONCLUSIVE", by_id["CVE-006"]["details"])
         self.assertExits(1, proc, rows)
+
+    def test_clean_tools_pass_cve_006_and_exit_zero(self):
+        from protocol_tests.mcp_tool_poisoning_harness import CLEAN_TOOLS
+        with self._tools_stub(CLEAN_TOOLS) as stub:
+            proc, rows = _run([*self.MOD, "--url", stub.url,
+                               "--categories", "encoding"])
+        self.assertEqual([r["test_id"] for r in rows], ["CVE-006"])
+        self.assertTrue(rows[0]["passed"], rows[0]["details"])
+        self.assertExits(0, proc, rows)
 
     def test_simulate_contains_fails_and_exits_one(self):
         proc, rows = _run([*self.MOD, "--simulate"])
         self.assertExits(1, proc, rows)
 
-    def test_without_the_local_fail_a_closed_port_exits_two(self):
+    def test_a_closed_port_on_one_category_exits_two(self):
         proc, rows = _run([*self.MOD, "--url", f"http://127.0.0.1:{_closed_port()}",
                            "--categories", "nested_injection"])
         s = run_summary(rows)

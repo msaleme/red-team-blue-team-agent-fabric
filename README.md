@@ -197,9 +197,7 @@ until 2026-09-24 and now follow this table (see CHANGELOG). Before 2026-09-24 mo
 exited `1` for an INCONCLUSIVE row as well as for a FAIL; branch on `1` specifically if you want to gate on a failed control. argparse also exits
 `2` on a usage error, and that run writes no report. Exception: the `--trials N` statistical
 paths of `l402` and `x402` still exit `0`/`1` (they do not track INCONCLUSIVE per trial).
-`mcp-tool-poisoning` exits `1` on every default run: CVE-006 checks the harness's own scanner,
-not the target, and FAILs (leave out its `encoding` category with `--categories` to gate on
-the target alone). Modules run directly with their own `--simulate` (`cloud-agents`,
+Modules run directly with their own `--simulate` (`cloud-agents`,
 `crewai-cve`, `mcp-tool-poisoning`) exit with what their reference rows say; through
 `agent-security test ... --simulate` every row is INCONCLUSIVE and the run exits `2`.
 
