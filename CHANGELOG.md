@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — CVE-006 judged the harness's scanner, not the target; the scanner now reads five encodings
+
+`mcp-tool-poisoning` CVE-006 ("Description Payload Encoding Detection") built one tool
+per `ENCODED_PAYLOADS` entry, scanned it with the module's own `scan_tool_fields`, and
+never contacted the target. The scanner matched plain text only, so it caught none of
+the five encodings (base64, unicode escapes, Greek homoglyphs, zero-width characters,
+right-to-left override) and CVE-006 FAILed on every run. Since the exit-status change
+below, that made every default run exit `1` whatever the target was.
+
+- **The scanner decodes.** `scan_tool_fields` now also scans each string after undoing
+  each evasion (`ENCODING_DECODERS`, one per `ENCODED_PAYLOADS` key, plus layered
+  combinations) and reports hidden matches as a finding carrying `encodings`. Plain-text
+  findings are unchanged. The `ignore ... instructions` pattern also matches the
+  singular, which is how the `rtl_override` fixture renders. CVE-001, CVE-003 and
+  CVE-008 share the scanner, so they now also see encoded poisoning. The DGB
+  scanner-derived measurement is unchanged (1 / 52).
+- **CVE-006 scans the target.** Its verdict comes from the target's `tools/list`: a
+  tool whose poisoning is visible only after decoding is FAIL; clean tools are PASS;
+  a closed port, a 404, an empty tool list or a registry-only run is INCONCLUSIVE. The
+  detector's own coverage (the five `ENCODED_PAYLOADS` must be caught, the nine
+  `BENIGN_ENCODED` negative controls must not be) is a precondition: with a gap, a
+  clean scan is INCONCLUSIVE, not PASS. `--simulate` scans the encoded fixture tools
+  and FAILs. Test ID and count (640) unchanged.
+- **Exit status.** A default run now exits by the target: `2` against a closed port,
+  `1` against a server publishing encoded-poisoned tools. A default live run cannot
+  exit `0`, because CVE-009/010 are INCONCLUSIVE for every target; `--categories
+  encoding` against clean tools exits `0`. The `--categories` workaround in the
+  exit-status entry below is no longer needed.
+- Evidence: `testing/test_mcp_encoding_scanner.py` (positive and negative detector
+  controls, the CVE-006 differential against stub servers, the detector-gap
+  precondition); `testing/test_exit_code_six_harnesses.py` now measures all three exit
+  codes for this module.
+
 ## [4.23.0] - 2026-09-24
 
 A minor release. The exit status of a harness run, and the GitHub Action's build
@@ -52,6 +85,7 @@ single-run and `--trials` paths. Usage errors, `--list` and `--help` exit as bef
   encodings detected). The row always said FAIL; only the exit status hid it. Leave out
   the `encoding` category to gate on the target alone. The CVE-006 verdict is unchanged
   here.
+  (Superseded by the CVE-006 fix above: the row now depends on the target.)
 - Direct-module `--simulate` runs exit with their reference rows: `cloud-agents` `0`,
   `crewai-cve` `1`, `mcp-tool-poisoning` `1`. `agent-security test <name> --simulate`
   is unchanged (`2`).
