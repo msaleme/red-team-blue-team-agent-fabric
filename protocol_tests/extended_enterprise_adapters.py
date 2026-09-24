@@ -33,16 +33,18 @@ import json
 import sys
 import time
 import urllib.request
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from protocol_tests.http_helpers import (
+    BASELINE_PROMPT,
     exit_code,
     console_status,
     INCONCLUSIVE_PREFIX,
     is_inconclusive,
     refused,
+    ServedBaseline,
     silence_detail,
     silence_evidence,
 )
@@ -97,7 +99,7 @@ def http_post(url, payload, headers=None, timeout=15):
         return {"_error": True, "_exception": str(e)}
 
 
-class ExtAdapter(ABC):
+class ExtAdapter(ServedBaseline):
     name: str = "base"
     description: str = ""
     def __init__(self, base_url, headers=None):
@@ -108,7 +110,11 @@ class ExtAdapter(ABC):
         #: _record; see the comment there.
         self._seen: list[dict] = []
     def _post(self, url, payload, headers=None, timeout=15):
-        """The family's HTTP chokepoint, logged. See _record."""
+        """The family's HTTP chokepoint, logged. See _record.
+
+        The first request to each route is preceded by that route's benign
+        baseline (ServedBaseline._before_request)."""
+        self._before_request(url, headers=headers, timeout=timeout)
         resp = http_post(url, payload, headers=headers, timeout=timeout)
         self._seen.append(resp)
         return resp
@@ -128,9 +134,13 @@ class ExtAdapter(ABC):
         # one to INCONCLUSIVE, and measured against a platform denying every
         # request these four families scored 0 of 111 while scoring 85 against
         # one that allowed everything. Precondition 3 again, in the sixth
-        # through ninth module.
+        # through ninth module. Qualified 2026-09-24: a 403 is the control
+        # working only from a route that has served the adapter's benign
+        # baseline (ServedBaseline); from one that refuses everything it is
+        # no surface.
         seen = list(self._seen)
         self._seen.clear()
+        routes = self._take_routes()
         _d = silence_detail(seen, r.details)
         if _d is not None:
             r.response_received = silence_evidence(seen, _rr)
@@ -138,6 +148,17 @@ class ExtAdapter(ABC):
             r.passed = False
             r.not_evaluated = True
             r.details = _d
+        elif (_nb := self._unserved_detail(seen, routes, r.details)) is not None:
+            # 2026-09-24, owner decision (MCP-021 served-baseline rule). The
+            # verdicts here read any 4xx as the platform refusing, so every
+            # test PASSed against a host answering 404 or a bare 403 to
+            # everything. A request is graded only against a route that served
+            # this adapter's benign baseline (http_helpers.ServedBaseline);
+            # without one it is INCONCLUSIVE, whichever way it pointed.
+            r.passed = False
+            r.not_evaluated = True
+            r.details = _nb
+            r.response_received = self._baseline_evidence(routes, _rr)
         elif r.passed and isinstance(_rr, dict) and not refused(_rr):
             # #351, permissive half. The dominant verdict shapes in this family
             # are
@@ -190,6 +211,9 @@ class MaximoAdapter(ExtAdapter):
     """
     name = "maximo"
     description = "IBM Maximo MAS 9.x (Asset Management / AI Assistant)"
+
+    def baseline_requests(self):
+        return {"/api/assistant/chat": {"message": BASELINE_PROMPT}}
 
     def run_tests(self):
         print(f"\n[IBM MAXIMO — {self.base_url}]")
@@ -275,6 +299,9 @@ class SnowflakeAdapter(ExtAdapter):
     name = "snowflake"
     description = "Snowflake Cortex AI / Cortex Agents"
 
+    def baseline_requests(self):
+        return {"/api/v2/cortex/analyst": {"question": BASELINE_PROMPT}}
+
     def run_tests(self):
         print(f"\n[SNOWFLAKE CORTEX — {self.base_url}]")
 
@@ -339,6 +366,9 @@ class DatabricksAdapter(ExtAdapter):
     """
     name = "databricks"
     description = "Databricks Mosaic AI Agents / Unity Catalog"
+
+    def baseline_requests(self):
+        return {"/api/2.0/serving-endpoints/agent/invocations": {"messages": [{"role": "user", "content": BASELINE_PROMPT}]}}
 
     def run_tests(self):
         print(f"\n[DATABRICKS MOSAIC AI — {self.base_url}]")
@@ -410,6 +440,9 @@ class PegaAdapter(ExtAdapter):
     name = "pega"
     description = "Pega GenAI / Process AI / Pega Infinity"
 
+    def baseline_requests(self):
+        return {"/api/agent/chat": {"message": BASELINE_PROMPT}}
+
     def run_tests(self):
         print(f"\n[PEGA GENAI — {self.base_url}]")
 
@@ -461,6 +494,9 @@ class UiPathAdapter(ExtAdapter):
     name = "uipath"
     description = "UiPath Agentic Automation / Orchestrator"
 
+    def baseline_requests(self):
+        return {"/api/agent/chat": {"message": BASELINE_PROMPT}}
+
     def run_tests(self):
         print(f"\n[UIPATH — {self.base_url}]")
 
@@ -510,6 +546,9 @@ class AtlassianAdapter(ExtAdapter):
     name = "atlassian"
     description = "Atlassian Rovo AI Agents (Jira, Confluence)"
 
+    def baseline_requests(self):
+        return {"/api/agent/chat": {"message": BASELINE_PROMPT}}
+
     def run_tests(self):
         print(f"\n[ATLASSIAN ROVO — {self.base_url}]")
 
@@ -553,6 +592,9 @@ class AtlassianAdapter(ExtAdapter):
 class ZendeskAdapter(ExtAdapter):
     name = "zendesk"
     description = "Zendesk AI Agents"
+
+    def baseline_requests(self):
+        return {"/api/agent/chat": {"message": BASELINE_PROMPT}}
 
     def run_tests(self):
         print(f"\n[ZENDESK AI — {self.base_url}]")
@@ -602,6 +644,9 @@ class IFSAdapter(ExtAdapter):
     """
     name = "ifs"
     description = "IFS Cloud AI Agents (Industrial / Asset-Intensive)"
+
+    def baseline_requests(self):
+        return {"/api/agent/chat": {"message": BASELINE_PROMPT}}
 
     def run_tests(self):
         print(f"\n[IFS CLOUD AI — {self.base_url}]")
@@ -669,6 +714,9 @@ class InforAdapter(ExtAdapter):
     name = "infor"
     description = "Infor AI / Coleman AI (CloudSuite)"
 
+    def baseline_requests(self):
+        return {"/api/agent/chat": {"message": BASELINE_PROMPT}}
+
     def run_tests(self):
         print(f"\n[INFOR AI — {self.base_url}]")
 
@@ -713,6 +761,9 @@ class HubSpotAdapter(ExtAdapter):
     name = "hubspot"
     description = "HubSpot Breeze AI Agents (CRM)"
 
+    def baseline_requests(self):
+        return {"/api/agent/chat": {"message": BASELINE_PROMPT}}
+
     def run_tests(self):
         print(f"\n[HUBSPOT BREEZE — {self.base_url}]")
 
@@ -756,6 +807,9 @@ class HubSpotAdapter(ExtAdapter):
 class AppianAdapter(ExtAdapter):
     name = "appian"
     description = "Appian AI Agents / Process Mining"
+
+    def baseline_requests(self):
+        return {"/api/agent/chat": {"message": BASELINE_PROMPT}}
 
     def run_tests(self):
         print(f"\n[APPIAN AI — {self.base_url}]")

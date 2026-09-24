@@ -48,18 +48,20 @@ import time
 import urllib.error
 import urllib.request
 import uuid
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from urllib.parse import urlparse, urlunparse
 
 from protocol_tests.http_helpers import (
+    BASELINE_PROMPT,
     exit_code,
     _no_redirect_opener,
     console_status,
     INCONCLUSIVE_PREFIX,
     is_inconclusive,
     refused,
+    ServedBaseline,
     silence_detail,
     silence_evidence,
 )
@@ -129,7 +131,14 @@ def http_get(url: str, headers: dict | None = None, timeout: int = 15) -> dict:
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = resp.read().decode("utf-8")
-            return json.loads(body) if body else {}
+            # 2026-09-24: the 2xx path dropped the status, so the silence
+            # guard read every served GET as unanswered and LC-002 could never
+            # FAIL. Parse first, then assign (the dict-merge rule).
+            result = json.loads(body) if body else {}
+            if not isinstance(result, dict):
+                result = {"_json": result}
+            result["_status"] = resp.status
+            return result
     except urllib.error.HTTPError as e:
         body = ""
         try:
@@ -227,7 +236,7 @@ def _unanswered(resp: dict) -> bool:
 # Base adapter
 # ---------------------------------------------------------------------------
 
-class FrameworkAdapter(ABC):
+class FrameworkAdapter(ServedBaseline):
     """Base class for framework-specific test adapters."""
 
     name: str = "base"
@@ -242,12 +251,17 @@ class FrameworkAdapter(ABC):
         self._seen: list[dict] = []
 
     def _post(self, url, payload, headers=None, timeout=15):
-        """The family's HTTP chokepoint, logged. See _record."""
+        """The family's HTTP chokepoint, logged. See _record.
+
+        The first request to each route is preceded by that route's benign
+        baseline (ServedBaseline._before_request)."""
+        self._before_request(url, headers=headers, timeout=timeout)
         resp = http_post(url, payload, headers=headers, timeout=timeout)
         self._seen.append(resp)
         return resp
 
     def _get(self, url, headers=None, timeout=15):
+        self._before_request(url, headers=headers, timeout=timeout)
         resp = http_get(url, headers=headers, timeout=timeout)
         self._seen.append(resp)
         return resp
@@ -270,9 +284,13 @@ class FrameworkAdapter(ABC):
         # one to INCONCLUSIVE, and measured against a platform denying every
         # request these four families scored 0 of 111 while scoring 85 against
         # one that allowed everything. Precondition 3 again, in the sixth
-        # through ninth module.
+        # through ninth module. Qualified 2026-09-24: a 403 is the control
+        # working only from a route that has served the adapter's benign
+        # baseline (ServedBaseline); from one that refuses everything it is
+        # no surface.
         seen = list(self._seen)
         self._seen.clear()
+        routes = self._take_routes()
         _d = silence_detail(seen, result.details)
         if _d is not None:
             result.response_received = silence_evidence(seen, _rr)
@@ -280,6 +298,17 @@ class FrameworkAdapter(ABC):
             result.passed = False
             result.not_evaluated = True
             result.details = _d
+        elif (_nb := self._unserved_detail(seen, routes, result.details)) is not None:
+            # 2026-09-24, owner decision (MCP-021 served-baseline rule). The
+            # verdicts here read any 4xx as the platform refusing, so every
+            # test PASSed against a host answering 404 or a bare 403 to
+            # everything. A request is graded only against a route that served
+            # this adapter's benign baseline (http_helpers.ServedBaseline);
+            # without one it is INCONCLUSIVE, whichever way it pointed.
+            result.passed = False
+            result.not_evaluated = True
+            result.details = _nb
+            result.response_received = self._baseline_evidence(routes, _rr)
         elif result.passed and isinstance(_rr, dict) and not refused(_rr):
             # #351, permissive half. The dominant verdict shapes in this family
             # are
@@ -371,6 +400,13 @@ class LangChainAdapter(FrameworkAdapter):
     name = "langchain"
     description = "LangChain/LangGraph via LangServe"
 
+    def baseline_requests(self):
+        return {
+            "/invoke": {"input": {"input": BASELINE_PROMPT}},
+            "/input_schema": None,
+            "/batch": {"inputs": [{"input": BASELINE_PROMPT}]},
+        }
+
     def run_tests(self) -> list[AdapterTestResult]:
         print(f"\n[LANGCHAIN / LANGGRAPH — {self.base_url}]")
 
@@ -456,6 +492,12 @@ class CrewAIAdapter(FrameworkAdapter):
     name = "crewai"
     description = "CrewAI via FastAPI/Flask deployment"
 
+    def baseline_requests(self):
+        return {
+            "/kickoff": {"inputs": {"topic": BASELINE_PROMPT}},
+            "/run": {"task": BASELINE_PROMPT, "agent": "researcher"},
+        }
+
     def run_tests(self) -> list[AdapterTestResult]:
         print(f"\n[CREWAI — {self.base_url}]")
 
@@ -529,6 +571,12 @@ class AutoGenAdapter(FrameworkAdapter):
 
     name = "autogen"
     description = "AutoGen / Semantic Kernel via Azure or custom endpoints"
+
+    def baseline_requests(self):
+        return {
+            "/chat": {"messages": [{"role": "user", "content": BASELINE_PROMPT}]},
+            "/execute": {"code": "print('ash-baseline')", "language": "python"},
+        }
 
     def run_tests(self) -> list[AdapterTestResult]:
         print(f"\n[AUTOGEN / SEMANTIC KERNEL — {self.base_url}]")
@@ -715,6 +763,9 @@ class OpenAIAgentsAdapter(FrameworkAdapter):
     name = "openai-agents"
     description = "OpenAI Agents SDK (API-compatible endpoints)"
 
+    def baseline_requests(self):
+        return {"/v1/agents/default/runs": {"input": BASELINE_PROMPT, "stream": False}}
+
     def run_tests(self) -> list[AdapterTestResult]:
         print(f"\n[OPENAI AGENTS SDK — {self.base_url}]")
 
@@ -793,6 +844,10 @@ class BedrockAgentsAdapter(FrameworkAdapter):
 
     name = "bedrock"
     description = "Amazon Bedrock Agents via Bedrock Runtime API"
+
+    def baseline_requests(self):
+        return {"/text": {"inputText": BASELINE_PROMPT,
+                          "sessionId": str(uuid.uuid4())}}
 
     def run_tests(self) -> list[AdapterTestResult]:
         print(f"\n[AMAZON BEDROCK AGENTS — {self.base_url}]")
@@ -896,6 +951,12 @@ class PraisonAIAdapter(FrameworkAdapter):
 
     name = "praisonai"
     description = "PraisonAI (CVE-2026-40288/40289/39889/39891)"
+
+    def baseline_requests(self):
+        # No test sends through _post / _get. PA-002 and PA-003 carry their
+        # own differentials (a canary path, and for PA-002 a control
+        # handshake); PA-001 and PA-004 send nothing live.
+        return {}
 
     # ------------------------------------------------------------------
     # PA-001  YAML Job Code Execution  (CVE-2026-40288, CVSS 9.8, ASI01)
@@ -1185,6 +1246,17 @@ class PraisonAIAdapter(FrameworkAdapter):
                        f"(/a2u/info, HTTP 200{', exposing stream/event metadata' if exposes_info else ''}), "
                        "the condition CVE-2026-39889 describes, while a nonexistent "
                        f"/a2u/ path returned {observed['canary']}. Observed: {observed}")
+        elif s_probe in REFUSAL_STATUSES and s_canary in REFUSAL_STATUSES:
+            # 2026-09-24, owner decision: a bare 403 to everything is no
+            # surface, and a 401/403 is a rejection only after the target has
+            # served something. The 200-everywhere case above, mirrored: the
+            # canary is refused too, so the refusal is the host's, not the A2U
+            # route's. This PASSed before; a host refusing everything passed.
+            details = (INCONCLUSIVE_PREFIX + f"/a2u/info refused the "
+                       f"unauthenticated GET ({s_probe}), but so did a path under "
+                       f"/a2u/ that cannot exist ({s_canary}), so the server "
+                       "refuses everything and the refusal cannot be attributed "
+                       f"to the A2U route. Observed: {observed}")
         elif s_probe in REFUSAL_STATUSES:
             passed = True
             details = (f"/a2u/info refused the unauthenticated GET ({s_probe}); the "

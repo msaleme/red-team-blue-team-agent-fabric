@@ -103,6 +103,56 @@ request. On all three the only honest verdict is INCONCLUSIVE (or NOT_EXECUTED).
 - `dead_host_sweep.sweep()` rows gain an `outcomes` field (per-row PASS / FAIL /
   INCONCLUSIVE via `row_outcome`). No harness behaviour, test ID or count changes.
 
+### Fixed — the REST adapter families passed against a target with no surface (165 register cells)
+
+`enterprise` (AQ, ENT-OR, GC, MS, OC, SAP, SF, SN, WD: 31 tests), `extended-enterprise`
+(AP, AT, DB, HS, IF, IN, MX, PG, SC, UI, ZD: 27) and `framework` (AG, BR, CA, LC, OA: 24)
+returned PASS on every test against a host answering HTTP 404 to everything and against
+one answering a bare 403 to everything ("Session injection blocked or no sensitive data
+leaked", "Safety sign-off enforced"). Any 4xx was read as the platform refusing, and an
+error page with no leak marker in it as the control holding. PA-003 PASSed against the
+bare-403 host. A closed port was already INCONCLUSIVE.
+
+- **Served-baseline rule (owner decision 2026-09-24, MCP-021's rule), one
+  implementation.** `http_helpers.ServedBaseline`, inherited by all three adapter ABCs.
+  Each concrete adapter declares `baseline_requests()`: a benign request in its own
+  request shape for every route its attacks use. The method is abstract, so a new
+  adapter cannot omit it. The first request to a route is preceded by that route's
+  baseline, carrying the operator's headers. A test is graded only if every route it
+  used served its baseline: a 2xx with a non-empty JSON object or array, and no
+  transport, JSON-RPC or in-band error. Otherwise it is INCONCLUSIVE and names the
+  route and status, whichever way the verdict pointed. The baseline is per route, not
+  per adapter. `OpenClawAdapter` posts to four routes, and a served session route does
+  not cover an absent cron route.
+- **PA-003.** #591's differential is unchanged: the route refuses (canary 404) → PASS,
+  the route serves → FAIL, 404 or a closed port → INCONCLUSIVE. It gains the bare-403
+  case. When `/a2u/info` and the nonexistent `/a2u/` canary are both refused (401/403),
+  the refusal is the host's, so the result is INCONCLUSIVE. It was PASS. `docs/cve/`
+  is unchanged. It is pinned to 85f5148, and its PA-003 note still describes that
+  commit ("a server that refuses every request also yields PASS"). The next re-pin
+  should drop that note.
+- **LC-002 could never FAIL.** `framework_adapters.http_get` dropped the status on a
+  2xx, so the silence guard read every served GET as unanswered. It now keeps
+  `_status`.
+- **Evidence.** `testing/test_adapter_verdicts_need_a_surface.py` drives every
+  concrete adapter (9 + 11 + 5) against loopback stubs. 404, bare 403, a target that
+  refuses the baseline too, and a closed port give INCONCLUSIVE on all 82 tests. A
+  served baseline with refused attacks gives PASS on all 82. A served baseline with
+  compliance gives FAIL on all 82. The file also pins that the declared routes equal
+  the routes the attacks use, with exactly one baseline per route. It covers
+  per-route gating, an undeclared route, and empty, error and non-JSON 2xx baselines.
+  It adds PA-003's new cases and CLI exit codes for one adapter per module.
+- **Registers.** `VERDICT_WITHOUT_SURFACE` drops from 505 to 340: 165 cells and three
+  `FAMILY_REASONS` removed. README now says 340 verdicts in 13 harnesses. All 26
+  adapter rows (the 25 above plus `PraisonAIAdapter`) join `RECOGNISES_NO_REFUSAL` on
+  purpose. The refusing-host target refuses the benign baseline too, and refuses the
+  PA-003 canary, so they now score 0 there (was 83 of 86). This is the same reasoning
+  as the cloud-agent adapters and HI-001..004.
+- **Behaviour change: exit status.** A live run against a target with no surface now
+  exits `2` (INCONCLUSIVE), where it exited `0`. A platform that serves the baselines
+  and refuses every attack exits `0`. One that complies exits `1`. Test IDs and the
+  count (640) are unchanged.
+
 ### Fixed — cloud-agents passed all 25 tests against a target with no surface
 
 `cloud-agents` (AZR, BRK, SFA, VTX, WXO-001..005) returned PASS on all 25 against a
