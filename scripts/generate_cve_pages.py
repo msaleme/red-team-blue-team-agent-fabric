@@ -704,9 +704,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {f}")
         return 1
     if not pinned_ok:
+        # Exit 2, the repository's "could not check" code: the HEAD rules held,
+        # but a green exit here would read as the pages having been verified.
         print("HEAD rules pass. Pinned rules NOT RUN: shallow clone, pinned commit absent. "
               "Not a pass for the pages; run with full history.")
-        return 0 if args.check else 2
+        return 2
     if args.check:
         d = drift(mapping)
         if d:
