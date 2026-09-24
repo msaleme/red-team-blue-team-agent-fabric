@@ -561,9 +561,13 @@ class TestThePermissiveReadListIsSplit(unittest.TestCase):
         # over fixtures the harness builds itself, neither invokes the target, and
         # they sit in POSITIVE_EVIDENCE_OR_LOCAL with that reason. WT-001 and
         # WT-002 do drive the target and correctly do not pass here.
+        # 2026-09-23: denominator 43 -> 42, numerator stays 0. CVE-010's live
+        # branch was removed (CVE-2026-35629 names no wire-level JSON-RPC
+        # method, so its live verdict is INCONCLUSIVE and it sends nothing), so
+        # it stopped passing against the allow-all host and left the population.
         num, den, _ = REGISTERS["PERMISSIVE_READ_LIST"]()
         self.assertEqual(
-            (num, den), (0, 43),
+            (num, den), (0, 42),
             f"the permissive read list changed: now {num} of {den}. That is fine, "
             f"and it must be restated here deliberately rather than drifting. "
             f"Report BOTH numbers -- a numerator alone hides whether the list "

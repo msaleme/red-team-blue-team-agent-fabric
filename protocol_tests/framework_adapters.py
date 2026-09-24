@@ -36,8 +36,13 @@ Requires: Python 3.10+, requests (for --run mode only)
 from __future__ import annotations
 
 import argparse
+import base64
 import inspect
 import json
+import os
+import re
+import socket
+import ssl
 import sys
 import time
 import urllib.error
@@ -49,6 +54,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse, urlunparse
 
 from protocol_tests.http_helpers import (
+    _no_redirect_opener,
     console_status,
     INCONCLUSIVE_PREFIX,
     is_inconclusive,
@@ -132,6 +138,88 @@ def http_get(url: str, headers: dict | None = None, timeout: int = 15) -> dict:
         return {"_error": True, "_status": e.code, "_body": body}
     except Exception as e:
         return {"_error": True, "_exception": str(e)}
+
+
+#: A named route that answers one of these is not there. INCONCLUSIVE, never a
+#: verdict: a missing route neither refuses nor accepts anything.
+ABSENT_STATUSES = frozenset({404, 405})
+#: An observed refusal of an unauthenticated request.
+REFUSAL_STATUSES = frozenset({401, 403})
+
+
+def probe_get(url: str, headers: dict | None = None, timeout: int = 10,
+              max_bytes: int = 2048) -> dict:
+    """GET *url* without following redirects. Always returns ``_status`` or ``_exception``.
+
+    ``http_get`` above returns the parsed body on a 2xx and drops the status, so
+    ``answered()`` in the silence guard reads a 200 as silence. A probe whose
+    verdict depends on the status needs the status on every path.
+    """
+    req = urllib.request.Request(url, headers=dict(headers or {}), method="GET")
+    try:
+        with _no_redirect_opener().open(req, timeout=timeout) as resp:
+            body = resp.read(max_bytes).decode("utf-8", errors="replace")
+            return {"_status": resp.status, "_body": body}
+    except urllib.error.HTTPError as e:
+        body = ""
+        try:
+            body = e.read(max_bytes).decode("utf-8", errors="replace")
+        except Exception:
+            pass
+        return {"_error": True, "_status": e.code, "_body": body}
+    except Exception as e:
+        return {"_error": True, "_exception": str(e)}
+
+
+def websocket_handshake(url: str, headers: dict | None = None,
+                        timeout: int = 10) -> dict:
+    """Send one WebSocket opening handshake to *url*, read the status line, close.
+
+    No frame is sent after the handshake. ``_status`` is 101 when the server
+    accepted the upgrade. Returns ``_exception`` on a transport failure or when
+    the reply carries no HTTP status line.
+    """
+    parts = urlparse(url)
+    tls = parts.scheme in ("https", "wss")
+    host = parts.hostname or ""
+    port = parts.port or (443 if tls else 80)
+    lines = [
+        f"GET {parts.path or '/'} HTTP/1.1",
+        f"Host: {parts.netloc}",
+        "Upgrade: websocket",
+        "Connection: Upgrade",
+        f"Sec-WebSocket-Key: {base64.b64encode(os.urandom(16)).decode()}",
+        "Sec-WebSocket-Version: 13",
+    ] + [f"{k}: {v}" for k, v in (headers or {}).items()]
+    data = b""
+    try:
+        raw = socket.create_connection((host, port), timeout=timeout)
+        sock = (ssl.create_default_context().wrap_socket(raw, server_hostname=host)
+                if tls else raw)
+        try:
+            sock.sendall(("\r\n".join(lines) + "\r\n\r\n").encode("latin-1"))
+            while b"\r\n" not in data and len(data) < 4096:
+                chunk = sock.recv(1024)
+                if not chunk:
+                    break
+                data += chunk
+        finally:
+            sock.close()
+    except Exception as e:
+        return {"_error": True, "_exception": str(e)}
+    line = data.split(b"\r\n", 1)[0].decode("latin-1", errors="replace")
+    m = re.match(r"HTTP/\d(?:\.\d)?\s+(\d{3})", line)
+    if not m:
+        return {"_error": True, "_exception": f"no HTTP status line: {line[:80]!r}"}
+    status = int(m.group(1))
+    out = {"_status": status, "_status_line": line[:120]}
+    if status >= 400:
+        out["_error"] = True
+    return out
+
+
+def _unanswered(resp: dict) -> bool:
+    return bool(resp.get("_exception")) or not resp.get("_status")
 
 
 # ---------------------------------------------------------------------------
@@ -773,18 +861,37 @@ class BedrockAgentsAdapter(FrameworkAdapter):
 class PraisonAIAdapter(FrameworkAdapter):
     """Tests for PraisonAI deployments.
 
-    Covers four CVEs published 2026-04-14:
-        CVE-2026-40288 (9.8)  — YAML job code execution
-        CVE-2026-40289 (9.1)  — Unauthenticated browser bridge
-        CVE-2026-39889 (High) — Unauthenticated event stream
-        CVE-2026-39891 (8.8)  — Template injection via tool definitions
+    Covers four CVEs. Facts from NVD and the GitHub Advisory Database,
+    retrieved 2026-09-23:
+        CVE-2026-40288  published 2026-04-14, fixed in PraisonAI 4.5.139 /
+                        praisonaiagents 1.5.140 -- `praisonai workflow run
+                        <file.yaml>` executes `type: job` steps. A local CLI
+                        path; the advisory names no network endpoint.
+        CVE-2026-40289  published 2026-04-14, fixed in PraisonAI 4.5.139 /
+                        praisonaiagents 1.5.140 -- `praisonai browser start`
+                        accepts WebSocket clients on /ws that omit Origin.
+                        Default port 8765 is from the source file the advisory
+                        cites (browser/server.py).
+        CVE-2026-39889  published 2026-04-08, fixed in PraisonAI 4.5.115 --
+                        create_a2u_routes() registers /a2u/info, /a2u/subscribe,
+                        /a2u/events/{stream_name}, /a2u/events/sub/{id} and
+                        /a2u/health with no authentication.
+        CVE-2026-39891  published 2026-04-08, fixed in PraisonAI 4.5.115 --
+                        input from agent.start() reaches template rendering in
+                        tools returned by create_agent_centric_tools(). A
+                        library path; the advisory names no network endpoint.
 
-    Common PraisonAI endpoints:
-        POST /api/workflow          — load a YAML workflow definition
-        WS   /browser-bridge        — Playwright browser bridge (unauthenticated in <0.0.79)
-        GET  /api/events            — A2U event stream
-        POST /api/tools             — register tool definitions
+    Live verdicts are differentials against the surface the advisory names.
+    A surface that is absent (404/405, closed port, no answer) is INCONCLUSIVE,
+    never PASS and never FAIL. PA-001 and PA-004 have no network surface named
+    by their advisory, so their live verdict is always INCONCLUSIVE and they
+    send nothing.
     """
+
+    #: The browser bridge's default port, from `BrowserServer.__init__` and
+    #: `praisonai browser start --port` in the source the CVE-2026-40289
+    #: advisory cites. An attribute so a stub can stand in for it.
+    bridge_port: int = 8765
 
     name = "praisonai"
     description = "PraisonAI (CVE-2026-40288/40289/39889/39891)"
@@ -855,7 +962,7 @@ class PraisonAIAdapter(FrameworkAdapter):
                 passed=payload_valid,
                 details=(
                     "YAML payload contains valid type:job with compilable Python — "
-                    "would execute on vulnerable PraisonAI (<0.0.79)"
+                    "would execute on vulnerable PraisonAI (fixed in 4.5.139)"
                     if payload_valid
                     else "Payload construction failed — review YAML structure"
                 ),
@@ -865,25 +972,27 @@ class PraisonAIAdapter(FrameworkAdapter):
                 elapsed_s=round(elapsed, 3),
             )
 
-        # Live: attempt to load the workflow and check whether the server
-        # accepted it (200/201) without rejecting the job-type code block.
-        resp = self._post(endpoint, payload, headers=self.headers)
+        # Live. Until this change the test posted the payload to /api/workflow
+        # and scored any 4xx as PASS, so a server without that route passed.
+        # The advisory (GHSA-vc46-vw85-3wvm, NVD) names no network endpoint:
+        # the vulnerable path is `praisonai workflow run <file.yaml>`, a local
+        # CLI reading a file. A route this harness guessed cannot carry a
+        # verdict, so nothing is sent and the result is INCONCLUSIVE.
         elapsed = time.monotonic() - t0
-        status = resp.get("_status", 0)
-        rejected = resp.get("_error") or status >= 400
-        resp_str = json.dumps(resp).lower()
-        executed = any(kw in resp_str for kw in ["executed", "job_result", "output", "task_complete"])
-
         return AdapterTestResult(
             test_id=test_id, name=name, framework=self.name,
             owasp_asi="ASI01", severity="P0-Critical",
-            passed=rejected and not executed,
+            passed=False,
             details=(
-                "Server rejected malicious YAML job payload"
-                if rejected and not executed
-                else "Server accepted YAML job — possible code execution (CVE-2026-40288)"
+                INCONCLUSIVE_PREFIX + "CVE-2026-40288 describes `praisonai workflow "
+                "run <file.yaml>` executing `type: job` steps, a local CLI path. The "
+                "advisory names no network endpoint, so no request was sent: a PASS "
+                "or FAIL on a guessed route would describe the guess, not the target. "
+                "Check the installed version (fixed in PraisonAI 4.5.139 / "
+                "praisonaiagents 1.5.140) or run --simulate for the payload self-test."
             ),
-            endpoint=endpoint, request_sent=payload, response_received=resp,
+            endpoint=endpoint, request_sent=None,
+            response_received={"surface": "none named by the advisory"},
             elapsed_s=round(elapsed, 3),
         )
 
@@ -894,11 +1003,14 @@ class PraisonAIAdapter(FrameworkAdapter):
     def _test_pa002(self, simulate: bool) -> AdapterTestResult:
         test_id = "PA-002"
         name = "Browser Bridge Unauthenticated Access"
-        # PraisonAI's browser bridge listens on a separate port (default 8765).
+        # PraisonAI's browser bridge listens on a separate port (default 8765,
+        # `bridge_port`). The advisory names its /ws WebSocket endpoint.
         # Use urlparse so the scheme colon is never confused with the host:port colon.
         parsed = urlparse(self.base_url)
-        bridge_url = urlunparse((parsed.scheme, f"{parsed.hostname}:8765", "/ws", "", "", ""))
-        endpoint = f"{urlunparse((parsed.scheme, f'{parsed.hostname}:8765', '/browser', '', '', ''))}"
+        netloc = f"{parsed.hostname}:{self.bridge_port}"
+        endpoint = urlunparse((parsed.scheme, netloc, "/ws", "", "", ""))
+        canary = urlunparse((parsed.scheme, netloc,
+                             f"/ws-ash-canary-{uuid.uuid4().hex[:12]}", "", "", ""))
 
         # Connection payload: initiate a Playwright session without credentials.
         connection_payload = {
@@ -923,7 +1035,7 @@ class PraisonAIAdapter(FrameworkAdapter):
                 passed=payload_valid,
                 details=(
                     "Connection payload has no auth token and requests JS-evaluate "
-                    "capability — would succeed against vulnerable browser bridge (<0.0.79)"
+                    "capability — would succeed against vulnerable browser bridge (fixed in 4.5.139)"
                     if payload_valid
                     else "Payload construction issue — auth field or capabilities missing"
                 ),
@@ -933,24 +1045,78 @@ class PraisonAIAdapter(FrameworkAdapter):
                 elapsed_s=round(elapsed, 3),
             )
 
-        # Live: POST to the bridge HTTP handshake endpoint without credentials.
-        resp = self._post(endpoint, connection_payload, headers=self.headers)
+        # Live. Until this change the test POSTed JSON to :8765/browser, a path
+        # the advisory does not name, and a 404 there scored PASS. The advisory
+        # (GHSA-8x8f-54wf-vv92, NVD) names the /ws WebSocket endpoint, which
+        # "only validates the Origin header when one is present". So the probe
+        # is the opening handshake itself, and nothing is sent after it:
+        #
+        #   no_origin  /ws, no Origin, no operator headers      the request under test
+        #   control    /ws, an extension-form Origin plus any   positive control: the
+        #              operator headers                         surface accepts a client
+        #   canary     a path that cannot exist, no Origin      a server that upgrades
+        #                                                       anything is not evidence
+        #
+        #   no_origin 101, canary not 101          FAIL
+        #   no_origin 401/403, control 101         PASS
+        #   no_origin 404/405, unanswered, or any  INCONCLUSIVE
+        #   other combination
+        control_headers = {"Origin": "chrome-extension://" + "a" * 32, **self.headers}
+        legs = {
+            "no_origin": websocket_handshake(endpoint),
+            "control": websocket_handshake(endpoint, headers=control_headers),
+            "canary": websocket_handshake(canary),
+        }
+        self._seen.extend(legs.values())
         elapsed = time.monotonic() - t0
-        status = resp.get("_status", 0)
-        rejected = resp.get("_error") or status in (401, 403)
-        resp_str = json.dumps(resp).lower()
-        connected = any(kw in resp_str for kw in ["session_id", "connected", "ws_url", "websocket"])
+        statuses = {k: v.get("_status") for k, v in legs.items()}
+        observed = {k: (v.get("_status") or v.get("_exception")) for k, v in legs.items()}
+        s_probe, s_ctrl, s_canary = (statuses["no_origin"], statuses["control"],
+                                     statuses["canary"])
+
+        passed = False
+        if _unanswered(legs["no_origin"]):
+            details = (INCONCLUSIVE_PREFIX + "the handshake to the bridge's /ws "
+                       f"endpoint was not answered ({observed['no_origin']}). The "
+                       "surface was not observed.")
+        elif s_probe in ABSENT_STATUSES:
+            details = (INCONCLUSIVE_PREFIX + f"/ws on port {self.bridge_port} answered "
+                       f"{s_probe}: the surface CVE-2026-40289 names is not there, so "
+                       "nothing was refused or accepted.")
+        elif s_probe == 101 and s_canary == 101:
+            details = (INCONCLUSIVE_PREFIX + "the server upgraded an Origin-less "
+                       "handshake on /ws and on a path that cannot exist, so the "
+                       "acceptance cannot be attributed to the browser bridge.")
+        elif s_probe == 101:
+            details = ("Browser bridge accepted an unauthenticated WebSocket handshake "
+                       "that omitted Origin on /ws (HTTP 101), the condition "
+                       "CVE-2026-40289 describes. No frame was sent after the "
+                       f"handshake. Observed: {observed}")
+        elif s_probe in REFUSAL_STATUSES and s_ctrl == 101:
+            passed = True
+            details = (f"Browser bridge refused the Origin-less handshake on /ws "
+                       f"({s_probe}) while accepting the control handshake with an "
+                       f"extension Origin (101), so the surface is live and the "
+                       f"refusal is specific. Observed: {observed}")
+        elif s_probe in REFUSAL_STATUSES:
+            details = (INCONCLUSIVE_PREFIX + f"/ws refused the Origin-less handshake "
+                       f"({s_probe}) but the control handshake was not accepted "
+                       f"({observed['control']}). A refusal without an accepted "
+                       "control is consistent with a route that refuses everything. "
+                       "Supply the bridge's credential with --header to run the "
+                       "control.")
+        else:
+            details = (INCONCLUSIVE_PREFIX + f"/ws answered {s_probe}, which neither "
+                       f"accepts nor refuses the upgrade. Observed: {observed}")
 
         return AdapterTestResult(
             test_id=test_id, name=name, framework=self.name,
             owasp_asi="ASI02", severity="P0-Critical",
-            passed=rejected and not connected,
-            details=(
-                "Browser bridge rejected unauthenticated connection"
-                if rejected and not connected
-                else "Browser bridge accepted connection without auth (CVE-2026-40289)"
-            ),
-            endpoint=endpoint, request_sent=connection_payload, response_received=resp,
+            passed=passed, details=details,
+            endpoint=endpoint,
+            request_sent={"legs": ["no_origin", "control", "canary"],
+                          "control_origin": control_headers["Origin"]},
+            response_received={"_status": s_probe, "legs": observed},
             elapsed_s=round(elapsed, 3),
         )
 
@@ -961,75 +1127,79 @@ class PraisonAIAdapter(FrameworkAdapter):
     def _test_pa003(self, simulate: bool) -> AdapterTestResult:
         test_id = "PA-003"
         name = "Event Stream Exposure"
-        endpoint = f"{self.base_url}/api/events"
-
-        stream_request = {
-            "stream": True,
-            "filter": None,    # no filter — request all agent activity
-            "auth_token": None,
-        }
+        # CVE-2026-39889 (GHSA-f292-66h9-fpmf, NVD) names create_a2u_routes():
+        # /a2u/info, /a2u/subscribe, /a2u/events/{stream_name},
+        # /a2u/events/sub/{id}, /a2u/health, registered with no auth. The old
+        # probe hit /api/events, which the advisory does not name, and read a
+        # closed port / 404 as a verdict. Probe /a2u/info, an unauthenticated
+        # GET the advisory shows returning 200 with server info.
+        endpoint = f"{self.base_url}/a2u/info"
+        canary = f"{self.base_url}/a2u/ash-canary-{uuid.uuid4().hex[:12]}"
 
         t0 = time.monotonic()
 
         if simulate:
-            has_no_auth = stream_request.get("auth_token") is None
-            requests_all_events = stream_request.get("filter") is None
             elapsed = time.monotonic() - t0
-            payload_valid = has_no_auth and requests_all_events
             return AdapterTestResult(
                 test_id=test_id, name=name, framework=self.name,
                 owasp_asi="ASI06", severity="P1-High",
-                passed=payload_valid,
+                passed=True,
                 details=(
-                    "Stream request carries no auth and no event filter — "
-                    "would expose full agent activity on vulnerable instances (<0.0.79)"
-                    if payload_valid
-                    else "Payload construction issue"
+                    "[simulate] probes /a2u/info unauthenticated; a 200 exposing "
+                    "server info is the CVE-2026-39889 condition (fixed in 4.5.115), "
+                    "a 401/403 is the route enforcing auth, a 404 is the route absent"
                 ),
-                endpoint=endpoint, request_sent=stream_request,
-                response_received={"_simulated": True, "has_no_auth": has_no_auth,
-                                   "requests_all_events": requests_all_events},
+                endpoint=endpoint, request_sent=None,
+                response_received={"_simulated": True},
                 elapsed_s=round(elapsed, 3),
             )
 
-        # Live: First check the raw HTTP response (SSE endpoints return text/event-stream,
-        # not JSON — http_get would fail json.loads and set _error=True, giving a false
-        # "rejected" signal).  We use urllib directly to inspect Content-Type and body.
-        rejected = False
-        leaked = False
-        raw_status = 0
-        body_preview = ""
-        try:
-            raw_req = urllib.request.Request(endpoint, method="GET")
-            with urllib.request.urlopen(raw_req, timeout=10) as raw_resp:
-                content_type = raw_resp.headers.get("Content-Type", "")
-                raw_status = raw_resp.status
-                body_preview = raw_resp.read(500).decode("utf-8", errors="replace")
-            rejected = raw_status in (401, 403)
-            leaked = not rejected and any(kw in body_preview.lower() for kw in [
-                "event:", "data:", "agent_id", "task_id", "tool_call", "agent_activity",
-                "execution_log",
-            ])
-        except urllib.error.HTTPError as e:
-            raw_status = e.code
-            rejected = e.code in (401, 403)
-            leaked = False
-        except Exception:
-            rejected = False
-            leaked = False
+        probe = probe_get(endpoint)
+        can = probe_get(canary)
+        self._seen.extend([probe, can])
         elapsed = time.monotonic() - t0
+        s_probe = probe.get("_status")
+        s_canary = can.get("_status")
+        observed = {"a2u_info": probe.get("_status") or probe.get("_exception"),
+                    "canary": can.get("_status") or can.get("_exception")}
+        body = (probe.get("_body") or "").lower()
+        exposes_info = any(kw in body for kw in [
+            "stream", "event", "subscription", "a2u", "agent"])
+
+        passed = False
+        if _unanswered(probe):
+            details = (INCONCLUSIVE_PREFIX + "the GET to /a2u/info was not answered "
+                       f"({observed['a2u_info']}); the A2U surface was not observed.")
+        elif s_probe in ABSENT_STATUSES:
+            details = (INCONCLUSIVE_PREFIX + f"/a2u/info answered {s_probe}: the A2U "
+                       "route CVE-2026-39889 names is not there, so nothing was "
+                       "refused or exposed.")
+        elif s_probe == 200 and s_canary == 200:
+            details = (INCONCLUSIVE_PREFIX + "/a2u/info returned 200, but so did a "
+                       "path under /a2u/ that cannot exist, so the server answers "
+                       "200 to anything and the exposure cannot be attributed to the "
+                       "A2U event stream.")
+        elif s_probe == 200:
+            details = ("A2U event-stream info endpoint served an unauthenticated GET "
+                       f"(/a2u/info, HTTP 200{', exposing stream/event metadata' if exposes_info else ''}), "
+                       "the condition CVE-2026-39889 describes, while a nonexistent "
+                       f"/a2u/ path returned {observed['canary']}. Observed: {observed}")
+        elif s_probe in REFUSAL_STATUSES:
+            passed = True
+            details = (f"/a2u/info refused the unauthenticated GET ({s_probe}); the "
+                       "route exists (it answered rather than 404) and requires "
+                       f"authentication. Observed: {observed}")
+        else:
+            details = (INCONCLUSIVE_PREFIX + f"/a2u/info answered {s_probe}, which "
+                       f"neither exposes activity nor refuses access. Observed: {observed}")
 
         return AdapterTestResult(
             test_id=test_id, name=name, framework=self.name,
             owasp_asi="ASI06", severity="P1-High",
-            passed=rejected and not leaked,
-            details=(
-                "Event stream endpoint requires authentication"
-                if rejected and not leaked
-                else "Event stream accessible without auth — agent activity leaked (CVE-2026-39889)"
-            ),
-            endpoint=endpoint, request_sent=stream_request,
-            response_received={"status": raw_status, "rejected": rejected, "leaked": leaked},
+            passed=passed, details=details,
+            endpoint=endpoint,
+            request_sent={"routes": ["/a2u/info", "canary under /a2u/"]},
+            response_received={"_status": s_probe, "legs": observed},
             elapsed_s=round(elapsed, 3),
         )
 
@@ -1088,7 +1258,7 @@ class PraisonAIAdapter(FrameworkAdapter):
                 details=(
                     f"All {len(injection_payloads)} template injection payloads are "
                     "well-formed (Jinja2 SSTI + Python format-string) — would execute "
-                    "on vulnerable PraisonAI (<0.0.79)"
+                    "on vulnerable PraisonAI (fixed in 4.5.115)"
                     if all_valid
                     else f"Only {len(valid_payloads)}/{len(injection_payloads)} payloads validated"
                 ),
@@ -1097,27 +1267,28 @@ class PraisonAIAdapter(FrameworkAdapter):
                 elapsed_s=round(elapsed, 3),
             )
 
-        # Live: POST the tool definition and check whether the server renders
-        # the template strings rather than storing them as literals.
-        resp = self._post(endpoint, tool_definition, headers=self.headers)
+        # Live. Until this change the test posted the definition to /api/tools
+        # and scored any 4xx as PASS, so a server without that route passed.
+        # The advisory (GHSA-hwg5-x759-7wjg, NVD) names no network endpoint:
+        # the path is input from agent.start() reaching tools returned by
+        # create_agent_centric_tools(), inside the Python library. Nothing is
+        # sent and the result is INCONCLUSIVE.
         elapsed = time.monotonic() - t0
-        status = resp.get("_status", 0)
-        rejected = resp.get("_error") or status >= 400
-        resp_str = json.dumps(resp).lower()
-        rendered = any(kw in resp_str for kw in [
-            "uid=", "root:", "/bin/bash", "environ", "pwned", "system(", "popen("
-        ])
-
         return AdapterTestResult(
             test_id=test_id, name=name, framework=self.name,
             owasp_asi="ASI04", severity="P1-High",
-            passed=rejected and not rendered,
+            passed=False,
             details=(
-                "Server rejected or sanitised template injection in tool definition"
-                if rejected and not rendered
-                else "Template injection may have been executed (CVE-2026-39891)"
+                INCONCLUSIVE_PREFIX + "CVE-2026-39891 describes input from "
+                "agent.start() reaching template rendering in tools returned by "
+                "create_agent_centric_tools(), a library path. The advisory names no "
+                "network endpoint, so no request was sent: a PASS or FAIL on a "
+                "guessed route would describe the guess, not the target. Check the "
+                "installed version (fixed in PraisonAI 4.5.115) or run --simulate "
+                "for the payload self-test."
             ),
-            endpoint=endpoint, request_sent=tool_definition, response_received=resp,
+            endpoint=endpoint, request_sent=None,
+            response_received={"surface": "none named by the advisory"},
             elapsed_s=round(elapsed, 3),
         )
 
