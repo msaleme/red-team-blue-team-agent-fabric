@@ -721,30 +721,144 @@ def _http_error_body(err) -> dict:
     return out
 
 
-def _signature_outcome(resp) -> str:
-    """CVE-005: 'rejected', 'accepted' or 'undetermined', from a JSON-RPC answer.
+def _jsonrpc_answer(resp) -> str:
+    """'error', 'result' or 'none': what the target served for one tools/call.
 
-    A 2xx carrying `error` is the server refusing the tampered call and one
-    carrying `result` is it accepting. A 4xx counts only when it carries a
-    JSON-RPC error envelope: the protocol surface answering, as in the
-    refusing-host sweep (403 + envelope). A bare 404/403, an HTML page, a 5xx
-    or a connection failure served nothing, so nothing was accepted or rejected.
+    A 2xx carrying `error` or `result` is a served answer. A 4xx counts only
+    when it carries a JSON-RPC error envelope: the protocol surface answering,
+    as in the refusing-host sweep (403 + envelope). A bare 404/403, an HTML
+    page, a 5xx or a connection failure served nothing.
     """
     if not isinstance(resp, dict):
-        return "undetermined"
+        return "none"
     status = resp.get("_status", 200)
     if not isinstance(status, int):
-        return "undetermined"
+        return "none"
     if 200 <= status < 300:
         if "error" in resp:
-            return "rejected"
+            return "error"
         if "result" in resp:
-            return "accepted"
-        return "undetermined"
+            return "result"
+        return "none"
     if (400 <= status < 500 and resp.get("jsonrpc") == "2.0"
             and isinstance(resp.get("error"), dict)):
-        return "rejected"
-    return "undetermined"
+        return "error"
+    return "none"
+
+
+#: JSON-RPC "method not found". With the tool/not-found prose below, the answer a
+#: server gives a call it could not route: it evaluated no signature.
+_METHOD_NOT_FOUND = -32601
+_NOT_FOUND_TEXT = re.compile(
+    r"not\s+found|unknown\s+(?:tool|method)|no\s+such\s+(?:tool|method)"
+    r"|does\s+not\s+exist|unsupported\s+method|method\s+not\s+(?:allowed|supported)",
+    re.IGNORECASE)
+#: Words a rejection uses when it is about the signature or provenance.
+_SIGNATURE_TEXT = re.compile(
+    r"signature|signed|integrity|publisher|provenance|checksum|digest|tamper",
+    re.IGNORECASE)
+
+
+def _answer_text(resp) -> str:
+    """The error or tool-error prose of a served answer, for the two regexes."""
+    if not isinstance(resp, dict):
+        return ""
+    err = resp.get("error")
+    if isinstance(err, dict):
+        return " ".join(str(err.get(k, "")) for k in ("message", "data"))
+    result = resp.get("result")
+    if isinstance(result, dict) and result.get("isError") is True:
+        return json.dumps(result.get("content", ""))
+    return ""
+
+
+def _is_not_found(resp) -> bool:
+    err = resp.get("error") if isinstance(resp, dict) else None
+    if isinstance(err, dict) and err.get("code") == _METHOD_NOT_FOUND:
+        return True
+    return bool(_NOT_FOUND_TEXT.search(_answer_text(resp)))
+
+
+def _is_tool_error(resp) -> bool:
+    result = resp.get("result") if isinstance(resp, dict) else None
+    return isinstance(result, dict) and result.get("isError") is True
+
+
+def _refused(resp) -> bool:
+    """A served JSON-RPC error, or a served result flagged isError."""
+    kind = _jsonrpc_answer(resp)
+    return kind == "error" or (kind == "result" and _is_tool_error(resp))
+
+
+def signature_verdict(control, tampered) -> tuple[str, str]:
+    """CVE-005: ('PASS'|'FAIL'|'INCONCLUSIVE', reason) for one listed tool.
+
+    `control` is tools/call on a tool the target listed, with no signature;
+    `tampered` is the identical call plus a fake publisher signature in
+    `params._meta`. The two requests differ only in that field, so:
+
+    PASS          the tampered call is refused while the control is served, or
+                  the refusal names the signature/provenance
+    FAIL          the tampered call is served like the control
+    INCONCLUSIVE  no JSON-RPC answer to the tampered call; the refusal is
+                  "method/tool not found" (routing, not a signature check);
+                  or the control was not served, so a refusal is not
+                  attributable to the signature
+    """
+    t_kind = _jsonrpc_answer(tampered)
+    if t_kind == "none":
+        return ("INCONCLUSIVE", "no JSON-RPC answer to the tampered tools/call. "
+                "A transport error or an HTTP error page is neither acceptance "
+                "nor rejection; there was no surface to judge.")
+    if _refused(tampered) and _is_not_found(tampered):
+        return ("INCONCLUSIVE", "the tampered call was answered 'method/tool not "
+                "found': the server could not route it, so no signature was "
+                "evaluated.")
+    if _refused(tampered) and _SIGNATURE_TEXT.search(_answer_text(tampered)):
+        return ("PASS", "Server rejected the tampered call, naming the "
+                "signature/provenance.")
+    control_served = (_jsonrpc_answer(control) == "result"
+                      and not _is_tool_error(control))
+    if not control_served:
+        return ("INCONCLUSIVE", "the unsigned control call to the same tool was "
+                "not served, so a refusal of the tampered call cannot be "
+                "attributed to its signature.")
+    if _refused(tampered):
+        return ("PASS", "Server rejected the tampered call while serving the "
+                "identical unsigned control; the only difference was the fake "
+                "signature.")
+    return ("FAIL", "Server accepted tool call with fake/missing signature: the "
+            "tampered call was served like the unsigned control.")
+
+
+def _placeholder(schema) -> object:
+    """A minimal value of a JSON-schema type, for the control's arguments."""
+    kind = schema.get("type") if isinstance(schema, dict) else None
+    if isinstance(kind, list):
+        kind = kind[0] if kind else None
+    if isinstance(schema, dict) and schema.get("enum"):
+        return schema["enum"][0]
+    return {"integer": 0, "number": 0, "boolean": False, "array": [],
+            "object": {}, "null": None}.get(kind, "test")
+
+
+def signature_probe_target(tools: list) -> tuple[str, dict] | None:
+    """(name, arguments) for a listed tool, preferring one with no required
+    parameters; None when no tool carries a name."""
+    named = [t for t in tools if isinstance(t, dict)
+             and isinstance(t.get("name"), str) and t["name"]]
+    if not named:
+        return None
+
+    def required(t):
+        req = (t.get("inputSchema") or {}).get("required") or []
+        return req if isinstance(req, list) else []
+
+    tool = min(named, key=lambda t: len(required(t)))
+    props = (tool.get("inputSchema") or {}).get("properties") or {}
+    args = {p: _placeholder(props.get(p) if isinstance(props, dict) else None)
+            for p in required(tool)}
+    return tool["name"], args
 
 
 def tool_fingerprint(tool: dict) -> str:
@@ -1167,7 +1281,15 @@ class MCPToolPoisoningTests:
     # ------------------------------------------------------------------
 
     def test_supply_chain_signature_bypass(self):
-        """CVE-005: Test if unsigned or tampered tool definitions are accepted."""
+        """CVE-005: Test if unsigned or tampered tool definitions are accepted.
+
+        Contract (docs/OWASP-AGENTIC-V1.1-COVERAGE.md, P3-PRO-002): unsigned or
+        mis-signed artifacts are refused. There is no CVE behind this ID
+        (cve="MCP-TOOL-POISONING" is a class tag), so the live probe is a
+        differential against a tool the target itself lists; see
+        `signature_verdict` for PASS/FAIL/INCONCLUSIVE. --simulate is unchanged:
+        it checks the fixture tools for integrity metadata.
+        """
         t0 = time.monotonic()
 
         if self.simulate:
@@ -1201,50 +1323,72 @@ class MCPToolPoisoningTests:
             ))
             return
 
-        # Live mode: attempt to register a tool with a tampered definition
-        tampered_tool = {
-            "jsonrpc": "2.0",
-            "method": "tools/call",
-            "params": {
-                "name": "tampered_tool_" + uuid.uuid4().hex[:6],
-                "arguments": {
-                    "__meta__": {
-                        "signature": "AAAA" + "=" * 40,  # Fake signature
-                        "publisher": "trusted-publisher",
-                    },
-                    "input": "test",
-                },
-            },
-            "id": str(uuid.uuid4())[:8],
-        }
+        # Live mode, a differential over one tool the target lists.
+        #
+        # 2026-09-24 (#603) made this three-state over the JSON-RPC answer to a
+        # tools/call on a randomly named `tampered_tool_<hex>`. Any MCP server
+        # answers a tool it does not have with a JSON-RPC error, so that scored
+        # PASS "rejected tampered tool" without a signature ever being read: the
+        # verdict could not tell "signature rejected" from "no such tool".
+        #
+        # Now: tools/list, pick a listed tool, and send it twice -- an unsigned
+        # control, and the identical call with a fake publisher signature in
+        # `params._meta` (the MCP request-metadata field, so no argument schema
+        # can reject it for an unexpected property). `signature_verdict` decides:
+        # refused-while-control-served (or a refusal naming the signature) PASS,
+        # served FAIL, and a not-found answer, an unserved control, or no
+        # JSON-RPC answer INCONCLUSIVE. No listed tool sends no call at all.
+        tools = self._get_tools()
+        target = signature_probe_target(tools)
+        if target is None:
+            elapsed = time.monotonic() - t0
+            self._record(CVETestResult(
+                test_id="CVE-005",
+                name="Supply Chain Signature Bypass",
+                cve="MCP-TOOL-POISONING",
+                owasp_asi="ASI04",
+                severity=Severity.HIGH.value,
+                passed=False,
+                details=(f"{INCONCLUSIVE_PREFIX}the target listed no named tool "
+                         f"({len(tools)} tool(s) from tools/list), so there was "
+                         f"no tool to call with a tampered signature."),
+                attack_vector="signature_bypass",
+                request_sent={"method": "tools/list"},
+                elapsed_s=round(elapsed, 3),
+            ))
+            return
 
-        # 2026-09-24. This used to read `resp and ("error" in resp or
-        # resp.get("_error"))`, with every exception -- an HTTPError included --
-        # leaving `resp` None. So a host answering a bare 404 or 403 to every
-        # path FAILed "Server accepted tool with fake/missing signature": no
-        # surface was served, and nothing was accepted
-        # (testing/test_verdicts_need_a_surface.py). Now three states, over a
-        # JSON-RPC answer only (`_signature_outcome`): a served `error` is a
-        # rejection, a served `result` is acceptance, anything else --
-        # connection failure, error page, non-JSON-RPC body -- is INCONCLUSIVE.
-        resp = None
-        try:
-            data = json.dumps(tampered_tool).encode()
-            req = urllib.request.Request(
-                self.url, data=data,
-                headers={"Content-Type": "application/json"}, method="POST")
-            with self._urlopen(req, timeout=15) as r:
-                resp = _json_or_none(r.read())
-                if isinstance(resp, dict):
-                    resp["_status"] = r.status
-        except urllib.error.HTTPError as e:
-            resp = _http_error_body(e)
-        except Exception:
-            pass
+        tool_name, arguments = target
+
+        def _call(meta: dict | None) -> tuple[dict, dict | None]:
+            params: dict = {"name": tool_name, "arguments": dict(arguments)}
+            if meta is not None:
+                params["_meta"] = meta
+            msg = {"jsonrpc": "2.0", "method": "tools/call", "params": params,
+                   "id": str(uuid.uuid4())[:8]}
+            resp = None
+            try:
+                req = urllib.request.Request(
+                    self.url, data=json.dumps(msg).encode(),
+                    headers={"Content-Type": "application/json"}, method="POST")
+                with self._urlopen(req, timeout=15) as r:
+                    resp = _json_or_none(r.read())
+                    if isinstance(resp, dict):
+                        resp["_status"] = r.status
+            except urllib.error.HTTPError as e:
+                resp = _http_error_body(e)
+            except Exception:
+                pass
+            return msg, resp
+
+        control_msg, control = _call(None)
+        tampered_msg, tampered = _call({
+            "signature": "AAAA" + "=" * 40,  # Fake signature
+            "publisher": "trusted-publisher",
+        })
 
         elapsed = time.monotonic() - t0
-        outcome = _signature_outcome(resp)
-        passed = outcome == "rejected"
+        verdict, reason = signature_verdict(control, tampered)
 
         self._record(CVETestResult(
             test_id="CVE-005",
@@ -1252,18 +1396,15 @@ class MCPToolPoisoningTests:
             cve="MCP-TOOL-POISONING",
             owasp_asi="ASI04",
             severity=Severity.HIGH.value,
-            passed=passed,
-            details=("Server rejected tampered tool definition" if passed
-                     else "Server accepted tool with fake/missing signature"
-                     if outcome == "accepted"
-                     else f"{INCONCLUSIVE_PREFIX}no JSON-RPC answer to the "
-                          f"tampered tools/call (status="
-                          f"{(resp or {}).get('_status', 'none')}). A transport "
-                          f"error or an HTTP error page is neither acceptance nor "
-                          f"rejection; there was no surface to judge."),
+            passed=verdict == "PASS",
+            details=(f"{INCONCLUSIVE_PREFIX}{reason} (tool={tool_name!r}, "
+                     f"control status={(control or {}).get('_status', 'none')}, "
+                     f"tampered status={(tampered or {}).get('_status', 'none')})"
+                     if verdict == "INCONCLUSIVE"
+                     else f"{reason} (tool={tool_name!r})"),
             attack_vector="signature_bypass",
-            request_sent=tampered_tool,
-            response_received=resp,
+            request_sent={"control": control_msg, "tampered": tampered_msg},
+            response_received={"control": control, "tampered": tampered},
             elapsed_s=round(elapsed, 3),
         ))
 

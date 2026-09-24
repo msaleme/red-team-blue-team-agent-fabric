@@ -367,29 +367,143 @@ class TestCrewAINeedsASurface(unittest.TestCase):
 
 class TestCVE005NeedsASurface(unittest.TestCase):
     """CVE-005 FAILed 'Server accepted tool with fake/missing signature' on a
-    bare 404 and 403: the HTTPError left `resp` None, read as acceptance."""
+    bare 404 and 403: the HTTPError left `resp` None, read as acceptance.
 
-    SERVED: typing.ClassVar[dict] = {
-        "jsonrpc-error": (200, json.dumps({"jsonrpc": "2.0", "id": 1, "error": {
-            "code": -32602, "message": "signature verification failed"}}), "PASS"),
-        "refusing-403": (403, REFUSING_BODY, "PASS"),
-        "jsonrpc-result": (200, json.dumps({"jsonrpc": "2.0", "id": 1, "result": {
-            "content": [{"type": "text", "text": "ok"}]}}), "FAIL"),
-        "200-not-jsonrpc": (200, "<html>ok</html>", "INCONCLUSIVE"),
-    }
+    Every pole here answers every request the same way, so tools/list is never
+    served and nothing is listed: INCONCLUSIVE, including the refusing host,
+    whose 403 envelope #603 scored PASS. A host that refuses tools/list
+    evaluated no signature (see TestCVE005IsADifferential)."""
 
     def test_no_surface_is_inconclusive(self):
-        for pole in ("closed", "404", "403"):
+        for pole in ("closed", "404", "403", "refusing-403"):
             with self.subTest(pole=pole):
                 r = _against(pole, _cve005)
                 self.assertEqual(_verdict(r), "INCONCLUSIVE", r.details)
 
-    def test_a_served_surface_still_decides(self):
-        for name, (status, body, want) in self.SERVED.items():
+
+#: The one tool the MCP stubs below list.
+ECHO_TOOL = {"name": "echo", "description": "Echo the input back.",
+             "inputSchema": {"type": "object",
+                             "properties": {"text": {"type": "string"}},
+                             "required": ["text"]}}
+
+
+def _rpc(result=None, error=None):
+    body = {"jsonrpc": "2.0", "id": 1}
+    if error is not None:
+        body["error"] = error
+    else:
+        body["result"] = result
+    return json.dumps(body)
+
+
+ECHOED = _rpc({"content": [{"type": "text", "text": "echo: test"}]})
+
+
+def _mcp_stub(on_call, tools=(ECHO_TOOL,), calls=None):
+    """An MCP stub: tools/list serves `tools`; tools/call is answered by
+    `on_call(params) -> (status, body)`. Each call's params go into `calls`."""
+    def route(h):
+        n = int(h.headers.get("Content-Length") or 0)
+        msg = json.loads(h.rfile.read(n) or b"{}")
+        if msg.get("method") == "tools/list":
+            return 200, _rpc({"tools": list(tools)}), None
+        if msg.get("method") == "tools/call":
+            params = msg.get("params") or {}
+            if calls is not None:
+                calls.append(params)
+            status, body = on_call(params)
+            return status, body, None
+        return 200, _rpc(error={"code": -32601, "message": "Method not found"}), None
+    return StubServer(route)
+
+
+def _listed_only(on_known):
+    """Serve `echo` via `on_known`; any other tool name is 'Unknown tool' -- the
+    real-server answer #603's random tool name always got."""
+    def on_call(params):
+        if params.get("name") != "echo":
+            return 200, _rpc(error={"code": -32602,
+                                    "message": f"Unknown tool: {params.get('name')}"})
+        return on_known(params)
+    return on_call
+
+
+def _signed(params):
+    return "_meta" in params
+
+
+class TestCVE005IsADifferential(unittest.TestCase):
+    """#603 called a randomly named tool, so any real MCP server's 'unknown
+    tool' error PASSed it without a signature being read. The probe now calls a
+    tool the target lists, unsigned (control) and with a fake `_meta`
+    signature (tampered), and only the difference between them decides."""
+
+    TARGETS: typing.ClassVar[dict] = {
+        # Unknown-tool / method-not-found refusals are routing, never PASS.
+        "every-call-unknown-tool": (lambda p: (200, _rpc(error={
+            "code": -32602, "message": f"Unknown tool: {p.get('name')}"})),
+            "INCONCLUSIVE"),
+        "every-call-method-not-found": (lambda p: (200, _rpc(error={
+            "code": -32601, "message": "Method not found"})), "INCONCLUSIVE"),
+        "every-call-403-tool-not-found": (lambda p: (403, _rpc(error={
+            "code": -32001, "message": "tool does not exist"})), "INCONCLUSIVE"),
+        # Served tool that ignores the bad signature.
+        "ignores-signature": (_listed_only(lambda p: (200, ECHOED)), "FAIL"),
+        # Served tool; tampered call refused, control served.
+        "refuses-tampered-generic": (_listed_only(lambda p: (200, _rpc(error={
+            "code": -32001, "message": "request refused by policy"}))
+            if _signed(p) else (200, ECHOED)), "PASS"),
+        "refuses-tampered-isError": (_listed_only(lambda p: (200, _rpc({
+            "isError": True, "content": [{"type": "text", "text": "refused"}]}))
+            if _signed(p) else (200, ECHOED)), "PASS"),
+        # Strict server: refuses the unsigned control too, and says why.
+        "requires-valid-signature": (_listed_only(lambda p: (200, _rpc(error={
+            "code": -32001, "message": "signature verification failed"}))
+            if _signed(p) else (200, _rpc(error={
+                "code": -32001, "message": "missing publisher signature"}))),
+            "PASS"),
+        # Control not served and the refusal says nothing about signatures.
+        "refuses-everything-generic": (lambda p: (200, _rpc(error={
+            "code": -32001, "message": "request refused by policy"})),
+            "INCONCLUSIVE"),
+        "tool-errors-on-both": (_listed_only(lambda p: (200, _rpc({
+            "isError": True, "content": [{"type": "text", "text": "boom"}]}))),
+            "INCONCLUSIVE"),
+        # tools/call answered with no JSON-RPC.
+        "call-not-jsonrpc": (lambda p: (200, "<html>ok</html>"), "INCONCLUSIVE"),
+    }
+
+    def test_each_target(self):
+        for name, (on_call, want) in self.TARGETS.items():
             with self.subTest(target=name):
-                with StubServer(lambda h, s=status, b=body: (s, b, None)) as srv:
+                with _mcp_stub(on_call) as srv:
                     r = _cve005(srv.base_url)
                 self.assertEqual(_verdict(r), want, r.details)
+
+    def test_the_probe_calls_a_listed_tool_with_and_without_the_signature(self):
+        calls: list = []
+        with _mcp_stub(_listed_only(lambda p: (200, ECHOED)), calls=calls) as srv:
+            _cve005(srv.base_url)
+        self.assertEqual([c["name"] for c in calls], ["echo", "echo"])
+        self.assertEqual(calls[0]["arguments"], calls[1]["arguments"])
+        self.assertNotIn("_meta", calls[0])
+        self.assertIn("signature", calls[1]["_meta"])
+
+    def test_no_listed_tool_sends_no_call(self):
+        calls: list = []
+        with _mcp_stub(lambda p: (200, ECHOED), tools=(), calls=calls) as srv:
+            r = _cve005(srv.base_url)
+        self.assertEqual(_verdict(r), "INCONCLUSIVE", r.details)
+        self.assertEqual(calls, [])
+
+    def test_verdict_changes_with_the_target(self):
+        seen = set()
+        for name in ("every-call-unknown-tool", "ignores-signature",
+                     "refuses-tampered-generic"):
+            with _mcp_stub(self.TARGETS[name][0]) as srv:
+                seen.add(_verdict(_cve005(srv.base_url)))
+        self.assertEqual(seen, {"INCONCLUSIVE", "FAIL", "PASS"})
 
 
 # ---------------------------------------------------------------------------
