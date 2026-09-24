@@ -210,16 +210,16 @@ WXO-005 | Multi-Tenant Isolation | protocol_tests/cloud_agent_harness.py:1059
 ### CrewAI CVE Reproduction (`protocol_tests/crewai_cve_harness.py`) — 10 tests
 
 ```
-CREW-001 | Sandbox Fallback Detection | protocol_tests/crewai_cve_harness.py:502
-CREW-002 | Ctypes Payload Coverage (self-test, no target) | protocol_tests/crewai_cve_harness.py:612
-CREW-003 | Code Execution Config Audit | protocol_tests/crewai_cve_harness.py:672
-CREW-004 | Path Traversal in JSON Loader | protocol_tests/crewai_cve_harness.py:750
-CREW-005 | Sensitive File Read Detection | protocol_tests/crewai_cve_harness.py:828
-CREW-006 | SSRF Cloud Metadata Detection | protocol_tests/crewai_cve_harness.py:906
-CREW-007 | SSRF Internal Service Detection | protocol_tests/crewai_cve_harness.py:977
-CREW-008 | SSRF URL Validation Bypass (self-test in simulate; target differential live) | protocol_tests/crewai_cve_harness.py:1075
-CREW-009 | Docker Availability Check Bypass | protocol_tests/crewai_cve_harness.py:1177
-CREW-010 | Fallback Sandbox RCE Chain | protocol_tests/crewai_cve_harness.py:1265
+CREW-001 | Sandbox Fallback Detection | protocol_tests/crewai_cve_harness.py:577
+CREW-002 | Ctypes Payload Coverage (self-test, no target) | protocol_tests/crewai_cve_harness.py:689
+CREW-003 | Code Execution Config Audit | protocol_tests/crewai_cve_harness.py:749
+CREW-004 | Path Traversal in JSON Loader | protocol_tests/crewai_cve_harness.py:827
+CREW-005 | Sensitive File Read Detection | protocol_tests/crewai_cve_harness.py:907
+CREW-006 | SSRF Cloud Metadata Detection | protocol_tests/crewai_cve_harness.py:985
+CREW-007 | SSRF Internal Service Detection | protocol_tests/crewai_cve_harness.py:1058
+CREW-008 | SSRF URL Validation Bypass (self-test in simulate; target differential live) | protocol_tests/crewai_cve_harness.py:1158
+CREW-009 | Docker Availability Check Bypass | protocol_tests/crewai_cve_harness.py:1261
+CREW-010 | Fallback Sandbox RCE Chain | protocol_tests/crewai_cve_harness.py:1351
 ```
 
 ### Delegated-Authority Attenuation (`protocol_tests/delegation_chain_harness.py`) — 11 tests
@@ -583,16 +583,16 @@ MCP-F-004 | Launcher Version Pinning | protocol_tests/mcp_supplychain.py:494
 ### MCP Tool Poisoning Reproduction (`protocol_tests/mcp_tool_poisoning_harness.py`) — 10 tests
 
 ```
-CVE-001 | Nested Schema Injection Detection | protocol_tests/mcp_tool_poisoning_harness.py:872
-CVE-002 | Tool Fork Fingerprinting | protocol_tests/mcp_tool_poisoning_harness.py:921
-CVE-003 | Marketplace Contamination Rate | protocol_tests/mcp_tool_poisoning_harness.py:966
-CVE-004 | Cross-Tool Context Leakage | protocol_tests/mcp_tool_poisoning_harness.py:1016
-CVE-005 | Supply Chain Signature Bypass | protocol_tests/mcp_tool_poisoning_harness.py:1131
-CVE-006 | Description Payload Encoding Detection | protocol_tests/mcp_tool_poisoning_harness.py:1259
-CVE-007 | Incremental Poisoning Scanner Coverage (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1372
-CVE-008 | Marketplace Registry Integrity (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1420
-CVE-009 | Shared-Auth Scope Escalation (CVE-2026-35625) | protocol_tests/mcp_tool_poisoning_harness.py:1543
-CVE-010 | Channel Extension SSRF (CVE-2026-35629) | protocol_tests/mcp_tool_poisoning_harness.py:1644
+CVE-001 | Nested Schema Injection Detection | protocol_tests/mcp_tool_poisoning_harness.py:929
+CVE-002 | Tool Fork Fingerprinting | protocol_tests/mcp_tool_poisoning_harness.py:978
+CVE-003 | Marketplace Contamination Rate | protocol_tests/mcp_tool_poisoning_harness.py:1023
+CVE-004 | Cross-Tool Context Leakage | protocol_tests/mcp_tool_poisoning_harness.py:1073
+CVE-005 | Supply Chain Signature Bypass | protocol_tests/mcp_tool_poisoning_harness.py:1188
+CVE-006 | Description Payload Encoding Detection | protocol_tests/mcp_tool_poisoning_harness.py:1335
+CVE-007 | Incremental Poisoning Scanner Coverage (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1448
+CVE-008 | Marketplace Registry Integrity (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1496
+CVE-009 | Shared-Auth Scope Escalation (CVE-2026-35625) | protocol_tests/mcp_tool_poisoning_harness.py:1619
+CVE-010 | Channel Extension SSRF (CVE-2026-35629) | protocol_tests/mcp_tool_poisoning_harness.py:1720
 ```
 
 ### memory_harness.py (`protocol_tests/memory_harness.py`) — 16 tests

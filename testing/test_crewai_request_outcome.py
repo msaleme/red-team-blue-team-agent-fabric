@@ -18,6 +18,11 @@ The first repair then broke the opposite pole. `_err` is true for
 OBSERVED refusal to UNDETERMINED, so the harness reported "server may have
 accepted ctypes code execution" about a host that denied every request. Six
 verdicts, and only comparing against the pre-change baseline caught it.
+
+2026-09-24: the third direction. Any status >= 400 was REJECTED, so a bare 404
+or 403 error page -- no surface at all -- PASSed seven tests. An error status is
+now a refusal only when its body is served: a 401/403 JSON-RPC error envelope,
+or a decline in prose (`_served_refusal`).
 """
 from __future__ import annotations
 
@@ -36,16 +41,44 @@ from protocol_tests.crewai_cve_harness import (
 )
 
 
+#: The refusing-host sweep's 403 body: a protocol surface refusing.
+SERVED_403 = {"_status": 403, "_rejected": True, "jsonrpc": "2.0", "id": 1,
+              "error": {"code": -32001, "message": "request refused by policy"},
+              "detail": "I cannot comply with that request. It is not appropriate."}
+
+
 class TestAnObservedRejectionIsNotSilence(unittest.TestCase):
-    def test_a_403_with_rejected_is_a_refusal(self) -> None:
+    def test_a_served_403_refusal_is_a_refusal(self) -> None:
         """The regression. `_err` is true here; the rejection must win."""
         self.assertEqual(
-            _request_outcome({"_status": 403, "_rejected": True}), REJECTED,
-            "an explicit transport refusal was read as silence, which reports a "
+            _request_outcome(SERVED_403), REJECTED,
+            "an explicit, served refusal was read as silence, which reports a "
             "deny-all host as having accepted the attack")
 
-    def test_a_bare_4xx_is_a_refusal(self) -> None:
-        self.assertEqual(_request_outcome({"_status": 429}), REJECTED)
+    def test_a_4xx_declining_in_prose_is_a_refusal(self) -> None:
+        self.assertEqual(_request_outcome(
+            {"_status": 400, "_rejected": True,
+             "response": "I will not fetch that address; it is not permitted."}),
+            REJECTED)
+
+    def test_a_bare_4xx_is_not_a_refusal(self) -> None:
+        """2026-09-24, owner decision: a bare 403 is no surface (MCP-021's
+        served-baseline rule). These were REJECTED until then, which PASSed
+        CREW-001/004/006..010 against a host answering 404 or 403 to every path."""
+        for resp in ({"_status": 403, "_rejected": True},
+                     {"_status": 404, "_rejected": True},
+                     {"_status": 429},
+                     # A JSON-RPC "method not found" on a 404 is not an
+                     # authorization refusal of the attack.
+                     {"_status": 404, "_rejected": True, "jsonrpc": "2.0",
+                      "error": {"code": -32601, "message": "Method not found"}}):
+            with self.subTest(resp=resp):
+                self.assertEqual(_request_outcome(resp), UNDETERMINED_REQ)
+
+    def test_a_5xx_is_not_a_refusal(self) -> None:
+        self.assertEqual(_request_outcome(
+            {"_status": 500, "_rejected": True,
+             "response": "I cannot do that."}), UNDETERMINED_REQ)
 
     def test_a_connection_failure_is_undetermined_not_a_refusal(self) -> None:
         self.assertEqual(

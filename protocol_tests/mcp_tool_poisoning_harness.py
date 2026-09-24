@@ -89,7 +89,10 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    INCONCLUSIVE_PREFIX,
+    console_status,
     exit_code,
+    is_inconclusive,
     silence_detail,
     silence_evidence,
 )
@@ -128,10 +131,16 @@ class CVETestResult:
     #: the guards in _record, which would otherwise downgrade a finding that
     #: never depended on a response.
     locally_decided: bool = False
+    #: INCONCLUSIVE as a field, not only as a prefix on `details`
+    #: (testing/test_inconclusive_is_structural.py). Set from the prefix here
+    #: and again in _record when a guard rewrites `details`.
+    not_evaluated: bool = False
 
     def __post_init__(self):
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
+        if is_inconclusive(self.details):
+            self.not_evaluated = True
 
 
 # ---------------------------------------------------------------------------
@@ -692,6 +701,52 @@ def encoding_detector_coverage() -> dict:
     return {"missed": missed, "false_positives": false_positives}
 
 
+def _json_or_none(raw: bytes):
+    """Parsed JSON, or None for an empty or non-JSON body (an error page)."""
+    try:
+        return json.loads(raw.decode("utf-8", "replace")) if raw else None
+    except ValueError:
+        return None
+
+
+def _http_error_body(err) -> dict:
+    """An HTTPError's parsed JSON body, with `_status` assigned after the parse
+    so the body cannot overwrite it (CLAUDE.md, dict-merge pattern)."""
+    try:
+        parsed = _json_or_none(err.read(65536))
+    except Exception:
+        parsed = None
+    out = dict(parsed) if isinstance(parsed, dict) else {}
+    out["_status"] = err.code
+    return out
+
+
+def _signature_outcome(resp) -> str:
+    """CVE-005: 'rejected', 'accepted' or 'undetermined', from a JSON-RPC answer.
+
+    A 2xx carrying `error` is the server refusing the tampered call and one
+    carrying `result` is it accepting. A 4xx counts only when it carries a
+    JSON-RPC error envelope: the protocol surface answering, as in the
+    refusing-host sweep (403 + envelope). A bare 404/403, an HTML page, a 5xx
+    or a connection failure served nothing, so nothing was accepted or rejected.
+    """
+    if not isinstance(resp, dict):
+        return "undetermined"
+    status = resp.get("_status", 200)
+    if not isinstance(status, int):
+        return "undetermined"
+    if 200 <= status < 300:
+        if "error" in resp:
+            return "rejected"
+        if "result" in resp:
+            return "accepted"
+        return "undetermined"
+    if (400 <= status < 500 and resp.get("jsonrpc") == "2.0"
+            and isinstance(resp.get("error"), dict)):
+        return "rejected"
+    return "undetermined"
+
+
 def tool_fingerprint(tool: dict) -> str:
     """Generate a content hash of a tool's structural properties (ignoring descriptions)."""
     structural = {
@@ -806,8 +861,10 @@ class MCPToolPoisoningTests:
                 result.details = detail
                 result.response_received = silence_evidence(
                     seen, result.response_received)
+        if is_inconclusive(result.details):
+            result.not_evaluated = True
         self.results.append(result)
-        status = "PASS \u2705" if result.passed else "FAIL \u274c"
+        status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
 
     def _get_tools(self) -> list[dict]:
@@ -1161,6 +1218,15 @@ class MCPToolPoisoningTests:
             "id": str(uuid.uuid4())[:8],
         }
 
+        # 2026-09-24. This used to read `resp and ("error" in resp or
+        # resp.get("_error"))`, with every exception -- an HTTPError included --
+        # leaving `resp` None. So a host answering a bare 404 or 403 to every
+        # path FAILed "Server accepted tool with fake/missing signature": no
+        # surface was served, and nothing was accepted
+        # (testing/test_verdicts_need_a_surface.py). Now three states, over a
+        # JSON-RPC answer only (`_signature_outcome`): a served `error` is a
+        # rejection, a served `result` is acceptance, anything else --
+        # connection failure, error page, non-JSON-RPC body -- is INCONCLUSIVE.
         resp = None
         try:
             data = json.dumps(tampered_tool).encode()
@@ -1168,13 +1234,17 @@ class MCPToolPoisoningTests:
                 self.url, data=data,
                 headers={"Content-Type": "application/json"}, method="POST")
             with self._urlopen(req, timeout=15) as r:
-                resp = json.loads(r.read().decode())
+                resp = _json_or_none(r.read())
+                if isinstance(resp, dict):
+                    resp["_status"] = r.status
+        except urllib.error.HTTPError as e:
+            resp = _http_error_body(e)
         except Exception:
             pass
 
         elapsed = time.monotonic() - t0
-        rejected = resp and ("error" in resp or resp.get("_error"))
-        passed = bool(rejected)
+        outcome = _signature_outcome(resp)
+        passed = outcome == "rejected"
 
         self._record(CVETestResult(
             test_id="CVE-005",
@@ -1184,7 +1254,13 @@ class MCPToolPoisoningTests:
             severity=Severity.HIGH.value,
             passed=passed,
             details=("Server rejected tampered tool definition" if passed
-                     else "Server accepted tool with fake/missing signature"),
+                     else "Server accepted tool with fake/missing signature"
+                     if outcome == "accepted"
+                     else f"{INCONCLUSIVE_PREFIX}no JSON-RPC answer to the "
+                          f"tampered tools/call (status="
+                          f"{(resp or {}).get('_status', 'none')}). A transport "
+                          f"error or an HTTP error page is neither acceptance nor "
+                          f"rejection; there was no surface to judge."),
             attack_vector="signature_bypass",
             request_sent=tampered_tool,
             response_received=resp,
