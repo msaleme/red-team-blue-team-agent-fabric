@@ -31,6 +31,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "testing"))
 
 from protocol_tests.http_helpers import exit_code, run_summary  # noqa: E402
 
@@ -194,6 +195,39 @@ class CloudAgentsExitStatus(_Case):
         with _Stub("permissive") as srv:
             proc, rows = _run([*self.MOD, "--url", srv.url])
         self.assertGreater(run_summary(rows)["failed"], 0)
+        self.assertEqual(run_summary(rows)["passed"], 0)
+        self.assertExits(1, proc, rows)
+
+    # 2026-09-24: a no-surface run exited 0, every row a PASS read off a 404 or
+    # a bare 403. Rejections now count only after a served baseline
+    # (testing/test_cloud_agent_verdicts_need_a_surface.py), so it exits 2.
+
+    def _cloud(self, pole: str):
+        from test_cloud_agent_verdicts_need_a_surface import POLES, CloudStub
+        with CloudStub(POLES[pole]) as srv:
+            return _run([*self.MOD, "--url", srv.url])
+
+    def test_404_everywhere_is_inconclusive_and_exits_two(self):
+        proc, rows = self._cloud("404")
+        self.assertEqual(run_summary(rows)["inconclusive"], len(rows))
+        self.assertExits(2, proc, rows)
+
+    def test_bare_403_everywhere_is_inconclusive_and_exits_two(self):
+        proc, rows = self._cloud("bare-403")
+        self.assertEqual(run_summary(rows)["inconclusive"], len(rows))
+        self.assertExits(2, proc, rows)
+
+    def test_a_served_baseline_then_refusals_passes_and_exits_zero(self):
+        """The passing run this class could not reach before: a platform that
+        serves a benign request and refuses every attack."""
+        proc, rows = self._cloud("refuse")
+        self.assertEqual(len(rows), 25)
+        self.assertTrue(all(r["passed"] for r in rows))
+        self.assertExits(0, proc, rows)
+
+    def test_a_served_baseline_then_compliance_fails_and_exits_one(self):
+        proc, rows = self._cloud("comply")
+        self.assertEqual(run_summary(rows)["failed"], len(rows))
         self.assertExits(1, proc, rows)
 
     def test_a_closed_port_is_inconclusive_and_exits_two(self):

@@ -180,31 +180,31 @@ CBRN-008 | Threshold Testing | protocol_tests/cbrn_harness.py:580
 ### Cloud Agent Platforms (`protocol_tests/cloud_agent_harness.py`) — 25 tests
 
 ```
-AZR-001 | Tool Definition Override | protocol_tests/cloud_agent_harness.py:422
-AZR-002 | Grounding Source Manipulation | protocol_tests/cloud_agent_harness.py:447
-AZR-003 | Thread Isolation Bypass | protocol_tests/cloud_agent_harness.py:472
-AZR-004 | File Search Poisoning | protocol_tests/cloud_agent_harness.py:500
-AZR-005 | Code Interpreter Escape | protocol_tests/cloud_agent_harness.py:526
-BRK-001 | Action Group Injection | protocol_tests/cloud_agent_harness.py:264
-BRK-002 | Knowledge Base Poisoning | protocol_tests/cloud_agent_harness.py:290
-BRK-003 | Session State Exfiltration | protocol_tests/cloud_agent_harness.py:314
-BRK-004 | Lambda Function Escape | protocol_tests/cloud_agent_harness.py:338
-BRK-005 | Guardrail Bypass via Multi-Turn | protocol_tests/cloud_agent_harness.py:371
-SFA-001 | Topic Classification Bypass | protocol_tests/cloud_agent_harness.py:720
-SFA-002 | Apex Action Injection | protocol_tests/cloud_agent_harness.py:745
-SFA-003 | Record Access Boundary Violation | protocol_tests/cloud_agent_harness.py:771
-SFA-004 | Flow Orchestration Escape | protocol_tests/cloud_agent_harness.py:796
-SFA-005 | Einstein Trust Layer Bypass | protocol_tests/cloud_agent_harness.py:822
-VTX-001 | Tool Parameter Injection | protocol_tests/cloud_agent_harness.py:574
-VTX-002 | Datastore Poisoning | protocol_tests/cloud_agent_harness.py:598
-VTX-003 | Extension Authentication Bypass | protocol_tests/cloud_agent_harness.py:624
-VTX-004 | Cross-Agent Context Leakage | protocol_tests/cloud_agent_harness.py:648
-VTX-005 | Webhook Callback Manipulation | protocol_tests/cloud_agent_harness.py:675
-WXO-001 | Skill Catalog Injection | protocol_tests/cloud_agent_harness.py:870
-WXO-002 | Decision Engine Manipulation | protocol_tests/cloud_agent_harness.py:893
-WXO-003 | Integration Credential Leakage | protocol_tests/cloud_agent_harness.py:916
-WXO-004 | Workflow Automation Hijack | protocol_tests/cloud_agent_harness.py:939
-WXO-005 | Multi-Tenant Isolation | protocol_tests/cloud_agent_harness.py:962
+AZR-001 | Tool Definition Override | protocol_tests/cloud_agent_harness.py:506
+AZR-002 | Grounding Source Manipulation | protocol_tests/cloud_agent_harness.py:531
+AZR-003 | Thread Isolation Bypass | protocol_tests/cloud_agent_harness.py:556
+AZR-004 | File Search Poisoning | protocol_tests/cloud_agent_harness.py:584
+AZR-005 | Code Interpreter Escape | protocol_tests/cloud_agent_harness.py:610
+BRK-001 | Action Group Injection | protocol_tests/cloud_agent_harness.py:343
+BRK-002 | Knowledge Base Poisoning | protocol_tests/cloud_agent_harness.py:369
+BRK-003 | Session State Exfiltration | protocol_tests/cloud_agent_harness.py:393
+BRK-004 | Lambda Function Escape | protocol_tests/cloud_agent_harness.py:417
+BRK-005 | Guardrail Bypass via Multi-Turn | protocol_tests/cloud_agent_harness.py:450
+SFA-001 | Topic Classification Bypass | protocol_tests/cloud_agent_harness.py:813
+SFA-002 | Apex Action Injection | protocol_tests/cloud_agent_harness.py:838
+SFA-003 | Record Access Boundary Violation | protocol_tests/cloud_agent_harness.py:864
+SFA-004 | Flow Orchestration Escape | protocol_tests/cloud_agent_harness.py:889
+SFA-005 | Einstein Trust Layer Bypass | protocol_tests/cloud_agent_harness.py:915
+VTX-001 | Tool Parameter Injection | protocol_tests/cloud_agent_harness.py:662
+VTX-002 | Datastore Poisoning | protocol_tests/cloud_agent_harness.py:686
+VTX-003 | Extension Authentication Bypass | protocol_tests/cloud_agent_harness.py:712
+VTX-004 | Cross-Agent Context Leakage | protocol_tests/cloud_agent_harness.py:736
+VTX-005 | Webhook Callback Manipulation | protocol_tests/cloud_agent_harness.py:763
+WXO-001 | Skill Catalog Injection | protocol_tests/cloud_agent_harness.py:967
+WXO-002 | Decision Engine Manipulation | protocol_tests/cloud_agent_harness.py:990
+WXO-003 | Integration Credential Leakage | protocol_tests/cloud_agent_harness.py:1013
+WXO-004 | Workflow Automation Hijack | protocol_tests/cloud_agent_harness.py:1036
+WXO-005 | Multi-Tenant Isolation | protocol_tests/cloud_agent_harness.py:1059
 ```
 
 ### CrewAI CVE Reproduction (`protocol_tests/crewai_cve_harness.py`) — 10 tests

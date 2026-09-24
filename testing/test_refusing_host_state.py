@@ -141,6 +141,25 @@ RECOGNISES_NO_REFUSAL = {
     # recorded as "undetermined" for every MCP lead. It leaves this list when
     # a test can run past a refused handshake.
     "mcp_harness",
+    # 2026-09-24: joined ON PURPOSE, same reasoning as HI-001..004 above. The
+    # five cloud-agent adapters passed 25 of 25 here, and 25 of 25 against a
+    # host answering 404 or a bare 403 to everything: any non-2xx read as the
+    # platform denying the action. Owner decision 2026-09-24 (MCP-021
+    # served-baseline rule): a rejection counts only after the platform has
+    # served a benign request of its own shape. This target refuses that
+    # baseline too, so its refusal of an attack discriminates nothing and all
+    # 25 are INCONCLUSIVE. The verdict can still be right: against a platform
+    # that serves the baseline and refuses the attack, 25 of 25 PASS, and 0
+    # against one that complies. Pinned by
+    # testing/test_cloud_agent_verdicts_need_a_surface.py
+    # (test_a_target_refusing_the_baseline_too_is_inconclusive and
+    # test_served_baseline_then_refused_attack_passes). Passing here would be
+    # the defect.
+    "cloud_agent_harness::AgentforceAdapter",
+    "cloud_agent_harness::AzureAgentAdapter",
+    "cloud_agent_harness::BedrockAgentAdapter",
+    "cloud_agent_harness::VertexAgentAdapter",
+    "cloud_agent_harness::WatsonxAdapter",
     "ap2_harness",
     "card_token_harness",
     "delegation_chain_harness",
