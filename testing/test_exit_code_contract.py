@@ -132,18 +132,13 @@ DECLARED_OTHER_EXITS = {
 }
 
 #: Registered harnesses whose `main` sets no exit status from its results at
-#: all (it exits 0 whatever the rows say). A pre-existing gap recorded
-#: 2026-09-24, not changed by the exit-code contract because it would turn a
-#: run that always exited 0 into one that exits 1: a separate decision. This
-#: set may shrink and must not grow.
-NO_RESULT_EXIT_STATUS = {
-    "protocol_tests.receipt_claim_harness",
-    "protocol_tests.cloud_agent_harness",
-    "protocol_tests.autogen_harness",
-    "protocol_tests.crewai_cve_harness",
-    "protocol_tests.mcp_tool_poisoning_harness",
-    "protocol_tests.capability_residue_harness",
-}
+#: all (it exits 0 whatever the rows say). Recorded 2026-09-24 with six members
+#: (receipt_claim, cloud_agent, autogen, crewai_cve, mcp_tool_poisoning,
+#: capability_residue); emptied the same day when all six adopted `exit_code`
+#: (evidence: testing/test_exit_code_six_harnesses.py). Empty, and must stay
+#: empty: a registered harness whose `main` does not reach the helper fails the
+#: measurement below.
+NO_RESULT_EXIT_STATUS: set[str] = set()
 
 _RESULT_WORDS = ("passed", "failed", "blocked", "results", "not_evaluated", "pass_rate")
 

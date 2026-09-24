@@ -45,6 +45,7 @@ from typing import Any
 
 from protocol_tests.http_helpers import (
     declined,
+    exit_code,
     inconclusive_detail,
 )
 
@@ -713,6 +714,7 @@ def main() -> None:
         print(f"\nReport written to {args.output}", file=sys.stderr)
     else:
         print(f"\n{report_json}")
+    sys.exit(exit_code(report["results"]))
 
 
 if __name__ == "__main__":

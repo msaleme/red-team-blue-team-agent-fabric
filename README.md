@@ -191,12 +191,17 @@ with `python -m protocol_tests.<module>`, exits with the same three codes:
 | `2` | no FAIL, but at least one result is INCONCLUSIVE or not executed, or no result was produced (this includes `--simulate`) |
 
 Nonzero always means "not clean", so a pipeline that only checks for nonzero behaves as
-before. Before 2026-09-24 most harnesses exited `1` for an INCONCLUSIVE row as well as for a
-FAIL; branch on `1` specifically if you want to gate on a failed control. argparse also exits
-`2` on a usage error, and that run writes no report. Exceptions: the `--trials N` statistical
-paths of `l402` and `x402` still exit `0`/`1` (they do not track INCONCLUSIVE per trial), and
-`receipt-claim`, `cloud-agents`, `autogen`, `crewai-cve`, `mcp-tool-poisoning` and
-`capability-residue` do not set an exit status from their results.
+before, except for `receipt-claim`, `cloud-agents`, `autogen`, `crewai-cve`,
+`mcp-tool-poisoning` and `capability-residue`, which exited `0` whatever their results said
+until 2026-09-24 and now follow this table (see CHANGELOG). Before 2026-09-24 most harnesses
+exited `1` for an INCONCLUSIVE row as well as for a FAIL; branch on `1` specifically if you want to gate on a failed control. argparse also exits
+`2` on a usage error, and that run writes no report. Exception: the `--trials N` statistical
+paths of `l402` and `x402` still exit `0`/`1` (they do not track INCONCLUSIVE per trial).
+`mcp-tool-poisoning` exits `1` on every default run: CVE-006 checks the harness's own scanner,
+not the target, and FAILs (leave out its `encoding` category with `--categories` to gate on
+the target alone). Modules run directly with their own `--simulate` (`cloud-agents`,
+`crewai-cve`, `mcp-tool-poisoning`) exit with what their reference rows say; through
+`agent-security test ... --simulate` every row is INCONCLUSIVE and the run exits `2`.
 
 See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limiting, MCP server mode, and CI/CD integration.
 

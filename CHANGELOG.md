@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (behaviour) — six harnesses that always exited 0 now follow the exit-status contract
+
+`receipt-claim`, `cloud-agents`, `autogen`, `crewai-cve`, `mcp-tool-poisoning` and
+`capability-residue` set no exit status from their results: every run exited `0`
+whatever its rows said. They now end in `sys.exit(exit_code(results))` like the other
+harnesses (`0` all passed, `1` any FAIL, `2` no FAIL but INCONCLUSIVE / empty), on the
+single-run and `--trials` paths. Usage errors, `--list` and `--help` exit as before.
+
+- **`capability-residue` had no `main`**, so `python -m` and `agent-security test
+  capability-residue` ran nothing and exited `0`. It now has one, modelled on
+  `hidden-instruction`: without a target it says so and exits `2`; `--self-test
+  [--shape SHAPE]` runs CR-001..005 against a reference target and writes `--report`
+  with provenance. The reference shapes moved from
+  `testing/test_capability_residue_controls.py` to
+  `protocol_tests/capability_residue_targets.py`, so the test and `--self-test` use one
+  fixture.
+- **`mcp-tool-poisoning` now exits `1` on every default run.** CVE-006 scans encoded
+  payloads with the module's own `scan_tool_fields`, never the target, and FAILs (0 of 5
+  encodings detected). The row always said FAIL; only the exit status hid it. Leave out
+  the `encoding` category to gate on the target alone. The CVE-006 verdict is unchanged
+  here.
+- Direct-module `--simulate` runs exit with their reference rows: `cloud-agents` `0`,
+  `crewai-cve` `1`, `mcp-tool-poisoning` `1`. `agent-security test <name> --simulate`
+  is unchanged (`2`).
+- Consumers: no workflow, script or Action step depends on these six exit codes (the
+  Action ignores harness exit status). `testing/test_cli_exit_propagation.py`'s
+  positive control (`test receipt-claim` exits `0`) still holds, now through the helper.
+- Evidence: `testing/test_exit_code_six_harnesses.py` runs each module as a subprocess
+  against stdlib stubs, a closed port, `--simulate` or a reference target, and asserts
+  the exit status equals `exit_code()` over the rows written: `0`, `1` and `2` for five
+  harnesses, `1` and `2` for `mcp-tool-poisoning` (see above). `receipt-claim` is
+  offline and correct, so its FAIL and INCONCLUSIVE cases patch the verdict input and
+  run the unmodified `main`. `NO_RESULT_EXIT_STATUS` in
+  `testing/test_exit_code_contract.py` is now empty. Test IDs and the count (640) are
+  unchanged.
+
 ### Fixed — six A2A verdicts passed against a host with no A2A surface; A2A-013 on a missing card
 
 A controlled-pole review (2026-09-24, pinned at c7d4347) ran `a2a_harness`

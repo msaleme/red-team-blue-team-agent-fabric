@@ -50,6 +50,7 @@ from datetime import datetime, timezone
 
 from protocol_tests.http_helpers import (
     console_status,
+    exit_code,
     INCONCLUSIVE_PREFIX,
     is_inconclusive,
     refused,
@@ -1097,6 +1098,7 @@ def main():
     for pname, counts in by_platform.items():
         print(f"  {pname:15s} {counts['passed']} passed, {counts['failed']} failed")
     print(f"{'='*60}\n")
+    sys.exit(exit_code(all_results))
 
 
 if __name__ == "__main__":

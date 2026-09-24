@@ -43,6 +43,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 from dataclasses import dataclass
 
 from protocol_tests import _ed25519
@@ -493,6 +494,10 @@ def main():
     if args.json:
         from dataclasses import asdict
         print(json.dumps([asdict(r) for r in results], indent=2))
+    # The shared 0/1/2 contract. Imported here so the verifier above keeps no
+    # dependency on the HTTP layer (it is reimplemented from this file).
+    from protocol_tests.http_helpers import exit_code
+    sys.exit(exit_code(results))
 
 
 if __name__ == "__main__":
