@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.23.0] - 2026-09-24
+
+A minor release. The exit status of a harness run, and the GitHub Action's build
+gate, now mean what they say. Behaviour changes an installed user will see:
+
+  - Exit status separates a genuine FAIL (`1`) from INCONCLUSIVE, not executed
+    or no result (`2`) across the harness entry points (#595).
+  - Six harnesses that always exited `0` now follow that contract (#596).
+    `mcp-tool-poisoning` exits `1` on every default run, because CVE-006 FAILs.
+  - An MCP bootstrap failure records one NOT_EXECUTED row per test instead of an
+    empty report, and the run exits `2` (#595).
+  - The Action's default `fail_on: critical` could never fire and now does; an
+    unknown `fail_on` value is an error; the reusable workflow requires a harness
+    that ships `protocol_tests.report_gate`, which is 4.23.0 or later (#597).
+
+Also in this release: six A2A verdicts no longer pass against a host with no A2A
+surface (#594); seven CVE verdicts that did not depend on the target are now
+differentials or honest INCONCLUSIVE (#591); CVE-to-test pages (#590, #593); an
+external-fixture runner (#589).
+
+Test count unchanged at 640. Version bumped in pyproject.toml, CITATION.cff, the
+two OWASP coverage documents and the coverage manifest pair; README timeline
+extended.
+
 ### Changed (behaviour) — six harnesses that always exited 0 now follow the exit-status contract
 
 `receipt-claim`, `cloud-agents`, `autogen`, `crewai-cve`, `mcp-tool-poisoning` and
