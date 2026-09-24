@@ -109,7 +109,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from protocol_tests.http_helpers import row_field  # noqa: E402
+from protocol_tests.http_helpers import row_field, row_outcome  # noqa: E402
 
 #: Nothing listens here. Same target the serviced-guard suite uses.
 CLOSED_PORT = "http://127.0.0.1:9"
@@ -341,6 +341,15 @@ def sweep(target: str = CLOSED_PORT) -> list[dict]:
                 "passed": len(passed),
                 "errors": len(errored),
                 "passing_ids": passed,
+                # Per-row PASS / FAIL / INCONCLUSIVE through the one shared
+                # classifier, so scripts/no_surface_sweep.py can see a FAIL
+                # against nothing as well as a PASS. `passing_ids` alone could
+                # not: a verdict that FAILs regardless of the target is the
+                # same defect pointed the other way.
+                "outcomes": [
+                    {"test_id": _test_id(r), "outcome": row_outcome(r),
+                     "locally_decided": bool(row_field(r, "locally_decided", False))}
+                    for r in results],
             })
     # Fail, not shrink: a registered harness the sweep says nothing about is
     # the gap that hid R3-01, and a table is not allowed to omit it quietly.
