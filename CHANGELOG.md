@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — seven CVE verdicts were target-independent (PR #590 measured them)
+
+Seven tests computed a verdict that did not depend on the target: they probed a
+route, method or port the primary advisory does not name and scored PASS against
+a 404 stub or a closed port, or computed the verdict from the harness's own
+checker with the target's reply discarded. Each is now either a differential
+against the surface the advisory names, or an honest INCONCLUSIVE where the
+advisory names no probeable network surface. Advisory facts were re-retrieved
+2026-09-23 from NVD, the GitHub Advisory Database and VulnCheck.
+
+- **PA-002** (`framework_adapters`, CVE-2026-40289): probed a POST to
+  `:8765/browser`, which the advisory does not name, and scored a 404 as PASS.
+  Now sends the WebSocket opening handshake to `/ws` (the endpoint the advisory
+  names, default port 8765): an accepted Origin-less handshake is FAIL, a
+  refusal with an accepted control handshake is PASS, an absent surface or a
+  server that upgrades a nonexistent path is INCONCLUSIVE.
+- **PA-003** (`framework_adapters`, CVE-2026-39889): probed `/api/events` and
+  reported FAIL against a closed port and a 404. Now probes `/a2u/info` (a route
+  `create_a2u_routes()` registers): a 200 exposing stream info is FAIL, a 401/403
+  is PASS, an absent surface or a 200-to-everything server is INCONCLUSIVE.
+- **PA-001** (CVE-2026-40288) and **PA-004** (CVE-2026-39891): the advisories
+  describe a local CLI (`praisonai workflow run`) and a library path
+  (`create_agent_centric_tools()`), not network endpoints. The tests posted to
+  guessed `/api/workflow` and `/api/tools` routes and scored a 404 as PASS.
+  Their live verdict is now INCONCLUSIVE and they send no request; the
+  payload self-tests remain under `--simulate`.
+- **CVE-009** (CVE-2026-35625) and **CVE-010** (CVE-2026-35629,
+  `mcp_tool_poisoning_harness`): the advisories describe local OpenClaw internals
+  (silent shared-auth reconnect; channel-extension `fetch()`), and name no
+  wire-level JSON-RPC method. The tests sent frames to invented methods
+  (`openclaw/reconnect`, `openclaw/channel/invoke`) and counted a 4xx toward
+  PASS. Their live verdict is now INCONCLUSIVE and they send no frame; the
+  payload self-tests remain under `--simulate`.
+- **CREW-008** (`crewai_cve_harness`, CVE-2026-2286): its verdict was
+  `len(undetected) == 0` over the harness's own `check_url_safety`, which FAILed
+  against both a 404 stub and a 200-`{}` stub and could not be moved by any
+  target reply. Its live verdict is now a differential over the agent's
+  responses (each evasion-encoded SSRF request serviced → FAIL, refused → PASS,
+  none answered → INCONCLUSIVE), matching CREW-006/007; the `--simulate` branch
+  stays a labelled self-test.
+
+Docstring corrections: `workspace_trust_harness` said CVE-2026-72718 was
+assigned by VulnCheck and disclosed 2026-09-01; NVD shows GitHub, Inc. as
+assigner and publication 2026-08-10 (goose, fixed 1.44.0), while CVE-2026-71963
+is the VulnCheck-assigned one (published 2026-09-03). The PraisonAI adapter no
+longer prints "<0.0.79" as the vulnerable range; it cites the NVD/GHSA fixed
+versions (4.5.115 / 4.5.139).
+
+`docs/cve/`: exclusion and withheld reasons updated for these seven. PA-002,
+PA-003 and CREW-008 now meet the target-differential bar and become documentable
+once the mapping is re-pinned to a commit containing the repaired code; PA-001,
+PA-004, CVE-009 and CVE-010 stay excluded because their advisories name no
+probeable network surface. Regression coverage:
+`testing/test_cve_verdicts_are_target_differentials.py`. No change to test IDs
+or the test count (640).
+
 ### Added
 
 - `interop/run_external_fixture.py`: runs an externally published fixture set through a

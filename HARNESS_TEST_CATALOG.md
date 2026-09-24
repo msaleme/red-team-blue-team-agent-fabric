@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `56e21d8`
+**Generated:** `scripts/generate_test_catalog.py` at commit `10b3a34`
 **Test count:** 640 unique test IDs across 49 registered harness modules (48 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -217,9 +217,9 @@ CREW-004 | Path Traversal in JSON Loader | protocol_tests/crewai_cve_harness.py:
 CREW-005 | Sensitive File Read Detection | protocol_tests/crewai_cve_harness.py:827
 CREW-006 | SSRF Cloud Metadata Detection | protocol_tests/crewai_cve_harness.py:905
 CREW-007 | SSRF Internal Service Detection | protocol_tests/crewai_cve_harness.py:976
-CREW-008 | SSRF URL Validation Bypass | protocol_tests/crewai_cve_harness.py:1089
-CREW-009 | Docker Availability Check Bypass | protocol_tests/crewai_cve_harness.py:1127
-CREW-010 | Fallback Sandbox RCE Chain | protocol_tests/crewai_cve_harness.py:1215
+CREW-008 | SSRF URL Validation Bypass (self-test in simulate; target differential live) | protocol_tests/crewai_cve_harness.py:1074
+CREW-009 | Docker Availability Check Bypass | protocol_tests/crewai_cve_harness.py:1176
+CREW-010 | Fallback Sandbox RCE Chain | protocol_tests/crewai_cve_harness.py:1264
 ```
 
 ### Delegated-Authority Attenuation (`protocol_tests/delegation_chain_harness.py`) — 11 tests
@@ -320,21 +320,21 @@ ET-006 | Silent Thinking-Budget Truncation | protocol_tests/extended_thinking_ha
 ### Framework Adapters (`protocol_tests/framework_adapters.py`) — 15 tests
 
 ```
-AG-002 | Code Execution Sandbox Escape | protocol_tests/framework_adapters.py:466
-AG-004 | Agent Group Chat Participant Injection | protocol_tests/framework_adapters.py:501
-AG-005 | Speaker Selection Poisoning | protocol_tests/framework_adapters.py:533
-AG-006 | Nested Conversation Escape | protocol_tests/framework_adapters.py:565
-AG-007 | Message Source Spoofing | protocol_tests/framework_adapters.py:601
-BR-004 | Session Hijacking | protocol_tests/framework_adapters.py:757
-CA-002 | Crew Member Injection | protocol_tests/framework_adapters.py:395
-LC-002 | Schema Disclosure Check | protocol_tests/framework_adapters.py:303
-LC-005 | Chain-of-Thought / System Prompt Extraction | protocol_tests/framework_adapters.py:342
-OA-002 | Handoff to Unauthorized Agent | protocol_tests/framework_adapters.py:650
-OA-004 | Tool Schema Injection via Run | protocol_tests/framework_adapters.py:681
-PA-001 | Prompt Injection via Workflow YAML | protocol_tests/framework_adapters.py:797
-PA-002 | Browser Bridge Unauthenticated Access | protocol_tests/framework_adapters.py:895
-PA-003 | Event Stream Exposure | protocol_tests/framework_adapters.py:962
-PA-004 | Template Injection via Tool Definitions | protocol_tests/framework_adapters.py:1041
+AG-002 | Code Execution Sandbox Escape | protocol_tests/framework_adapters.py:554
+AG-004 | Agent Group Chat Participant Injection | protocol_tests/framework_adapters.py:589
+AG-005 | Speaker Selection Poisoning | protocol_tests/framework_adapters.py:621
+AG-006 | Nested Conversation Escape | protocol_tests/framework_adapters.py:653
+AG-007 | Message Source Spoofing | protocol_tests/framework_adapters.py:689
+BR-004 | Session Hijacking | protocol_tests/framework_adapters.py:845
+CA-002 | Crew Member Injection | protocol_tests/framework_adapters.py:483
+LC-002 | Schema Disclosure Check | protocol_tests/framework_adapters.py:391
+LC-005 | Chain-of-Thought / System Prompt Extraction | protocol_tests/framework_adapters.py:430
+OA-002 | Handoff to Unauthorized Agent | protocol_tests/framework_adapters.py:738
+OA-004 | Tool Schema Injection via Run | protocol_tests/framework_adapters.py:769
+PA-001 | Prompt Injection via Workflow YAML | protocol_tests/framework_adapters.py:904
+PA-002 | Browser Bridge Unauthenticated Access | protocol_tests/framework_adapters.py:1004
+PA-003 | Event Stream Exposure | protocol_tests/framework_adapters.py:1128
+PA-004 | Template Injection via Tool Definitions | protocol_tests/framework_adapters.py:1211
 ```
 
 ### governance_modification_harness.py (`protocol_tests/governance_modification_harness.py`) — 6 tests
@@ -583,16 +583,16 @@ MCP-F-004 | Launcher Version Pinning | protocol_tests/mcp_supplychain.py:493
 ### MCP Tool Poisoning Reproduction (`protocol_tests/mcp_tool_poisoning_harness.py`) — 10 tests
 
 ```
-CVE-001 | Nested Schema Injection Detection | protocol_tests/mcp_tool_poisoning_harness.py:632
-CVE-002 | Tool Fork Fingerprinting | protocol_tests/mcp_tool_poisoning_harness.py:681
-CVE-003 | Marketplace Contamination Rate | protocol_tests/mcp_tool_poisoning_harness.py:726
-CVE-004 | Cross-Tool Context Leakage | protocol_tests/mcp_tool_poisoning_harness.py:776
-CVE-005 | Supply Chain Signature Bypass | protocol_tests/mcp_tool_poisoning_harness.py:891
-CVE-006 | Description Payload Encoding Detection | protocol_tests/mcp_tool_poisoning_harness.py:991
-CVE-007 | Incremental Poisoning Scanner Coverage (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1105
-CVE-008 | Marketplace Registry Integrity (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1153
-CVE-009 | Shared-Auth Scope Escalation (CVE-2026-35625) | protocol_tests/mcp_tool_poisoning_harness.py:1276
-CVE-010 | Channel Extension SSRF (CVE-2026-35629) | protocol_tests/mcp_tool_poisoning_harness.py:1461
+CVE-001 | Nested Schema Injection Detection | protocol_tests/mcp_tool_poisoning_harness.py:626
+CVE-002 | Tool Fork Fingerprinting | protocol_tests/mcp_tool_poisoning_harness.py:675
+CVE-003 | Marketplace Contamination Rate | protocol_tests/mcp_tool_poisoning_harness.py:720
+CVE-004 | Cross-Tool Context Leakage | protocol_tests/mcp_tool_poisoning_harness.py:770
+CVE-005 | Supply Chain Signature Bypass | protocol_tests/mcp_tool_poisoning_harness.py:885
+CVE-006 | Description Payload Encoding Detection | protocol_tests/mcp_tool_poisoning_harness.py:985
+CVE-007 | Incremental Poisoning Scanner Coverage (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1099
+CVE-008 | Marketplace Registry Integrity (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1147
+CVE-009 | Shared-Auth Scope Escalation (CVE-2026-35625) | protocol_tests/mcp_tool_poisoning_harness.py:1270
+CVE-010 | Channel Extension SSRF (CVE-2026-35629) | protocol_tests/mcp_tool_poisoning_harness.py:1371
 ```
 
 ### memory_harness.py (`protocol_tests/memory_harness.py`) — 16 tests
@@ -808,10 +808,10 @@ WM-005 | Multi-Language Watermark Compliance | protocol_tests/watermark_harness.
 ### workspace_trust_harness.py (`protocol_tests/workspace_trust_harness.py`) — 4 tests
 
 ```
-WT-001 | Repository-Supplied Config Executes on Ingestion | protocol_tests/workspace_trust_harness.py:220
-WT-002 | Read-Only Ingestion Still Executes the Sink | protocol_tests/workspace_trust_harness.py:260
-WT-003 | Cloned Source Does Not Carry the Sink | protocol_tests/workspace_trust_harness.py:295
-WT-004 | Named-Sink Sanitisation Suppresses Execution | protocol_tests/workspace_trust_harness.py:348
+WT-001 | Repository-Supplied Config Executes on Ingestion | protocol_tests/workspace_trust_harness.py:223
+WT-002 | Read-Only Ingestion Still Executes the Sink | protocol_tests/workspace_trust_harness.py:263
+WT-003 | Cloned Source Does Not Carry the Sink | protocol_tests/workspace_trust_harness.py:298
+WT-004 | Named-Sink Sanitisation Suppresses Execution | protocol_tests/workspace_trust_harness.py:351
 ```
 
 ### x402 Fireblocks Extension (`protocol_tests/x402_fireblocks_harness.py`) — 17 tests

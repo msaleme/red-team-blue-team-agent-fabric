@@ -1,7 +1,9 @@
 """WT-001..004 must PASS against a sanitising ingester and FAIL against a naive one.
 
-GitSpawn (Manifold Security, 2026-09-01; CVE-2026-72718 Goose, CVE-2026-71963
-Hermes Agent): a repository that arrives as files carries its own
+GitSpawn (Manifold Security; CVE-2026-72718 goose, assigned by GitHub, Inc.,
+NVD-published 2026-08-10; CVE-2026-71963 Hermes Agent, assigned by VulnCheck,
+NVD-published 2026-09-03; NVD retrieved 2026-09-23): a repository that arrives
+as files carries its own
 ``.git/config``, and ``core.fsmonitor`` there is a command-execution sink that
 any index-refreshing operation runs, before any workspace-trust prompt.
 

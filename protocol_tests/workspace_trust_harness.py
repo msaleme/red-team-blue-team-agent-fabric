@@ -12,10 +12,13 @@ before authentication.
 
 Any git operation that refreshes the index runs it, including read-only ones.
 
-Disclosed as GitSpawn by Manifold Security, 2026-09-01, across seven coding
-agents; CVE-2026-72718 (Goose) and CVE-2026-71963 (Hermes Agent) were assigned
-by VulnCheck as an independent CNA. Four of the seven were patched at
-disclosure and three were not.
+Disclosed as GitSpawn by Manifold Security across several coding agents. Of the
+two CVEs this family cites, their assigners and NVD publication dates differ and
+are not both VulnCheck (NVD, retrieved 2026-09-23): CVE-2026-72718 (goose) was
+assigned by GitHub, Inc. (security-advisories@github.com) and published
+2026-08-10, fixed in goose 1.44.0; CVE-2026-71963 (Hermes Agent) was assigned by
+VulnCheck (disclosure@vulncheck.com) and published 2026-09-03, fixed in commit
+f6234d0.
 
 ## Why this is a pre-flight family and not a protocol test
 
