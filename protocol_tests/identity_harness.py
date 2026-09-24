@@ -43,6 +43,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from protocol_tests.http_helpers import (
+    exit_code,
     console_status,
     is_inconclusive,
     looks_like_refusal,
@@ -1119,9 +1120,9 @@ def main():
             if args.report:
                 generate_report(results, args.report)
 
-        # Informational results carry no verdict, so they must not set exit 1.
-        failed = sum(1 for r in results if not r.passed and not r.informational)
-        sys.exit(1 if failed > 0 else 0)
+        # Informational results carry no verdict: never exit 1, and exit 2 when
+        # nothing else established one (http_helpers.exit_code).
+        sys.exit(exit_code(results))
     else:
         print(f"Identity harness configured for {args.url}")
         print("Run with --run to execute tests")

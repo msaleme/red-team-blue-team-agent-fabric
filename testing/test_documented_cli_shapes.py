@@ -44,7 +44,14 @@ class TestDocumentedMcpInvocation(unittest.TestCase):
         self.assertEqual(
             doc["status"], "inconclusive",
             "a closed port must be INCONCLUSIVE, never a clean zero-test pass")
-        self.assertEqual(doc["summary"]["total"], 0)
+        # Was `total == 0`. Since 2026-09-24 a failed bootstrap emits one
+        # NOT_EXECUTED (INCONCLUSIVE) row per registered test, so the rows are
+        # there and none of them is a pass or a fail.
+        self.assertGreater(doc["summary"]["total"], 0)
+        self.assertEqual(doc["summary"]["passed"], 0)
+        self.assertEqual(doc["summary"]["failed"], 0)
+        self.assertEqual(doc["summary"]["inconclusive"], doc["summary"]["total"])
+        self.assertEqual(r.returncode, 2, "exit contract: INCONCLUSIVE only -> 2")
 
     def test_an_explicit_transport_is_not_overridden(self) -> None:
         """Inference must never win over what the operator actually typed."""

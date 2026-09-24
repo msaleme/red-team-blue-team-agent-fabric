@@ -420,7 +420,37 @@ def _run_console_detector(directory: pathlib.Path) -> list[str]:
     return offenders
 
 
+_EXIT_VIOLATION = '''"""A harness main computing its own exit status from verdicts."""
+import sys
+
+
+def main():
+    results = run()
+    failed = sum(1 for r in results if not r.passed)
+    sys.exit(1 if failed > 0 else 0)
+'''
+
+_EXIT_CONTROL = '''"""The correct form. The old one was `sys.exit(1 if failed > 0 else 0)`."""
+import sys
+
+from protocol_tests.http_helpers import exit_code
+
+
+def main():
+    results = run()
+    sys.exit(exit_code(results))
+'''
+
+
+def _run_exit_detector(directory: pathlib.Path) -> list[str]:
+    import test_exit_code_contract as mod
+    return sorted({name for name, _ in mod._result_derived_exits(directory)})
+
+
 DETECTORS = {
+    "exit status computed outside the shared helper": (
+        _run_exit_detector, _EXIT_VIOLATION, _EXIT_CONTROL,
+        "test_exit_code_contract.py"),
     "console verdict missing the third state": (
         _run_console_detector, _CONSOLE_VIOLATION, _CONSOLE_CONTROL,
         "test_console_reports_the_third_state.py"),

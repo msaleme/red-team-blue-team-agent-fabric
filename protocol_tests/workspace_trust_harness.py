@@ -79,7 +79,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from protocol_tests.harness_base import HarnessResult, RecordingHarness
-from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX, console_status
+from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX, console_status, exit_code
 from protocol_tests.run_provenance import run_provenance
 
 #: Read-only operations to try. Not all of them refresh the index -- measured on
@@ -430,7 +430,7 @@ def main(argv: list[str] | None = None) -> int:
             }
             Path(args.report).write_text(
                 json.dumps(report, indent=2, default=str), encoding="utf-8")
-        return 1 if any(not r.passed and not r.not_evaluated for r in results) else 0
+        return exit_code(results)
     finally:
         suite.cleanup()
 

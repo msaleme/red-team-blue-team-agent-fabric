@@ -38,6 +38,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from protocol_tests.http_helpers import (
+    exit_code,
     console_status,
     INCONCLUSIVE_PREFIX,
     is_inconclusive,
@@ -890,7 +891,7 @@ def main():
         print(f"\n{'='*60}")
         print(f"RESULTS: {passed}/{total} passed ({passed/total*100:.0f}%)" if total else "No tests run")
         print(f"{'='*60}")
-        sys.exit(1 if any(not r.passed for r in results) else 0)
+        sys.exit(exit_code(results))
     else:
         print(f"\nAdapter configured for {cls.description} at {args.url}")
         print("Run with --run to execute tests")

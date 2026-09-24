@@ -70,6 +70,7 @@ from typing import Any
 from protocol_tests.http_helpers import (
     DEFAULT_MAX_RESPONSE_BYTES,
     INCONCLUSIVE_PREFIX,
+    exit_code,
     http_post_json_bounded,
     is_inconclusive,
 )
@@ -1687,12 +1688,14 @@ Examples:
         print(f"\nReport written to {args.report}", file=sys.stderr)
 
     # Exit code: 0 all passed, 1 any failed, 2 none failed but at least one
-    # INCONCLUSIVE (a dry run, a target never contacted, a budget overrun).
-    # An unevaluated pattern is not a green run.
-    if summary.get("failed", 0) > 0:
-        sys.exit(1)
-    if summary.get("inconclusive", 0) > 0:
-        sys.exit(2)
+    # INCONCLUSIVE (a dry run, a target never contacted, a budget overrun) or
+    # no pattern ran at all. An unevaluated pattern is not a green run. This
+    # module had the contract first; it now comes from the shared helper
+    # (http_helpers.exit_code) so it cannot drift from the other entry points.
+    # --list and --validate produce no result rows and are not runs; they keep
+    # exiting 0.
+    if "results" in summary:
+        sys.exit(exit_code(summary["results"]))
 
 
 if __name__ == "__main__":

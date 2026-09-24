@@ -51,6 +51,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 
 from protocol_tests._utils import Severity, http_post_json, jsonrpc_request, wilson_ci
+from protocol_tests.http_helpers import exit_code
 
 #: Default TTL per Claude API prompt-caching documentation.
 _DEFAULT_TTL_SECONDS = 5 * 60
@@ -776,8 +777,7 @@ def main() -> None:
         if args.report:
             generate_report(results, args.report)
 
-    failed = sum(1 for r in results if not r.passed)
-    sys.exit(1 if failed > 0 else 0)
+    sys.exit(exit_code(results))
 
 
 if __name__ == "__main__":

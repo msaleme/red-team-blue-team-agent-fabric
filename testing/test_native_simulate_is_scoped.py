@@ -119,11 +119,15 @@ class NativeSimulateIsScoped(unittest.TestCase):
             self.assertIs(scope["live_requested"], False)
             self.assertIn("reference-model self-test", scope["statement"])
 
-    def test_nothing_failed_so_the_exit_status_is_zero(self):
+    def test_nothing_failed_so_the_exit_status_is_two(self):
         """INCONCLUSIVE is not FAIL. ap2 and x402_fireblocks exited 1 on any
-        non-pass; three others never set a status. One rule: a serviced FAIL."""
+        non-pass; three others never set a status. One rule: a serviced FAIL.
+
+        Was `== 0` until 2026-09-24. The shared exit contract
+        (http_helpers.exit_code) gives "nothing failed, nothing established" its
+        own code, 2, so it can no longer be read as "every result passed"."""
         for mod, done, _, _ in self._each():
-            self.assertEqual(done.returncode, 0, done.stderr[-800:])
+            self.assertEqual(done.returncode, 2, done.stderr[-800:])
 
     def test_aiuc1_requirement_coverage_is_the_same_answer_as_the_rows(self):
         """The second summary in the aiuc1 report said every requirement FAIL."""

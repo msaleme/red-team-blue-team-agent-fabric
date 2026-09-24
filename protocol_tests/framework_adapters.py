@@ -54,6 +54,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse, urlunparse
 
 from protocol_tests.http_helpers import (
+    exit_code,
     _no_redirect_opener,
     console_status,
     INCONCLUSIVE_PREFIX,
@@ -1446,8 +1447,7 @@ def main():
             if args.report:
                 generate_report(results, args.report)
 
-        failed = sum(1 for r in results if not r.passed)
-        sys.exit(1 if failed > 0 else 0)
+        sys.exit(exit_code(results))
     else:
         print(f"\nAdapter configured for {adapter_cls.description} at {args.url}")
         print("Run with --run to execute tests, or --export <file.json> to export config")

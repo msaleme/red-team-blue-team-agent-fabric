@@ -383,7 +383,10 @@ agent-security-harness list --community
 
 Exit codes: `0` every pattern passed; `1` at least one pattern failed; `2`
 none failed but at least one is INCONCLUSIVE (a dry run, a target never
-contacted, a budget overrun). An unevaluated pattern is not a green run.
+contacted, a budget overrun), or no pattern ran. An unevaluated pattern is not
+a green run. This is the same contract every harness uses
+(`protocol_tests.http_helpers.exit_code`); `--list` and `--validate` are not
+runs and exit 0.
 
 ## Appendix: OWASP Agentic Top 10 Categories
 

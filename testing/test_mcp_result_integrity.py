@@ -22,6 +22,13 @@ Note what the fix does NOT do. It does not synthesise one failed result per test
 that would have run. "32 tests failed" is a different and false statement; the
 accurate one is "not executed", carried as an explicit status with a nonzero exit
 for automation.
+
+2026-09-24 (owner decision, ASH pole-pilot follow-up section 4): the "not
+executed" statement is now made per test. A failed bootstrap emits one
+INCONCLUSIVE row per registered test, detail `NOT_EXECUTED: ...`, passed=False,
+never counted as a FAIL, and the run exits 2 under the shared exit contract
+(http_helpers.exit_code). Zero rows was indistinguishable from an empty suite.
+The per-test half is pinned in testing/test_exit_code_contract.py.
 """
 
 from __future__ import annotations
@@ -86,7 +93,11 @@ class TestBuildReportStatus(unittest.TestCase):
         """The guard must be able to pass, or it is not a guard."""
         report = build_report([_passing_result()])
         self.assertEqual(report["status"], "completed")
-        self.assertEqual(report["summary"], {"total": 1, "passed": 1, "failed": 0})
+        # Three-state since 2026-09-24 (run_summary); the original three keys
+        # keep their names and meaning for a real PASS.
+        self.assertEqual(
+            {k: report["summary"][k] for k in ("total", "passed", "failed", "inconclusive")},
+            {"total": 1, "passed": 1, "failed": 0, "inconclusive": 0})
         self.assertNotIn("error", report)
 
     def test_generate_report_writes_the_error_to_the_file(self):
@@ -116,6 +127,10 @@ class TestUnreachableTargetExitStatus(unittest.TestCase):
                 proc.returncode, 0,
                 "an unreachable target exited 0. A CI job branching on the exit status "
                 "would read 'no test ever ran' as a pass.")
+            self.assertEqual(
+                proc.returncode, 2,
+                "an unreachable target is INCONCLUSIVE (2), not a FAIL (1): nothing "
+                "was established about any control")
 
             self.assertTrue(report_path.is_file(), "--report wrote no file")
             report = json.loads(report_path.read_text(encoding="utf-8"))
@@ -127,10 +142,18 @@ class TestUnreachableTargetExitStatus(unittest.TestCase):
         self.assertTrue(
             report.get("error"),
             "the report file dropped the connection error that stdout carried")
-        self.assertEqual(
-            report.get("results"), [],
-            "no results should be synthesised; 'not executed' is the accurate "
-            "statement, not 'every test failed'")
+        # 2026-09-24: one NOT_EXECUTED row per registered test, none of them a
+        # FAIL. Was `results == []`; the statement "not executed" is unchanged,
+        # it is now made per test.
+        rows = report.get("results") or []
+        self.assertTrue(rows, "a failed bootstrap must still say which tests did not run")
+        self.assertEqual(report["summary"]["failed"], 0,
+                         "a test that never ran is not a failed test")
+        self.assertEqual(report["summary"]["passed"], 0)
+        for row in rows:
+            self.assertFalse(row["passed"])
+            self.assertTrue(row["not_evaluated"])
+            self.assertIn("NOT_EXECUTED", row["details"])
 
 
 if __name__ == "__main__":

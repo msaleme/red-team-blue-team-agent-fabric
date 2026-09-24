@@ -181,6 +181,23 @@ python scripts/owasp_agentic_select.py --threat T16
 python scripts/owasp_agentic_select.py --control P5-REA-001
 ```
 
+**Exit status.** Every `agent-security test <harness>` run, and every harness run directly
+with `python -m protocol_tests.<module>`, exits with the same three codes:
+
+| Code | Meaning |
+|------|---------|
+| `0` | every result PASSED |
+| `1` | at least one genuine FAIL (whatever else the run contains) |
+| `2` | no FAIL, but at least one result is INCONCLUSIVE or not executed, or no result was produced (this includes `--simulate`) |
+
+Nonzero always means "not clean", so a pipeline that only checks for nonzero behaves as
+before. Before 2026-09-24 most harnesses exited `1` for an INCONCLUSIVE row as well as for a
+FAIL; branch on `1` specifically if you want to gate on a failed control. argparse also exits
+`2` on a usage error, and that run writes no report. Exceptions: the `--trials N` statistical
+paths of `l402` and `x402` still exit `0`/`1` (they do not track INCONCLUSIVE per trial), and
+`receipt-claim`, `cloud-agents`, `autogen`, `crewai-cve`, `mcp-tool-poisoning` and
+`capability-residue` do not set an exit status from their results.
+
 See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limiting, MCP server mode, and CI/CD integration.
 
 ---

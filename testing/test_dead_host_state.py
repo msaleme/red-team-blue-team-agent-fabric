@@ -102,10 +102,14 @@ KNOWN_PASSING = {
 }
 
 
-#: Ran, and deliberately emitted nothing. mcp_harness aborts before its first
-#: test when the MCP handshake fails, which is the behaviour #351 asks for. The
-#: row is here so the abort stays visible instead of reading as a clean 0/0.
-SILENT_BY_DESIGN = {"mcp_harness"}
+#: Ran, and deliberately emitted nothing. Empty since 2026-09-24 (tightened).
+#: mcp_harness used to be the one member: it aborts before its first test when
+#: the MCP handshake fails, which is the behaviour #351 asks for, and the abort
+#: rendered as 0/0. It now emits one NOT_EXECUTED (INCONCLUSIVE, passed=False)
+#: row per registered test, so it is a `ran` row with zero passes and is held
+#: by the same pins as every other module. Nothing may re-enter this set
+#: without a reason recorded here.
+SILENT_BY_DESIGN: set[str] = set()
 
 #: No runnable suite at all. Empty since discovery moved to the CLI registry:
 #: harness_base is not a registered harness and no longer produces a row, and
@@ -159,10 +163,11 @@ class TestDeadHostState(unittest.TestCase):
     def test_a_suite_that_produced_nothing_is_declared(self):
         """Ran and emitted no verdicts is not the same as ran and found nothing.
 
-        mcp_harness aborts with `if not self.initialize(): return self.results`,
-        which is correct -- it refuses to emit verdicts it cannot ground -- and
-        it rendered as `0/0`, indistinguishable from a clean sweep. Anything
-        else landing in this state is a suite that silently stopped testing.
+        mcp_harness aborted with `if not self.initialize(): return self.results`,
+        which refused to emit verdicts it could not ground, and it rendered as
+        `0/0`, indistinguishable from a clean sweep. Since 2026-09-24 it emits a
+        NOT_EXECUTED row per test instead, so the declared set is empty. Anything
+        landing in this state is a suite that silently stopped testing.
         """
         silent = {r["module"] for r in self.rows if r["status"] == "ran-no-verdicts"}
         self.assertEqual(

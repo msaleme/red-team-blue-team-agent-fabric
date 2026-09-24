@@ -44,6 +44,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from protocol_tests._utils import HIDDEN_INSTRUCTION_PATTERN, Severity, wilson_ci
+from protocol_tests.http_helpers import exit_code
 
 _URL_PATTERN = re.compile(r'https?://[^\s"\'<>]{10,}', re.IGNORECASE)
 _BASE64_PATTERN = re.compile(r'[A-Za-z0-9+/]{40,}={0,2}')
@@ -1304,8 +1305,7 @@ def main() -> None:
     if args.report:
         generate_report(results, args.report)
 
-    failed = sum(1 for r in results if not r.passed)
-    sys.exit(1 if failed > 0 else 0)
+    sys.exit(exit_code(results))
 
 
 if __name__ == "__main__":

@@ -77,7 +77,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from protocol_tests.harness_base import HarnessResult, RecordingHarness
-from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX, is_inconclusive
+from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX, is_inconclusive, exit_code
 from protocol_tests.run_provenance import (
     run_provenance,
     subject_model,
@@ -444,7 +444,7 @@ def main() -> None:
             json.dump(document, fh, indent=2, default=str)
         print(f"Report written to {args.report}", file=sys.stderr)
 
-    sys.exit(1 if failed > 0 else 0)
+    sys.exit(exit_code(results))
 
 
 if __name__ == "__main__":

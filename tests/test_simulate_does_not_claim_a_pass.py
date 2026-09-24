@@ -28,6 +28,13 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 
 
+#: A simulated run's exit status under the shared contract
+#: (protocol_tests.http_helpers.exit_code): every row is INCONCLUSIVE and none
+#: failed, so 2. Was 0 until 2026-09-24, when "nothing failed" and "everything
+#: passed" were given different codes.
+SIMULATE_EXIT = 2
+
+
 def run_cli(*args, timeout=180):
     return subprocess.run(
         [sys.executable, "-m", "protocol_tests.cli", *args],
@@ -38,7 +45,7 @@ def run_cli(*args, timeout=180):
 class SimulateIsInconclusive(unittest.TestCase):
     def test_simulated_rows_are_inconclusive_not_passed(self):
         done = run_cli("test", "mcp", "--simulate", "--json")
-        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(done.returncode, SIMULATE_EXIT, done.stderr)
         report = json.loads(done.stdout)
         self.assertTrue(report["results"], "no rows to check")
         for r in report["results"]:
@@ -66,7 +73,7 @@ class TheConsoleAgreesWithTheJson(unittest.TestCase):
 
     def test_simulate_console_does_not_say_passed(self):
         done = run_cli("test", "mcp", "--simulate")
-        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(done.returncode, SIMULATE_EXIT, done.stderr)
         self.assertNotIn("passed (simulated)", done.stdout)
         self.assertIn("INCONCLUSIVE", done.stdout)
 
@@ -77,7 +84,7 @@ class TheRenderedPageMakesNoClaim(unittest.TestCase):
         cls.tmp = tempfile.mkdtemp(prefix="sim-html-")
         cls.path = os.path.join(cls.tmp, "evidence.html")
         done = run_cli("test", "mcp", "--simulate", "--html", cls.path)
-        assert done.returncode == 0, done.stderr
+        assert done.returncode == SIMULATE_EXIT, done.stderr
         assert os.path.exists(cls.path), f"no file produced: {done.stderr}"
         cls.html = Path(cls.path).read_text()
 
@@ -122,7 +129,7 @@ class ReportIsHonouredOnTheSimulatePath(unittest.TestCase):
             out = os.path.join(tmp, "sim.json")
             done = run_cli("test", "mcp", "--simulate",
                            *[a.replace("{out}", out) for a in spelling])
-            self.assertEqual(done.returncode, 0, done.stderr)
+            self.assertEqual(done.returncode, SIMULATE_EXIT, done.stderr)
             self.assertTrue(os.path.exists(out),
                             f"--report produced no file (exit {done.returncode})"
                             f"\n{done.stderr[-600:]}")

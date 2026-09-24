@@ -44,6 +44,69 @@ returned before any A2A dispatcher sees the request, so it is not that evidence.
   Test IDs and the count (640) are unchanged; `HARNESS_TEST_CATALOG.md`
   regenerated for moved line numbers.
 
+### Changed (behaviour) — exit status distinguishes FAIL from INCONCLUSIVE; MCP bootstrap failure emits NOT_EXECUTED rows
+
+**Exit status contract.** Every harness entry point (`agent-security test <harness>`
+and `python -m protocol_tests.<module>`) now exits with:
+
+| Code | Meaning |
+|------|---------|
+| `0` | every result PASSED |
+| `1` | at least one genuine FAIL |
+| `2` | no FAIL, but at least one result INCONCLUSIVE or not executed, or no result at all |
+
+The rule lives in one function, `protocol_tests.http_helpers.exit_code` (with
+`EXIT_PASSED` / `EXIT_FAILED` / `EXIT_INCONCLUSIVE`); `harness_base.exit_status`
+delegates to it. 33 harness mains that ended `sys.exit(1 if failed > 0 else 0)` or
+an equivalent now call it, as do `mcp_harness` (single, `--trials` and
+`--protocol-version differential` paths), `community_runner`, `workspace_trust`,
+`hidden_instruction` and the CLI's `--simulate` path. `testing/test_exit_code_contract.py`
+derives every result-computed exit from source and fails on any that bypasses the helper.
+
+What a downstream user must know:
+
+- **Nonzero still means "not clean".** A consumer that only checks for nonzero is
+  unaffected, except as listed below where a run that exited `0` now exits `2`.
+- **A run whose rows are all INCONCLUSIVE now exits `2`, not `1`** in most harnesses
+  (A2A against a closed port, for example). Gate on `1` specifically to fail only on a
+  failed control.
+- **Now `2` where it was `0`:** `--simulate` through the CLI and in modules that
+  simulate natively (`aiuc1`, `ap2`, `x402-fireblocks`, `ucp-acp`, `card-token`,
+  `settlement-finality`), since every simulated row is INCONCLUSIVE; wholly
+  INCONCLUSIVE live runs of those five payment modules; an `identity` run whose only
+  non-passes are `informational`; a `community` run in which no pattern ran.
+- **`mcp-supplychain` exits `1` on a failed check**, where it exited `2`.
+- **argparse usage errors also exit `2`** and write no report; the CLI names both
+  meanings on stderr.
+- Not changed: the `--trials N` statistical paths of `l402` and `x402` stay `0`/`1`
+  (they do not track INCONCLUSIVE per trial); `receipt-claim`, `cloud-agents`,
+  `autogen`, `crewai-cve`, `mcp-tool-poisoning` and `capability-residue` still set no
+  exit status from their results (pinned as a set that may only shrink).
+- The GitHub Action ignores the harness exit status and gates on report counts; see
+  the MCP summary change below.
+
+**MCP bootstrap failure emits per-test NOT_EXECUTED rows.** When `initialize()` (or
+modern `server/discover`) fails -- 403, 404, closed port -- `mcp_harness` now records
+one row per test that would have run, taken from the same registry `run_all`
+executes (`MCPSecurityTests.test_registry`, honouring `--categories`). Each row is
+INCONCLUSIVE (`passed: false`, `not_evaluated: true`, details
+`INCONCLUSIVE - NOT_EXECUTED: MCP bootstrap failed before this test ran (<error>)...`),
+never a pass and never a fail. The run exits `2`; it exited `1` before. Previously the
+report held zero rows, which was indistinguishable from an empty suite.
+
+- The MCP report `summary` is now the shared three-state `run_summary` (`total`,
+  `passed`, `failed`, `inconclusive`, `serviced`, `status`, `pass_rate`,
+  `wilson_95_ci`). `failed` counts serviced FAILs only; it used to count every
+  INCONCLUSIVE row too, which would have reported "33 failed" for a target that was
+  never reached. Action users with `fail_on: any` will see fewer MCP failures for
+  the same target.
+- The exception fallback in MCP `run_all` read `MCP-RC-001` as `RC-001`; test IDs
+  are now taken from the leading ID of the docstring.
+- `testing/test_dead_host_state.py`: `SILENT_BY_DESIGN` tightened from
+  `{"mcp_harness"}` to empty; mcp now sweeps as `ran` with zero passes.
+
+Test IDs and the 640 count are unchanged.
+
 ### Tests — MCP-021 reads a plain HTTP 401/403 as a rejection, now pinned on the wire
 
 External calibration feedback reported that MCP-021 graded a server

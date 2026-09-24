@@ -148,6 +148,18 @@ See [mcp-server.md](mcp-server.md) for full documentation.
 
 ## CI/CD Integration
 
+Outside the Action, gate on the process exit status. It is the same for every harness
+(see the README's **Exit status** table): `0` every result passed, `1` at least one FAIL,
+`2` no FAIL but at least one INCONCLUSIVE / not-executed result, or no result at all. An
+MCP target that refuses the handshake (403, 404, closed port) now produces one
+NOT_EXECUTED row per registered test and exits `2`. To fail only on a genuine FAIL:
+
+```bash
+agent-security test mcp --url "$MCP_URL" --report report.json; rc=$?
+[ "$rc" -eq 1 ] && exit 1           # a control failed
+[ "$rc" -eq 2 ] && echo "::warning::nothing established for some tests; read report.json"
+```
+
 Gate deployments on decision-governance tests. Drop this into any GitHub Actions workflow:
 
 ```yaml
