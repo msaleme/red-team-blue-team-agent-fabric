@@ -36,17 +36,20 @@ Author-run execution is **I0**.
 
 from __future__ import annotations
 
+import argparse
 import base64
 import json
 import secrets
+import sys
 import time
 import urllib.parse
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any, Callable
 
 from protocol_tests._utils import Severity
 from protocol_tests.harness_base import RecordingHarness
-from protocol_tests.http_helpers import is_inconclusive
+from protocol_tests.http_helpers import console_status, exit_code, is_inconclusive
+from protocol_tests.run_provenance import run_provenance
 
 #: A canary long enough that a 16-character prefix cannot collide by accident.
 CANARY_BYTES = 24
@@ -336,3 +339,61 @@ class CapabilityResidueHarness(RecordingHarness):
             self.test_cr_004_honoured_after_revocation(),
             self.test_cr_005_clean_handling_accepted(),
         ]
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run CR-001..005 against a reference target; exit with the shared contract.
+
+    Like `hidden_instruction_harness`, there is no default endpoint: a caller
+    observing its own system imports `CapabilityResidueHarness` and passes a
+    target callable. `--self-test` runs the module against one of its reference
+    shapes (`capability_residue_targets`), which proves the harness runs and
+    nothing about any real system. Until 2026-09-24 this module had no `main`,
+    so `python -m` and `agent-security test capability-residue` ran nothing and
+    exited 0.
+    """
+    from protocol_tests.capability_residue_targets import SHAPES, make_target
+
+    ap = argparse.ArgumentParser(
+        description="CR-001..005: a capability that outlives the grant it was issued under")
+    ap.add_argument("--report", help="write a JSON report to this path")
+    ap.add_argument("--self-test", action="store_true",
+                    help="run against one of the module's own reference targets; "
+                         "proves only that the harness runs")
+    ap.add_argument("--shape", choices=SHAPES, default="REDACTING",
+                    help="reference target for --self-test (default REDACTING, "
+                         "the shape every test must PASS)")
+    args = ap.parse_args(argv)
+
+    if not args.self_test:
+        print("No target supplied. This harness observes a caller's own system; "
+              "import CapabilityResidueHarness and pass a target callable, or use "
+              "--self-test to exercise the module against its reference targets. "
+              "There is no default endpoint.")
+        return 2
+
+    results = CapabilityResidueHarness(make_target(args.shape)).run_all()
+    for r in results:
+        print(f"  {console_status(r)} {r.test_id}: {r.name}")
+    if args.report:
+        with open(args.report, "w", encoding="utf-8") as fh:
+            json.dump({
+                "provenance": run_provenance(),
+                "results": [asdict(r) for r in results],
+                "summary": {
+                    "total": len(results),
+                    "passed": sum(1 for r in results if r.passed),
+                    "failed": sum(1 for r in results
+                                  if not r.passed and not r.not_evaluated),
+                    "inconclusive": sum(1 for r in results if r.not_evaluated),
+                },
+                "scope": (f"self-test against the reference target shape "
+                          f"{args.shape}. Every row is I0 and none is evidence "
+                          "about any real system; the target was written by "
+                          "this module."),
+            }, fh, indent=2, default=str)
+    return exit_code(results)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

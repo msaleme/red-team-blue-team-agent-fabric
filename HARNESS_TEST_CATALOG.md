@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `cfb9d9f`
+**Generated:** `scripts/generate_test_catalog.py` at commit `1f7a4fe`
 **Test count:** 640 unique test IDs across 49 registered harness modules (48 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -98,16 +98,16 @@ AP2-017 | vct Exact-Match Enforcement | protocol_tests/ap2_harness.py:840
 ### autogen_harness.py (`protocol_tests/autogen_harness.py`) — 10 tests
 
 ```
-AG-MS-001 | Agent Impersonation via Name Field | protocol_tests/autogen_harness.py:467
-AG-MS-002 | System Config Injection via Spoofed Assistant | protocol_tests/autogen_harness.py:512
-AG-MS-003 | HMAC Verification Bypass with Forged Signature | protocol_tests/autogen_harness.py:564
-AG-MS-004 | Cross-Conversation Message Replay Attack | protocol_tests/autogen_harness.py:611
-AG-NE-001 | Nested Conversation Escape via Fake Terminator | protocol_tests/autogen_harness.py:320
-AG-NE-002 | Shared State Poisoning via Nested Context | protocol_tests/autogen_harness.py:368
-AG-NE-003 | Local Executor Trust Boundary Bypass | protocol_tests/autogen_harness.py:414
-AG-SP-001 | Direct Speaker Override via Prompt Injection | protocol_tests/autogen_harness.py:182
-AG-SP-002 | Fake Task Completion to Skip Agents | protocol_tests/autogen_harness.py:228
-AG-SP-003 | Security Agent Exclusion via Fake Maintenance | protocol_tests/autogen_harness.py:271
+AG-MS-001 | Agent Impersonation via Name Field | protocol_tests/autogen_harness.py:468
+AG-MS-002 | System Config Injection via Spoofed Assistant | protocol_tests/autogen_harness.py:513
+AG-MS-003 | HMAC Verification Bypass with Forged Signature | protocol_tests/autogen_harness.py:565
+AG-MS-004 | Cross-Conversation Message Replay Attack | protocol_tests/autogen_harness.py:612
+AG-NE-001 | Nested Conversation Escape via Fake Terminator | protocol_tests/autogen_harness.py:321
+AG-NE-002 | Shared State Poisoning via Nested Context | protocol_tests/autogen_harness.py:369
+AG-NE-003 | Local Executor Trust Boundary Bypass | protocol_tests/autogen_harness.py:415
+AG-SP-001 | Direct Speaker Override via Prompt Injection | protocol_tests/autogen_harness.py:183
+AG-SP-002 | Fake Task Completion to Skip Agents | protocol_tests/autogen_harness.py:229
+AG-SP-003 | Security Agent Exclusion via Fake Maintenance | protocol_tests/autogen_harness.py:272
 ```
 
 ### benchmark_integrity_harness.py (`protocol_tests/benchmark_integrity_harness.py`) — 7 tests
@@ -140,11 +140,11 @@ CP-010 | Custom Profile Validation | protocol_tests/capability_profile_harness.p
 ### capability_residue_harness.py (`protocol_tests/capability_residue_harness.py`) — 5 tests
 
 ```
-CR-001 | Literal capability residue in emitted artifacts | protocol_tests/capability_residue_harness.py:217
-CR-002 | Derived-form capability residue | protocol_tests/capability_residue_harness.py:236
-CR-003 | Capability residue across a session boundary | protocol_tests/capability_residue_harness.py:253
-CR-004 | Capability honoured after revocation | protocol_tests/capability_residue_harness.py:302
-CR-005 | Clean capability handling accepted (control) | protocol_tests/capability_residue_harness.py:323
+CR-001 | Literal capability residue in emitted artifacts | protocol_tests/capability_residue_harness.py:220
+CR-002 | Derived-form capability residue | protocol_tests/capability_residue_harness.py:239
+CR-003 | Capability residue across a session boundary | protocol_tests/capability_residue_harness.py:256
+CR-004 | Capability honoured after revocation | protocol_tests/capability_residue_harness.py:305
+CR-005 | Clean capability handling accepted (control) | protocol_tests/capability_residue_harness.py:326
 ```
 
 ### Card-Network Agentic Tokens (`protocol_tests/card_token_harness.py`) — 12 tests
@@ -180,46 +180,46 @@ CBRN-008 | Threshold Testing | protocol_tests/cbrn_harness.py:580
 ### Cloud Agent Platforms (`protocol_tests/cloud_agent_harness.py`) — 25 tests
 
 ```
-AZR-001 | Tool Definition Override | protocol_tests/cloud_agent_harness.py:421
-AZR-002 | Grounding Source Manipulation | protocol_tests/cloud_agent_harness.py:446
-AZR-003 | Thread Isolation Bypass | protocol_tests/cloud_agent_harness.py:471
-AZR-004 | File Search Poisoning | protocol_tests/cloud_agent_harness.py:499
-AZR-005 | Code Interpreter Escape | protocol_tests/cloud_agent_harness.py:525
-BRK-001 | Action Group Injection | protocol_tests/cloud_agent_harness.py:263
-BRK-002 | Knowledge Base Poisoning | protocol_tests/cloud_agent_harness.py:289
-BRK-003 | Session State Exfiltration | protocol_tests/cloud_agent_harness.py:313
-BRK-004 | Lambda Function Escape | protocol_tests/cloud_agent_harness.py:337
-BRK-005 | Guardrail Bypass via Multi-Turn | protocol_tests/cloud_agent_harness.py:370
-SFA-001 | Topic Classification Bypass | protocol_tests/cloud_agent_harness.py:719
-SFA-002 | Apex Action Injection | protocol_tests/cloud_agent_harness.py:744
-SFA-003 | Record Access Boundary Violation | protocol_tests/cloud_agent_harness.py:770
-SFA-004 | Flow Orchestration Escape | protocol_tests/cloud_agent_harness.py:795
-SFA-005 | Einstein Trust Layer Bypass | protocol_tests/cloud_agent_harness.py:821
-VTX-001 | Tool Parameter Injection | protocol_tests/cloud_agent_harness.py:573
-VTX-002 | Datastore Poisoning | protocol_tests/cloud_agent_harness.py:597
-VTX-003 | Extension Authentication Bypass | protocol_tests/cloud_agent_harness.py:623
-VTX-004 | Cross-Agent Context Leakage | protocol_tests/cloud_agent_harness.py:647
-VTX-005 | Webhook Callback Manipulation | protocol_tests/cloud_agent_harness.py:674
-WXO-001 | Skill Catalog Injection | protocol_tests/cloud_agent_harness.py:869
-WXO-002 | Decision Engine Manipulation | protocol_tests/cloud_agent_harness.py:892
-WXO-003 | Integration Credential Leakage | protocol_tests/cloud_agent_harness.py:915
-WXO-004 | Workflow Automation Hijack | protocol_tests/cloud_agent_harness.py:938
-WXO-005 | Multi-Tenant Isolation | protocol_tests/cloud_agent_harness.py:961
+AZR-001 | Tool Definition Override | protocol_tests/cloud_agent_harness.py:422
+AZR-002 | Grounding Source Manipulation | protocol_tests/cloud_agent_harness.py:447
+AZR-003 | Thread Isolation Bypass | protocol_tests/cloud_agent_harness.py:472
+AZR-004 | File Search Poisoning | protocol_tests/cloud_agent_harness.py:500
+AZR-005 | Code Interpreter Escape | protocol_tests/cloud_agent_harness.py:526
+BRK-001 | Action Group Injection | protocol_tests/cloud_agent_harness.py:264
+BRK-002 | Knowledge Base Poisoning | protocol_tests/cloud_agent_harness.py:290
+BRK-003 | Session State Exfiltration | protocol_tests/cloud_agent_harness.py:314
+BRK-004 | Lambda Function Escape | protocol_tests/cloud_agent_harness.py:338
+BRK-005 | Guardrail Bypass via Multi-Turn | protocol_tests/cloud_agent_harness.py:371
+SFA-001 | Topic Classification Bypass | protocol_tests/cloud_agent_harness.py:720
+SFA-002 | Apex Action Injection | protocol_tests/cloud_agent_harness.py:745
+SFA-003 | Record Access Boundary Violation | protocol_tests/cloud_agent_harness.py:771
+SFA-004 | Flow Orchestration Escape | protocol_tests/cloud_agent_harness.py:796
+SFA-005 | Einstein Trust Layer Bypass | protocol_tests/cloud_agent_harness.py:822
+VTX-001 | Tool Parameter Injection | protocol_tests/cloud_agent_harness.py:574
+VTX-002 | Datastore Poisoning | protocol_tests/cloud_agent_harness.py:598
+VTX-003 | Extension Authentication Bypass | protocol_tests/cloud_agent_harness.py:624
+VTX-004 | Cross-Agent Context Leakage | protocol_tests/cloud_agent_harness.py:648
+VTX-005 | Webhook Callback Manipulation | protocol_tests/cloud_agent_harness.py:675
+WXO-001 | Skill Catalog Injection | protocol_tests/cloud_agent_harness.py:870
+WXO-002 | Decision Engine Manipulation | protocol_tests/cloud_agent_harness.py:893
+WXO-003 | Integration Credential Leakage | protocol_tests/cloud_agent_harness.py:916
+WXO-004 | Workflow Automation Hijack | protocol_tests/cloud_agent_harness.py:939
+WXO-005 | Multi-Tenant Isolation | protocol_tests/cloud_agent_harness.py:962
 ```
 
 ### CrewAI CVE Reproduction (`protocol_tests/crewai_cve_harness.py`) — 10 tests
 
 ```
-CREW-001 | Sandbox Fallback Detection | protocol_tests/crewai_cve_harness.py:501
-CREW-002 | Ctypes Payload Coverage (self-test, no target) | protocol_tests/crewai_cve_harness.py:611
-CREW-003 | Code Execution Config Audit | protocol_tests/crewai_cve_harness.py:671
-CREW-004 | Path Traversal in JSON Loader | protocol_tests/crewai_cve_harness.py:749
-CREW-005 | Sensitive File Read Detection | protocol_tests/crewai_cve_harness.py:827
-CREW-006 | SSRF Cloud Metadata Detection | protocol_tests/crewai_cve_harness.py:905
-CREW-007 | SSRF Internal Service Detection | protocol_tests/crewai_cve_harness.py:976
-CREW-008 | SSRF URL Validation Bypass (self-test in simulate; target differential live) | protocol_tests/crewai_cve_harness.py:1074
-CREW-009 | Docker Availability Check Bypass | protocol_tests/crewai_cve_harness.py:1176
-CREW-010 | Fallback Sandbox RCE Chain | protocol_tests/crewai_cve_harness.py:1264
+CREW-001 | Sandbox Fallback Detection | protocol_tests/crewai_cve_harness.py:502
+CREW-002 | Ctypes Payload Coverage (self-test, no target) | protocol_tests/crewai_cve_harness.py:612
+CREW-003 | Code Execution Config Audit | protocol_tests/crewai_cve_harness.py:672
+CREW-004 | Path Traversal in JSON Loader | protocol_tests/crewai_cve_harness.py:750
+CREW-005 | Sensitive File Read Detection | protocol_tests/crewai_cve_harness.py:828
+CREW-006 | SSRF Cloud Metadata Detection | protocol_tests/crewai_cve_harness.py:906
+CREW-007 | SSRF Internal Service Detection | protocol_tests/crewai_cve_harness.py:977
+CREW-008 | SSRF URL Validation Bypass (self-test in simulate; target differential live) | protocol_tests/crewai_cve_harness.py:1075
+CREW-009 | Docker Availability Check Bypass | protocol_tests/crewai_cve_harness.py:1177
+CREW-010 | Fallback Sandbox RCE Chain | protocol_tests/crewai_cve_harness.py:1265
 ```
 
 ### Delegated-Authority Attenuation (`protocol_tests/delegation_chain_harness.py`) — 11 tests
@@ -583,16 +583,16 @@ MCP-F-004 | Launcher Version Pinning | protocol_tests/mcp_supplychain.py:494
 ### MCP Tool Poisoning Reproduction (`protocol_tests/mcp_tool_poisoning_harness.py`) — 10 tests
 
 ```
-CVE-001 | Nested Schema Injection Detection | protocol_tests/mcp_tool_poisoning_harness.py:626
-CVE-002 | Tool Fork Fingerprinting | protocol_tests/mcp_tool_poisoning_harness.py:675
-CVE-003 | Marketplace Contamination Rate | protocol_tests/mcp_tool_poisoning_harness.py:720
-CVE-004 | Cross-Tool Context Leakage | protocol_tests/mcp_tool_poisoning_harness.py:770
-CVE-005 | Supply Chain Signature Bypass | protocol_tests/mcp_tool_poisoning_harness.py:885
-CVE-006 | Description Payload Encoding Detection | protocol_tests/mcp_tool_poisoning_harness.py:985
-CVE-007 | Incremental Poisoning Scanner Coverage (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1099
-CVE-008 | Marketplace Registry Integrity (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1147
-CVE-009 | Shared-Auth Scope Escalation (CVE-2026-35625) | protocol_tests/mcp_tool_poisoning_harness.py:1270
-CVE-010 | Channel Extension SSRF (CVE-2026-35629) | protocol_tests/mcp_tool_poisoning_harness.py:1371
+CVE-001 | Nested Schema Injection Detection | protocol_tests/mcp_tool_poisoning_harness.py:627
+CVE-002 | Tool Fork Fingerprinting | protocol_tests/mcp_tool_poisoning_harness.py:676
+CVE-003 | Marketplace Contamination Rate | protocol_tests/mcp_tool_poisoning_harness.py:721
+CVE-004 | Cross-Tool Context Leakage | protocol_tests/mcp_tool_poisoning_harness.py:771
+CVE-005 | Supply Chain Signature Bypass | protocol_tests/mcp_tool_poisoning_harness.py:886
+CVE-006 | Description Payload Encoding Detection | protocol_tests/mcp_tool_poisoning_harness.py:986
+CVE-007 | Incremental Poisoning Scanner Coverage (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1100
+CVE-008 | Marketplace Registry Integrity (self-test, no target) | protocol_tests/mcp_tool_poisoning_harness.py:1148
+CVE-009 | Shared-Auth Scope Escalation (CVE-2026-35625) | protocol_tests/mcp_tool_poisoning_harness.py:1271
+CVE-010 | Channel Extension SSRF (CVE-2026-35629) | protocol_tests/mcp_tool_poisoning_harness.py:1372
 ```
 
 ### memory_harness.py (`protocol_tests/memory_harness.py`) — 16 tests
@@ -715,17 +715,17 @@ PTC-006 | Expired Container Reuse | protocol_tests/ptc_harness.py:754
 ### receipt_claim_harness.py (`protocol_tests/receipt_claim_harness.py`) — 11 tests
 
 ```
-RCL-001 | Omitted mandatory evidence | protocol_tests/receipt_claim_harness.py:278
-RCL-002 | Substituted evidence, re-signed envelope | protocol_tests/receipt_claim_harness.py:279
-RCL-003 | Stale checker transcript | protocol_tests/receipt_claim_harness.py:280
-RCL-004 | Check bound to the wrong tool-set digest | protocol_tests/receipt_claim_harness.py:281
-RCL-005 | Authorization bound to different parameters | protocol_tests/receipt_claim_harness.py:282
-RCL-006 | Execution ack bound to another action | protocol_tests/receipt_claim_harness.py:283
-RCL-007 | Emitter self-assertion, no independent attestation | protocol_tests/receipt_claim_harness.py:284
-RCL-008 | Fully-supported receipt accepted (control) | protocol_tests/receipt_claim_harness.py:438
-RCL-009 | Wired MCP-019 check (clean) accepted | protocol_tests/receipt_claim_harness.py:456
-RCL-010 | Wired MCP-019 check (composite found) rejected | protocol_tests/receipt_claim_harness.py:462
-RCL-011 | Wired MCP-019 check bound to wrong tool set rejected | protocol_tests/receipt_claim_harness.py:469
+RCL-001 | Omitted mandatory evidence | protocol_tests/receipt_claim_harness.py:279
+RCL-002 | Substituted evidence, re-signed envelope | protocol_tests/receipt_claim_harness.py:280
+RCL-003 | Stale checker transcript | protocol_tests/receipt_claim_harness.py:281
+RCL-004 | Check bound to the wrong tool-set digest | protocol_tests/receipt_claim_harness.py:282
+RCL-005 | Authorization bound to different parameters | protocol_tests/receipt_claim_harness.py:283
+RCL-006 | Execution ack bound to another action | protocol_tests/receipt_claim_harness.py:284
+RCL-007 | Emitter self-assertion, no independent attestation | protocol_tests/receipt_claim_harness.py:285
+RCL-008 | Fully-supported receipt accepted (control) | protocol_tests/receipt_claim_harness.py:439
+RCL-009 | Wired MCP-019 check (clean) accepted | protocol_tests/receipt_claim_harness.py:457
+RCL-010 | Wired MCP-019 check (composite found) rejected | protocol_tests/receipt_claim_harness.py:463
+RCL-011 | Wired MCP-019 check bound to wrong tool set rejected | protocol_tests/receipt_claim_harness.py:470
 ```
 
 ### Return Channel (`protocol_tests/return_channel_harness.py`) — 8 tests

@@ -72,6 +72,7 @@ from protocol_tests.agent_prose_outcome import (
 )
 from protocol_tests.http_helpers import (
     console_status,
+    exit_code,
     INCONCLUSIVE_PREFIX,
     _err,
     agent_prose,
@@ -1423,6 +1424,7 @@ def main():
         with open(args.report, "w") as f:
             json.dump(report, f, indent=2)
         print(f"Report saved to {args.report}")
+    sys.exit(exit_code(all_results))
 
 
 if __name__ == "__main__":

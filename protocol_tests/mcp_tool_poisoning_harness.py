@@ -89,6 +89,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    exit_code,
     silence_detail,
     silence_evidence,
 )
@@ -1542,6 +1543,7 @@ def main():
         with open(args.report, "w") as f:
             json.dump(report, f, indent=2)
         print(f"Report saved to {args.report}")
+    sys.exit(exit_code(all_results))
 
 
 if __name__ == "__main__":
