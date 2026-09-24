@@ -1077,6 +1077,52 @@ def run_summary(results) -> dict:
     return summary
 
 
+#: Process exit status of a harness run. The one contract every entry point
+#: uses (2026-09-24, owner decision after the ASH pole pilot):
+#:
+#:     0  every result PASSED
+#:     1  at least one genuine FAIL (a serviced verdict that the control did
+#:        not hold), whatever else the run contains
+#:     2  no FAIL, but at least one result established nothing: INCONCLUSIVE,
+#:        not executed, or a run that produced no results at all
+#:
+#: Before this, most entry points ended ``sys.exit(1 if any(not r.passed))``.
+#: An INCONCLUSIVE row also has ``passed=False``, so exit 1 conflated "the
+#: control failed" with "could not tell", and the persisted report was the only
+#: way to separate them. Five payment modules went the other way and exited 0
+#: over a wholly INCONCLUSIVE run, and mcp_harness exited 1 over one. Three
+#: answers to one question.
+#:
+#: Nonzero still means "not clean", so a consumer that only checks for nonzero
+#: is unaffected by the split. Note that argparse also exits 2 on a usage
+#: error; that run writes no report, which is how the two are told apart.
+EXIT_PASSED = 0
+EXIT_FAILED = 1
+EXIT_INCONCLUSIVE = 2
+
+
+def exit_code(results, *, run_error: str | None = None) -> int:
+    """The process exit status for a run's results: 0, 1 or 2 (see `EXIT_PASSED`).
+
+    Counts with `run_summary`, so the exit status and the summary written
+    beside it cannot disagree about what was a FAIL. Accepts result objects or
+    written dict rows, like `run_summary`.
+
+    An empty result set is 2, never 0: zero failures out of zero tests is not
+    a green run, and "nothing established" is exactly what 2 means.
+
+    ``run_error`` is a run-level failure to establish anything that is not
+    itself a row (a connection error recorded on the report). It can raise a
+    clean run to 2; it cannot lower a FAIL.
+    """
+    summary = run_summary(results)
+    if summary["failed"]:
+        return EXIT_FAILED
+    if summary["inconclusive"] or not summary["total"] or run_error:
+        return EXIT_INCONCLUSIVE
+    return EXIT_PASSED
+
+
 def summary_lines(summary: dict) -> list[str]:
     """Console lines for a run summary, saying plainly when nothing was observed."""
     if summary["total"] == 0:

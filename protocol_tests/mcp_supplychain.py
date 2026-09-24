@@ -46,6 +46,7 @@ from datetime import datetime, timezone
 
 # Reuse the protocol suite's result + severity types so reports stay uniform.
 from protocol_tests.mcp_harness import MCPTestResult, Severity
+from protocol_tests.http_helpers import exit_code
 
 # ---------------------------------------------------------------------------
 # Static-analysis patterns (no execution — these only read text)
@@ -625,7 +626,7 @@ def main() -> None:
             mark = "PASS" if r.passed else "FAIL"
             print(f"  [{mark}] {r.test_id} {r.name}: {r.details}")
 
-    sys.exit(0 if all(r.passed for r in results) else 2)
+    sys.exit(exit_code(results))
 
 
 if __name__ == "__main__":

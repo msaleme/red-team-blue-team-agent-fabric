@@ -31,6 +31,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    exit_code,
     console_status,
     is_inconclusive,
     INCONCLUSIVE_PREFIX,
@@ -1128,8 +1129,7 @@ def main():
         if args.report:
             generate_report(results, args.report)
 
-    blocked = sum(1 for r in results if not r.passed)
-    sys.exit(1 if blocked > 0 else 0)
+    sys.exit(exit_code(results))
 
 
 if __name__ == "__main__":

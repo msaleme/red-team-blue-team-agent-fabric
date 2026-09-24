@@ -91,6 +91,7 @@ from protocol_tests.run_provenance import (
     subject_none,
 )
 from protocol_tests.http_helpers import (
+    exit_code,
     INCONCLUSIVE_PREFIX,
     is_inconclusive,
     run_summary,
@@ -1793,7 +1794,7 @@ def main() -> None:
             json.dump(report, f, indent=2, default=str)
         print(f"Report written to {args.report}", file=sys.stderr)
 
-    sys.exit(1 if any(not r.passed for r in results) else 0)
+    sys.exit(exit_code(results))
 
 
 if __name__ == "__main__":

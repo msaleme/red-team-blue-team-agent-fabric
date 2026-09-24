@@ -45,7 +45,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 
-from protocol_tests.http_helpers import (_MESSAGE_DEPTH, agent_message_text,
+from protocol_tests.http_helpers import (exit_code, _MESSAGE_DEPTH, agent_message_text,
                                         echoed_user_parts_only,
                                         non_agent_authored_text)
 
@@ -687,7 +687,7 @@ def main() -> None:
         with open(args.report, "w") as f:
             json.dump(payload, f, indent=2, default=str)
 
-    sys.exit(1 if any(not r.passed for r in results) else 0)
+    sys.exit(exit_code(results))
 
 
 if __name__ == "__main__":

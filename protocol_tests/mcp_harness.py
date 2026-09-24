@@ -59,8 +59,10 @@ from protocol_tests._utils import (
 )
 from protocol_tests.http_helpers import (
     console_status,
+    exit_code,
     is_inconclusive,
     INCONCLUSIVE_PREFIX,
+    run_summary,
     # Shared 2026-08-30: tool_search_harness had the same shape. Kept under
     # the local name so the fourteen call sites below are unchanged.
     nothing_to_scan as _nothing_to_scan,
@@ -663,6 +665,20 @@ class MCPTestResult:
             self.timestamp = datetime.now(timezone.utc).isoformat()
 
 
+def _test_identity(test_fn) -> tuple[str, str]:
+    """(test_id, name) from a test method's docstring, ``"MCP-RC-001: Name."``.
+
+    The exception fallback in `run_all` used ``[A-Z]{2,}-\\d{3}``, which reads
+    ``MCP-RC-001`` as ``RC-001``. This anchors on the leading ID instead.
+    """
+    doc = (test_fn.__doc__ or "").strip()
+    first = doc.splitlines()[0] if doc else ""
+    match = re.match(r"([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d{3})\s*:\s*(.*)", first)
+    if not match:
+        return test_fn.__name__, test_fn.__name__
+    return match.group(1), match.group(2).strip() or match.group(1)
+
+
 # ---------------------------------------------------------------------------
 # MCP Security Test Suite
 # ---------------------------------------------------------------------------
@@ -719,6 +735,11 @@ class MCPSecurityTests:
         self.issuer_probe = issuer_probe
         self.issuer_attacker_headers = issuer_attacker_headers
         self.selected_protocol_version: str | None = None
+        #: Set by `run_all` when `initialize()` failed and every row it returns
+        #: is NOT_EXECUTED. A consumer that used to read "zero rows" as "the
+        #: session never started" must read this instead: since 2026-09-24 a
+        #: failed bootstrap returns one row per registered test.
+        self.bootstrap_error: str | None = None
 
     def _record(self, result: MCPTestResult):
         self.results.append(result)
@@ -3498,9 +3519,14 @@ class MCPSecurityTests:
     # Run all tests
     # ------------------------------------------------------------------
 
-    def run_all(self, categories: list[str] | None = None) -> list[MCPTestResult]:
-        """Run all MCP security tests (or a filtered subset)."""
+    def test_registry(self, categories: list[str] | None = None) -> dict[str, list]:
+        """The tests `run_all` runs, by category, filtered to ``categories``.
 
+        One registry for both halves of `run_all`: the tests it executes after a
+        successful bootstrap, and the NOT_EXECUTED rows it emits when bootstrap
+        fails. Deriving the second from the first is what stops the two lists
+        drifting apart.
+        """
         all_tests = {
             "tool_discovery": [
                 self.test_mcp_tool_list_injection,
@@ -3572,9 +3598,41 @@ class MCPSecurityTests:
 
         # Filter categories if specified
         if categories:
-            test_map = {k: v for k, v in all_tests.items() if k in categories}
-        else:
-            test_map = all_tests
+            return {k: v for k, v in all_tests.items() if k in categories}
+        return all_tests
+
+    def _not_executed(self, test_map: dict[str, list], error: str) -> None:
+        """One INCONCLUSIVE row per test that would have run, when bootstrap failed.
+
+        Until 2026-09-24 a failed `initialize()` returned an empty list. The
+        report then held zero rows, which is indistinguishable from an empty
+        suite, and a pole pilot against 403, 404 and a closed port could say
+        nothing per test (ASH pole-pilot follow-up, section 4). Each row is
+        INCONCLUSIVE (`not_evaluated`, `passed=False`) and names the bootstrap
+        failure: no request for the test was sent, so nothing about its control
+        was established -- it neither passed nor failed. This is the harness's
+        existing inconclusive convention, not a new result type.
+        """
+        for category, tests in test_map.items():
+            for test_fn in tests:
+                test_id, name = _test_identity(test_fn)
+                self._record(MCPTestResult(
+                    test_id=test_id,
+                    name=name,
+                    category=category,
+                    owasp_asi="",
+                    severity="",
+                    passed=False,
+                    details=(f"{INCONCLUSIVE_PREFIX}NOT_EXECUTED: MCP bootstrap "
+                             f"failed before this test ran ({error}). No request "
+                             f"for this test was sent, so nothing about this "
+                             f"control was established."),
+                    mcp_method="",
+                ))
+
+    def run_all(self, categories: list[str] | None = None) -> list[MCPTestResult]:
+        """Run all MCP security tests (or a filtered subset)."""
+        test_map = self.test_registry(categories)
 
         if not self.json_output:
             print(f"\n{'='*60}")
@@ -3585,7 +3643,9 @@ class MCPSecurityTests:
         if not self.simulate and not self.initialize():
             err = getattr(self, "_connection_error", "Failed to initialize MCP connection")
             if not self.json_output:
-                print(f"\n❌ {err}. Aborting.")
+                print(f"\n❌ {err}. Aborting: every test below is NOT_EXECUTED.")
+            self.bootstrap_error = err
+            self._not_executed(test_map, err)
             return self.results
 
         for category, tests in test_map.items():
@@ -3595,8 +3655,7 @@ class MCPSecurityTests:
                 try:
                     test_fn()
                 except Exception as e:
-                    match = re.search(r"([A-Z]{2,}-\d{3})", test_fn.__doc__ or "")
-                    _eid = match.group(1) if match else test_fn.__name__
+                    _eid, _ = _test_identity(test_fn)
                     if not self.json_output:
                         print(f"  ERROR ⚠️  {_eid}: {e}")
                     self.results.append(MCPTestResult(
@@ -3642,11 +3701,12 @@ def build_report(
         "suite": "MCP Protocol Security Tests v3.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "status": "inconclusive" if inconclusive else "completed",
-        "summary": {
-            "total": len(results),
-            "passed": sum(1 for r in results if r.passed),
-            "failed": sum(1 for r in results if not r.passed),
-        },
+        # Three-state (2026-09-24). The two-bucket version counted every
+        # INCONCLUSIVE row as `failed`, which became false in a new way once a
+        # failed bootstrap emits one NOT_EXECUTED row per test: "33 failed" for
+        # a target that was never reached. `total`, `passed` and `failed` keep
+        # their names; `failed` now means a serviced FAIL only.
+        "summary": run_summary(results),
         "results": [asdict(r) for r in results],
     }
     if error:
@@ -4055,10 +4115,10 @@ def main():
                 print(f"Report written to {args.report}", file=sys.stderr)
         if json_output:
             print(json.dumps(differential, indent=2, default=str))
-        failed = any(report_has_failure(report) for report in (
-            differential["legacy"], differential["modern"]
+        sys.exit(exit_code(
+            differential["legacy"]["results"] + differential["modern"]["results"],
+            run_error=differential["legacy"].get("error") or differential["modern"].get("error"),
         ))
-        sys.exit(1 if failed else 0)
 
     # Hoisted: the exit logic below runs after both branches, and conn_error was
     # only ever assigned inside the single-run one.
@@ -4129,16 +4189,17 @@ def main():
             report = build_report(results, error=conn_error, protocol_version=suite.selected_protocol_version)
             print(json.dumps(report, indent=2, default=str))
 
-    # Exit code. An empty result set is INCONCLUSIVE, never success. If the target
-    # was unreachable then `failed` is 0, and `1 if failed > 0` returned 0, so a CI
-    # job reading only the exit status treated "no test ever ran" as a pass. Zero
-    # failures out of zero tests is not a green run.
+    # Exit code: the shared contract (http_helpers.exit_code). 0 all passed, 1 a
+    # serviced FAIL, 2 nothing failed but something was not established. An
+    # empty result set is 2, never success: if the target was unreachable then
+    # `failed` was 0, and `1 if failed > 0` once returned 0, so a CI job reading
+    # only the exit status treated "no test ever ran" as a pass.
     #
-    # Deliberately NOT synthesising a failed result per test: the accurate statement
-    # is "not executed", not "32 tests failed".
-    failed = sum(1 for r in results if not r.passed)
-    inconclusive = bool(conn_error) or not results
-    sys.exit(1 if (failed > 0 or inconclusive) else 0)
+    # A failed bootstrap now emits one NOT_EXECUTED row per registered test.
+    # They are INCONCLUSIVE, not failed: the accurate statement is "not
+    # executed", not "33 tests failed". So that run exits 2. Before 2026-09-24
+    # it exited 1, the same code as a real FAIL.
+    sys.exit(exit_code(results, run_error=conn_error))
 
 
 if __name__ == "__main__":

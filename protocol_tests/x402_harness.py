@@ -89,6 +89,7 @@ from protocol_tests.agent_prose_outcome import (
     classify_agent_prose,
 )
 from protocol_tests.http_helpers import (
+    exit_code,
     console_status,
     agent_prose,
     is_inconclusive,
@@ -3877,9 +3878,7 @@ def main():
         if args.report:
             generate_report(results, args.report, autonomy_risk=autonomy_risk)
 
-        failed = sum(1 for r in results
-                     if not r.passed and not r.not_evaluated)
-        sys.exit(1 if failed > 0 else 0)
+        sys.exit(exit_code(results))
 
 
 def _run_statistical(

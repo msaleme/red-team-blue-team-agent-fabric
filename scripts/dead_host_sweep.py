@@ -40,15 +40,17 @@ Three statuses are not the same thing and used to look the same:
     ran-no-verdicts     ran and produced nothing; NOT a clean row
     <exception>         could not be run at all
 
-`mcp_harness` is the second kind. It aborts with
+`mcp_harness` was the second kind until 2026-09-24. It aborted with
 
     if not self.initialize():
         return self.results
 
-which is the correct behaviour -- it refuses to emit verdicts it cannot ground
--- and it rendered as `0/0`, indistinguishable from a suite that ran everything
-and found nothing. No failures is not the same as passing, one level up from the
-rule this script exists to enforce.
+which refused to emit verdicts it could not ground, and it rendered as `0/0`,
+indistinguishable from a suite that ran everything and found nothing. No failures
+is not the same as passing, one level up from the rule this script exists to
+enforce. It now emits one NOT_EXECUTED (INCONCLUSIVE) row per registered test,
+so it sweeps as `ran` with zero passes; the status stays for any suite that
+still stops silently.
 
 `passed` is the count that survived a target which was never there. Anything
 above zero needs reading. `errors` is tests that raised; a module that errors is
@@ -321,10 +323,10 @@ def sweep(target: str = CLOSED_PORT) -> list[dict]:
                              "status": f"{type(exc).__name__}: {exc}"[:70]})
                 continue
             if not results:
-                # Distinct from "ran, everything zero". mcp_harness aborts with
-                # `if not self.initialize(): return self.results`, which is the
-                # right behaviour and produces a 0/0 row that reads exactly like
-                # a clean sweep. No failures is not the same as passing.
+                # Distinct from "ran, everything zero". mcp_harness used to abort
+                # with `if not self.initialize(): return self.results`, a 0/0 row
+                # that read exactly like a clean sweep (it now emits NOT_EXECUTED
+                # rows). No failures is not the same as passing.
                 rows.append({"module": label, "status": "ran-no-verdicts",
                              "total": 0, "passed": 0, "errors": 0,
                              "passing_ids": []})

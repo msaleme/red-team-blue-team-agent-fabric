@@ -107,10 +107,14 @@ def _report_path_from(args: list[str]) -> str | None:
 
 def _simulate_harness(harness_name: str, info: dict,
                       json_output: bool, html_output: str | None,
-                      report_path: str | None = None) -> None:
+                      report_path: str | None = None) -> int:
     """Generate synthetic results for a harness without a live target.
 
-    Every row is INCONCLUSIVE, not passed.
+    Every row is INCONCLUSIVE, not passed. Returns the process exit status for
+    those rows under the shared contract (`http_helpers.exit_code`), which is 2:
+    nothing failed and nothing was established. Until 2026-09-24 the caller
+    exited 0 here, while a module that simulates natively (aiuc1) exited with
+    its own status, so the same request had two answers depending on route.
 
     `report_path` is honoured here because the dispatcher exits before the
     module would ever see `--report`. `agent-security test mcp --simulate
@@ -230,6 +234,9 @@ def _simulate_harness(harness_name: str, info: dict,
         send_telemetry_event(module=harness_name, **verdict_counts(results))
     except Exception:
         pass
+
+    from protocol_tests.http_helpers import exit_code
+    return exit_code(results)
 
 #: The one reason a live event can give for carrying no counts. A fixed
 #: token, not free text: the payload is documented field by field in
@@ -605,6 +612,14 @@ def print_usage():
     print("  agent-security verify --registry-id <id>")
     print("  agent-security config --no-telemetry")
     print()
+    print("Exit status of `agent-security test`:")
+    print("  0  every result PASSED")
+    print("  1  at least one genuine FAIL")
+    print("  2  no FAIL, but at least one result INCONCLUSIVE or not executed,")
+    print("     or no result at all (includes --simulate; argparse usage errors")
+    print("     also exit 2 and write no report)")
+    print("  Nonzero always means \"not clean\". Read the report to tell 1 from 2.")
+    print()
     print("Research: https://doi.org/10.5281/zenodo.19162104")
     print("Repo:     https://github.com/msaleme/red-team-blue-team-agent-fabric")
 
@@ -822,9 +837,8 @@ def main():
         # For aiuc1, pass --simulate through (it handles simulation natively).
         # For all other harnesses, intercept here and produce synthetic JSON.
         if simulate and harness_name != "aiuc1":
-            _simulate_harness(harness_name, info, json_output, html_output,
-                              report_path=_report_path_from(filtered_args))
-            sys.exit(0)
+            sys.exit(_simulate_harness(harness_name, info, json_output, html_output,
+                                       report_path=_report_path_from(filtered_args)))
 
         # For aiuc1 with --simulate, pass the flag through to the module
         if simulate and harness_name == "aiuc1":
@@ -977,7 +991,16 @@ def main():
         # say so and refuse to exit 0.
         _problems = []
         if _harness_exit != 0:
-            _problems.append(f"harness `{harness_name}` exited {_harness_exit}")
+            # Name the shared exit contract (http_helpers.exit_code) so a reader
+            # of stderr is not left to guess what the number meant. argparse
+            # also exits 2 on a usage error; that run writes no report, which
+            # the --report check below reports separately.
+            _meaning = {1: "at least one test FAILED",
+                        2: ("no test failed, but at least one result is "
+                            "INCONCLUSIVE or not executed, or none ran "
+                            "(argparse also uses 2 for a usage error)")}.get(_harness_exit)
+            _problems.append(f"harness `{harness_name}` exited {_harness_exit}"
+                             + (f": {_meaning}" if _meaning else ""))
         if _operator_report and not os.path.exists(_operator_report):
             _problems.append(f"--report {_operator_report} was requested and no file was written")
         if html_output and not os.path.exists(html_output):

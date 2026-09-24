@@ -56,6 +56,7 @@ from protocol_tests.agent_prose_outcome import (
     classify_agent_prose,
 )
 from protocol_tests.http_helpers import (
+    exit_code,
     console_status,
     declined,
     agent_prose,
@@ -1076,8 +1077,7 @@ def main():
             results = sim.run_all(phases=phases, full_campaign=args.full_campaign)
             if args.report:
                 generate_report(results, sim.campaign, args.report)
-        failed = sum(1 for r in results if not r.passed)
-        sys.exit(1 if failed > 0 else 0)
+        sys.exit(exit_code(results))
     else:
         print("GTG-1002 simulation configured. Run with --run (or --full-campaign --run)")
 

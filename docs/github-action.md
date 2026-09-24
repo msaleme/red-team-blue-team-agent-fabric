@@ -66,6 +66,12 @@ jobs:
 | `failed` | Number of failed tests |
 | `critical_failures` | Number of critical test failures |
 
+The Action gates on the report counts, not on the harness exit status (the run step
+ignores it). `failed` counts genuine FAILs only: INCONCLUSIVE rows, and the NOT_EXECUTED
+rows the MCP harness emits when its handshake is refused, are not failures and are not
+passes. Harness versions before the 2026-09-24 exit-code change counted INCONCLUSIVE MCP
+rows in `failed`.
+
 ## Fail Thresholds
 
 | `fail_on` | Behavior |

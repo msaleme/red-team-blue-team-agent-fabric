@@ -131,6 +131,16 @@ RECOGNISES_NO_REFUSAL = {
     # must not PASS anywhere, and testing/test_capability_residue_controls.py
     # pins all five cells to INCONCLUSIVE. Passing here would be the defect.
     "capability_residue_harness",
+    # 2026-09-24: joined BY BECOMING MEASURABLE, not by regression. Against a
+    # target that refuses everything, mcp_harness fails its `initialize()`
+    # handshake (403) and used to return zero rows, so the `r["total"]` filter
+    # above excluded it and this file said nothing about it. It now emits one
+    # NOT_EXECUTED (INCONCLUSIVE) row per registered test, so it is measured,
+    # at 0. That is the honest reading: no MCP test ran against a refusing
+    # target, which the ASH pole-pilot follow-up (2026-09-24, section 3)
+    # recorded as "undetermined" for every MCP lead. It leaves this list when
+    # a test can run past a refused handshake.
+    "mcp_harness",
     "ap2_harness",
     "card_token_harness",
     "delegation_chain_harness",

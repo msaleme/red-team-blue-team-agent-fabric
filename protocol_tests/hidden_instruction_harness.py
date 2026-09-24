@@ -59,7 +59,7 @@ from typing import Any, Callable
 
 from protocol_tests._utils import Severity
 from protocol_tests.harness_base import HarnessResult, RecordingHarness
-from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX, console_status
+from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX, console_status, exit_code
 from protocol_tests.run_provenance import run_provenance
 
 # ---------------------------------------------------------------------------
@@ -435,7 +435,7 @@ def main(argv: list[str] | None = None) -> int:
                           "is I0 and none is evidence about any real system; the "
                           "target was written by this module."),
             }, fh, indent=2)
-    return 0
+    return exit_code(results)
 
 
 if __name__ == "__main__":

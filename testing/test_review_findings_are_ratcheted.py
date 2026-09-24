@@ -372,6 +372,19 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "ASH pole-pilot follow-up review 2026-09-24", GUARDED,
      "testing/test_a2a_verdicts_need_an_a2a_surface.py: "
      "TestA2A013UnavailableCardIsInconclusive"),
+
+    # --- 2026-09-24, ASH pole-pilot follow-up, section 4 (owner decisions) ----
+    ("harness exit 1 conflated a FAIL with INCONCLUSIVE (both passed=False), while "
+     "five payment modules exited 0 over a wholly INCONCLUSIVE run and mcp_harness "
+     "exited 1 over one: three answers to one question",
+     "ASH pole-pilot follow-up 2026-09-24", GUARDED,
+     "testing/test_exit_code_contract.py: "
+     "test_every_result_derived_exit_uses_the_shared_helper"),
+    ("a failed MCP bootstrap (403, 404, closed port) produced a report with zero "
+     "rows, indistinguishable from an empty suite",
+     "ASH pole-pilot follow-up 2026-09-24", GUARDED,
+     "testing/test_exit_code_contract.py: "
+     "test_one_not_executed_row_per_registered_test_and_exit_two"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.

@@ -33,6 +33,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    exit_code,
     console_status,
     is_inconclusive,
     INCONCLUSIVE_PREFIX,
@@ -582,7 +583,7 @@ def main():
             json.dump(report, f, indent=2, default=str)
         print(f"Report written to {args.report}", file=sys.stderr)
 
-    sys.exit(1 if any(not r.passed for r in results) else 0)
+    sys.exit(exit_code(results))
 
 
 if __name__ == "__main__":

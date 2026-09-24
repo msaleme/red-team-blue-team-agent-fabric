@@ -55,6 +55,7 @@ from protocol_tests.http_helpers import (
     INCONCLUSIVE_PREFIX,
     REFERENCE_VERDICT_SCOPE,
     SIMULATED_ROW_SCOPE,
+    exit_code,
     inconclusive_detail,
     is_inconclusive,
     live_run_scope,
@@ -252,12 +253,18 @@ def write_report(report: dict, path: str | None, *, json_stdout: bool = False,
 
 
 def exit_status(report: dict) -> int:
-    """1 when a serviced test FAILED, else 0.
+    """The shared exit contract (`http_helpers.exit_code`) over a built report.
+
+    0 every row passed, 1 a serviced test FAILED, 2 no FAIL but at least one
+    row established nothing (or there were no rows).
 
     INCONCLUSIVE is not a failure: a fail asserts the control did not hold, and
     an unserviced or simulated row asserts nothing. ap2 and x402_fireblocks used
     ``any(not r.passed ...)``, which made a wholly-inconclusive run exit 1;
     ucp_acp, card_token and settlement_finality never set an exit status at all.
-    One rule now.
+    Until 2026-09-24 this returned 0 for a wholly-inconclusive run; it now
+    returns 2, so "nothing failed" and "everything passed" are different codes.
+
+    Reads the rows, which `build_report` guarantees agree with ``summary``.
     """
-    return 1 if report["summary"]["failed"] else 0
+    return exit_code(report["results"], run_error=report.get("error"))
