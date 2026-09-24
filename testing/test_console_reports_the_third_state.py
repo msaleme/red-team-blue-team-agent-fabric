@@ -54,7 +54,8 @@ PASS_FORMS = ("PASS ✅", "PASS \\u2705")
 #: leave this list by gaining one. Nothing may join it: a new harness inherits
 #: the field from the result dataclasses that already have it.
 NO_VERDICT_FIELD = {
-    "mcp_tool_poisoning_harness.py",
+    # mcp_tool_poisoning_harness.py left 2026-09-24 (CVE-005 no-surface fix):
+    # CVETestResult gained `not_evaluated` and _record prints console_status.
     "prompt_caching_harness.py",
     "receipt_claim_harness.py",
     "skill_security_harness.py",
