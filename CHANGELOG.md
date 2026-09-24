@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (behaviour) — A2A: a bare 401/403 to everything is no surface
+
+**Owner decision 2026-09-24** (recorded in `testing/test_verdicts_need_a_surface.py`):
+a bare 403 returned to everything is no surface, and MCP-021's served-baseline rule
+governs: a 401/403 counts as a rejection only after the target has served something.
+This overrides #594's "an authorization refusal is an answer from an endpoint that
+exists".
+
+- `a2a_harness._shows_a2a_surface` no longer counts a bare 401/403. A surface is a 2xx
+  or a JSON-RPC envelope under any status (so the refusing-host pole, 403 with a
+  JSON-RPC error envelope, is still a surface). `_surface_present` adds a third
+  control after the test's own responses and the benign `tasks/get`: a served Agent
+  Card (a 2xx non-empty JSON object).
+- Against a host answering a bare 403 (or 401) to every verb and path, A2A-004, -007,
+  -008, -009, -010 and -011 go from PASS to INCONCLUSIVE, and A2A-001 goes from FAIL
+  ("Could not fetch Agent Card") to INCONCLUSIVE. A target that serves its card or a
+  JSON-RPC baseline and answers the attack 401/403 still PASSes; a served surface
+  that complies still FAILs; A2A-001 on a 404, or on a card withheld by a target that
+  serves JSON-RPC, still FAILs.
+- #594's `test_explicit_403_from_the_endpoint` is replaced by
+  `TestBare403EverywhereIsInconclusive` and two served-surface-then-403 PASS pins.
+  The seven `A2A-*@403` cells and the `a2a_harness` family reason leave
+  `VERDICT_WITHOUT_SURFACE`. Test IDs and count (640) unchanged.
+
 ### Tests — one guard for the whole "verdict without a surface" class
 
 A verdict that does not depend on the target was repaired family by family (#591 for
