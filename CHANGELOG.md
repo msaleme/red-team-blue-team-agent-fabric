@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — CVE-005 PASSed on any server's "unknown tool" error
+
+After #603 CVE-005 ("Supply Chain Signature Bypass") scored a served JSON-RPC `error`
+as "Server rejected tampered tool definition". But the live probe called a randomly
+named `tampered_tool_<hex>`, and every MCP server answers a tool it does not have with
+an error ("Unknown tool", -32601, -32602), so a real server PASSed without a signature
+ever being evaluated. The verdict could not tell "signature rejected" from "no such
+tool".
+
+- The probe is now a differential over a tool the target lists: `tools/list`, pick a
+  listed tool (fewest required parameters, placeholder arguments), send an unsigned
+  control call, then the identical call with a fake publisher signature in
+  `params._meta` (the MCP request-metadata field, so no argument schema can reject it
+  for an extra property). `signature_verdict` decides:
+  - PASS: the tampered call is refused while the control is served, or the refusal
+    names the signature/provenance.
+  - FAIL: the tampered call is served like the control.
+  - INCONCLUSIVE: no tool listed (no call is sent), no JSON-RPC answer, a
+    "method/tool not found"-class refusal (never PASS), or a control that was not
+    served, so a refusal cannot be attributed to the signature.
+- A host refusing every request (the refusing-host 403 + JSON-RPC envelope) refuses
+  `tools/list` too, and goes from PASS to INCONCLUSIVE. Closed, 404 and bare 403 stay
+  INCONCLUSIVE; CVE-005 stays off `VERDICT_WITHOUT_SURFACE`. `--simulate` is unchanged.
+- `testing/test_cve_verdicts_are_target_differentials.py`: `TestCVE005IsADifferential`
+  pins unknown-tool / method-not-found / 403 tool-not-found INCONCLUSIVE, a served tool
+  that ignores the signature FAIL, a tampered call refused (JSON-RPC error or
+  `isError`) while the control is served PASS, a signature-requiring server PASS, and
+  that both calls go to the same listed tool with identical arguments. Restoring #603's
+  probe turns the unknown-tool pins red (PASS, want INCONCLUSIVE) and the
+  ignores-signature pin red (PASS, want FAIL).
+
+Test IDs and count (640) unchanged. Catalog line numbers regenerated.
+
 ### Changed (behaviour) — A2A: a bare 401/403 to everything is no surface
 
 **Owner decision 2026-09-24** (recorded in `testing/test_verdicts_need_a_surface.py`):
