@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Tests — one guard for the whole "verdict without a surface" class
+
+A verdict that does not depend on the target was repaired family by family (#591 for
+seven CVE tests, #594 for six A2A tests), and each fix covered only the tests someone
+had opened. `scripts/no_surface_sweep.py` runs every live-target harness against three
+targets with nothing to judge, reusing the dead-host sweep's machinery: a closed port, a
+host answering HTTP 404 to every request, and a host answering a bare HTTP 403 to every
+request. On all three the only honest verdict is INCONCLUSIVE (or NOT_EXECUTED).
+`testing/test_verdicts_need_a_surface.py` fails on any PASS or FAIL there.
+
+- **Population is derived.** Every harness in the CLI registry that the dead-host sweep
+  runs and whose own argparse accepts `--url` (41 harnesses, 611 tests per pole after
+  3 named self-tests). A harness registered later is swept without editing the guard; a
+  test seeds one and checks it. The four exercised harnesses with no `--url`
+  (workspace-trust, capability-residue, hidden-instruction, skill-security) are
+  excluded by a declared list, each with a reason, that must equal the derived set.
+- **403 rule.** A bare 403 to everything, discovery included, shows no surface. That
+  matches `http_helpers.inconclusive_detail` and MCP-021's served-baseline rule, so a
+  PASS or FAIL there counts as a defect. The refusing-host pole (403 with a JSON-RPC
+  error envelope) is a separate pole, and its pins are unchanged. **Owner decision
+  2026-09-24:** this rule overrides #594's "a 403 is an answer from an endpoint that
+  exists", so A2A-004, -007, -008, -009, -010 and -011 PASS on 403 are registered as
+  defects; the A2A fix PR updates #594's pin. Only A2A-001 FAIL on 404, which #594
+  decided and the 403 ruling did not revisit, stays `CONTRACT_CONSISTENT`, citing its
+  pinning test and INCONCLUSIVE at the closed port.
+- **x402 / l402 (owner decision 2026-09-24).** A URL that never answers 402 has no
+  payment surface, so their conformance FAILs ("Expected HTTP 402, got 404") and
+  rejection PASSes on these poles are registered defects, to become INCONCLUSIVE.
+- **Grandfather register.** `VERDICT_WITHOUT_SURFACE` holds 578 cells across 20
+  families: 10 on the closed port, 275 on 404, 293 on 403. That includes CVE-005 on 404
+  and 403, and all 25 cloud-agent tests on both. The register can only shrink: a new
+  PASS or FAIL fails the guard, and so does an entry that no longer reproduces.
+  Controls: a seeded target-independent PASS and FAIL turn the guard red, and an honest
+  seeded harness stays green while still able to PASS and FAIL against a served
+  surface. The register is also listed in `test_evidence_integrity_registers`.
+- `dead_host_sweep.sweep()` rows gain an `outcomes` field (per-row PASS / FAIL /
+  INCONCLUSIVE via `row_outcome`). No harness behaviour, test ID or count changes.
+
 ### Fixed — CVE-006 judged the harness's scanner, not the target; the scanner now reads five encodings
 
 `mcp-tool-poisoning` CVE-006 ("Description Payload Encoding Detection") built one tool

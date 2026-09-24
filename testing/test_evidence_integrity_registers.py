@@ -198,6 +198,11 @@ def _mod_simulated():
     return m
 
 
+def _mod_surface():
+    import test_verdicts_need_a_surface as m
+    return m
+
+
 # ---------------------------------------------------------------------------
 # Populations
 # ---------------------------------------------------------------------------
@@ -398,6 +403,24 @@ REGISTERS: dict[str, Register] = {
             "a simulated run that writes a report the scope ratchet can read; until "
             "then the module's simulated rows are unmeasured, not clean"),
         review_by="2026-12-01"),
+    "VERDICT_WITHOUT_SURFACE": Register(
+        # Every live-target harness against a closed port, a 404-everywhere and
+        # a bare-403-everywhere host. The denominator is every cell those three
+        # runs produced (self-tests excluded), from the same cached measurement
+        # the guard compares, so a narrowed sweep shrinks both.
+        numerator=lambda: _mod_surface().VERDICT_WITHOUT_SURFACE,
+        population=lambda: _mod_surface()._population_cells(),
+        note="PASS/FAIL cells against a target with no surface, of all "
+             "live-target cells on the three no-surface poles",
+        numerator_kind=NUMERATOR_DECLARED,
+        population_kind=POPULATION_SWEEP,
+        owner=MAINTAINER,
+        positive_control=(
+            "per family, the verdict re-grounded on an observed surface: "
+            "INCONCLUSIVE on all three no-surface poles, PASS against a surface "
+            "that refuses and FAIL against one that accepts, as #591 and #594 "
+            "pinned for the CVE and A2A families"),
+        review_by="2026-11-01"),
 }
 
 
@@ -500,7 +523,15 @@ class TestEveryRegisterReportsBothNumbers(unittest.TestCase):
                       # kind as NOT_A_REPORT_WRITER: it describes what is
                       # outside the surveyed shape rather than owing anything.
                       # It may legitimately grow, if another base is added.
-                      "INHERITED_CARRIERS"}
+                      "INHERITED_CARRIERS",
+                      # test_verdicts_need_a_surface: the scope exclusion (no
+                      # --url, derived and compared both ways), the named
+                      # self-tests (checked against locally_decided), the
+                      # pinned contract cells, and the per-family reasons for
+                      # VERDICT_WITHOUT_SURFACE, which is the debt queue and
+                      # does report a denominator above.
+                      "NO_NETWORK_TARGET", "SELF_TESTS", "CONTRACT_CONSISTENT",
+                      "FAMILY_REASONS"}
         expected = declaring - taxonomies
         missing = expected - set(REGISTERS)
         self.assertEqual(
@@ -732,6 +763,7 @@ def _numerator_probe(name: str) -> tuple[object, str, int]:
         "EMPTY_ANSWER_PASSES": (_mod_empty_answer(), "EMPTY_ANSWER_PASSES", 1),
         "GRANDFATHERED_UNLABELLED": (_mod_simulated(), "GRANDFATHERED_UNLABELLED", 1),
         "GRANDFATHERED_UNREADABLE": (_mod_simulated(), "GRANDFATHERED_UNREADABLE", 1),
+        "VERDICT_WITHOUT_SURFACE": (_mod_surface(), "VERDICT_WITHOUT_SURFACE", 1),
     }
     return probes[name]
 
@@ -792,6 +824,12 @@ def _grow_population(name: str):
         base = list(m._rows())
         return (m, "_rows",
                 lambda: base + [{"module": SEEDED[0], "status": "ran", "total": 7}], 7)
+    if name == "VERDICT_WITHOUT_SURFACE":
+        m = _mod_surface()
+        base = dict(m._cells())
+        seeded = {("seeded", SEEDED[0], "closed"):
+                  {"outcome": "INCONCLUSIVE", "locally_decided": False}}
+        return (m, "_cells", lambda: {**base, **seeded}, 1)
     raise KeyError(name)
 
 
