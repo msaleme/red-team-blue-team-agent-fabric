@@ -126,7 +126,15 @@ class HeadRules(unittest.TestCase):
 
     def test_seeded_a_withheld_test_without_a_reason_fails(self):
         m = copy.deepcopy(self.mapping)
-        m["cves"]["CVE-2026-2286"]["withheld"][0]["reason"] = ""
+        # Seed whichever CVE withholds a test, not a named one: CVE-2026-2286
+        # was named here until CREW-008 was documented and its withheld list
+        # emptied. With none withheld, append one, so the seed never goes blind.
+        with_withheld = [c for c, v in m["cves"].items() if v.get("withheld")]
+        if with_withheld:
+            m["cves"][with_withheld[0]]["withheld"][0]["reason"] = ""
+        else:
+            first = next(iter(m["cves"]))
+            m["cves"][first]["withheld"] = [{"test_id": "CREW-002", "reason": ""}]
         self.assertIn("r2_reason", _rules(self._validate(m)))
 
     def test_seeded_an_unknown_cli_flag_fails(self):
