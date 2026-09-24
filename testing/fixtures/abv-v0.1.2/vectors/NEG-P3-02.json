@@ -1,0 +1,48 @@
+{
+  "abv": "0.1",
+  "id": "NEG-P3-02",
+  "negates": "P3",
+  "note": "The approval committed the reference as a string, leaving the referenced bytes unbound. This is the PACT -00 harness_uri failure in neutral form.",
+  "request": {
+    "action": "deploy.apply",
+    "arguments": {
+      "manifest": {
+        "$ref": "blob://plan-v1"
+      },
+      "confirm": true
+    }
+  },
+  "approval": {
+    "scope": {
+      "action": "deploy.apply",
+      "arguments_digest": "75b7f88f01f41b94dd79d00488241812b1cf689c1fd2b058cf4e1fbc07c39e20"
+    },
+    "authority": "approver.example",
+    "not_after": "2026-09-19T12:00:00Z",
+    "nonce": "n-0001"
+  },
+  "execution": {
+    "action": "deploy.apply",
+    "arguments": {
+      "manifest": {
+        "$ref": "blob://plan-v2"
+      },
+      "confirm": true
+    },
+    "at": "2026-09-19T11:00:00Z",
+    "status": "completed",
+    "by": "executor.example",
+    "nonce_used": "n-0001"
+  },
+  "attestations": [
+    {
+      "claim": "approval",
+      "authority": "approver.example",
+      "mac": "31f446c4f11971948b7f1561865b174a7312ee2e4a695c9fa7bfb0e450b870df"
+    }
+  ],
+  "expect": {
+    "verdict": "reject",
+    "predicate": "P3"
+  }
+}

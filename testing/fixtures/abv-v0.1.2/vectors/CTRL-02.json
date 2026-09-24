@@ -1,0 +1,46 @@
+{
+  "abv": "0.1",
+  "id": "CTRL-02",
+  "note": "Byte-level near miss: identical content, object members emitted in a different order. Canonicalization must make this indistinguishable from CTRL-01.",
+  "request": {
+    "action": "deploy.apply",
+    "arguments": {
+      "manifest": {
+        "$ref": "blob://plan-v1"
+      },
+      "confirm": true
+    }
+  },
+  "approval": {
+    "nonce": "n-0001",
+    "not_after": "2026-09-19T12:00:00Z",
+    "authority": "approver.example",
+    "scope": {
+      "action": "deploy.apply",
+      "arguments_digest": "d0d1ec939e9bfcf5975980e0c16531326065562613a192baf9596f2398dc09b4"
+    }
+  },
+  "execution": {
+    "action": "deploy.apply",
+    "arguments": {
+      "manifest": {
+        "$ref": "blob://plan-v1"
+      },
+      "confirm": true
+    },
+    "at": "2026-09-19T11:00:00Z",
+    "status": "completed",
+    "by": "executor.example",
+    "nonce_used": "n-0001"
+  },
+  "attestations": [
+    {
+      "claim": "approval",
+      "authority": "approver.example",
+      "mac": "6497cb9cdddd7ac205938d8d6ab105542563f004ac991dda344343fdbd983f41"
+    }
+  ],
+  "expect": {
+    "verdict": "accept"
+  }
+}

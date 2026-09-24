@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `interop/run_external_fixture.py`: runs an externally published fixture set through a
+  pinned checker and writes a raw result bundle (`results.json`, `run.log`, `SHA256SUMS`).
+  Per-vector states are pass / fail / inconclusive / error. A run with no accepted
+  acceptance control is labelled NOT A RESULT. Checker and fixture pins are verified
+  byte-for-byte, and a mismatch aborts. Reference adapter
+  `interop/adapters/abv_reference.py`; procedure in `docs/EXTERNAL-FIXTURES.md`.
+  Positive control: Approval Binding Vectors v0.1.2 reproduces its published 13/13 with
+  3 controls accepted (`testing/test_external_fixture_runner.py`, offline copy under
+  `testing/fixtures/abv-v0.1.2/`, MIT). No change to test IDs or the test count.
+
 ## [4.21.3] - 2026-09-09
 
 A patch release for the fifth external review, run against the published 4.21.2

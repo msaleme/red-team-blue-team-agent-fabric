@@ -1,0 +1,48 @@
+{
+  "abv": "0.1",
+  "id": "NEG-P5-01",
+  "negates": "P5",
+  "note": "The executing party is the only attester of its own approval. Every other predicate holds.",
+  "request": {
+    "action": "deploy.apply",
+    "arguments": {
+      "manifest": {
+        "$ref": "blob://plan-v1"
+      },
+      "confirm": true
+    }
+  },
+  "approval": {
+    "scope": {
+      "action": "deploy.apply",
+      "arguments_digest": "d0d1ec939e9bfcf5975980e0c16531326065562613a192baf9596f2398dc09b4"
+    },
+    "authority": "executor.example",
+    "not_after": "2026-09-19T12:00:00Z",
+    "nonce": "n-0001"
+  },
+  "execution": {
+    "action": "deploy.apply",
+    "arguments": {
+      "manifest": {
+        "$ref": "blob://plan-v1"
+      },
+      "confirm": true
+    },
+    "at": "2026-09-19T11:00:00Z",
+    "status": "completed",
+    "by": "executor.example",
+    "nonce_used": "n-0001"
+  },
+  "attestations": [
+    {
+      "claim": "approval",
+      "authority": "executor.example",
+      "mac": "3c2954ecdc96d74be4ccf6777543356a4b0404ca9fd9efcf80bcaf4d5eaa4997"
+    }
+  ],
+  "expect": {
+    "verdict": "reject",
+    "predicate": "P5"
+  }
+}
