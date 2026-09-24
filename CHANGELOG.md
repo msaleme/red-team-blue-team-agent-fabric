@@ -43,6 +43,49 @@ single-run and `--trials` paths. Usage errors, `--list` and `--help` exit as bef
   `testing/test_exit_code_contract.py` is now empty. Test IDs and the count (640) are
   unchanged.
 
+### Fixed — the GitHub Action's `fail_on: critical` (the default) could never fail a build
+
+`action.yml` and the reusable `.github/workflows/security-scan.yml` counted
+`critical_failures` as rows with `status == "FAIL"` and
+`severity.lower() == "critical"`. Derived from every result class in
+`protocol_tests/`: no harness report row has a `status` field (the outcome is
+`passed` plus `not_evaluated` / `informational` / the `INCONCLUSIVE - ` detail
+prefix), and the MCP harness, the only one the Action runs, writes severity
+`P0-Critical`. Two independent reasons the count was always 0.
+
+- New `protocol_tests/report_gate.py` does the Action's counting and threshold.
+  It classifies rows with the new `http_helpers.row_outcome` (PASS / FAIL /
+  INCONCLUSIVE), which `run_summary` now also counts with, so the gate and the
+  harness summaries share one classification. A row is a FAIL only when it
+  failed and is not INCONCLUSIVE / NOT_EXECUTED.
+- Critical severity: `P0-Critical`, `critical`, `CRITICAL` (every spelling
+  derived from source; a test fails on any new unclassified spelling). A row
+  with no severity is not critical.
+- The composite action imports the gate from its own checkout
+  (`GITHUB_ACTION_PATH`), so a pinned older `harness_version` is still counted
+  by the action ref's gate.
+- **Behaviour changes for Action users:**
+  - `fail_on: critical` now fails the build when a critical-severity test
+    FAILs. Pipelines that were green only because the gate could not fire will
+    go red.
+  - `failed` / `passed` are recomputed from rows rather than copied from the
+    report `summary` (several writers still count INCONCLUSIVE in their own
+    `failed`); INCONCLUSIVE rows never breach `fail_on: any` or `critical`.
+  - New output `inconclusive` (reported, not gated on).
+  - An unknown `fail_on` value is now an error; it used to pass silently.
+  - A report whose rows are not JSON objects fails the step. `--trials`
+    reports currently serialise rows as strings (pre-existing, not fixed here).
+  - The reusable workflow imports the gate from the installed harness; with a
+    harness that predates it, the workflow errors (unless `fail_on: none`)
+    instead of reporting a count it cannot vouch for.
+- Evidence: `testing/test_action_report_gate.py` feeds the gate real report
+  JSON from the harnesses' own writers (MCP single run, a real closed-port run
+  with NOT_EXECUTED rows, differential, trials; A2A; identity `informational`;
+  legacy `status` rows) and runs the Action's own `run:` scripts from
+  `action.yml`. Seeded revert of `action.yml` to the inline `status == "FAIL"`
+  logic turns the MCP critical-failure test red. Seeded pair registered in
+  `test_static_detectors_can_fire.py`. Test IDs and the 640 count unchanged.
+
 ### Fixed — six A2A verdicts passed against a host with no A2A surface; A2A-013 on a missing card
 
 A controlled-pole review (2026-09-24, pinned at c7d4347) ran `a2a_harness`

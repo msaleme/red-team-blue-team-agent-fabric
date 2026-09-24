@@ -42,11 +42,14 @@ outputs:
     description: 'Number of passed tests'
     value: ${{ steps.parse-report.outputs.passed }}
   failed:
-    description: 'Number of failed tests'
+    description: 'Number of failed tests (genuine FAILs; INCONCLUSIVE rows excluded)'
     value: ${{ steps.parse-report.outputs.failed }}
   critical_failures:
-    description: 'Number of critical test failures'
+    description: 'Number of failed tests whose severity is critical (P0-Critical / critical)'
     value: ${{ steps.parse-report.outputs.critical_failures }}
+  inconclusive:
+    description: 'Number of INCONCLUSIVE / NOT_EXECUTED tests (reported, never counted as failures)'
+    value: ${{ steps.parse-report.outputs.inconclusive }}
 
 runs:
   using: 'composite'
@@ -95,86 +98,20 @@ runs:
     - name: Parse report
       id: parse-report
       shell: bash
+      # Counting is protocol_tests.report_gate, imported from this action's own
+      # checkout (GITHUB_ACTION_PATH), not from the pip-installed harness, so
+      # the gate matches this action ref even when harness_version pins an
+      # older package. It classifies each row with http_helpers.row_outcome,
+      # the function the harness's own summary counts with.
       run: |
-        if [ ! -f "${REPORT_PATH}" ]; then
-          echo "::error::Security report not found at ${REPORT_PATH}"
-          echo "total_tests=0" >> "$GITHUB_OUTPUT"
-          echo "passed=0" >> "$GITHUB_OUTPUT"
-          echo "failed=0" >> "$GITHUB_OUTPUT"
-          echo "critical_failures=0" >> "$GITHUB_OUTPUT"
-          exit 1
-        fi
-
-        python3 << 'PARSE_EOF'
-        import json, os
-
-        report_path = os.environ["REPORT_PATH"]
-        gh_output = os.environ["GITHUB_OUTPUT"]
-        gh_summary = os.environ["GITHUB_STEP_SUMMARY"]
-
-        with open(report_path) as f:
-            r = json.load(f)
-
-        results = r.get("results", [])
-        summary = r.get("summary", {})
-
-        total = summary.get("total", len(results))
-        passed = summary.get("passed", sum(1 for t in results if t.get("status") == "PASS"))
-        failed = summary.get("failed", sum(1 for t in results if t.get("status") == "FAIL"))
-        critical = sum(1 for t in results if t.get("status") == "FAIL" and t.get("severity", "").lower() == "critical")
-
-        with open(gh_output, "a") as out:
-            out.write(f"total_tests={total}\n")
-            out.write(f"passed={passed}\n")
-            out.write(f"failed={failed}\n")
-            out.write(f"critical_failures={critical}\n")
-
-        lines = [
-            "### Security Harness Results\n",
-            "| Metric | Count |",
-            "|--------|-------|",
-            f"| Total Tests | {total} |",
-            f"| Passed | {passed} |",
-            f"| Failed | {failed} |",
-            f"| Critical Failures | {critical} |",
-            "",
-        ]
-
-        fails = [t for t in results if t.get("status") == "FAIL"]
-        if fails:
-            lines.append("| Test | Severity | Details |")
-            lines.append("|------|----------|---------|")
-            for t in fails:
-                name = t.get("test_id", t.get("name", "unknown"))
-                sev = t.get("severity", "unknown")
-                detail = t.get("detail", t.get("message", ""))[:80]
-                lines.append(f"| {name} | {sev} | {detail} |")
-
-        with open(gh_summary, "a") as ss:
-            ss.write("\n".join(lines))
-        PARSE_EOF
+        PYTHONPATH="${GITHUB_ACTION_PATH}" python3 -m protocol_tests.report_gate summarize "${REPORT_PATH}"
       env:
         REPORT_PATH: ${{ steps.run-harness.outputs.report_path }}
 
     - name: Evaluate threshold
       shell: bash
       run: |
-        FAIL_ON="${INPUT_FAIL_ON}"
-        FAILED="${INPUT_FAILED}"
-        CRITICAL="${INPUT_CRITICAL}"
-
-        if [ "${FAIL_ON}" = "any" ] && [ "${FAILED}" -gt 0 ]; then
-          echo "::error::${FAILED} test(s) failed (fail_on=any)"
-          exit 1
-        elif [ "${FAIL_ON}" = "critical" ] && [ "${CRITICAL}" -gt 0 ]; then
-          echo "::error::${CRITICAL} critical test(s) failed (fail_on=critical)"
-          exit 1
-        elif [ "${FAIL_ON}" = "none" ]; then
-          echo "Threshold set to 'none' - not failing regardless of results"
-        fi
-
-        echo "Security scan passed threshold (fail_on=${FAIL_ON})"
+        PYTHONPATH="${GITHUB_ACTION_PATH}" python3 -m protocol_tests.report_gate gate "${REPORT_PATH}" --fail-on "${INPUT_FAIL_ON}"
       env:
         INPUT_FAIL_ON: ${{ inputs.fail_on }}
-        INPUT_FAILED: ${{ steps.parse-report.outputs.failed }}
-        INPUT_CRITICAL: ${{ steps.parse-report.outputs.critical_failures }}
+        REPORT_PATH: ${{ steps.run-harness.outputs.report_path }}

@@ -1010,6 +1010,41 @@ def declined(resp) -> bool:
     return classify_agent_prose(agent_prose(resp)).outcome == DECLINE_OBSERVED
 
 
+OUTCOME_PASS = "PASS"
+OUTCOME_FAIL = "FAIL"
+OUTCOME_INCONCLUSIVE = "INCONCLUSIVE"
+
+
+def row_outcome(row) -> str:
+    """PASS, FAIL or INCONCLUSIVE for one result row, object or written dict.
+
+    The one per-row classification. `run_summary` counts with it, and so does
+    the GitHub Action's report gate (`protocol_tests.report_gate`), so the
+    counts a harness writes and the counts CI gates on cannot disagree.
+
+    INCONCLUSIVE first (`is_inconclusive`: the `not_evaluated` / `informational`
+    fields, else the ``INCONCLUSIVE - `` detail prefix, which the MCP
+    NOT_EXECUTED rows also carry), because an INCONCLUSIVE row also carries
+    ``passed=False``. Then ``passed``.
+
+    A row with no ``passed`` field at all falls back to a ``status`` of
+    ``"PASS"`` / ``"FAIL"``. No harness in this package writes that shape; it
+    is the shape the Action's gate originally assumed, kept so a report that
+    does use it is classified as before rather than silently as FAIL.
+    """
+    if is_inconclusive(row):
+        return OUTCOME_INCONCLUSIVE
+    passed = row_field(row, "passed")
+    if passed is None:
+        status = str(row_field(row, "status", "") or "").strip().upper()
+        if status == OUTCOME_PASS:
+            return OUTCOME_PASS
+        if status in (OUTCOME_INCONCLUSIVE, "NOT_EXECUTED"):
+            return OUTCOME_INCONCLUSIVE
+        return OUTCOME_FAIL
+    return OUTCOME_PASS if bool(passed) else OUTCOME_FAIL
+
+
 def run_summary(results) -> dict:
     """Summary counts that keep PASS, FAIL and INCONCLUSIVE distinct.
 
@@ -1047,13 +1082,12 @@ def run_summary(results) -> dict:
 
     results = list(results)
     total = len(results)
-    inconclusive = sum(1 for r in results if is_inconclusive(r))
-    # A row is an object in-process and a dict once written. `getattr` on a
-    # dict returns the default for every key, so a summary computed over
-    # written rows would count zero passes whatever they said; `is_inconclusive`
-    # already reads both shapes and this reads the same two.
-    passed = sum(1 for r in results if not is_inconclusive(r) and bool(
-        r.get("passed", False) if isinstance(r, dict) else getattr(r, "passed", False)))
+    # A row is an object in-process and a dict once written; `row_outcome`
+    # reads both shapes, and is the same classification the GitHub Action's
+    # report gate uses, so the summary and the CI gate cannot disagree.
+    outcomes = [row_outcome(r) for r in results]
+    inconclusive = outcomes.count(OUTCOME_INCONCLUSIVE)
+    passed = outcomes.count(OUTCOME_PASS)
     failed = total - passed - inconclusive
     serviced = passed + failed
 

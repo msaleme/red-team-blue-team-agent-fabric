@@ -80,71 +80,26 @@ jobs:
 
       - name: Parse and summarize results
         id: results
+        # protocol_tests.report_gate from the installed harness: the same
+        # row classification (http_helpers.row_outcome) the harness's own
+        # summary counts with. A reusable workflow has no checkout of this
+        # repository to import it from, so a harness_version older than the
+        # gate cannot be counted correctly; that fails closed below.
         run: |
-          REPORT="${REPORT_PATH}"
-
-          if [ ! -f "${REPORT}" ]; then
-            echo "::error::Security report not found"
+          if ! python3 -c "import protocol_tests.report_gate" 2>/dev/null; then
+            echo "::error::The installed agent-security-harness has no protocol_tests.report_gate, so its report cannot be counted correctly (critical failures would read as 0). Use a harness_version that includes it, or the composite action."
+            echo "gate_available=false" >> "$GITHUB_OUTPUT"
+            [ "${INPUT_FAIL_ON}" = "none" ] && exit 0
             exit 1
           fi
-
-          python3 << 'PARSE_EOF'
-          import json, os
-
-          with open(os.environ["REPORT_PATH"]) as f:
-              report = json.load(f)
-
-          results = report.get("results", [])
-          summary = report.get("summary", {})
-
-          total = summary.get("total", len(results))
-          passed = summary.get("passed", sum(1 for t in results if t.get("status") == "PASS"))
-          failed = summary.get("failed", sum(1 for t in results if t.get("status") == "FAIL"))
-          critical = sum(1 for t in results if t.get("status") == "FAIL" and t.get("severity", "").lower() == "critical")
-
-          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
-              out.write(f"total={total}\n")
-              out.write(f"passed={passed}\n")
-              out.write(f"failed={failed}\n")
-              out.write(f"critical={critical}\n")
-
-          # Build step summary
-          lines = [
-              "## 🛡️ Agent Security Harness Results\n",
-              f"| Metric | Count |",
-              f"|--------|-------|",
-              f"| Total Tests | {total} |",
-              f"| ✅ Passed | {passed} |",
-              f"| ❌ Failed | {failed} |",
-              f"| 🚨 Critical | {critical} |",
-              "",
-          ]
-
-          fails = [t for t in results if t.get("status") == "FAIL"]
-          if fails:
-              lines.append("### Failed Tests\n")
-              lines.append("| Test | Severity | Details |")
-              lines.append("|------|----------|---------|")
-              for t in fails:
-                  name = t.get("test_id", t.get("name", "unknown"))
-                  sev = t.get("severity", "unknown")
-                  detail = (t.get("detail", t.get("message", "")))[:80]
-                  lines.append(f"| `{name}` | {sev} | {detail} |")
-              lines.append("")
-
-          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as ss:
-              ss.write("\n".join(lines))
-
-          # Also write a markdown file for PR comment use
-          with open("security-summary.md", "w") as md:
-              md.write("\n".join(lines))
-
-          PARSE_EOF
+          echo "gate_available=true" >> "$GITHUB_OUTPUT"
+          python3 -m protocol_tests.report_gate summarize "${REPORT_PATH}" --summary-file security-summary.md
         env:
           REPORT_PATH: ${{ steps.harness.outputs.report_path }}
+          INPUT_FAIL_ON: ${{ inputs.fail_on }}
 
       - name: Comment on PR (if applicable)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && hashFiles('security-summary.md') != ''
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
@@ -187,23 +142,9 @@ jobs:
           retention-days: 30
 
       - name: Evaluate threshold
+        if: steps.results.outputs.gate_available == 'true'
         run: |
-          FAIL_ON="${INPUT_FAIL_ON}"
-          FAILED="${INPUT_FAILED}"
-          CRITICAL="${INPUT_CRITICAL}"
-
-          if [ "${FAIL_ON}" = "any" ] && [ "${FAILED}" -gt 0 ]; then
-            echo "::error::${FAILED} test(s) failed (fail_on=any)"
-            exit 1
-          elif [ "${FAIL_ON}" = "critical" ] && [ "${CRITICAL}" -gt 0 ]; then
-            echo "::error::${CRITICAL} critical test(s) failed (fail_on=critical)"
-            exit 1
-          elif [ "${FAIL_ON}" = "none" ]; then
-            echo "Threshold set to 'none' - reporting only"
-          fi
-
-          echo "Security scan passed (fail_on=${FAIL_ON})"
+          python3 -m protocol_tests.report_gate gate "${REPORT_PATH}" --fail-on "${INPUT_FAIL_ON}"
         env:
           INPUT_FAIL_ON: ${{ inputs.fail_on }}
-          INPUT_FAILED: ${{ steps.results.outputs.failed }}
-          INPUT_CRITICAL: ${{ steps.results.outputs.critical }}
+          REPORT_PATH: ${{ steps.harness.outputs.report_path }}

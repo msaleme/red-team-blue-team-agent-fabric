@@ -447,7 +447,51 @@ def _run_exit_detector(directory: pathlib.Path) -> list[str]:
     return sorted({name for name, _ in mod._result_derived_exits(directory)})
 
 
+_SEVERITY_VIOLATION = '''"""A harness inventing a critical spelling the CI gate cannot read."""
+from dataclasses import dataclass
+
+
+@dataclass
+class SeededResult:
+    test_id: str
+    severity: str
+    passed: bool
+    details: str
+    status: str = ""
+
+
+def run():
+    return [SeededResult(test_id="S-001", severity="Sev0", passed=False, details="x")]
+'''
+
+_SEVERITY_CONTROL = '''"""The recognised spellings. Prose saying severity="Sev0" must not fire."""
+from dataclasses import dataclass
+
+
+@dataclass
+class SeededResult:
+    test_id: str
+    severity: str
+    passed: bool
+    details: str
+
+
+def run():
+    return [SeededResult(test_id="S-001", severity="P0-Critical", passed=False, details="x"),
+            SeededResult(test_id="S-002", severity="high", passed=True, details="x")]
+'''
+
+
+def _run_report_gate_detector(directory: pathlib.Path) -> list[str]:
+    import test_action_report_gate as mod
+    return (mod.unclassified_severities(directory)
+            + mod.status_outcome_classes(directory))
+
+
 DETECTORS = {
+    "report row the Action's gate cannot classify": (
+        _run_report_gate_detector, _SEVERITY_VIOLATION, _SEVERITY_CONTROL,
+        "test_action_report_gate.py"),
     "exit status computed outside the shared helper": (
         _run_exit_detector, _EXIT_VIOLATION, _EXIT_CONTROL,
         "test_exit_code_contract.py"),
