@@ -28,6 +28,19 @@ exercised.
   indeterminate, and why 401/403 are definitive while 5xx and in-band 2xx errors
   are not. The verdict table and the quoted CVE lines are unchanged.
 
+### Docs — CVE pages re-pinned to 85f5148; CREW-008, PA-002 and PA-003 documented
+
+`docs/cve/cve-test-mapping.yaml` is re-pinned from 598b8da to 85f5148, the
+first `main` commit containing the #591 repairs, and every existing quote was
+re-verified verbatim there. Three repaired tests now meet the documentation bar:
+**CREW-008** joins the CVE-2026-2286 page (it was withheld), and two new pages
+document **CVE-2026-39889** (PA-003) and **CVE-2026-40289** (PA-002), which were
+excluded. PA-001, PA-004, CVE-009 and CVE-010 stay excluded: their advisories
+name no probeable network surface. Vulnerability facts for all eleven pages were
+re-retrieved 2026-09-24 from NVD, the GitHub Advisory Database and the CISA KEV
+catalog (version 2026.09.23); none of the nine existing entries changed.
+11 CVE pages, 6 excluded.
+
 ### Fixed — seven CVE verdicts were target-independent (PR #590 measured them)
 
 Seven tests computed a verdict that did not depend on the target: they probed a
