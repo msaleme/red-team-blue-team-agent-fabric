@@ -299,6 +299,7 @@ model, a standards landscape, and the live reference environment the telemetry a
 | Full Test Inventory (640 tests) | [docs/TEST-INVENTORY.md](docs/TEST-INVENTORY.md) |
 | OWASP Agentic v1.1 Coverage (T1–T17) | [docs/OWASP-AGENTIC-V1.1-COVERAGE.md](docs/OWASP-AGENTIC-V1.1-COVERAGE.md) |
 | Canonical coverage mapping (source of truth) | [docs/coverage/owasp-agentic-v1.1.yaml](docs/coverage/owasp-agentic-v1.1.yaml) |
+| Testing for a published CVE: CVE to test index | [docs/cve/README.md](docs/cve/README.md) |
 | Release history & known gaps | [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) |
 | E1-E5 Evidence Class Taxonomy (canonical) | [docs/EVIDENCE-CLASS-TAXONOMY.md](docs/EVIDENCE-CLASS-TAXONOMY.md) |
 | Reproducing this harness (and disagreeing with it) | [docs/REPRODUCING.md](docs/REPRODUCING.md) |

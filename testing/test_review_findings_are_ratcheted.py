@@ -361,7 +361,7 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
 #: commit is covered by CitedCommitsResolve below, which is derived rather than
 #: listed, because a hand-kept list of one file is how a guard covers a sample
 #: and gets reported as covering the population.
-PINNED_DOCS = [Path("docs/WORKSPACE-TRUST-REVIEW.md")]
+PINNED_DOCS = [Path("docs/WORKSPACE-TRUST-REVIEW.md"), Path("docs/cve/README.md")]
 
 #: A bare 40-hex word. The word boundary matters: it stops a 64-char sha256
 #: matching on its first 40 characters.

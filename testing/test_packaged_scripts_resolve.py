@@ -97,6 +97,7 @@ CHECKOUT_ONLY_GATED = (
     "verify_release_claims",
     "generate_test_catalog",
     "monthly_security_report",
+    "generate_cve_pages",
 )
 
 

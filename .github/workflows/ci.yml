@@ -268,12 +268,14 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install pytest
+        run: pip install pytest pyyaml
 
       # -rs so a skip is visible rather than counted as a pass. In this job
       # nothing should skip; if it does, the checkout stopped being full depth.
+      # The CVE pages quote source lines at a pinned commit and regenerate from
+      # it, so their pinned rules skip in the shallow main job and run here.
       - name: Pinned provenance and the review-findings ratchet
-        run: python -m pytest testing/test_review_findings_are_ratcheted.py -q -rs
+        run: python -m pytest testing/test_review_findings_are_ratcheted.py testing/test_cve_pages_are_current.py -q -rs
 
   owasp-coverage:
     name: OWASP Agentic v1.1 coverage mapping
