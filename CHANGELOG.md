@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Tests — MCP-021 reads a plain HTTP 401/403 as a rejection, now pinned on the wire
+
+External calibration feedback reported that MCP-021 graded a server
+INCONCLUSIVE when it refused invalid credentials with an HTTP 401 or 403 whose
+body was not an MCP JSON-RPC result or error. Checked against the source, the
+classifier already treats 401/403 as *rejected* regardless of body, and the HTTP
+transport records the status on every non-2xx; no verdict logic changes here.
+What was missing was evidence: the existing unit tests drive a fake transport
+that returns pre-shaped dicts, so the wire-to-classifier step was never
+exercised.
+
+- New `testing/test_mcp021_http_auth_denial.py` runs MCP-021 through the real
+  `StreamableHTTPTransport` against stdlib stub servers: 401 and 403 with
+  plain-text, empty, HTML and non-RPC JSON bodies grade PASS with every invalid
+  leg recorded `rejected`; header-less 401 with a served garbage bearer grades
+  FAIL; 5xx on the invalid legs, a 401 on the configured credential, a closed
+  port, and a 200 with an unreadable body stay INCONCLUSIVE.
+- The MCP-021 docstring now states which responses count as rejected, served and
+  indeterminate, and why 401/403 are definitive while 5xx and in-band 2xx errors
+  are not. The verdict table and the quoted CVE lines are unchanged.
+
 ### Fixed — seven CVE verdicts were target-independent (PR #590 measured them)
 
 Seven tests computed a verdict that did not depend on the target: they probed a
