@@ -91,3 +91,8 @@ november-meeting-extracted.txt
 
 # Attestation records are deliverables, not run output. #384
 !attestations/**/*.json
+
+# Vendored ABV v0.1.2 vectors: the positive control for interop/run_external_fixture.py.
+# Without this the blanket *.json drops them and testing/test_external_fixture_runner.py
+# fails on a checkout that has check.py and no vectors.
+!testing/fixtures/abv-v0.1.2/vectors/*.json

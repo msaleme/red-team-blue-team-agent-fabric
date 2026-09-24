@@ -1,0 +1,42 @@
+{
+  "abv": "0.1",
+  "id": "CTRL-03",
+  "note": "Sound record with inline arguments and no reference, so P3 is vacuous. Guards against a checker that only works when a $ref is present.",
+  "request": {
+    "action": "fs.write",
+    "arguments": {
+      "path": "/etc/app.conf",
+      "mode": "0644"
+    }
+  },
+  "approval": {
+    "scope": {
+      "action": "fs.write",
+      "arguments_digest": "c59c75a359af15682154442e91943d4a1aeee497ec6aeb5c3a918835d2826821"
+    },
+    "authority": "approver.example",
+    "not_after": "2026-09-19T12:00:00Z",
+    "nonce": "n-0002"
+  },
+  "execution": {
+    "action": "fs.write",
+    "arguments": {
+      "path": "/etc/app.conf",
+      "mode": "0644"
+    },
+    "at": "2026-09-19T11:00:00Z",
+    "status": "completed",
+    "by": "executor.example",
+    "nonce_used": "n-0002"
+  },
+  "attestations": [
+    {
+      "claim": "approval",
+      "authority": "approver.example",
+      "mac": "c404872bf533275f4a9b1babe1cd4564d746d8f7ac519164c275e3792730159c"
+    }
+  ],
+  "expect": {
+    "verdict": "accept"
+  }
+}

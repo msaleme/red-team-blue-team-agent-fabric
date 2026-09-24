@@ -1,0 +1,48 @@
+{
+  "abv": "0.1",
+  "id": "NEG-P1-01",
+  "negates": "P1",
+  "note": "Approval scopes deploy.apply; deploy.destroy executed. Arguments match.",
+  "request": {
+    "action": "deploy.apply",
+    "arguments": {
+      "manifest": {
+        "$ref": "blob://plan-v1"
+      },
+      "confirm": true
+    }
+  },
+  "approval": {
+    "scope": {
+      "action": "deploy.apply",
+      "arguments_digest": "d0d1ec939e9bfcf5975980e0c16531326065562613a192baf9596f2398dc09b4"
+    },
+    "authority": "approver.example",
+    "not_after": "2026-09-19T12:00:00Z",
+    "nonce": "n-0001"
+  },
+  "execution": {
+    "action": "deploy.destroy",
+    "arguments": {
+      "manifest": {
+        "$ref": "blob://plan-v1"
+      },
+      "confirm": true
+    },
+    "at": "2026-09-19T11:00:00Z",
+    "status": "completed",
+    "by": "executor.example",
+    "nonce_used": "n-0001"
+  },
+  "attestations": [
+    {
+      "claim": "approval",
+      "authority": "approver.example",
+      "mac": "6497cb9cdddd7ac205938d8d6ab105542563f004ac991dda344343fdbd983f41"
+    }
+  ],
+  "expect": {
+    "verdict": "reject",
+    "predicate": "P1"
+  }
+}

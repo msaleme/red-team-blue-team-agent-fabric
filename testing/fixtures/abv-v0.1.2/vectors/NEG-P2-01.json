@@ -1,0 +1,44 @@
+{
+  "abv": "0.1",
+  "id": "NEG-P2-01",
+  "negates": "P2",
+  "note": "Same action, inline arguments, one numeric value differs: 3 replicas approved, 300 executed. No reference involved, so this is unambiguously P2.",
+  "request": {
+    "action": "deploy.scale",
+    "arguments": {
+      "service": "checkout",
+      "replicas": 3
+    }
+  },
+  "approval": {
+    "scope": {
+      "action": "deploy.scale",
+      "arguments_digest": "f7b3f0e4e5d3887c08a64cd0bd4b35f5e7867c8d19a2fc5d76172e91ea082cf2"
+    },
+    "authority": "approver.example",
+    "not_after": "2026-09-19T12:00:00Z",
+    "nonce": "n-0003"
+  },
+  "execution": {
+    "action": "deploy.scale",
+    "arguments": {
+      "service": "checkout",
+      "replicas": 300
+    },
+    "at": "2026-09-19T11:00:00Z",
+    "status": "completed",
+    "by": "executor.example",
+    "nonce_used": "n-0003"
+  },
+  "attestations": [
+    {
+      "claim": "approval",
+      "authority": "approver.example",
+      "mac": "34aaa155fef2bbe7557e9a7540908ee9ce133b87c7052f277ad054a5f5be040f"
+    }
+  ],
+  "expect": {
+    "verdict": "reject",
+    "predicate": "P2"
+  }
+}
