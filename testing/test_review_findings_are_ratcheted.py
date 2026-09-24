@@ -354,6 +354,24 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "enumerate what is on that host's sys.path at pip time. What this repository "
      "can do is make the next run say so, which is the GUARDED row above. Recorded "
      "rather than closed: reproducing a signature is not identifying an instance."),
+
+    # --- 2026-09-24, A2A pole-pilot follow-up (pinned c7d4347) --------------
+    ("A2A-004, A2A-007, A2A-008, A2A-009, A2A-010 and A2A-011 scored PASS against "
+     "a host answering HTTP 404 to every request: a route-level 404 was read as "
+     "the target rejecting the specific adversarial request",
+     "ASH pole-pilot follow-up review 2026-09-24", GUARDED,
+     "testing/test_a2a_verdicts_need_an_a2a_surface.py: "
+     "TestSurfaceAbsentIsInconclusive"),
+    ("A2A-010 counted no response as handled gracefully, and A2A-008, A2A-009 and "
+     "A2A-011 could count an unanswered request as rejected",
+     "ASH pole-pilot follow-up review 2026-09-24", GUARDED,
+     "testing/test_a2a_verdicts_need_an_a2a_surface.py: "
+     "test_some_dropped_rest_rejected_is_inconclusive"),
+    ("A2A-013 recorded FAIL when the Agent Card was unavailable, although an "
+     "absent limitations member on a fetched card is INCONCLUSIVE",
+     "ASH pole-pilot follow-up review 2026-09-24", GUARDED,
+     "testing/test_a2a_verdicts_need_an_a2a_surface.py: "
+     "TestA2A013UnavailableCardIsInconclusive"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.

@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — six A2A verdicts passed against a host with no A2A surface; A2A-013 on a missing card
+
+A controlled-pole review (2026-09-24, pinned at c7d4347) ran `a2a_harness`
+against allow-all, refuse-all, 404-everywhere and closed-port servers. Against a
+server answering HTTP 404 to every request, **A2A-004, A2A-007, A2A-008,
+A2A-009, A2A-010 and A2A-011 scored PASS**: each counted any `_error` or status
+>= 400 as the target rejecting the adversarial request. A route-level 404 is
+returned before any A2A dispatcher sees the request, so it is not that evidence.
+
+- The six now require an A2A surface before a rejection counts. A surface is
+  shown by any of the test's responses being a 2xx, a JSON-RPC envelope (under
+  any status; a non-2xx body must declare `"jsonrpc": "2.0"`), or an explicit
+  401/403; failing that, by a benign `tasks/get` for a random id sent to the
+  same URL. No surface (bare 404/405, other non-JSON-RPC errors, closed port, no
+  answer) is INCONCLUSIVE. With a surface: rejected is PASS, accepted is FAIL,
+  as before.
+- An unanswered request no longer counts as rejected or handled. A2A-010
+  counted no response as "handled gracefully"; A2A-008, A2A-009 and A2A-011
+  could tally a transport failure as a rejection. Where nothing was accepted
+  but some requests went unanswered, the verdict is INCONCLUSIVE.
+- **A2A-013**: an Agent Card that cannot be fetched is INCONCLUSIVE with the
+  reason stated, not FAIL. Card availability is A2A-001's contract, and
+  A2A-001 is unchanged (a 404 still FAILs it).
+- `_a2a_rejected()` is unchanged. Its two callers were derived by grep:
+  A2A-006, whose task-creation control already establishes the surface, and
+  A2A-007, now gated at the call site. Narrowing the helper would have changed
+  A2A-006 verdicts that the review did not question.
+- Evidence: new `testing/test_a2a_verdicts_need_an_a2a_surface.py` drives real
+  stdlib stub servers per pole (closed port, 404, JSON 404 page, 405 ->
+  INCONCLUSIVE; JSON-RPC error or 403 -> PASS; processing dispatcher -> FAIL;
+  partial silence -> INCONCLUSIVE), plus A2A-013 and an unchanged A2A-001.
+  Reverting each test's verdict logic to c7d4347, one at a time, turns only that
+  test's rows red. Three rows added to the review-findings register as GUARDED.
+- No register counter moved: CI's permissive fixture still yields 0 A2A passes.
+  Test IDs and the count (640) are unchanged; `HARNESS_TEST_CATALOG.md`
+  regenerated for moved line numbers.
+
 ### Tests — MCP-021 reads a plain HTTP 401/403 as a rejection, now pinned on the wire
 
 External calibration feedback reported that MCP-021 graded a server

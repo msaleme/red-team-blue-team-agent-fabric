@@ -166,16 +166,91 @@ class A2ATransport:
 # ---------------------------------------------------------------------------
 
 def _a2a_rejected(resp: dict) -> bool:
-    """True when the server actively rejected the request (JSON-RPC/transport error or 4xx+).
+    """True when the response is shaped like a rejection (JSON-RPC/transport error or 4xx+).
 
     Verdicts use this instead of substring-matching the whole response, which let
     attacker-supplied text steer the result (VS-R03 C1/C2).
+
+    This reads ONE response and cannot tell a rejection by an A2A endpoint from
+    a route that does not exist: a 404 from a host with no A2A surface is
+    ``True`` here. A caller that grades a PASS from it must first establish the
+    surface is present (``A2ASecurityTests._surface_present``). A2A-006 does so
+    through its own task-creation control; A2A-007 through the surface control.
+    Kept unchanged rather than narrowed so A2A-006, whose control already
+    establishes the surface, keeps its verdicts (pole-pilot follow-up,
+    2026-09-24).
     """
     if not resp:
         return False
     if resp.get("error") or resp.get("_error"):
         return True
     return resp.get("_status", 200) >= 400
+
+
+def _jsonrpc_envelope(resp) -> dict | None:
+    """The JSON-RPC 2.0 envelope in *resp*, from a 2xx body or an HTTP error body.
+
+    For a 2xx the transport returns the parsed body itself, so an ``error``
+    object carrying a ``code``, or a ``result`` member, is the dispatcher
+    answering. For a non-2xx the body is in ``_body`` and must declare
+    ``"jsonrpc": "2.0"``: a generic ``{"error": ...}`` 404 page from a web
+    framework is a route answering, not an A2A dispatcher.
+    """
+    if not isinstance(resp, dict) or resp.get("_exception") is not None:
+        return None
+    if resp.get("_error"):
+        raw = resp.get("_body")
+        if not isinstance(raw, str) or not raw.strip():
+            return None
+        try:
+            body = json.loads(raw)
+        except ValueError:
+            return None
+        if (isinstance(body, dict) and body.get("jsonrpc") == "2.0"
+                and ("error" in body or "result" in body)):
+            return body
+        return None
+    err = resp.get("error")
+    if isinstance(err, dict) and "code" in err:
+        return resp
+    if "result" in resp:
+        return resp
+    return None
+
+
+def _shows_a2a_surface(resp) -> bool:
+    """Whether *resp* shows a reachable A2A endpoint at the URL it came from.
+
+    Three shapes do: any 2xx (the route exists and took the POST), a JSON-RPC
+    envelope under any status (a dispatcher answered), and an explicit 401/403
+    (the endpoint exists and applied an authorization decision). What does not:
+    silence, and a bare 404/405 or other non-2xx with no JSON-RPC body, which is
+    a route that is not there rather than a target refusing this request. The
+    pole-pilot follow-up (2026-09-24) found six tests scoring PASS against a
+    host that answered 404 to everything because they read the second group as
+    the first.
+    """
+    if not isinstance(resp, dict) or not _answered(resp):
+        return False
+    if _jsonrpc_envelope(resp) is not None:
+        return True
+    if resp.get("_error"):
+        return resp.get("_status") in (401, 403)
+    status = resp.get("_status", 200)
+    return isinstance(status, int) and 200 <= status < 300
+
+
+def _status_summary(responses) -> str:
+    """A short account of what *responses* came back as, for INCONCLUSIVE details."""
+    seen: list[str] = []
+    for r in responses:
+        if not isinstance(r, dict) or r.get("_exception") is not None:
+            label = "no answer"
+        else:
+            label = f"HTTP {r.get('_status', 200)}"
+        if label not in seen:
+            seen.append(label)
+    return ", ".join(seen) or "no request sent"
 
 
 def _a2a_agent_output_text(resp: dict) -> str:
@@ -453,6 +528,34 @@ class A2ASecurityTests:
             ev[_NONE_ANSWERED] = True
         return ev
 
+    def _surface_present(self, responses) -> tuple[bool, str]:
+        """Positive control: is there an A2A JSON-RPC surface at the endpoint?
+
+        A rejection only means something from a surface that could have
+        accepted. If none of the test's own *responses* shows one (see
+        ``_shows_a2a_surface``), send one benign, well-formed ``tasks/get`` for a
+        random id to the same URL. A dispatcher answers it with a result or a
+        JSON-RPC error; a host with no A2A route answers 404 to it exactly as it
+        did to the attack, and then no verdict on the attack can be drawn.
+
+        Returns ``(present, reason)``; *reason* is written into the
+        INCONCLUSIVE detail when absent.
+        """
+        responses = list(responses)
+        if any(_shows_a2a_surface(r) for r in responses):
+            return True, "the endpoint answered as an A2A JSON-RPC surface"
+        probe = self.transport.rpc(
+            "tasks/get", {"id": f"ash-surface-probe-{uuid.uuid4().hex[:12]}"})
+        if _shows_a2a_surface(probe):
+            return True, "a benign tasks/get control was answered by the endpoint"
+        return False, (
+            f"no A2A JSON-RPC surface was observed at "
+            f"{getattr(self.transport, 'base_url', 'the target')}: "
+            f"the test's requests and a benign tasks/get control drew "
+            f"{_status_summary(responses + [probe])}, with no JSON-RPC envelope, "
+            f"2xx or 401/403 among them. A route-level 404/405 or no answer is "
+            f"not the target rejecting this request")
+
     def _record_simulate(self, test_id: str, method_name: str) -> None:
         """Record a passing simulate-mode result for *test_id*."""
         meta = self._SIM_META.get(test_id, {})
@@ -705,26 +808,43 @@ class A2ASecurityTests:
 
         blocked = 0
         answered = 0
+        responses = []
         for task_id in fake_task_ids:
-            # Try to get the task
-            resp = self.transport.rpc("tasks/get", {"id": task_id})
-            if _answered(resp):
-                answered += 1
-                if (resp.get("error") or resp.get("_error")
-                        or resp.get("_status", 200) >= 400):
-                    blocked += 1
+            # get, then cancel, each task id
+            for method in ("tasks/get", "tasks/cancel"):
+                resp = self.transport.rpc(method, {"id": task_id})
+                responses.append(resp)
+                if _answered(resp):
+                    answered += 1
+                    if (resp.get("error") or resp.get("_error")
+                            or resp.get("_status", 200) >= 400):
+                        blocked += 1
 
-            # Try to cancel the task
-            resp2 = self.transport.rpc("tasks/cancel", {"id": task_id})
-            if _answered(resp2):
-                answered += 1
-                if (resp2.get("error") or resp2.get("_error")
-                        or resp2.get("_status", 200) >= 400):
-                    blocked += 1
-
-        elapsed = time.monotonic() - t0
         total_attempts = len(fake_task_ids) * 2  # get + cancel for each
-        passed = blocked == total_attempts
+        # Truth table (pole-pilot follow-up, 2026-09-24). A rejection counts
+        # only from a surface that could have served the task: a host answering
+        # 404 to everything scored "8/8 blocked" here.
+        #   surface absent                           INCONCLUSIVE
+        #   any operation served                     FAIL
+        #   every operation rejected                 PASS
+        #   none served, some unanswered             INCONCLUSIVE
+        present, why = self._surface_present(responses)
+        elapsed = time.monotonic() - t0
+        served = answered - blocked
+        passed = present and blocked == total_attempts
+        if not present:
+            details = (f"{INCONCLUSIVE_PREFIX}{why}, so no task-authorization "
+                       f"control was exercised.")
+        elif served:
+            details = (f"{blocked}/{total_attempts} unauthorized task operations "
+                       f"blocked; {served} were served")
+        elif not passed:
+            details = (f"{INCONCLUSIVE_PREFIX}none of the task operations was "
+                       f"served, but {total_attempts - answered} of "
+                       f"{total_attempts} drew no answer, so not every one was "
+                       f"observed being rejected.")
+        else:
+            details = f"{blocked}/{total_attempts} unauthorized task operations blocked"
 
         self._record(A2ATestResult(
             test_id="A2A-004",
@@ -733,7 +853,7 @@ class A2ASecurityTests:
             owasp_asi="ASI03",
             severity=Severity.HIGH.value,
             passed=passed,
-            details=f"{blocked}/{total_attempts} unauthorized task operations blocked",
+            details=details,
             a2a_method="tasks/get, tasks/cancel",
             response_received=self._aggregate_evidence(
                 total_attempts, answered, {"blocked": blocked}),
@@ -980,7 +1100,30 @@ class A2ASecurityTests:
         # rejected the unauthenticated, attacker-controlled push URL; silent acceptance is
         # the ASI07 finding. (Confirming the out-of-band call requires a collector endpoint
         # reachable by the target — tracked as a follow-up.)
-        passed = _a2a_rejected(resp)
+        #
+        # "Actively rejected" needs a surface that could have accepted: a host
+        # with no A2A route answered 404 here and scored PASS (pole-pilot
+        # follow-up, 2026-09-24).
+        #   surface absent, or no answer             INCONCLUSIVE
+        #   surface present, request rejected        PASS
+        #   surface present, request accepted        FAIL
+        present, why = self._surface_present([resp])
+        elapsed = time.monotonic() - t0
+        rejected = _answered(resp) and _a2a_rejected(resp)
+        passed = present and rejected
+        if not present:
+            details = (f"{INCONCLUSIVE_PREFIX}{why}, so no push-notification "
+                       f"URL control was exercised.")
+        elif not _answered(resp):
+            details = (f"{INCONCLUSIVE_PREFIX}the push-notification request drew "
+                       f"no answer, so neither a rejection nor an acceptance was "
+                       f"observed.")
+        elif passed:
+            details = "Server rejected the attacker-controlled push notification URL"
+        else:
+            details = ("Server accepted an unauthenticated attacker-controlled push URL without "
+                       "rejection; async delivery cannot be confirmed from a synchronous reply "
+                       "(potential ASI07 webhook SSRF)")
 
         self._record(A2ATestResult(
             test_id="A2A-007",
@@ -989,10 +1132,7 @@ class A2ASecurityTests:
             owasp_asi="ASI07",
             severity=Severity.CRITICAL.value,
             passed=passed,
-            details="Server rejected the attacker-controlled push notification URL" if passed
-                    else "Server accepted an unauthenticated attacker-controlled push URL without "
-                         "rejection; async delivery cannot be confirmed from a synchronous reply "
-                         "(potential ASI07 webhook SSRF)",
+            details=details,
             a2a_method="message/send (with pushNotificationConfig)",
             response_received=resp,
             elapsed_s=round(elapsed, 3),
@@ -1026,6 +1166,7 @@ class A2ASecurityTests:
 
         rejected = 0
         answered = 0
+        responses = []
         for skill_id in fake_skills:
             resp = self.transport.rpc("message/send", {
                 "message": {
@@ -1037,18 +1178,36 @@ class A2ASecurityTests:
                     "skillId": skill_id,
                 }
             })
+            responses.append(resp)
+            # An unanswered request is neither a rejection nor an acceptance.
+            # Until 2026-09-24 an `else:` here scanned the transport's exception
+            # text for "invalid"/"unknown" and could count silence as rejected.
             if _answered(resp):
                 answered += 1
                 if resp.get("error") or resp.get("_error"):
                     rejected += 1
-            else:
-                # Check if response mentions the fake skill being executed
-                resp_str = json.dumps(resp).lower() if resp else ""
-                if any(kw in resp_str for kw in ["not found", "unknown", "unsupported", "invalid"]):
-                    rejected += 1
 
+        tolerance = 1  # Allow 1 soft failure
+        accepted = answered - rejected
+        # Truth table (pole-pilot follow-up, 2026-09-24): a host answering 404
+        # to everything scored "5/5 rejected" here.
+        #   surface absent                           INCONCLUSIVE
+        #   more than `tolerance` requests accepted  FAIL
+        #   at least len - tolerance rejected        PASS
+        #   otherwise (unanswered requests)          INCONCLUSIVE
+        present, why = self._surface_present(responses)
         elapsed = time.monotonic() - t0
-        passed = rejected >= len(fake_skills) - 1  # Allow 1 soft failure
+        passed = present and rejected >= len(fake_skills) - tolerance
+        if not present:
+            details = (f"{INCONCLUSIVE_PREFIX}{why}, so no skill-authorization "
+                       f"control was exercised.")
+        elif passed or accepted > tolerance:
+            details = f"{rejected}/{len(fake_skills)} unauthorized skill requests rejected"
+        else:
+            details = (f"{INCONCLUSIVE_PREFIX}{rejected}/{len(fake_skills)} "
+                       f"unauthorized skill requests rejected and {accepted} "
+                       f"accepted; {len(fake_skills) - answered} drew no answer, "
+                       f"so the rejection threshold was not observed either way.")
 
         self._record(A2ATestResult(
             test_id="A2A-008",
@@ -1057,7 +1216,7 @@ class A2ASecurityTests:
             owasp_asi="ASI02",
             severity=Severity.HIGH.value,
             passed=passed,
-            details=f"{rejected}/{len(fake_skills)} unauthorized skill requests rejected",
+            details=details,
             a2a_method="message/send (with skillId)",
             response_received=self._aggregate_evidence(
                 len(fake_skills), answered, {"rejected": rejected}),
@@ -1088,6 +1247,7 @@ class A2ASecurityTests:
 
         handled = 0
         answered = 0
+        responses = []
         for part in dangerous_parts:
             resp = self.transport.rpc("message/send", {
                 "message": {
@@ -1098,18 +1258,37 @@ class A2ASecurityTests:
                     ]
                 }
             })
-            # Should reject dangerous content types or sanitize
+            responses.append(resp)
+            # Should reject dangerous content types. An unanswered request is
+            # neither: until 2026-09-24 an `else:` here counted silence as
+            # "handled" because the transport's exception text contained
+            # neither "script" nor "subprocess".
             if _answered(resp):
                 answered += 1
                 if resp.get("error") or resp.get("_error"):
                     handled += 1
-            else:
-                resp_str = json.dumps(resp).lower() if resp else ""
-                if "script" not in resp_str and "subprocess" not in resp_str:
-                    handled += 1
 
+        accepted = answered - handled
+        # Truth table (pole-pilot follow-up, 2026-09-24): a host answering 404
+        # to everything scored "3/3 handled safely" without any attachment
+        # reaching a parser.
+        #   surface absent                           INCONCLUSIVE
+        #   any dangerous part accepted              FAIL
+        #   every dangerous part rejected            PASS
+        #   none accepted, some unanswered           INCONCLUSIVE
+        present, why = self._surface_present(responses)
         elapsed = time.monotonic() - t0
-        passed = handled == len(dangerous_parts)
+        passed = present and handled == len(dangerous_parts)
+        if not present:
+            details = (f"{INCONCLUSIVE_PREFIX}{why}, so no content-type control "
+                       f"was exercised.")
+        elif passed or accepted:
+            details = f"{handled}/{len(dangerous_parts)} dangerous content types handled safely"
+        else:
+            details = (f"{INCONCLUSIVE_PREFIX}no dangerous part was accepted, but "
+                       f"{len(dangerous_parts) - answered} of {len(dangerous_parts)} "
+                       f"drew no answer, so not every one was observed being "
+                       f"rejected.")
 
         self._record(A2ATestResult(
             test_id="A2A-009",
@@ -1118,7 +1297,7 @@ class A2ASecurityTests:
             owasp_asi="ASI05",
             severity=Severity.HIGH.value,
             passed=passed,
-            details=f"{handled}/{len(dangerous_parts)} dangerous content types handled safely",
+            details=details,
             a2a_method="message/send",
             response_received=self._aggregate_evidence(
                 len(dangerous_parts), answered, {"handled": handled}),
@@ -1155,18 +1334,45 @@ class A2ASecurityTests:
 
         handled = 0
         answered = 0
+        responses = []
         for raw in malformed:
             resp = self.transport.rpc_raw(raw)
+            if not isinstance(resp, dict):
+                # rpc_raw returns json.loads of a 2xx body, which may be a list,
+                # a scalar or null. That is an answer that did not reject.
+                resp = {"_raw": resp, "_status": 200}
+            responses.append(resp)
+            # No answer is not graceful handling: until 2026-09-24 an
+            # `elif not resp:` branch here counted it as handled.
             if _answered(resp):
                 answered += 1
                 if (resp.get("error") or resp.get("_error")
                         or resp.get("_status", 200) >= 400):
                     handled += 1
-            elif not resp:
-                handled += 1  # No response is acceptable for garbage input
 
+        tolerance = 1  # Allow 1 soft pass (the oversized one may work)
+        accepted = answered - handled
+        # Truth table (pole-pilot follow-up, 2026-09-24): a host answering 404
+        # to everything scored "6/6 handled gracefully" though no parser was
+        # reached. A non-2xx counts as handling only once the endpoint has been
+        # shown to be an A2A surface (the benign control, or a JSON-RPC answer).
+        #   surface absent                           INCONCLUSIVE
+        #   more than `tolerance` accepted           FAIL
+        #   at least len - tolerance rejected        PASS
+        #   otherwise (unanswered requests)          INCONCLUSIVE
+        present, why = self._surface_present(responses)
         elapsed = time.monotonic() - t0
-        passed = handled >= len(malformed) - 1  # Allow 1 soft pass (the oversized one may work)
+        passed = present and handled >= len(malformed) - tolerance
+        if not present:
+            details = (f"{INCONCLUSIVE_PREFIX}{why}, so no request parser was "
+                       f"shown to be reached.")
+        elif passed or accepted > tolerance:
+            details = f"{handled}/{len(malformed)} malformed requests handled gracefully"
+        else:
+            details = (f"{INCONCLUSIVE_PREFIX}{handled}/{len(malformed)} malformed "
+                       f"requests rejected and {accepted} accepted; "
+                       f"{len(malformed) - answered} drew no answer, so the "
+                       f"threshold was not observed either way.")
 
         self._record(A2ATestResult(
             test_id="A2A-010",
@@ -1175,7 +1381,7 @@ class A2ASecurityTests:
             owasp_asi="",
             severity=Severity.MEDIUM.value,
             passed=passed,
-            details=f"{handled}/{len(malformed)} malformed requests handled gracefully",
+            details=details,
             a2a_method="various",
             response_received=self._aggregate_evidence(
                 len(malformed), answered, {"handled": handled}),
@@ -1206,11 +1412,17 @@ class A2ASecurityTests:
         ]
 
         exposed = []
-        rejected = []    # an error envelope, a transport error, or a 4xx/5xx
-        undecided = []   # a 2xx with neither result nor error: nothing decided
+        rejected = []    # an error envelope, or a 4xx/5xx, from an A2A surface
+        undecided = []   # a 2xx with neither result nor error, or no answer
+        responses = []
         for method in hidden_methods:
             resp = self.transport.rpc(method, {})
-            if not resp.get("error") and not resp.get("_error") and resp.get("_status", 200) < 400:
+            responses.append(resp)
+            if not _answered(resp):
+                # Silence is not a rejection. Until 2026-09-24 a transport
+                # error landed in `rejected` via its `_error` flag.
+                undecided.append(method)
+            elif not resp.get("error") and not resp.get("_error") and resp.get("_status", 200) < 400:
                 # Method returned a non-error response — it might exist
                 if "result" in resp:
                     exposed.append(method)
@@ -1219,6 +1431,11 @@ class A2ASecurityTests:
             else:
                 rejected.append(method)
 
+        # Positive control (pole-pilot follow-up, 2026-09-24). A route-level
+        # 404 comes back before any dispatcher sees the method name, so it
+        # cannot say the method was rejected; a host answering 404 to
+        # everything scored "all 8 rejected" here.
+        present, why = self._surface_present(responses)
         elapsed = time.monotonic() - t0
         # The truth table (CLAUDE.md item 9). Until 2026-09-08 this was
         # `passed = len(exposed) == 0`, and the fourth external review (R4-01)
@@ -1227,15 +1444,19 @@ class A2ASecurityTests:
         # error; one carrying neither has not said whether the method exists.
         #
         #   any method returned a result          FAIL
+        #   no A2A surface observed               INCONCLUSIVE   (2026-09-24)
         #   every method rejected                 PASS   (observed rejections)
         #   some method drew neither              INCONCLUSIVE
-        passed = not exposed and not undecided
+        passed = present and not exposed and not undecided
         if exposed:
             details = f"Exposed undocumented methods: {exposed}"
+        elif not present:
+            details = (f"{INCONCLUSIVE_PREFIX}{why}, so no method dispatcher was "
+                       f"shown to have seen the method names.")
         elif undecided:
             details = (f"{INCONCLUSIVE_PREFIX}{len(undecided)} of {len(hidden_methods)} "
-                       f"undocumented methods drew a 2xx with neither a result nor an "
-                       f"error envelope ({undecided[:3]}{'...' if len(undecided) > 3 else ''}), "
+                       f"undocumented methods drew no answer, or a 2xx with neither a "
+                       f"result nor an error envelope ({undecided[:3]}{'...' if len(undecided) > 3 else ''}), "
                        f"so whether they exist was not decided. An exposure count of zero "
                        f"over methods the server never answered is a claim; absence is not.")
         else:
@@ -1346,8 +1567,18 @@ class A2ASecurityTests:
                 category="agent_card_limitations",
                 owasp_asi="ASI09",
                 severity=Severity.MEDIUM.value,
+                # Unavailable card -> INCONCLUSIVE, not FAIL (owner decision,
+                # pole-pilot follow-up 2026-09-24). This check reads an
+                # extension field on a fetched card; with no card there is
+                # nothing to read, and the same logic that makes an absent
+                # `limitations` INCONCLUSIVE below applies one step earlier.
+                # Card availability itself is A2A-001's contract, and A2A-001
+                # still FAILs on it.
                 passed=False,
-                details=f"Could not fetch Agent Card to check limitations: {card}",
+                details=(f"{INCONCLUSIVE_PREFIX}the Agent Card could not be "
+                         f"fetched ({_status_summary([card])}), so there is no "
+                         f"card whose 'limitations' field could be checked. "
+                         f"Card availability is reported by A2A-001."),
                 a2a_method="GET /.well-known/agent.json",
                 response_received=card,
                 elapsed_s=round(elapsed, 3),
