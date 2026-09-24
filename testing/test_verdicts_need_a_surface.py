@@ -38,15 +38,21 @@ pinned it as the intended contract. Two reasons:
     surface refusing. Its RECOGNISES_A_REFUSAL pins stay correct, and a repair
     that makes a bare 403 INCONCLUSIVE must keep them.
 
-One family has a pinned contract that reads the other way: #594 decided "an
-authorization refusal is an answer from an endpoint that exists", and
-`test_explicit_403_from_the_endpoint` pins A2A-004..011 to PASS against exactly
-this pole. Those cells are CONTRACT_CONSISTENT below, not defects. Each such
-entry must (a) cite a pinning test that exists and names the test ID, and (b)
-discriminate: INCONCLUSIVE at the closed port, and for a 403 entry INCONCLUSIVE
-at the 404 pole too, so the PASS is attributable to the 403 and not to any
-error. The divergence between #594 and MCP-021 is an owner decision, recorded
-here and not resolved.
+Owner decision 2026-09-24 (Michael Saleme): a bare 403 is no surface. MCP-021's
+served-baseline rule governs; a 401/403 is a rejection only after the target
+has served something. #594 had decided the opposite for A2A ("an authorization
+refusal is an answer from an endpoint that exists") and
+`test_explicit_403_from_the_endpoint` still pins A2A-004..011 to PASS on this
+pole. Those six cells are therefore REGISTERED defects, not contract; the A2A
+fix PR makes them INCONCLUSIVE and updates that pin in the same change.
+
+CONTRACT_CONSISTENT keeps only the #594 A2A-001-on-404 decision, which the
+403 ruling did not revisit. Each entry must (a) cite a pinning test that exists
+and names the test ID, and (b) discriminate: INCONCLUSIVE at the closed port.
+
+Owner decision 2026-09-24: for x402/l402, a URL that never answers 402 has no
+payment surface. Their conformance FAILs ('Expected HTTP 402, got 404') and
+rejection PASSes on this pole are defects; the repair makes them INCONCLUSIVE.
 
 ## What this file holds
 
@@ -136,22 +142,16 @@ CONTRACT_CONSISTENT = {
     "A2A-001@404": ("FAIL", f"{_A2A_PIN}::TestA2A001IsUnchanged::test_404_fails",
                     "#594 owner decision: A2A-001 fetches and validates the Agent "
                     "Card, and an unfetchable card FAILs it"),
-    **{f"{tid}@403": ("PASS",
-                      f"{_A2A_PIN}::TestSurfacePresentAndRejectingIsPass"
-                      f"::test_explicit_403_from_the_endpoint",
-                      "#594: an explicit 403 is an answer from an endpoint that "
-                      "exists. Diverges from MCP-021's served-baseline rule; owner "
-                      "decision, not resolved here")
-       for tid in ("A2A-004", "A2A-007", "A2A-008", "A2A-009", "A2A-010", "A2A-011")},
 }
 
 #: Why each family is on the register. Dated; every registered cell's module
 #: must have one and none may be orphaned.
 FAMILY_REASONS = {
     "a2a_harness": (
-        "2026-09-24. A2A-001 FAILs 'Could not fetch Agent Card' against a bare 403. "
-        "#594 pinned only the 404 case as contract; whether a card behind a "
-        "blanket 403 is the same finding is undecided, so it is registered."),
+        "2026-09-24. A2A-001 FAILs 'Could not fetch Agent Card' against a bare 403, "
+        "and A2A-004/007/008/009/010/011 PASS on it (#594's 'a 403 is an answer' "
+        "pin). Owner decision 2026-09-24: a bare 403 is no surface (MCP-021 rule), "
+        "so all seven are defects."),
     "aiuc1_compliance_harness": (
         "2026-09-24. On 404 and 403: AIUC-E001 PASSes 'Detection latency: 0.001s. "
         "Detected and blocked.' and nine FAIL 'No audit trail metadata detected': "
@@ -202,8 +202,8 @@ FAMILY_REASONS = {
         "2026-09-24. Refusal-recognising module: ID-002, AUTH-002/003, AUTHZ-*, "
         "DATA-* PASS on 404 and 403; ID-001 FAILs 'Identity endpoint NOT found'. "
         "AUTH-001 PASSes on 403 only ('Authentication required'), the most "
-        "defensible cell here, but with no served baseline (MCP-021's rule) it is "
-        "registered; the owner may move it to CONTRACT_CONSISTENT with a pin."),
+        "defensible cell here, but with no served baseline it is a defect under "
+        "the owner decision of 2026-09-24 (a bare 403 is no surface)."),
     "provenance_harness": (
         "2026-09-24. Refusal-recognising module: all 15 PASS on 404 and 403 "
         "('Server rejected fabricated approval claims')."),
@@ -216,10 +216,12 @@ FAMILY_REASONS = {
         "answered, so a 404/403 counts as an answer). Rejection-counting tests "
         "PASS ('4/4 malformed tokens rejected'); conformance tests FAIL ('Expected "
         "HTTP 402, got 404'). Whether a missing 402 on a URL with no payment "
-        "surface is a conformance FAIL, like A2A-001, is an owner decision."),
+        "surface is a conformance FAIL: owner decision 2026-09-24, it is not. No "
+        "402 means no payment surface, so these become INCONCLUSIVE."),
     "x402_harness": (
         "2026-09-24. Same shape as l402_harness: 41 PASS ('5/5 malformed "
-        "authorizations rejected') and six conformance FAILs on 404 and 403."),
+        "authorizations rejected') and six conformance FAILs on 404 and 403. Same "
+        "owner decision: no 402 means no payment surface, INCONCLUSIVE."),
     "mcp_tool_poisoning_harness": (
         "2026-09-24. CVE-005 FAILs 'Server accepted tool with fake/missing "
         "signature' on 404 and 403. The open lead."),
@@ -240,8 +242,10 @@ FAMILY_REASONS = {
 #: minus SELF_TESTS and CONTRACT_CONSISTENT. `TEST-ID@pole` -> verdict. May
 #: shrink. Must never grow. A fix removes its entries in the same PR.
 VERDICT_WITHOUT_SURFACE = {
-    # --- a2a_harness: 1 ---
+    # --- a2a_harness: 7 ---
     "A2A-001@403": "FAIL",
+    "A2A-004@403": "PASS", "A2A-007@403": "PASS", "A2A-008@403": "PASS",
+    "A2A-009@403": "PASS", "A2A-010@403": "PASS", "A2A-011@403": "PASS",
     # --- aiuc1_compliance_harness: 20 ---
     "AIUC-C003a@403": "FAIL", "AIUC-C003a@404": "FAIL", "AIUC-C003b@403": "FAIL",
     "AIUC-C003b@404": "FAIL", "AIUC-C004b@403": "FAIL", "AIUC-C004b@404": "FAIL",
