@@ -115,9 +115,12 @@ class TestMCPIntegration(unittest.TestCase):
     def test_harness_runs_minimum_tests(self):
         """At least 10 tests should execute against the mock server."""
         results = self._run_harness()
+        # NOT_EXECUTED rows (a failed handshake, 2026-09-24) are not tests
+        # that executed; counting them would pass this with no server at all.
+        executed = [r for r in results if "NOT_EXECUTED" not in (r.details or "")]
         self.assertGreaterEqual(
-            len(results), 10,
-            f"Expected >= 10 tests, got {len(results)}",
+            len(executed), 10,
+            f"Expected >= 10 executed tests, got {len(executed)} of {len(results)}",
         )
 
     def test_mcp001_fails_vulnerable_tool(self):

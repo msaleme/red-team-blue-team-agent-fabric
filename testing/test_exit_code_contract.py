@@ -351,6 +351,33 @@ class McpBootstrapFailureIsNotExecuted(unittest.TestCase):
         self.assertEqual([r["test_id"] for r in doc["results"]], want)
 
 
+class ConsumersOfZeroRowsStillSeeAFailedBootstrap(unittest.TestCase):
+    """A consumer that read "zero rows" as "never started" must not be fooled.
+
+    scripts/mcp_reference_calibration.py keyed `launched` on `bool(rows)`. On
+    the first CI run of this change the reference server was not cached, the
+    suite returned 33 NOT_EXECUTED rows, and the calibration reported that the
+    class split had moved instead of skipping as UNMEASURED.
+    """
+
+    def test_the_suite_says_its_bootstrap_failed(self):
+        from protocol_tests.mcp_harness import MCPSecurityTests, StreamableHTTPTransport
+        transport = StreamableHTTPTransport(f"http://127.0.0.1:{_closed_port()}/mcp")
+        suite = MCPSecurityTests(transport, json_output=True)
+        try:
+            rows = suite.run_all()
+        finally:
+            transport.close()
+        self.assertTrue(rows)
+        self.assertTrue(suite.bootstrap_error)
+
+    def test_the_calibration_reads_a_server_that_never_started_as_not_launched(self):
+        sys.path.insert(0, str(REPO_ROOT / "scripts"))
+        from mcp_reference_calibration import calibrate
+        report = calibrate([sys.executable, "-c", "import sys; sys.exit(0)"])
+        self.assertFalse(report["launched"], report["counts"])
+
+
 class McpPermissiveTargetRuns(unittest.TestCase):
     def test_a_target_that_answers_the_handshake_runs_the_tests(self):
         with _Server("permissive") as srv:

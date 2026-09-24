@@ -114,8 +114,15 @@ def calibrate(command: list[str]) -> dict:
     # "the class split moved" -- turning UNMEASURED into a confident and wrong
     # failure message. That is the defect this whole job exists to catch, in the
     # job itself.
+    #
+    # Since 2026-09-24 a failed bootstrap no longer returns zero rows: it
+    # returns one NOT_EXECUTED row per registered test and sets
+    # `suite.bootstrap_error`. Keying `launched` on row count would read a
+    # server that never started as 33 INCONCLUSIVE and fail the class split --
+    # the same wrong message, reintroduced (it did, in CI, on the first push).
+    launched = bool(rows) and not getattr(suite, "bootstrap_error", None)
     return {"server": REFERENCE_SERVER, "total": len(rows),
-            "launched": bool(rows), "counts": counts, "rows": rows}
+            "launched": launched, "counts": counts, "rows": rows}
 
 
 def main() -> int:

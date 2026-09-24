@@ -735,6 +735,11 @@ class MCPSecurityTests:
         self.issuer_probe = issuer_probe
         self.issuer_attacker_headers = issuer_attacker_headers
         self.selected_protocol_version: str | None = None
+        #: Set by `run_all` when `initialize()` failed and every row it returns
+        #: is NOT_EXECUTED. A consumer that used to read "zero rows" as "the
+        #: session never started" must read this instead: since 2026-09-24 a
+        #: failed bootstrap returns one row per registered test.
+        self.bootstrap_error: str | None = None
 
     def _record(self, result: MCPTestResult):
         self.results.append(result)
@@ -3639,6 +3644,7 @@ class MCPSecurityTests:
             err = getattr(self, "_connection_error", "Failed to initialize MCP connection")
             if not self.json_output:
                 print(f"\n❌ {err}. Aborting: every test below is NOT_EXECUTED.")
+            self.bootstrap_error = err
             self._not_executed(test_map, err)
             return self.results
 
