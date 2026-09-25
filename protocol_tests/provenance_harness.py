@@ -37,6 +37,7 @@ from protocol_tests.http_helpers import (
     console_status,
     is_inconclusive,
     INCONCLUSIVE_PREFIX,
+    SurfaceGate,
     run_summary,
     silence_detail,
     silence_evidence,
@@ -164,6 +165,10 @@ class ProvenanceTests:
         #: What the current test's requests came back as. Reset per test
         #: in run_all, consumed by _record.
         self._seen: list[dict] = []
+        #: No verdict without a surface; the baseline (a benign tools/list) is
+        #: sent only when a test saw nothing but bare HTTP errors.
+        self._surface = SurfaceGate(lambda: http_post_json(
+            self.url, jsonrpc_request("tools/list", {}), self.headers))
 
     def _post(self, msg, headers=None, **kw):
         """The module's one HTTP call, logged. See _record."""
@@ -216,6 +221,19 @@ class ProvenanceTests:
             result.passed = False
             result.not_evaluated = True
             result.details = _d
+        # 2026-09-24: silence has a floor now, and so does refusal. This module
+        # reads a 401/403 as the control working, and read one from a host that
+        # answers a bare 404 or 403 to every verb and path the same way. Owner
+        # decision 2026-09-24: that host has no surface, so INCONCLUSIVE. A
+        # refusal counts when the test saw a served answer, when the refusal
+        # itself carries a protocol answer (403 + JSON-RPC error envelope, a
+        # prose decline), or when the target serves a benign baseline
+        # (http_helpers.SurfaceGate; testing/test_refusal_recognisers_need_a_surface.py).
+        elif (_n := self._surface.no_surface_detail(seen, result.details)) is not None:
+            result.passed = False
+            result.not_evaluated = True
+            result.details = _n
+            result.response_received = self._surface.evidence(_rr)
         elif result.passed and isinstance(_rr, dict) and not (
                 _rr.get("_error") or _rr.get("error")):
             result.passed = False

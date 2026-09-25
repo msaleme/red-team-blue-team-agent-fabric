@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — the refusal-recognising harnesses need a surface (85 register cells)
+
+`identity`, `provenance`, `governance-modification`, `kill-switch` and `incident-response`
+read a 401/403 (or any HTTP error) as the control working, and read one from a host
+answering a bare 404 or 403 to every verb and path the same way: 85 PASS/FAIL verdicts
+against a target that served nothing ("Server rejected fabricated approval claims",
+"Identity endpoint NOT found", GM-004..006 and IR-009/012 FAILs on an error page).
+Owner decision 2026-09-24: no surface is INCONCLUSIVE.
+
+- New shared `http_helpers.SurfaceGate`, applied in each module's `_record` after the
+  silence guard. A verdict stands when the test saw a served answer (a 2xx), a refusal
+  that carries a protocol answer (`http_helpers.served_refusal`: 401/403 with a JSON-RPC
+  error envelope, or a 4xx declining in prose), or when the target serves a benign
+  baseline request (sent lazily, at most once per run, with the operator's headers, only
+  when a test saw nothing but bare HTTP errors). Otherwise INCONCLUSIVE, whichever way
+  the verdict pointed.
+- `served_refusal` is promoted from `crewai_cve_harness._served_refusal` (#603); crewai
+  now uses the shared definition (no crewai verdict change).
+- Against a bare 404 or 403 everywhere, all five now return only INCONCLUSIVE and exit 2
+  (was 1 for identity, governance-modification, kill-switch and incident-response, which
+  each held a FAIL, and 0 for provenance, whose 15 rows all PASSed). Unchanged: the closed port, the permissive target, and
+  the refusing host (403 + JSON-RPC envelope + prose), whose `RECOGNISES_A_REFUSAL` pins
+  (3, 2, 6, 10, 15) hold. A served target that refuses with a bare 403 still PASSes.
+- `VERDICT_WITHOUT_SURFACE` 340 -> 255 cells (13 -> 8 harnesses); five `FAMILY_REASONS`
+  removed. Pinned in `testing/test_refusal_recognisers_need_a_surface.py`.
+  Test IDs and count (640) unchanged.
+
 ### Changed (internal) — cloud-agents use the shared served-baseline rule
 
 `cloud_agent_harness.CloudAgentAdapter` now inherits `http_helpers.ServedBaseline` (#605)

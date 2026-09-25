@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `3c3a66b`
+**Generated:** `scripts/generate_test_catalog.py` at commit `a858702`
 **Test count:** 640 unique test IDs across 49 registered harness modules (48 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -210,16 +210,16 @@ WXO-005 | Multi-Tenant Isolation | protocol_tests/cloud_agent_harness.py:1035
 ### CrewAI CVE Reproduction (`protocol_tests/crewai_cve_harness.py`) — 10 tests
 
 ```
-CREW-001 | Sandbox Fallback Detection | protocol_tests/crewai_cve_harness.py:577
-CREW-002 | Ctypes Payload Coverage (self-test, no target) | protocol_tests/crewai_cve_harness.py:689
-CREW-003 | Code Execution Config Audit | protocol_tests/crewai_cve_harness.py:749
-CREW-004 | Path Traversal in JSON Loader | protocol_tests/crewai_cve_harness.py:827
-CREW-005 | Sensitive File Read Detection | protocol_tests/crewai_cve_harness.py:907
-CREW-006 | SSRF Cloud Metadata Detection | protocol_tests/crewai_cve_harness.py:985
-CREW-007 | SSRF Internal Service Detection | protocol_tests/crewai_cve_harness.py:1058
-CREW-008 | SSRF URL Validation Bypass (self-test in simulate; target differential live) | protocol_tests/crewai_cve_harness.py:1158
-CREW-009 | Docker Availability Check Bypass | protocol_tests/crewai_cve_harness.py:1261
-CREW-010 | Fallback Sandbox RCE Chain | protocol_tests/crewai_cve_harness.py:1351
+CREW-001 | Sandbox Fallback Detection | protocol_tests/crewai_cve_harness.py:555
+CREW-002 | Ctypes Payload Coverage (self-test, no target) | protocol_tests/crewai_cve_harness.py:667
+CREW-003 | Code Execution Config Audit | protocol_tests/crewai_cve_harness.py:727
+CREW-004 | Path Traversal in JSON Loader | protocol_tests/crewai_cve_harness.py:805
+CREW-005 | Sensitive File Read Detection | protocol_tests/crewai_cve_harness.py:885
+CREW-006 | SSRF Cloud Metadata Detection | protocol_tests/crewai_cve_harness.py:963
+CREW-007 | SSRF Internal Service Detection | protocol_tests/crewai_cve_harness.py:1036
+CREW-008 | SSRF URL Validation Bypass (self-test in simulate; target differential live) | protocol_tests/crewai_cve_harness.py:1136
+CREW-009 | Docker Availability Check Bypass | protocol_tests/crewai_cve_harness.py:1239
+CREW-010 | Fallback Sandbox RCE Chain | protocol_tests/crewai_cve_harness.py:1329
 ```
 
 ### Delegated-Authority Attenuation (`protocol_tests/delegation_chain_harness.py`) — 11 tests
@@ -340,12 +340,12 @@ PA-004 | Template Injection via Tool Definitions | protocol_tests/framework_adap
 ### governance_modification_harness.py (`protocol_tests/governance_modification_harness.py`) — 6 tests
 
 ```
-GM-001 | Gate Self-Disable | protocol_tests/governance_modification_harness.py:292
-GM-002 | Threshold Self-Modification | protocol_tests/governance_modification_harness.py:395
-GM-003 | Permission Self-Escalation | protocol_tests/governance_modification_harness.py:514
-GM-004 | Kill-Switch Bypass | protocol_tests/governance_modification_harness.py:612
-GM-005 | Amendment Self-Ratification | protocol_tests/governance_modification_harness.py:718
-GM-006 | Audit Log Tampering | protocol_tests/governance_modification_harness.py:847
+GM-001 | Gate Self-Disable | protocol_tests/governance_modification_harness.py:320
+GM-002 | Threshold Self-Modification | protocol_tests/governance_modification_harness.py:423
+GM-003 | Permission Self-Escalation | protocol_tests/governance_modification_harness.py:542
+GM-004 | Kill-Switch Bypass | protocol_tests/governance_modification_harness.py:640
+GM-005 | Amendment Self-Ratification | protocol_tests/governance_modification_harness.py:746
+GM-006 | Audit Log Tampering | protocol_tests/governance_modification_harness.py:875
 ```
 
 ### GTG-1002 APT Simulation (`protocol_tests/gtg1002_simulation.py`) — 17 tests
@@ -410,37 +410,37 @@ HITL-008 | Fabricated Authority Used to Move a Human. | protocol_tests/hitl_harn
 ### Identity & Authorization (`protocol_tests/identity_harness.py`) — 18 tests
 
 ```
-AUDIT-001 | Action Audit Trail Availability | protocol_tests/identity_harness.py:732
-AUDIT-002 | Action Non-Repudiation (Attribution in Response) | protocol_tests/identity_harness.py:764
-AUTH-001 | Unauthenticated Access Prevention | protocol_tests/identity_harness.py:411
-AUTH-002 | Expired/Revoked Credential Rejection | protocol_tests/identity_harness.py:447
-AUTH-003 | OAuth Token Scope Escalation | protocol_tests/identity_harness.py:514
-AUTHZ-001 | Least Privilege Enforcement | protocol_tests/identity_harness.py:571
-AUTHZ-002 | Delegation Chain Validation ( | protocol_tests/identity_harness.py:611
-AUTHZ-003 | Human-in-the-Loop Approval Forgery | protocol_tests/identity_harness.py:645
-AUTHZ-004 | Zero-Trust Re-Authorization on Context Change | protocol_tests/identity_harness.py:693
-DATA-001 | Cross-Source Data Aggregation Sensitivity | protocol_tests/identity_harness.py:799
-DATA-002 | Prompt Provenance / Injection via Context | protocol_tests/identity_harness.py:837
-DATA-003 | Output Data Sensitivity Classification | protocol_tests/identity_harness.py:868
-ID-001 | Agent Identity Metadata Availability | protocol_tests/identity_harness.py:245
-ID-002 | Agent Identity Spoofing Resistance | protocol_tests/identity_harness.py:290
-ID-003 | Ephemeral Identity Isolation (Cross-Session) | protocol_tests/identity_harness.py:359
-STD-001 | OAuth 2.1 / OIDC Discovery Endpoints | protocol_tests/identity_harness.py:903
-STD-002 | SPIFFE Workload Identity Support | protocol_tests/identity_harness.py:926
-STD-003 | SCIM Agent Lifecycle Management | protocol_tests/identity_harness.py:956
+AUDIT-001 | Action Audit Trail Availability | protocol_tests/identity_harness.py:753
+AUDIT-002 | Action Non-Repudiation (Attribution in Response) | protocol_tests/identity_harness.py:785
+AUTH-001 | Unauthenticated Access Prevention | protocol_tests/identity_harness.py:432
+AUTH-002 | Expired/Revoked Credential Rejection | protocol_tests/identity_harness.py:468
+AUTH-003 | OAuth Token Scope Escalation | protocol_tests/identity_harness.py:535
+AUTHZ-001 | Least Privilege Enforcement | protocol_tests/identity_harness.py:592
+AUTHZ-002 | Delegation Chain Validation ( | protocol_tests/identity_harness.py:632
+AUTHZ-003 | Human-in-the-Loop Approval Forgery | protocol_tests/identity_harness.py:666
+AUTHZ-004 | Zero-Trust Re-Authorization on Context Change | protocol_tests/identity_harness.py:714
+DATA-001 | Cross-Source Data Aggregation Sensitivity | protocol_tests/identity_harness.py:820
+DATA-002 | Prompt Provenance / Injection via Context | protocol_tests/identity_harness.py:858
+DATA-003 | Output Data Sensitivity Classification | protocol_tests/identity_harness.py:889
+ID-001 | Agent Identity Metadata Availability | protocol_tests/identity_harness.py:266
+ID-002 | Agent Identity Spoofing Resistance | protocol_tests/identity_harness.py:311
+ID-003 | Ephemeral Identity Isolation (Cross-Session) | protocol_tests/identity_harness.py:380
+STD-001 | OAuth 2.1 / OIDC Discovery Endpoints | protocol_tests/identity_harness.py:924
+STD-002 | SPIFFE Workload Identity Support | protocol_tests/identity_harness.py:947
+STD-003 | SCIM Agent Lifecycle Management | protocol_tests/identity_harness.py:977
 ```
 
 ### Incident Response (`protocol_tests/incident_response_harness.py`) — 8 tests
 
 ```
-IR-001 | Security Breach Alert Triggering | protocol_tests/incident_response_harness.py:341
-IR-002 | Harmful Output Escalation | protocol_tests/incident_response_harness.py:377
-IR-003 | Hallucination Detection Alerting | protocol_tests/incident_response_harness.py:459
-IR-004 | Kill Switch Activation | protocol_tests/incident_response_harness.py:511
-IR-005 | Recovery Time Measurement | protocol_tests/incident_response_harness.py:575
-IR-006 | Log Completeness | protocol_tests/incident_response_harness.py:640
-IR-007 | Notification Timeline | protocol_tests/incident_response_harness.py:690
-IR-008 | Cascading Failure Containment | protocol_tests/incident_response_harness.py:793
+IR-001 | Security Breach Alert Triggering | protocol_tests/incident_response_harness.py:369
+IR-002 | Harmful Output Escalation | protocol_tests/incident_response_harness.py:405
+IR-003 | Hallucination Detection Alerting | protocol_tests/incident_response_harness.py:487
+IR-004 | Kill Switch Activation | protocol_tests/incident_response_harness.py:539
+IR-005 | Recovery Time Measurement | protocol_tests/incident_response_harness.py:603
+IR-006 | Log Completeness | protocol_tests/incident_response_harness.py:668
+IR-007 | Notification Timeline | protocol_tests/incident_response_harness.py:718
+IR-008 | Cascading Failure Containment | protocol_tests/incident_response_harness.py:821
 ```
 
 ### intent_contract_harness.py (`protocol_tests/intent_contract_harness.py`) — 8 tests
@@ -489,10 +489,10 @@ JB-025 | Recovery to Safe State | protocol_tests/jailbreak_harness.py:1004
 ### kill_switch_harness.py (`protocol_tests/kill_switch_harness.py`) — 4 tests
 
 ```
-IR-009 | Kill-Switch Termination Latency | protocol_tests/kill_switch_harness.py:280
-IR-010 | Post-Termination Action Prevention | protocol_tests/kill_switch_harness.py:341
-IR-011 | Kill-Switch Bypass Resistance | protocol_tests/kill_switch_harness.py:365
-IR-012 | Graceful Degradation on Termination | protocol_tests/kill_switch_harness.py:500
+IR-009 | Kill-Switch Termination Latency | protocol_tests/kill_switch_harness.py:308
+IR-010 | Post-Termination Action Prevention | protocol_tests/kill_switch_harness.py:369
+IR-011 | Kill-Switch Bypass Resistance | protocol_tests/kill_switch_harness.py:393
+IR-012 | Graceful Degradation on Termination | protocol_tests/kill_switch_harness.py:528
 ```
 
 ### L402 Payment (`protocol_tests/l402_harness.py`) — 33 tests
@@ -684,21 +684,21 @@ PCH-006 | Cost/Latency Side Channel for Cache-Content Enumeration | protocol_tes
 ### Provenance & Attestation (`protocol_tests/provenance_harness.py`) — 15 tests
 
 ```
-PRV-001 | Fabricated Approval Headers | protocol_tests/provenance_harness.py:270
-PRV-002 | Self-Signed Tool Attestation | protocol_tests/provenance_harness.py:302
-PRV-003 | Expired Attestation Certificate | protocol_tests/provenance_harness.py:334
-PRV-004 | Trusted Publisher Provenance Spoof | protocol_tests/provenance_harness.py:367
-PRV-005 | Modified Description with Preserved Signature | protocol_tests/provenance_harness.py:402
-PRV-006 | Missing Intermediate Certificate Links | protocol_tests/provenance_harness.py:443
-PRV-007 | Tool Definition Change Between Discovery/Invocation | protocol_tests/provenance_harness.py:488
-PRV-008 | Namespace Confusion Attack | protocol_tests/provenance_harness.py:527
-PRV-009 | Exfiltration URL Embedded in Tool Schema | protocol_tests/provenance_harness.py:574
-PRV-010 | Forked Tool with Modified Parameters | protocol_tests/provenance_harness.py:614
-PRV-011 | Post-Scan Malicious Update | protocol_tests/provenance_harness.py:653
-PRV-012 | Registry Content Hash Mismatch | protocol_tests/provenance_harness.py:686
-PRV-013 | Downgraded Attestation with Stripped Constraints | protocol_tests/provenance_harness.py:724
-PRV-014 | Cross-Domain Attestation to Wrong Domain | protocol_tests/provenance_harness.py:755
-PRV-015 | Replay of Revoked Attestation | protocol_tests/provenance_harness.py:788
+PRV-001 | Fabricated Approval Headers | protocol_tests/provenance_harness.py:288
+PRV-002 | Self-Signed Tool Attestation | protocol_tests/provenance_harness.py:320
+PRV-003 | Expired Attestation Certificate | protocol_tests/provenance_harness.py:352
+PRV-004 | Trusted Publisher Provenance Spoof | protocol_tests/provenance_harness.py:385
+PRV-005 | Modified Description with Preserved Signature | protocol_tests/provenance_harness.py:420
+PRV-006 | Missing Intermediate Certificate Links | protocol_tests/provenance_harness.py:461
+PRV-007 | Tool Definition Change Between Discovery/Invocation | protocol_tests/provenance_harness.py:506
+PRV-008 | Namespace Confusion Attack | protocol_tests/provenance_harness.py:545
+PRV-009 | Exfiltration URL Embedded in Tool Schema | protocol_tests/provenance_harness.py:592
+PRV-010 | Forked Tool with Modified Parameters | protocol_tests/provenance_harness.py:632
+PRV-011 | Post-Scan Malicious Update | protocol_tests/provenance_harness.py:671
+PRV-012 | Registry Content Hash Mismatch | protocol_tests/provenance_harness.py:704
+PRV-013 | Downgraded Attestation with Stripped Constraints | protocol_tests/provenance_harness.py:742
+PRV-014 | Cross-Domain Attestation to Wrong Domain | protocol_tests/provenance_harness.py:773
+PRV-015 | Replay of Revoked Attestation | protocol_tests/provenance_harness.py:806
 ```
 
 ### Programmatic Tool Calling (`protocol_tests/ptc_harness.py`) — 6 tests
