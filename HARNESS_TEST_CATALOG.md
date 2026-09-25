@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `ece5523`
+**Generated:** `scripts/generate_test_catalog.py` at commit `9fe45de`
 **Test count:** 640 unique test IDs across 49 registered harness modules (48 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -351,23 +351,23 @@ GM-006 | Audit Log Tampering | protocol_tests/governance_modification_harness.py
 ### GTG-1002 APT Simulation (`protocol_tests/gtg1002_simulation.py`) — 17 tests
 
 ```
-GTG-P1-001 | Defensive Security Roleplay (CrowdStrike Impersonation) | protocol_tests/gtg1002_simulation.py:377
-GTG-P1-002 | Escalating Persona Social Engineering (3 Roles) | protocol_tests/gtg1002_simulation.py:422
-GTG-P2-001 | Systematic Infrastructure Enumeration (6 Queries) | protocol_tests/gtg1002_simulation.py:485
-GTG-P2-002 | MCP Tool Abuse for System Reconnaissance | protocol_tests/gtg1002_simulation.py:510
-GTG-P2-003 | Multi-Target Parallel Reconnaissance (3 Targets) | protocol_tests/gtg1002_simulation.py:557
-GTG-P3-001 | Exploit Payload Generation Request | protocol_tests/gtg1002_simulation.py:595
-GTG-P3-002 | Callback/Beacon Validation (Exfil Channel Test) | protocol_tests/gtg1002_simulation.py:618
-GTG-P4-001 | Credential Extraction from Configurations (4 Techniques) | protocol_tests/gtg1002_simulation.py:677
-GTG-P4-002 | Lateral Movement — Cross-System Credential Testing | protocol_tests/gtg1002_simulation.py:701
-GTG-P4-003 | Privilege Level Mapping Across Discovered Credentials | protocol_tests/gtg1002_simulation.py:719
-GTG-P5-001 | Autonomous Database Extraction (Full User Table) | protocol_tests/gtg1002_simulation.py:752
-GTG-P5-002 | Intelligence Categorization by Value (High/Med/Low) | protocol_tests/gtg1002_simulation.py:778
-GTG-P5-003 | Persistent Backdoor Account Creation | protocol_tests/gtg1002_simulation.py:802
-GTG-P6-001 | Attack Documentation Auto-Generation (Markdown Report) | protocol_tests/gtg1002_simulation.py:848
-GTG-P6-002 | Campaign Handoff to Second Operator | protocol_tests/gtg1002_simulation.py:873
-HALL-001 | Security Finding Hallucination (Nonexistent System) | protocol_tests/gtg1002_simulation.py:914
-HALL-002 | Credential Fabrication (No Prior Context) | protocol_tests/gtg1002_simulation.py:937
+GTG-P1-001 | Defensive Security Roleplay (CrowdStrike Impersonation) | protocol_tests/gtg1002_simulation.py:439
+GTG-P1-002 | Escalating Persona Social Engineering (3 Roles) | protocol_tests/gtg1002_simulation.py:486
+GTG-P2-001 | Systematic Infrastructure Enumeration (6 Queries) | protocol_tests/gtg1002_simulation.py:551
+GTG-P2-002 | MCP Tool Abuse for System Reconnaissance | protocol_tests/gtg1002_simulation.py:576
+GTG-P2-003 | Multi-Target Parallel Reconnaissance (3 Targets) | protocol_tests/gtg1002_simulation.py:625
+GTG-P3-001 | Exploit Payload Generation Request | protocol_tests/gtg1002_simulation.py:663
+GTG-P3-002 | Callback/Beacon Validation (Exfil Channel Test) | protocol_tests/gtg1002_simulation.py:686
+GTG-P4-001 | Credential Extraction from Configurations (4 Techniques) | protocol_tests/gtg1002_simulation.py:747
+GTG-P4-002 | Lateral Movement — Cross-System Credential Testing | protocol_tests/gtg1002_simulation.py:771
+GTG-P4-003 | Privilege Level Mapping Across Discovered Credentials | protocol_tests/gtg1002_simulation.py:789
+GTG-P5-001 | Autonomous Database Extraction (Full User Table) | protocol_tests/gtg1002_simulation.py:822
+GTG-P5-002 | Intelligence Categorization by Value (High/Med/Low) | protocol_tests/gtg1002_simulation.py:848
+GTG-P5-003 | Persistent Backdoor Account Creation | protocol_tests/gtg1002_simulation.py:872
+GTG-P6-001 | Attack Documentation Auto-Generation (Markdown Report) | protocol_tests/gtg1002_simulation.py:918
+GTG-P6-002 | Campaign Handoff to Second Operator | protocol_tests/gtg1002_simulation.py:943
+HALL-001 | Security Finding Hallucination (Nonexistent System) | protocol_tests/gtg1002_simulation.py:984
+HALL-002 | Credential Fabrication (No Prior Context) | protocol_tests/gtg1002_simulation.py:1007
 ```
 
 ### Harmful Output (`protocol_tests/harmful_output_harness.py`) — 10 tests
@@ -643,42 +643,42 @@ MAG-019 | Delegated Spend Bound Discrimination | protocol_tests/multi_agent_harn
 ### Over-Refusal (`protocol_tests/over_refusal_harness.py`) — 25 tests
 
 ```
-OR-001 | Valid MCP Initialize Handshake | protocol_tests/over_refusal_harness.py:395
-OR-002 | Valid MCP Tools List | protocol_tests/over_refusal_harness.py:412
-OR-003 | Valid MCP Tool Call | protocol_tests/over_refusal_harness.py:432
-OR-004 | Valid MCP Prompts List | protocol_tests/over_refusal_harness.py:449
-OR-005 | Valid MCP Resources List | protocol_tests/over_refusal_harness.py:466
-OR-006 | Valid A2A Agent Card Discovery | protocol_tests/over_refusal_harness.py:486
-OR-007 | Valid A2A Task Delegation | protocol_tests/over_refusal_harness.py:508
-OR-008 | Valid A2A Task Status Check | protocol_tests/over_refusal_harness.py:527
-OR-009 | Valid A2A Message with Context | protocol_tests/over_refusal_harness.py:555
-OR-010 | Valid A2A Task Cancel | protocol_tests/over_refusal_harness.py:574
-OR-011 | Valid L402 Invoice Request | protocol_tests/over_refusal_harness.py:596
-OR-012 | Valid L402 Macaroon Format Presentation | protocol_tests/over_refusal_harness.py:627
-OR-013 | Valid L402 Preimage Presentation | protocol_tests/over_refusal_harness.py:657
-OR-014 | Valid L402 Resource-Specific Request | protocol_tests/over_refusal_harness.py:674
-OR-015 | Valid L402 Ask Endpoint | protocol_tests/over_refusal_harness.py:700
-OR-016 | Valid x402 Payment Challenge | protocol_tests/over_refusal_harness.py:721
-OR-017 | Valid x402 USDC Payment Header | protocol_tests/over_refusal_harness.py:753
-OR-018 | Valid x402 Receipt Verification | protocol_tests/over_refusal_harness.py:775
-OR-019 | Valid x402 Pricing Discovery | protocol_tests/over_refusal_harness.py:792
-OR-020 | Valid x402 Payment Options Request | protocol_tests/over_refusal_harness.py:818
-OR-021 | Long but Valid Parameters | protocol_tests/over_refusal_harness.py:851
-OR-022 | Special Characters in Valid Fields | protocol_tests/over_refusal_harness.py:875
-OR-023 | Unicode in Valid Content | protocol_tests/over_refusal_harness.py:901
-OR-024 | Rapid Sequential Legitimate Requests | protocol_tests/over_refusal_harness.py:924
-OR-025 | Large but Valid JSON Payload | protocol_tests/over_refusal_harness.py:948
+OR-001 | Valid MCP Initialize Handshake | protocol_tests/over_refusal_harness.py:570
+OR-002 | Valid MCP Tools List | protocol_tests/over_refusal_harness.py:587
+OR-003 | Valid MCP Tool Call | protocol_tests/over_refusal_harness.py:607
+OR-004 | Valid MCP Prompts List | protocol_tests/over_refusal_harness.py:624
+OR-005 | Valid MCP Resources List | protocol_tests/over_refusal_harness.py:641
+OR-006 | Valid A2A Agent Card Discovery | protocol_tests/over_refusal_harness.py:661
+OR-007 | Valid A2A Task Delegation | protocol_tests/over_refusal_harness.py:683
+OR-008 | Valid A2A Task Status Check | protocol_tests/over_refusal_harness.py:702
+OR-009 | Valid A2A Message with Context | protocol_tests/over_refusal_harness.py:730
+OR-010 | Valid A2A Task Cancel | protocol_tests/over_refusal_harness.py:749
+OR-011 | Valid L402 Invoice Request | protocol_tests/over_refusal_harness.py:771
+OR-012 | Valid L402 Macaroon Format Presentation | protocol_tests/over_refusal_harness.py:802
+OR-013 | Valid L402 Preimage Presentation | protocol_tests/over_refusal_harness.py:832
+OR-014 | Valid L402 Resource-Specific Request | protocol_tests/over_refusal_harness.py:849
+OR-015 | Valid L402 Ask Endpoint | protocol_tests/over_refusal_harness.py:875
+OR-016 | Valid x402 Payment Challenge | protocol_tests/over_refusal_harness.py:896
+OR-017 | Valid x402 USDC Payment Header | protocol_tests/over_refusal_harness.py:928
+OR-018 | Valid x402 Receipt Verification | protocol_tests/over_refusal_harness.py:950
+OR-019 | Valid x402 Pricing Discovery | protocol_tests/over_refusal_harness.py:967
+OR-020 | Valid x402 Payment Options Request | protocol_tests/over_refusal_harness.py:993
+OR-021 | Long but Valid Parameters | protocol_tests/over_refusal_harness.py:1026
+OR-022 | Special Characters in Valid Fields | protocol_tests/over_refusal_harness.py:1050
+OR-023 | Unicode in Valid Content | protocol_tests/over_refusal_harness.py:1076
+OR-024 | Rapid Sequential Legitimate Requests | protocol_tests/over_refusal_harness.py:1099
+OR-025 | Large but Valid JSON Payload | protocol_tests/over_refusal_harness.py:1123
 ```
 
 ### Prompt Caching (`protocol_tests/prompt_caching_harness.py`) — 6 tests
 
 ```
-PCH-001 | Cross-Session Cache Bleed | protocol_tests/prompt_caching_harness.py:172
-PCH-002 | Stale Cached Policy Survives Revocation | protocol_tests/prompt_caching_harness.py:247
-PCH-003 | Cache-Prefix Injection | protocol_tests/prompt_caching_harness.py:334
-PCH-004 | TTL-Refresh Abuse for Indefinite Retention | protocol_tests/prompt_caching_harness.py:416
-PCH-005 | Cache-Key Collision Across Tenants | protocol_tests/prompt_caching_harness.py:502
-PCH-006 | Cost/Latency Side Channel for Cache-Content Enumeration | protocol_tests/prompt_caching_harness.py:587
+PCH-001 | Cross-Session Cache Bleed | protocol_tests/prompt_caching_harness.py:223
+PCH-002 | Stale Cached Policy Survives Revocation | protocol_tests/prompt_caching_harness.py:298
+PCH-003 | Cache-Prefix Injection | protocol_tests/prompt_caching_harness.py:385
+PCH-004 | TTL-Refresh Abuse for Indefinite Retention | protocol_tests/prompt_caching_harness.py:467
+PCH-005 | Cache-Key Collision Across Tenants | protocol_tests/prompt_caching_harness.py:553
+PCH-006 | Cost/Latency Side Channel for Cache-Content Enumeration | protocol_tests/prompt_caching_harness.py:638
 ```
 
 ### Provenance & Attestation (`protocol_tests/provenance_harness.py`) — 15 tests

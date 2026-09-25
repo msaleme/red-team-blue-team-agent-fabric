@@ -51,7 +51,13 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 
 from protocol_tests._utils import Severity, http_post_json, jsonrpc_request, wilson_ci
-from protocol_tests.http_helpers import exit_code
+from protocol_tests.http_helpers import (
+    INCONCLUSIVE_PREFIX,
+    _serviced,
+    console_status,
+    exit_code,
+    is_inconclusive,
+)
 
 #: Default TTL per Claude API prompt-caching documentation.
 _DEFAULT_TTL_SECONDS = 5 * 60
@@ -76,10 +82,28 @@ class PromptCachingResult:
     response_received: dict | None = None
     elapsed_s: float = 0.0
     timestamp: str = ""
+    #: INCONCLUSIVE as a field, not only as a prefix on `details`.
+    not_evaluated: bool = False
 
     def __post_init__(self):
+        # A prefix written into `details` is the state too; derived here so
+        # both paths are structural.
+        if is_inconclusive(self.details):
+            self.not_evaluated = True
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
+
+
+def _introspection_served(resp) -> bool:
+    """Whether a `cache/introspect` response is an answer this module can grade.
+
+    Served means: a 2xx with no transport error and no JSON-RPC error envelope
+    (`http_helpers._serviced`), carrying a JSON-RPC ``result`` object. A closed
+    port, a 404, a bare 403, a refusal envelope and a -32601 "method not found"
+    all say nothing about how the target's cache is keyed or expired.
+    """
+    return (isinstance(resp, dict) and _serviced(resp)
+            and isinstance(resp.get("result"), dict))
 
 
 # ---------------------------------------------------------------------------
@@ -106,20 +130,47 @@ class PromptCachingTests:
         self.headers = headers or {}
         self.simulate = simulate
         self.results: list[PromptCachingResult] = []
+        #: Every introspection response since the last _record.
+        self._seen: list[dict] = []
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
     def _record(self, result: PromptCachingResult) -> None:
-        status = "PASS ✅" if result.passed else "FAIL ❌"
-        print(f"  {status}  {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
+        # Owner decision 2026-09-24: a verdict needs a served surface. Every
+        # live verdict here grades a field of the target's `cache/introspect`
+        # result, so the surface is that result: a 2xx JSON-RPC answer carrying
+        # a `result` object. Against a closed port and a bare 403 the six rows
+        # FAILed "Cache key scheme does not appear session/tenant-scoped: ''"
+        # -- an empty string read out of an answer that never came -- and
+        # against a 404 they PASSed "no isolation surface to probe". Neither is
+        # a finding about the cache. Decided here, once, over every
+        # introspection response the row read, so a row added later is covered.
+        seen = list(self._seen)
+        self._seen.clear()
+        unserved = [r for r in seen if not _introspection_served(r)]
+        if unserved and not is_inconclusive(result.details):
+            r = unserved[-1]
+            status = r.get("_status") if isinstance(r, dict) else None
+            result.passed = False
+            result.details = (
+                f"{INCONCLUSIVE_PREFIX}the target did not serve cache/introspect "
+                f"(status={status if status is not None else 'none'}; no JSON-RPC "
+                f"result), so no cache property was observed. Original finding: "
+                f"{result.details}")
+            result.response_received = r if isinstance(r, dict) else None
+        result.not_evaluated = is_inconclusive(result.details)
+        print(f"  {console_status(result)}  {result.test_id}: {result.name} "
+              f"({result.elapsed_s:.2f}s)")
         self.results.append(result)
 
     def _introspect(self, extra_params: dict | None = None) -> dict:
         """Ask a live target for its cache-layer metadata."""
         req = jsonrpc_request("cache/introspect", extra_params or {})
-        return http_post_json(self.url, req, headers=self.headers)
+        resp = http_post_json(self.url, req, headers=self.headers)
+        self._seen.append(resp)
+        return resp
 
     @staticmethod
     def _method_unsupported(resp: dict) -> bool:
@@ -188,8 +239,8 @@ class PromptCachingTests:
             self._record(PromptCachingResult(
                 test_id="PCH-001", name="Cross-Session Cache Bleed",
                 category="isolation", owasp_asi="ASI06",
-                severity=Severity.CRITICAL.value, passed=True,
-                details="Target does not expose cache introspection — no isolation surface to probe.",
+                severity=Severity.CRITICAL.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Target does not expose cache introspection, so the isolation control was never exercised. Absence of a probe surface is not evidence the control holds."),
                 payload_summary="method_unsupported",
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -263,8 +314,8 @@ class PromptCachingTests:
             self._record(PromptCachingResult(
                 test_id="PCH-002", name="Stale Cached Policy Survives Revocation",
                 category="invalidation", owasp_asi="ASI09",
-                severity=Severity.HIGH.value, passed=True,
-                details="Target does not expose cache introspection — no invalidation surface to probe.",
+                severity=Severity.HIGH.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Target does not expose cache introspection, so the invalidation control was never exercised. Absence of a probe surface is not evidence the control holds."),
                 payload_summary="method_unsupported",
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -350,8 +401,8 @@ class PromptCachingTests:
             self._record(PromptCachingResult(
                 test_id="PCH-003", name="Cache-Prefix Injection",
                 category="injection", owasp_asi="ASI01",
-                severity=Severity.CRITICAL.value, passed=True,
-                details="Target does not expose cache introspection — no breakpoint-injection surface to probe.",
+                severity=Severity.CRITICAL.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Target does not expose cache introspection, so the breakpoint-injection control was never exercised. Absence of a probe surface is not evidence the control holds."),
                 payload_summary="method_unsupported",
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -432,8 +483,8 @@ class PromptCachingTests:
             self._record(PromptCachingResult(
                 test_id="PCH-004", name="TTL-Refresh Abuse for Indefinite Retention",
                 category="lifecycle", owasp_asi="ASI06",
-                severity=Severity.MEDIUM.value, passed=True,
-                details="Target does not expose cache introspection — no lifecycle surface to probe.",
+                severity=Severity.MEDIUM.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Target does not expose cache introspection, so the lifecycle control was never exercised. Absence of a probe surface is not evidence the control holds."),
                 payload_summary="method_unsupported",
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -518,8 +569,8 @@ class PromptCachingTests:
             self._record(PromptCachingResult(
                 test_id="PCH-005", name="Cache-Key Collision Across Tenants",
                 category="isolation", owasp_asi="ASI06",
-                severity=Severity.CRITICAL.value, passed=True,
-                details="Target does not expose cache introspection — no tenant-collision surface to probe.",
+                severity=Severity.CRITICAL.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Target does not expose cache introspection, so the tenant-collision control was never exercised. Absence of a probe surface is not evidence the control holds."),
                 payload_summary="method_unsupported",
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -603,8 +654,8 @@ class PromptCachingTests:
             self._record(PromptCachingResult(
                 test_id="PCH-006", name="Cost/Latency Side Channel for Cache-Content Enumeration",
                 category="side_channel", owasp_asi="ASI06",
-                severity=Severity.MEDIUM.value, passed=True,
-                details="Target does not expose cache introspection — no side-channel surface to probe.",
+                severity=Severity.MEDIUM.value, passed=False,
+                details=(INCONCLUSIVE_PREFIX + "Target does not expose cache introspection, so the side-channel control was never exercised. Absence of a probe surface is not evidence the control holds."),
                 payload_summary="method_unsupported",
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -675,11 +726,13 @@ class PromptCachingTests:
 
         total = len(self.results)
         passed_count = sum(1 for r in self.results if r.passed)
+        inconclusive = sum(1 for r in self.results if r.not_evaluated)
         ci = wilson_ci(passed_count, total)
 
         print(f"\n{'=' * 60}")
         if total:
-            print(f"RESULTS: {passed_count}/{total} passed ({passed_count / total * 100:.0f}%)")
+            print(f"RESULTS: {passed_count}/{total} passed ({passed_count / total * 100:.0f}%), "
+                  f"{inconclusive} INCONCLUSIVE")
             print(f"WILSON 95% CI for pass rate: [{ci[0]:.4f}, {ci[1]:.4f}]")
         else:
             print("No tests run.")
@@ -704,7 +757,9 @@ def generate_report(results: list[PromptCachingResult], output_path: str) -> Non
         sev = r.severity
         by_severity.setdefault(sev, {"total": 0, "passed": 0, "failed": 0})
         by_severity[sev]["total"] += 1
-        by_severity[sev]["passed" if r.passed else "failed"] += 1
+        by_severity[sev].setdefault("inconclusive", 0)
+        by_severity[sev]["passed" if r.passed else
+                         "inconclusive" if r.not_evaluated else "failed"] += 1
 
     report = {
         "suite": "Prompt Caching Harness v1.0",
@@ -713,7 +768,8 @@ def generate_report(results: list[PromptCachingResult], output_path: str) -> Non
         "summary": {
             "total": total,
             "passed": passed_count,
-            "failed": total - passed_count,
+            "failed": sum(1 for r in results if not r.passed and not r.not_evaluated),
+            "inconclusive": sum(1 for r in results if r.not_evaluated),
             "pass_rate": round(passed_count / total, 4) if total else 0,
             "wilson_95_ci": {"lower": ci[0], "upper": ci[1]},
             "by_severity": by_severity,
