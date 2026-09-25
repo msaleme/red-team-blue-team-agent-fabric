@@ -96,6 +96,10 @@ ANSWERS = {
         "traces": [],
         "container_id": "c1",
         "denied": True,
+        # PTC-004 grades only a served `caller_type_source` since 2026-09-25
+        # (#613's rule applied to introspection); without the field it is
+        # INCONCLUSIVE. "client_asserted" keeps this row a served FAIL.
+        "caller_type_source": "client_asserted",
     },
 }
 

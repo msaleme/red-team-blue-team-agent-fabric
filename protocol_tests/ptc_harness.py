@@ -240,6 +240,50 @@ class PTCTests:
                 f"evidence about how a created one is isolated or expired.")
 
     @staticmethod
+    def _served_caller_type_source(resp: dict) -> str | None:
+        """``result.caller_type_source`` from a served introspection, else ``None``.
+
+        Served means a 2xx carrying a JSON-RPC ``result`` object with a
+        non-empty string ``caller_type_source``. #613's rule applied to
+        PTC-004 (2026-09-25): against a host refusing every request with a
+        JSON-RPC 403 envelope, ``ptc/introspect`` was refused and PTC-004
+        FAILed "Target does not confirm server-side derivation of
+        caller.type". A refused introspection says nothing about how caller
+        type is derived, in either direction.
+        """
+        if not isinstance(resp, dict) or resp.get("_error"):
+            return None
+        status = resp.get("_status", 200)
+        if not isinstance(status, int) or not 200 <= status < 300:
+            return None
+        result = resp.get("result")
+        source = result.get("caller_type_source") if isinstance(result, dict) else None
+        return source if isinstance(source, str) and source else None
+
+    @staticmethod
+    def _unserved_introspection_detail(resp: dict) -> str:
+        status = resp.get("_status") if isinstance(resp, dict) else None
+        err = resp.get("error") if isinstance(resp, dict) else None
+        if not isinstance(err, dict) and isinstance(status, int):
+            # a non-2xx body arrives unparsed under `_body`
+            try:
+                err = (json.loads(resp.get("_body") or "") or {}).get("error")
+            except (ValueError, AttributeError):
+                err = None
+        if not isinstance(status, int):
+            how = "failed at transport"
+        elif isinstance(err, dict):
+            how = f"answered HTTP {status} with a JSON-RPC error ({err.get('code')})"
+        elif resp.get("_error"):
+            how = f"answered HTTP {status} without a JSON-RPC result"
+        else:
+            how = f"answered HTTP {status} without result.caller_type_source"
+        return (INCONCLUSIVE_PREFIX + f"ptc/introspect {how}, so the target never "
+                f"stated how caller.type is derived and the spoofing control was "
+                f"never exercised. A refused or empty introspection is not "
+                f"evidence either way.")
+
+    @staticmethod
     def _empty_inventory(resp: dict, key: str) -> list | None:
         """The inventory under ``result.<key>``, or ``None`` when there is none.
 
@@ -643,9 +687,19 @@ class PTCTests:
             ))
             return
 
-        derives_server_side = bool(
-            (resp.get("result") or {}).get("caller_type_source") == "server_derived"
-        )
+        source = self._served_caller_type_source(resp)
+        if source is None:
+            self._record(PTCResult(
+                test_id="PTC-004", name="Client-Asserted Caller-Type Spoofing",
+                category="authentication", owasp_asi="ASI05",
+                severity=Severity.HIGH.value, passed=False,
+                details=self._unserved_introspection_detail(resp),
+                payload_summary="introspection_not_served",
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
+        derives_server_side = source == "server_derived"
         passed = derives_server_side
 
         self._record(PTCResult(
@@ -657,7 +711,7 @@ class PTCTests:
                 else "Target does not confirm server-side derivation of caller.type — "
                      "client-asserted identity may be trusted."
             ),
-            payload_summary=f"caller_type_source={(resp.get('result') or {}).get('caller_type_source')}",
+            payload_summary=f"caller_type_source={source}",
             elapsed_s=round(time.monotonic() - t0, 3),
         ))
 

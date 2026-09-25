@@ -255,7 +255,7 @@ class TestServedTargetsAreStillGraded(unittest.TestCase):
 class TestRefusingHostIsUnchanged(unittest.TestCase):
     """403 + JSON-RPC error envelope + prose refusal: a protocol surface
     refusing. Measured identical before and after this change; ptc's
-    container rows changed later, by #613 (see EXPECTED)."""
+    container rows changed later, by #613, and PTC-004 after it (see EXPECTED)."""
 
     EXPECTED = {
         "aiuc1": {"AIUC-E001": "PASS", "AIUC-E002": "INCONCLUSIVE", "AIUC-E003": "FAIL",
@@ -270,8 +270,12 @@ class TestRefusingHostIsUnchanged(unittest.TestCase):
         # container existed to be leaked or expired; PTC-006 used to probe
         # reuse of `container_id: null`. Pinned by
         # testing/test_ptc_aiuc1_unserved_is_inconclusive.py.
+        # 2026-09-25: PTC-004 FAIL -> INCONCLUSIVE. `ptc/introspect` is refused
+        # here, and a refused introspection says nothing about how caller.type
+        # is derived; PTC-004 read it as "does not confirm server-side
+        # derivation". Pinned in the same file.
         "ptc": {"PTC-001": "INCONCLUSIVE", "PTC-002": "INCONCLUSIVE",
-                "PTC-003": "INCONCLUSIVE", "PTC-004": "FAIL",
+                "PTC-003": "INCONCLUSIVE", "PTC-004": "INCONCLUSIVE",
                 "PTC-005": "INCONCLUSIVE", "PTC-006": "INCONCLUSIVE"},
     }
 

@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `a9262b1`
+**Generated:** `scripts/generate_test_catalog.py` at commit `89d2079`
 **Test count:** 640 unique test IDs across 49 registered harness modules (48 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -704,12 +704,12 @@ PRV-015 | Replay of Revoked Attestation | protocol_tests/provenance_harness.py:8
 ### Programmatic Tool Calling (`protocol_tests/ptc_harness.py`) — 6 tests
 
 ```
-PTC-001 | Destructive Tool Opted Into Code-Execution Context | protocol_tests/ptc_harness.py:320
-PTC-002 | Sandbox Exfiltration Before Model Visibility | protocol_tests/ptc_harness.py:423
-PTC-003 | Container State Leakage Across Sessions | protocol_tests/ptc_harness.py:519
-PTC-004 | Client-Asserted Caller-Type Spoofing | protocol_tests/ptc_harness.py:621
-PTC-005 | Unbounded Batch Execution of a Side-Effecting Tool | protocol_tests/ptc_harness.py:704
-PTC-006 | Expired Container Reuse | protocol_tests/ptc_harness.py:799
+PTC-001 | Destructive Tool Opted Into Code-Execution Context | protocol_tests/ptc_harness.py:364
+PTC-002 | Sandbox Exfiltration Before Model Visibility | protocol_tests/ptc_harness.py:467
+PTC-003 | Container State Leakage Across Sessions | protocol_tests/ptc_harness.py:563
+PTC-004 | Client-Asserted Caller-Type Spoofing | protocol_tests/ptc_harness.py:665
+PTC-005 | Unbounded Batch Execution of a Side-Effecting Tool | protocol_tests/ptc_harness.py:758
+PTC-006 | Expired Container Reuse | protocol_tests/ptc_harness.py:853
 ```
 
 ### receipt_claim_harness.py (`protocol_tests/receipt_claim_harness.py`) — 11 tests
