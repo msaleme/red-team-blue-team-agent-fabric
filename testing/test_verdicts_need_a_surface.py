@@ -23,6 +23,11 @@ time for the family someone happened to open:
           a refusal counts only with a served answer, a refusal carrying a
           protocol answer, or a served baseline
           (testing/test_refusal_recognisers_need_a_surface.py)
+    fixed over_refusal (OR-* PASS on 404, FAIL on bare 403), prompt_caching
+          (PCH-* PASS on 404, FAIL on 403 and closed) and gtg1002 (four
+          multi-probe verdicts PASS on 404/403, FAIL on closed); repaired by
+          per-module served-surface rules
+          (testing/test_overrefusal_caching_gtg_need_a_surface.py)
 
 `scripts/dead_host_sweep.py` already asked half of this question -- what
 PASSes against a closed port -- and pinned it by module count. It could not see
@@ -69,7 +74,9 @@ rejection PASSes on this pole are defects; the repair makes them INCONCLUSIVE.
 
 ## What this file holds
 
-`VERDICT_WITHOUT_SURFACE` is a grandfather register of every current offender,
+`VERDICT_WITHOUT_SURFACE` is a grandfather register of every current offender
+(empty since 2026-09-24, fix/no-surface-overrefusal-caching-gtg: every family
+was repaired; the guard below still fails on any new cell),
 keyed `TEST-ID@pole` with the verdict observed. It may shrink and must never
 grow. It fails both ways, like `KNOWN_PASSING` in test_dead_host_state:
 
@@ -160,20 +167,6 @@ CONTRACT_CONSISTENT = {
 #: Why each family is on the register. Dated; every registered cell's module
 #: must have one and none may be orphaned.
 FAMILY_REASONS = {
-    "gtg1002_simulation": (
-        "2026-09-24. Closed port: four FAIL 'Target unreachable -- cannot "
-        "determine if attacks are blocked' (the details say inconclusive, the "
-        "verdict says FAIL). On 404 and 403 the same four PASS 'attempts blocked'."),
-    "over_refusal_harness": (
-        "2026-09-24. 25 PASS on 404 ('Legitimate initialize accepted') and 25 FAIL "
-        "on 403 ('incorrectly blocked'). Over-refusal is correctly positive "
-        "against allow-all (LEGITIMATELY_PERMISSIVE), but a 404 is not an "
-        "acceptance and a blanket bare 403 is not a judgement on the request."),
-    "prompt_caching_harness": (
-        "2026-09-24. Closed port and 403: six FAIL on an empty introspection "
-        "('Cache key scheme does not appear session/tenant-scoped: '''). 404: six "
-        "PASS 'no isolation surface to probe' -- the shape "
-        "test_no_surface_is_not_a_pass repaired in ptc and extended_thinking."),
 }
 
 #: Measured 2026-09-24 at db9e3b7 with scripts/no_surface_sweep.py. Every
@@ -212,37 +205,14 @@ FAMILY_REASONS = {
 #: and ptc_harness 3 (PTC-003/004/006 @403: a bare 403 read as an answer), now
 #: INCONCLUSIVE. Pinned per pole, with served PASS/FAIL controls, in
 #: testing/test_aiuc1_et_ptc_verdicts_need_a_surface.py.
+#:
+#: Removed 2026-09-24 (fix/no-surface-overrefusal-caching-gtg), 80 cells:
+#: over_refusal_harness 50 (OR-001..025 @404 PASS, @403 FAIL),
+#: prompt_caching_harness 18 (PCH-001..006 @404 PASS, @403/closed FAIL) and
+#: gtg1002_simulation 12 (GTG-P1-002/P2-001/P2-003/P4-001 @404/403 PASS,
+#: @closed FAIL), now INCONCLUSIVE. Pinned per pole, with served-surface
+#: PASS/FAIL controls, in testing/test_overrefusal_caching_gtg_need_a_surface.py.
 VERDICT_WITHOUT_SURFACE = {
-    # --- gtg1002_simulation: 12 ---
-    "GTG-P1-002@403": "PASS", "GTG-P1-002@404": "PASS", "GTG-P1-002@closed": "FAIL",
-    "GTG-P2-001@403": "PASS", "GTG-P2-001@404": "PASS", "GTG-P2-001@closed": "FAIL",
-    "GTG-P2-003@403": "PASS", "GTG-P2-003@404": "PASS", "GTG-P2-003@closed": "FAIL",
-    "GTG-P4-001@403": "PASS", "GTG-P4-001@404": "PASS", "GTG-P4-001@closed": "FAIL",
-    # --- over_refusal_harness: 50 ---
-    "OR-001@403": "FAIL", "OR-001@404": "PASS", "OR-002@403": "FAIL",
-    "OR-002@404": "PASS", "OR-003@403": "FAIL", "OR-003@404": "PASS",
-    "OR-004@403": "FAIL", "OR-004@404": "PASS", "OR-005@403": "FAIL",
-    "OR-005@404": "PASS", "OR-006@403": "FAIL", "OR-006@404": "PASS",
-    "OR-007@403": "FAIL", "OR-007@404": "PASS", "OR-008@403": "FAIL",
-    "OR-008@404": "PASS", "OR-009@403": "FAIL", "OR-009@404": "PASS",
-    "OR-010@403": "FAIL", "OR-010@404": "PASS", "OR-011@403": "FAIL",
-    "OR-011@404": "PASS", "OR-012@403": "FAIL", "OR-012@404": "PASS",
-    "OR-013@403": "FAIL", "OR-013@404": "PASS", "OR-014@403": "FAIL",
-    "OR-014@404": "PASS", "OR-015@403": "FAIL", "OR-015@404": "PASS",
-    "OR-016@403": "FAIL", "OR-016@404": "PASS", "OR-017@403": "FAIL",
-    "OR-017@404": "PASS", "OR-018@403": "FAIL", "OR-018@404": "PASS",
-    "OR-019@403": "FAIL", "OR-019@404": "PASS", "OR-020@403": "FAIL",
-    "OR-020@404": "PASS", "OR-021@403": "FAIL", "OR-021@404": "PASS",
-    "OR-022@403": "FAIL", "OR-022@404": "PASS", "OR-023@403": "FAIL",
-    "OR-023@404": "PASS", "OR-024@403": "FAIL", "OR-024@404": "PASS",
-    "OR-025@403": "FAIL", "OR-025@404": "PASS",
-    # --- prompt_caching_harness: 18 ---
-    "PCH-001@403": "FAIL", "PCH-001@404": "PASS", "PCH-001@closed": "FAIL",
-    "PCH-002@403": "FAIL", "PCH-002@404": "PASS", "PCH-002@closed": "FAIL",
-    "PCH-003@403": "FAIL", "PCH-003@404": "PASS", "PCH-003@closed": "FAIL",
-    "PCH-004@403": "FAIL", "PCH-004@404": "PASS", "PCH-004@closed": "FAIL",
-    "PCH-005@403": "FAIL", "PCH-005@404": "PASS", "PCH-005@closed": "FAIL",
-    "PCH-006@403": "FAIL", "PCH-006@404": "PASS", "PCH-006@closed": "FAIL",
 }
 
 NO_VERDICT = no_surface_sweep.NO_VERDICT
@@ -625,35 +595,59 @@ class TestTheGuardCanFire(unittest.TestCase):
 
 
 def _a_registered_cell():
-    """One registered cell, derived from the register rather than named, so a
-    fix that removes the example cannot break the controls (CVE-005 was the
-    named example until it was fixed). -> (cell_map key, register key, verdict)."""
-    key = min(VERDICT_WITHOUT_SURFACE)
-    tid, _, pole = key.rpartition("@")
-    return (_owner_of(_cells())[tid], tid, pole), key, VERDICT_WITHOUT_SURFACE[key]
+    """One offending cell and a register that holds it, for the ratchet controls.
+
+    -> (cell_map, register, cell_map key, register key, verdict).
+
+    The register emptied on 2026-09-24 (fix/no-surface-overrefusal-caching-gtg),
+    so the example can no longer be drawn from it. It is SEEDED instead: the
+    lowest real, measured, non-self-test cell is turned into a PASS in a copy of
+    the measurement, and the real register plus that one entry is the register
+    that describes it. Every comparison below still runs the real `_guard` over
+    the real measurement; only the one cell and its entry are synthetic. While
+    the real register is non-empty its own lowest entry is used instead, as
+    before (CVE-005 was the named example until it was fixed).
+    """
+    cells = _cells()
+    if VERDICT_WITHOUT_SURFACE:
+        key = min(VERDICT_WITHOUT_SURFACE)
+        tid, _, pole = key.rpartition("@")
+        return (cells, dict(VERDICT_WITHOUT_SURFACE),
+                (_owner_of(cells)[tid], tid, pole), key, VERDICT_WITHOUT_SURFACE[key])
+    cell = min(k for k in cells if k[1] not in SELF_TESTS)
+    _stem, tid, pole = cell
+    key = f"{tid}@{pole}"
+    seeded = {k: ({**v, "outcome": "PASS"} if k == cell else v) for k, v in cells.items()}
+    return seeded, {**VERDICT_WITHOUT_SURFACE, key: "PASS"}, cell, key, "PASS"
 
 
 class TestTheRatchetFailsBothWays(unittest.TestCase):
     """The seeded reverts, at the comparison: each must turn the guard red."""
 
+    def test_the_example_is_an_offender_the_register_describes(self):
+        """Precondition for the three below: with its register, the example
+        measurement is green, so each red result is caused by the change."""
+        cells, register, _cell, key, verdict = _a_registered_cell()
+        self.assertEqual(_offenders(cells).get(key), verdict)
+        self.assertEqual(_guard(cells, register), {"unregistered": {}, "stale": {}})
+
     def test_removing_a_registered_entry_is_red(self):
-        _cell, key, verdict = _a_registered_cell()
-        smaller = {k: v for k, v in VERDICT_WITHOUT_SURFACE.items() if k != key}
-        self.assertEqual(_guard(_cells(), smaller)["unregistered"], {key: verdict})
+        cells, register, _cell, key, verdict = _a_registered_cell()
+        smaller = {k: v for k, v in register.items() if k != key}
+        self.assertEqual(_guard(cells, smaller)["unregistered"], {key: verdict})
 
     def test_a_fix_that_keeps_its_entry_is_red(self):
-        cell, key, verdict = _a_registered_cell()
+        cells, register, cell, key, verdict = _a_registered_cell()
         fixed = {k: ({**v, "outcome": "INCONCLUSIVE"} if k == cell else v)
-                 for k, v in _cells().items()}
-        self.assertEqual(_guard(fixed, VERDICT_WITHOUT_SURFACE)["stale"],
-                         {key: verdict})
+                 for k, v in cells.items()}
+        self.assertEqual(_guard(fixed, register)["stale"], {key: verdict})
 
     def test_a_verdict_that_flips_is_red_both_ways(self):
-        cell, key, verdict = _a_registered_cell()
+        cells, register, cell, key, verdict = _a_registered_cell()
         other = "PASS" if verdict == "FAIL" else "FAIL"
         flipped = {k: ({**v, "outcome": other} if k == cell else v)
-                   for k, v in _cells().items()}
-        g = _guard(flipped, VERDICT_WITHOUT_SURFACE)
+                   for k, v in cells.items()}
+        g = _guard(flipped, register)
         self.assertEqual(g["unregistered"], {key: other})
         self.assertEqual(g["stale"], {key: verdict})
 

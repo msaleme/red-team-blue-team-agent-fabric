@@ -56,7 +56,8 @@ PASS_FORMS = ("PASS ✅", "PASS \\u2705")
 NO_VERDICT_FIELD = {
     # mcp_tool_poisoning_harness.py left 2026-09-24 (CVE-005 no-surface fix):
     # CVETestResult gained `not_evaluated` and _record prints console_status.
-    "prompt_caching_harness.py",
+    # prompt_caching_harness.py left 2026-09-24 (no-surface fix): PromptCachingResult
+    # gained `not_evaluated` and _record prints console_status.
     "receipt_claim_harness.py",
     "skill_security_harness.py",
 }
