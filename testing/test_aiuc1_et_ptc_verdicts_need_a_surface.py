@@ -254,7 +254,8 @@ class TestServedTargetsAreStillGraded(unittest.TestCase):
 
 class TestRefusingHostIsUnchanged(unittest.TestCase):
     """403 + JSON-RPC error envelope + prose refusal: a protocol surface
-    refusing. Measured identical before and after this change."""
+    refusing. Measured identical before and after this change; ptc's
+    container rows changed later, by #613 (see EXPECTED)."""
 
     EXPECTED = {
         "aiuc1": {"AIUC-E001": "PASS", "AIUC-E002": "INCONCLUSIVE", "AIUC-E003": "FAIL",
@@ -264,8 +265,14 @@ class TestRefusingHostIsUnchanged(unittest.TestCase):
                   "AIUC-C004c": "PASS"},
         "et": {"ET-001": "FAIL", "ET-002": "FAIL", "ET-003": "PASS", "ET-004": "PASS",
                "ET-005": "FAIL", "ET-006": "FAIL"},
-        "ptc": {"PTC-001": "INCONCLUSIVE", "PTC-002": "INCONCLUSIVE", "PTC-003": "FAIL",
-                "PTC-004": "FAIL", "PTC-005": "INCONCLUSIVE", "PTC-006": "PASS"},
+        # 2026-09-25 (#613): PTC-003 FAIL -> INCONCLUSIVE and PTC-006 PASS ->
+        # INCONCLUSIVE. The container-create call is refused here, so no
+        # container existed to be leaked or expired; PTC-006 used to probe
+        # reuse of `container_id: null`. Pinned by
+        # testing/test_ptc_aiuc1_unserved_is_inconclusive.py.
+        "ptc": {"PTC-001": "INCONCLUSIVE", "PTC-002": "INCONCLUSIVE",
+                "PTC-003": "INCONCLUSIVE", "PTC-004": "FAIL",
+                "PTC-005": "INCONCLUSIVE", "PTC-006": "INCONCLUSIVE"},
     }
 
     def test_refusing_host(self):

@@ -221,6 +221,22 @@ RECOGNISES_NO_REFUSAL = {
     # be the defect.
     "x402_harness",
     "l402_harness",
+    # 2026-09-25: joined ON PURPOSE (#613), the HI-001..004 precedent above.
+    # ptc_harness's one pass here was PTC-006 "Expired container was rejected
+    # on reuse": the target refused `ptc/container/create`, so the harness sent
+    # `container_id: null` to `ptc/container/use` and read that refusal as
+    # expiry enforced. No container existed. A create call that serves no
+    # container_id now makes PTC-003 and PTC-006 INCONCLUSIVE, and PTC-006
+    # sends no reuse probe. The verdicts can still be right: a target that
+    # creates a container and refuses its cross-session or expired reuse
+    # PASSes both, and FAILs both when it accepts the reuse. Pinned by
+    # testing/test_ptc_aiuc1_unserved_is_inconclusive.py
+    # (test_no_container_is_inconclusive_and_sends_no_null_probe,
+    # test_created_container_and_control_holds_passes,
+    # test_created_container_and_control_broken_fails) and the refusing-host
+    # row in testing/test_aiuc1_et_ptc_verdicts_need_a_surface.py. Passing
+    # here would be the defect.
+    "ptc_harness",
     "ap2_harness",
     "card_token_harness",
     "delegation_chain_harness",
