@@ -51,7 +51,8 @@ def _endpoint(responder):
             return
 
     srv = HTTPServer(("127.0.0.1", 0), H)
-    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t = threading.Thread(target=srv.serve_forever,
+                         kwargs={"poll_interval": 0.01}, daemon=True)
     t.start()
     try:
         yield f"http://127.0.0.1:{srv.server_port}"

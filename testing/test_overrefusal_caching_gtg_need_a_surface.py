@@ -119,7 +119,8 @@ class Stub:
         self.srv = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
         self.srv.respond = self.respond
         self.srv.seen = []
-        self.thread = threading.Thread(target=self.srv.serve_forever, daemon=True)
+        self.thread = threading.Thread(target=self.srv.serve_forever,
+                                       kwargs={"poll_interval": 0.01}, daemon=True)
         self.thread.start()
         self.url = f"http://127.0.0.1:{self.srv.server_address[1]}"
         return self

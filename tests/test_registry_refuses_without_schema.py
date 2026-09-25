@@ -108,7 +108,8 @@ class MissingConfigurationIsARefusal(unittest.TestCase):
         httpd = srv.build_server(0)
         saved = srv.Handler.required_keys
         srv.Handler.required_keys = []
-        t = threading.Thread(target=httpd.serve_forever, daemon=True)
+        t = threading.Thread(target=httpd.serve_forever,
+                             kwargs={"poll_interval": 0.01}, daemon=True)
         t.start()
         try:
             body = json.dumps(_empty_report_submission()).encode()

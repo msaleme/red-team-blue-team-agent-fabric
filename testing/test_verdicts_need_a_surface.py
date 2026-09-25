@@ -548,7 +548,8 @@ class _Served(BaseHTTPRequestHandler):
 def _served(verified: bool):
     srv = ThreadingHTTPServer(("127.0.0.1", 0), _Served)
     srv.verified = verified
-    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t = threading.Thread(target=srv.serve_forever,
+                         kwargs={"poll_interval": 0.01}, daemon=True)
     t.start()
     try:
         yield f"http://127.0.0.1:{srv.server_address[1]}"

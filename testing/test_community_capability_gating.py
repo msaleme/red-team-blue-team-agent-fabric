@@ -135,7 +135,8 @@ class _Server:
     def __init__(self, behaviour: dict):
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), _handler_for(behaviour))
         self.httpd.calls = []  # type: ignore[attr-defined]
-        self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
+        self.thread = threading.Thread(target=self.httpd.serve_forever,
+                                       kwargs={"poll_interval": 0.01}, daemon=True)
         self.thread.start()
 
     @property

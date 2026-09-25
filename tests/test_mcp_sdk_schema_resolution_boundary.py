@@ -67,7 +67,8 @@ def _assert_reference_is_not_fetched(
             return
 
     http = ThreadingHTTPServer(("127.0.0.1", 0), SchemaHandler)
-    thread = threading.Thread(target=http.serve_forever, daemon=True)
+    thread = threading.Thread(target=http.serve_forever,
+                              kwargs={"poll_interval": 0.01}, daemon=True)
     thread.start()
     try:
         server = _make_server(f"http://127.0.0.1:{http.server_port}/{path}", calls)

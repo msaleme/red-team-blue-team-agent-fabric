@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Tests — `pytest testing/` 625 s -> 333 s locally, same 1584 passed / 3823 subtests
+
+- Every loopback stub server in `testing/`, `tests/` and the sweep scripts
+  (`scripts/{no_surface,permissive_host,refusing_host,empty_answer}_sweep.py`) now runs
+  `serve_forever(poll_interval=0.01)`. `shutdown()` waits for the serve loop's next poll,
+  0.5 s by default, so every stub cost half a second to tear down: 25 adapters x 7 poles
+  was 88 s of `test_adapter_verdicts_need_a_surface.py` alone. Request handling is
+  unchanged; nothing is cached, so every measurement is still taken fresh and every
+  seeded control still runs its own. No harness (`protocol_tests/`) change.
+
 ## [4.25.0] - 2026-09-25
 
 A minor release. The no-surface register is empty. Every URL-taking harness now

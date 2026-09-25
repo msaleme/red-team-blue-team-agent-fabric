@@ -109,6 +109,7 @@ class allow_all_target:
     def __enter__(self) -> str:
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), _AllowAll)
         self._thread = threading.Thread(target=self._server.serve_forever,
+                                        kwargs={"poll_interval": 0.01},
                                         daemon=True)
         self._thread.start()
         host, port = self._server.server_address[:2]
