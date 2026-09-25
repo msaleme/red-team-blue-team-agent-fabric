@@ -209,6 +209,37 @@ class PTCTests:
         return False
 
     @staticmethod
+    def _created_container_id(resp: dict) -> str | None:
+        """The container a served ``ptc/container/create`` returned, else ``None``.
+
+        Served means a 2xx carrying ``result.container_id``. #613 (2026-09-25):
+        against a host refusing every request with a JSON-RPC 403 envelope,
+        PTC-003 FAILed "Container-create call did not return a container_id"
+        and PTC-006 sent ``container_id: null`` to ``ptc/container/use`` and
+        PASSed "Expired container was rejected on reuse". No container
+        existed, so neither verdict was about container isolation or expiry.
+        Every container-dependent verdict now needs one of these.
+        """
+        if not isinstance(resp, dict) or resp.get("_error"):
+            return None
+        status = resp.get("_status", 200)
+        if not isinstance(status, int) or not 200 <= status < 300:
+            return None
+        result = resp.get("result")
+        cid = result.get("container_id") if isinstance(result, dict) else None
+        return cid if isinstance(cid, str) and cid else None
+
+    @staticmethod
+    def _no_container_detail(create_resp: dict, control: str) -> str:
+        status = create_resp.get("_status") if isinstance(create_resp, dict) else None
+        how = (f"answered HTTP {status}" if isinstance(status, int)
+               else "failed at transport")
+        return (INCONCLUSIVE_PREFIX + f"ptc/container/create {how} without a "
+                f"container_id, so no container existed and the {control} control "
+                f"was never exercised. Refusing to create a container is not "
+                f"evidence about how a created one is isolated or expired.")
+
+    @staticmethod
     def _empty_inventory(resp: dict, key: str) -> list | None:
         """The inventory under ``result.<key>``, or ``None`` when there is none.
 
@@ -515,13 +546,13 @@ class PTCTests:
             ))
             return
 
-        container_id = (create_resp.get("result") or {}).get("container_id")
+        container_id = self._created_container_id(create_resp)
         if not container_id:
             self._record(PTCResult(
                 test_id="PTC-003", name="Container State Leakage Across Sessions",
                 category="isolation", owasp_asi="ASI07",
                 severity=Severity.CRITICAL.value, passed=False,
-                details="Container-create call did not return a container_id; cannot probe isolation.",
+                details=self._no_container_detail(create_resp, "isolation"),
                 payload_summary="no_container_id",
                 elapsed_s=round(time.monotonic() - t0, 3),
             ))
@@ -793,7 +824,20 @@ class PTCTests:
             ))
             return
 
-        container_id = (create_resp.get("result") or {}).get("container_id")
+        container_id = self._created_container_id(create_resp)
+        if not container_id:
+            # No container, so no reuse probe: `container_id: null` refused is
+            # not an expired container rejected (#613).
+            self._record(PTCResult(
+                test_id="PTC-006", name="Expired Container Reuse",
+                category="lifecycle", owasp_asi="ASI07",
+                severity=Severity.MEDIUM.value, passed=False,
+                details=self._no_container_detail(create_resp, "expiry"),
+                payload_summary="no_container_id",
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+            return
+
         time.sleep(2)  # let the 1-second TTL lapse
         reuse_resp = self._post(
             jsonrpc_request("ptc/container/use", {"container_id": container_id}),
