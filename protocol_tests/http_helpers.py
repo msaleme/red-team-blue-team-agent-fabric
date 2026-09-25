@@ -2100,6 +2100,24 @@ def served_refusal(resp) -> bool:
     return declined(body)
 
 
+def bare_auth_refusal(resp) -> bool:
+    """True for a 401/403 that carries no JSON-RPC answer: no probe surface.
+
+    For JSON-RPC probes (extended_thinking, ptc), where the only protocol answer
+    is a JSON-RPC 2.0 envelope. Owner decision 2026-09-24: a bare 403 is no
+    surface; a 401/403 counts as a rejection only after the target has served
+    something, or when the refusal itself carries a protocol answer. A host
+    answering "Forbidden" to every verb and path has shown nothing about the
+    method a harness came to probe. Narrower than :func:`served_refusal`: prose
+    declining an introspection call is not an introspection answer.
+    """
+    if not isinstance(resp, dict) or _status_of(resp) not in (401, 403):
+        return False
+    body = _error_body(resp)
+    return not (isinstance(body, dict) and body.get("jsonrpc") == "2.0"
+                and ("error" in body or "result" in body))
+
+
 def shows_surface(resp) -> bool:
     """Whether *resp* shows the target serving something at all.
 

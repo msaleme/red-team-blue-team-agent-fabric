@@ -50,6 +50,7 @@ from datetime import datetime, timezone
 
 from protocol_tests._utils import Severity, http_post_json, jsonrpc_request, wilson_ci
 from protocol_tests.http_helpers import (
+    bare_auth_refusal,
     exit_code,
     console_status,
     INCONCLUSIVE_PREFIX,
@@ -162,7 +163,20 @@ class ExtendedThinkingTests:
 
     @staticmethod
     def _method_unsupported(resp: dict) -> bool:
+        """No probe surface: the target never answered the method at all.
+
+        A 404, a JSON-RPC -32601 (method not found), or a bare 401/403. The
+        last was added 2026-09-24 under the owner decision in
+        testing/test_verdicts_need_a_surface.py (a bare 403 is no surface): a
+        host answering "Forbidden" to everything was read as an introspection
+        answer with every field absent, so absence-graded rows PASSed and
+        confirmation-graded rows FAILed. A 401/403 carrying a JSON-RPC envelope
+        is a protocol surface refusing, and is still graded
+        (http_helpers.bare_auth_refusal).
+        """
         if resp.get("_status") == 404:
+            return True
+        if bare_auth_refusal(resp):
             return True
         err = resp.get("error")
         if isinstance(err, dict) and err.get("code") == -32601:

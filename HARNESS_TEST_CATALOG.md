@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `a858702`
+**Generated:** `scripts/generate_test_catalog.py` at commit `ece5523`
 **Test count:** 640 unique test IDs across 49 registered harness modules (48 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -59,18 +59,18 @@ ADI-003 | content mimicking the agent's own context boundary. | protocol_tests/a
 ### AIUC-1 Compliance (`protocol_tests/aiuc1_compliance_harness.py`) — 12 tests
 
 ```
-AIUC-C003a | Harmful Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:851
-AIUC-C003b | Deceptive Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:884
-AIUC-C004a | Out-of-Scope Execution Refusal | protocol_tests/aiuc1_compliance_harness.py:962
-AIUC-C004b | Scope Creep Detection | protocol_tests/aiuc1_compliance_harness.py:1011
-AIUC-C004c | Authority Impersonation Refusal | protocol_tests/aiuc1_compliance_harness.py:1044
-AIUC-E001 | Incident Detection Latency | protocol_tests/aiuc1_compliance_harness.py:120
-AIUC-E002 | Incident Containment | protocol_tests/aiuc1_compliance_harness.py:581
-AIUC-E003 | Incident Audit Trail | protocol_tests/aiuc1_compliance_harness.py:685
-AIUC-F002a | Test refusal of chemical weapon synthesis instructions. | protocol_tests/aiuc1_compliance_harness.py:769
-AIUC-F002b | Test refusal of biological weapon creation instructions. | protocol_tests/aiuc1_compliance_harness.py:774
-AIUC-F002c | Test refusal of radiological/nuclear weapon instructions. | protocol_tests/aiuc1_compliance_harness.py:779
-AIUC-F002d | CBRN Dual-Use Detection | protocol_tests/aiuc1_compliance_harness.py:814
+AIUC-C003a | Harmful Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:964
+AIUC-C003b | Deceptive Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:993
+AIUC-C004a | Out-of-Scope Execution Refusal | protocol_tests/aiuc1_compliance_harness.py:1071
+AIUC-C004b | Scope Creep Detection | protocol_tests/aiuc1_compliance_harness.py:1139
+AIUC-C004c | Authority Impersonation Refusal | protocol_tests/aiuc1_compliance_harness.py:1167
+AIUC-E001 | Incident Detection Latency | protocol_tests/aiuc1_compliance_harness.py:121
+AIUC-E002 | Incident Containment | protocol_tests/aiuc1_compliance_harness.py:669
+AIUC-E003 | Incident Audit Trail | protocol_tests/aiuc1_compliance_harness.py:773
+AIUC-F002a | Test refusal of chemical weapon synthesis instructions. | protocol_tests/aiuc1_compliance_harness.py:876
+AIUC-F002b | Test refusal of biological weapon creation instructions. | protocol_tests/aiuc1_compliance_harness.py:881
+AIUC-F002c | Test refusal of radiological/nuclear weapon instructions. | protocol_tests/aiuc1_compliance_harness.py:886
+AIUC-F002d | CBRN Dual-Use Detection | protocol_tests/aiuc1_compliance_harness.py:932
 ```
 
 ### AP2 Mandate Chain (`protocol_tests/ap2_harness.py`) — 17 tests
@@ -309,12 +309,12 @@ ZD-002 | Mass Ticket Closure (Competitor Sabotage) | protocol_tests/extended_ent
 ### Extended Thinking (`protocol_tests/extended_thinking_harness.py`) — 6 tests
 
 ```
-ET-001 | Tampered Thinking-Block Signature Accepted | protocol_tests/extended_thinking_harness.py:208
-ET-002 | Missing Thinking Block Before Tool-Result Turn Accepted | protocol_tests/extended_thinking_harness.py:295
-ET-003 | Redacted-Thinking Payload Exposed to End User | protocol_tests/extended_thinking_harness.py:388
-ET-004 | Intermediate Reasoning Exposed Mid-Tool-Chain | protocol_tests/extended_thinking_harness.py:481
-ET-005 | Cross-Conversation Signature Replay Accepted | protocol_tests/extended_thinking_harness.py:566
-ET-006 | Silent Thinking-Budget Truncation | protocol_tests/extended_thinking_harness.py:649
+ET-001 | Tampered Thinking-Block Signature Accepted | protocol_tests/extended_thinking_harness.py:222
+ET-002 | Missing Thinking Block Before Tool-Result Turn Accepted | protocol_tests/extended_thinking_harness.py:309
+ET-003 | Redacted-Thinking Payload Exposed to End User | protocol_tests/extended_thinking_harness.py:402
+ET-004 | Intermediate Reasoning Exposed Mid-Tool-Chain | protocol_tests/extended_thinking_harness.py:495
+ET-005 | Cross-Conversation Signature Replay Accepted | protocol_tests/extended_thinking_harness.py:580
+ET-006 | Silent Thinking-Budget Truncation | protocol_tests/extended_thinking_harness.py:663
 ```
 
 ### Framework Adapters (`protocol_tests/framework_adapters.py`) — 15 tests
@@ -704,12 +704,12 @@ PRV-015 | Replay of Revoked Attestation | protocol_tests/provenance_harness.py:8
 ### Programmatic Tool Calling (`protocol_tests/ptc_harness.py`) — 6 tests
 
 ```
-PTC-001 | Destructive Tool Opted Into Code-Execution Context | protocol_tests/ptc_harness.py:275
-PTC-002 | Sandbox Exfiltration Before Model Visibility | protocol_tests/ptc_harness.py:378
-PTC-003 | Container State Leakage Across Sessions | protocol_tests/ptc_harness.py:474
-PTC-004 | Client-Asserted Caller-Type Spoofing | protocol_tests/ptc_harness.py:576
-PTC-005 | Unbounded Batch Execution of a Side-Effecting Tool | protocol_tests/ptc_harness.py:659
-PTC-006 | Expired Container Reuse | protocol_tests/ptc_harness.py:754
+PTC-001 | Destructive Tool Opted Into Code-Execution Context | protocol_tests/ptc_harness.py:289
+PTC-002 | Sandbox Exfiltration Before Model Visibility | protocol_tests/ptc_harness.py:392
+PTC-003 | Container State Leakage Across Sessions | protocol_tests/ptc_harness.py:488
+PTC-004 | Client-Asserted Caller-Type Spoofing | protocol_tests/ptc_harness.py:590
+PTC-005 | Unbounded Batch Execution of a Side-Effecting Tool | protocol_tests/ptc_harness.py:673
+PTC-006 | Expired Container Reuse | protocol_tests/ptc_harness.py:768
 ```
 
 ### receipt_claim_harness.py (`protocol_tests/receipt_claim_harness.py`) — 11 tests
