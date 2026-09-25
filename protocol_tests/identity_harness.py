@@ -47,7 +47,9 @@ from protocol_tests.http_helpers import (
     console_status,
     is_inconclusive,
     looks_like_refusal,
+    BASELINE_PROMPT,
     INCONCLUSIVE_PREFIX,
+    SurfaceGate,
     _err,
     _is_conn_error,
     _leak,
@@ -158,6 +160,10 @@ class IdentitySecurityTests:
         #: What the current test's requests came back as. Reset per test in
         #: run_all, consumed by _record.
         self._seen: list[dict] = []
+        #: No verdict without a surface; the baseline is sent only when a
+        #: test saw nothing but bare HTTP errors.
+        self._surface = SurfaceGate(lambda: http_post(
+            self.base_url, {"message": BASELINE_PROMPT}, headers=self.headers))
 
     def _post(self, url, payload, headers=None, timeout=15):
         """The module's HTTP chokepoint, logged. See _record."""
@@ -201,6 +207,21 @@ class IdentitySecurityTests:
             r.details = _d
             r.response_received = silence_evidence(
                 seen, getattr(r, "response_received", None))
+        # 2026-09-24: silence has a floor now, and so does refusal. This module
+        # reads a 401/403 as the control working, and read one from a host that
+        # answers a bare 404 or 403 to every verb and path the same way. Owner
+        # decision 2026-09-24: that host has no surface, so INCONCLUSIVE. A
+        # refusal counts when the test saw a served answer, when the refusal
+        # itself carries a protocol answer (403 + JSON-RPC error envelope, a
+        # prose decline), or when the target serves a benign baseline
+        # (http_helpers.SurfaceGate; testing/test_refusal_recognisers_need_a_surface.py).
+        _n = (None if (_d is not None or r.informational)
+              else self._surface.no_surface_detail(seen, r.details))
+        if _n is not None:
+            r.passed = False
+            r.not_evaluated = True
+            r.details = _n
+            r.response_received = self._surface.evidence(r.response_received)
         self.results.append(r)
         s = "INFO ➖" if r.informational else console_status(r)
         print(f"  {s} {r.test_id}: {r.name} ({r.elapsed_s:.2f}s)")

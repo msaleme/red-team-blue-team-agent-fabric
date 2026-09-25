@@ -1947,3 +1947,161 @@ class ServedBaseline(ABC):
         baselines = self._baseline_by_route()
         return {**(existing if isinstance(existing, dict) else {}),
                 "_baseline": {r: baselines.get(r) for r in routes}}
+
+
+# ---------------------------------------------------------------------------
+# A surface, for the harnesses whose PASS signal IS a refusal
+# ---------------------------------------------------------------------------
+#
+# identity, provenance, governance_modification, kill_switch and
+# incident_response read a 401/403 (or any HTTP error) as the control working,
+# which is why they are exempt from `_serviced` (testing/test_serviced_guard.py)
+# and pinned in testing/test_refusing_host_state.py. The exemption had no floor:
+# against a host answering a bare 404 or 403 to every verb and path they
+# returned 85 PASS/FAIL verdicts -- "Server rejected fabricated approval claims",
+# "Identity endpoint NOT found", "handled 5/5 auth failures appropriately" --
+# about a host that served nothing (testing/test_verdicts_need_a_surface.py).
+#
+# Owner decision 2026-09-24: a closed port, 404-everywhere and bare
+# 403-everywhere target have no surface, so INCONCLUSIVE. A 401/403 counts as a
+# rejection only after the target has served something (MCP-021's rule), OR
+# when the refusal itself carries a protocol answer -- the #603 shape, promoted
+# here from crewai_cve_harness so the five modules above and crewai share one
+# definition. That second arm is why the refusing-host pins survive: that
+# target answers 403 WITH a JSON-RPC error envelope and a prose refusal.
+
+
+def _status_of(resp) -> int:
+    status = resp.get("_status")
+    if status is None:
+        status = resp.get("status", 0)
+    try:
+        return int(status or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _error_body(resp: dict) -> dict | None:
+    """The parsed body an HTTP error response carried, whichever shape holds it.
+
+    Three transports, three homes: a parsed body merged at the top level
+    (crewai, protocol_tests._utils), a namespaced ``response`` dict (this
+    module's transports), or the raw ``_body`` text every HTTPError branch
+    keeps. A body that is not a JSON object -- "Forbidden", an HTML page -- is
+    no answer and returns ``None``.
+    """
+    inner = resp.get("response")
+    if isinstance(inner, dict) and inner:
+        return inner
+    top = {k: v for k, v in resp.items()
+           if not str(k).startswith("_") and v not in (None, "", {}, [])}
+    if top:
+        return top
+    raw = resp.get("_body")
+    if isinstance(raw, str) and raw.strip()[:1] == "{":
+        try:
+            parsed = json.loads(raw)
+        except (ValueError, TypeError):
+            return None
+        return parsed if isinstance(parsed, dict) and parsed else None
+    return None
+
+
+def served_refusal(resp) -> bool:
+    """Is this HTTP error response a served surface refusing, or an error page?
+
+    True only for a 4xx whose parsed JSON body is an answer:
+
+      * a 401/403 carrying a JSON-RPC error envelope -- a protocol surface
+        refusing on authorization grounds (the refusing-host sweep's target);
+      * any 4xx whose body declines in the agent's own words (`declined`).
+
+    A bare "Forbidden"/"Not Found", an HTML error page, a 5xx, or a 4xx JSON-RPC
+    error that is not an authorization refusal (method not found, bad params,
+    rate limited) establishes nothing about what the target would do with the
+    request, so it is not a refusal. Promoted from crewai_cve_harness (#603).
+    """
+    if not isinstance(resp, dict):
+        return False
+    status = _status_of(resp)
+    if not 400 <= status < 500:
+        return False
+    body = _error_body(resp)
+    if body is None:
+        return False
+    if (status in (401, 403) and body.get("jsonrpc") == "2.0"
+            and isinstance(body.get("error"), dict)):
+        return True
+    return declined(body)
+
+
+def shows_surface(resp) -> bool:
+    """Whether *resp* shows the target serving something at all.
+
+    A 2xx that is not a transport error, or a served refusal. Not: silence, a
+    bare 404/403, an error page, a 5xx.
+    """
+    if not isinstance(resp, dict) or not answered(resp):
+        return False
+    if not resp.get("_error") and 200 <= _status_of(resp) < 300:
+        return True
+    return served_refusal(resp)
+
+
+class SurfaceGate:
+    """"No verdict without a surface" for a refusal-recognising harness.
+
+    One instance per suite. In ``_record``, after the silence guard::
+
+        _d = self._surface.no_surface_detail(seen, result.details)
+
+    A test whose own responses show a surface (`shows_surface`) keeps its
+    verdict, whichever way it points: a served 2xx, or a 401/403 carrying a
+    JSON-RPC error envelope or a prose refusal. A test that saw only bare HTTP
+    errors keeps its verdict only if the target serves a benign baseline
+    request -- sent lazily, at most once per suite, through *send_baseline*,
+    carrying the operator's headers and never logged as an attempt. Otherwise
+    the verdict is INCONCLUSIVE: a bare 404/403 to the attack cannot be told
+    apart from a URL or credential that serves nothing.
+
+    Silence is not this gate's case (``silence_detail`` owns it), so a test
+    whose requests went unanswered is left alone and no baseline is sent.
+    """
+
+    def __init__(self, send_baseline):
+        self._send_baseline = send_baseline
+        self._probed = False
+        self._baseline: dict | None = None
+
+    def baseline(self) -> dict | None:
+        if not self._probed:
+            self._probed = True
+            try:
+                self._baseline = self._send_baseline()
+            except Exception as exc:  # noqa: BLE001 - an unsendable baseline is unserved
+                self._baseline = {"_error": True, "_exception": str(exc)}
+        return self._baseline
+
+    def no_surface_detail(self, seen: list, details: str | None) -> str | None:
+        """Replacement ``details`` when the test saw no surface, else ``None``."""
+        if not seen or is_inconclusive(details):
+            return None
+        if any(shows_surface(r) for r in seen):
+            return None
+        if not any(answered(r) for r in seen):
+            return None
+        if shows_surface(self.baseline()):
+            return None
+        statuses = sorted({_status_of(r) for r in seen if answered(r)})
+        base = self.baseline() if isinstance(self.baseline(), dict) else {}
+        return (f"{INCONCLUSIVE_PREFIX}no surface: {len(seen)} request(s) "
+                f"answered only with HTTP error pages (status "
+                f"{'/'.join(str(s) for s in statuses)}) carrying no protocol "
+                f"answer, and a benign baseline was not served either "
+                f"(status={_status_of(base) or 'none'}). A refusal from a target "
+                f"that serves nothing cannot be told apart from a URL or "
+                f"credential that refuses everything. Original finding: {details}")
+
+    def evidence(self, existing) -> dict:
+        return {**(existing if isinstance(existing, dict) else {}),
+                "_no_surface": {"baseline": self.baseline()}}

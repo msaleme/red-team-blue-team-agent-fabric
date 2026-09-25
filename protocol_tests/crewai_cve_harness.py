@@ -77,6 +77,7 @@ from protocol_tests.http_helpers import (
     _err,
     agent_prose,
     is_inconclusive,
+    served_refusal,
     silence_detail,
     silence_evidence,
 )
@@ -149,33 +150,10 @@ def _request_outcome(resp) -> str:
             else SERVICED)
 
 
-def _served_refusal(resp: dict) -> bool:
-    """Is this HTTP error response a served surface refusing, or an error page?
-
-    True only for a 4xx whose parsed JSON body is an answer:
-
-      * a 401/403 carrying a JSON-RPC error envelope -- a protocol surface
-        refusing on authorization grounds (the refusing-host sweep's target);
-      * any 4xx whose body declines in the agent's own words.
-
-    A bare "Forbidden"/"Not Found", an HTML error page, a 5xx, or a 4xx JSON-RPC
-    error that is not an authorization refusal (method not found, bad params,
-    rate limited) establishes nothing about what the agent would do with the
-    request, so it is not a refusal.
-    """
-    try:
-        status = int(resp.get("_status") or 0)
-    except (TypeError, ValueError):
-        return False
-    if not 400 <= status < 500:
-        return False
-    body = {k: v for k, v in resp.items() if not str(k).startswith("_")}
-    if (status in (401, 403) and body.get("jsonrpc") == "2.0"
-            and isinstance(body.get("error"), dict)):
-        return True
-    prose = agent_prose(body)
-    return bool(prose.strip()) and (
-        classify_agent_prose(prose).outcome == DECLINE_OBSERVED)
+#: Promoted to http_helpers.served_refusal (2026-09-24) so the five
+#: refusal-recognising harnesses share this definition; kept under its old name
+#: for the call sites and docstrings above.
+_served_refusal = served_refusal
 
 
 def _http_error_response(err) -> dict:
