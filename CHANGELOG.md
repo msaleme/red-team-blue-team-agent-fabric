@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.24.0] - 2026-09-25
+
+A minor release. A verdict now needs a target that answered. One guard (#600) runs
+every URL-taking harness against a closed port, a 404-everywhere and a bare
+403-everywhere target; a PASS or FAIL there is a defect, and the remainder is a
+register that may only shrink (578 cells in 20 harnesses at introduction, 340 in
+13 now). Behaviour changes an installed user will see:
+
+  - A2A: a bare 401/403 to everything is no surface; seven cells leave the
+    register (#601).
+  - cloud-agents (all 25 tests) and the enterprise, extended-enterprise and
+    framework adapter families count a rejection only after the route served a
+    benign baseline request, which is sent before the first attack on each route
+    (#602, #605). PA-003 no longer PASSes on a host that refuses everything.
+  - CrewAI CVE tests CREW-001/004/006..010 and CVE-005 count an HTTP error as a
+    refusal only when its body is an answer (#603); CVE-005 is a differential over
+    a tool the target lists (#604).
+  - CVE-006 judges the target's `tools/list` instead of the harness's own scanner,
+    so default `mcp-tool-poisoning` runs no longer always exit `1` (#599).
+  - A no-surface run in these families exits `2` (INCONCLUSIVE). For cloud-agents and
+    the three adapter families it exited `0`.
+
+The v4.15.0 statement that unserviced requests are no longer recorded as passes did
+not hold in these families through v4.23.0; the CVE pages that described it
+(CREW-008, PA-003 and the other CrewAI pages) are re-pinned to 3c3a66b.
+
+Test count unchanged at 640. Version bumped in pyproject.toml, CITATION.cff, the
+two OWASP coverage documents and the coverage manifest pair; README timeline
+extended.
+
+### Docs — CVE pages re-pinned to 3c3a66b; CrewAI, PA-003 and MCP pages describe the current verdicts
+
+`docs/cve/cve-test-mapping.yaml` is re-pinned from 85f5148 to 3c3a66b, the
+`main` commit after #605, and every page statement was re-derived from the code
+there. The pages at 85f5148 described code that #595, #603 and #605 changed:
+
+- **CREW-001, 004, 006, 007, 008, 009, 010** (CVE-2026-2275, 2285, 2286, 2287):
+  the pages said any HTTP status of 400 or above counts as a refusal, and that a
+  2xx reply with no readable text scores FAIL. Since #603 an HTTP error is a
+  refusal only when its body is an answer (a 4xx declining in prose, or a
+  JSON-RPC error envelope on 401 or 403); a bare 404 or 403, an error page, a 5xx
+  or an unreadable 2xx is INCONCLUSIVE. CREW-008's two changed verdict lines are
+  re-quoted.
+- **CREW-005**: INCONCLUSIVE now names an HTTP error status explicitly (behaviour
+  unchanged).
+- **PA-003** (CVE-2026-39889): the page said a server that refuses every request
+  also yields PASS. Since #605 a 401/403 on `/a2u/info` is PASS only when the
+  nonexistent `/a2u/` path is not also refused; otherwise INCONCLUSIVE.
+- **MCP-018, MCP-021** (CVE-2026-39313, CVE-2026-59822): since #595 a failed MCP
+  initialize handshake records these as INCONCLUSIVE (NOT_EXECUTED) instead of
+  omitting them.
+
+PA-002, MEM-011/012 and WT-001..004 are unchanged apart from permalinks. PA-001,
+PA-004, CVE-009 and CVE-010 stay excluded; none changed status. Vulnerability
+facts were not re-retrieved (still 2026-09-24). 11 CVE pages, 6 excluded.
+
 ### Fixed — CVE-005 PASSed on any server's "unknown tool" error
 
 After #603 CVE-005 ("Supply Chain Signature Bypass") scored a served JSON-RPC `error`
