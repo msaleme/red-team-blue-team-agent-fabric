@@ -134,7 +134,8 @@ def _stub(status: int, body):
         do_GET = do_POST
 
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    threading.Thread(target=httpd.serve_forever,
+                     kwargs={"poll_interval": 0.01}, daemon=True).start()
     return httpd
 
 

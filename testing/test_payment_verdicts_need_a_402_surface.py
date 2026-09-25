@@ -148,7 +148,8 @@ def _target(kind: str):
         yield f"http://127.0.0.1:{port}"
         return
     srv = ThreadingHTTPServer(("127.0.0.1", 0), _handler(kind))
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    threading.Thread(target=srv.serve_forever,
+                     kwargs={"poll_interval": 0.01}, daemon=True).start()
     try:
         yield f"http://127.0.0.1:{srv.server_address[1]}"
     finally:

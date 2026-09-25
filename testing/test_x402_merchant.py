@@ -121,7 +121,8 @@ def test_http_server_serves_402():
     m = SyntheticMerchant(_req())
     httpd = serve(m, 0)  # ephemeral port
     port = httpd.server_address[1]
-    t = threading.Thread(target=httpd.serve_forever, daemon=True)
+    t = threading.Thread(target=httpd.serve_forever,
+                         kwargs={"poll_interval": 0.01}, daemon=True)
     t.start()
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/paid", timeout=5) as r:

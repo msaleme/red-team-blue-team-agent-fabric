@@ -168,7 +168,8 @@ def _target(mode: str):
         yield f"http://127.0.0.1:{port}"
         return
     srv = ThreadingHTTPServer(("127.0.0.1", 0), _handler(mode))
-    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t = threading.Thread(target=srv.serve_forever,
+                         kwargs={"poll_interval": 0.01}, daemon=True)
     t.start()
     try:
         yield f"http://127.0.0.1:{srv.server_address[1]}"
@@ -275,7 +276,8 @@ class TestAServedTargetThatRefusesStillPasses(unittest.TestCase):
             do_GET = do_POST = _answer
 
         srv = ThreadingHTTPServer(("127.0.0.1", 0), _Counting)
-        t = threading.Thread(target=srv.serve_forever, daemon=True)
+        t = threading.Thread(target=srv.serve_forever,
+                             kwargs={"poll_interval": 0.01}, daemon=True)
         t.start()
         try:
             _run("governance_modification_harness",

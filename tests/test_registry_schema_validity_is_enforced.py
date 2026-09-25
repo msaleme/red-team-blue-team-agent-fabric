@@ -115,7 +115,8 @@ def signed_envelope(report, *, tamper=None, wrong_signature=False):
 @pytest.fixture
 def live_server():
     httpd = build_server(0)
-    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread = threading.Thread(target=httpd.serve_forever,
+                              kwargs={"poll_interval": 0.01}, daemon=True)
     thread.start()
     yield f"http://127.0.0.1:{httpd.server_address[1]}"
     httpd.shutdown()
