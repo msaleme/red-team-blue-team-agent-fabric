@@ -57,6 +57,7 @@ from protocol_tests.http_helpers import row_outcome
 from protocol_tests.ptc_harness import PTCTests
 
 CONTAINER_ROWS = ("PTC-003", "PTC-006")
+TRANSPORT_FAILURE = {"_error": True, "_exception": "<urlopen error timed out>"}
 
 
 # ---- #613 ------------------------------------------------------------------
@@ -152,9 +153,88 @@ class TestPTCNeedsACreatedContainer(unittest.TestCase):
         self.assertEqual(got, {t: "FAIL" for t in CONTAINER_ROWS})
 
 
-# ---- #614 ------------------------------------------------------------------
+# ---- PTC-004: a refused introspection is no evidence ------------------------
+#
+# #613's rule applied to `ptc/introspect`. Against the refusing-host pole PTC-004
+# FAILed "Target does not confirm server-side derivation of caller.type": the
+# introspection call was refused, and the refusal was read as the target not
+# confirming. Now only a served introspection (2xx JSON-RPC `result` carrying
+# `caller_type_source`) is graded.
 
-TRANSPORT_FAILURE = {"_error": True, "_exception": "<urlopen error timed out>"}
+
+def ptc004(route):
+    suite = PTCTests("http://unused")
+    with Stub(route) as srv, contextlib.redirect_stdout(io.StringIO()), \
+            contextlib.redirect_stderr(io.StringIO()):
+        suite.url = srv.url
+        suite.test_ptc_004_caller_type_spoofing()
+    row = suite.results[0]
+    return row_outcome(row), row
+
+
+def _introspect(status, body):
+    return lambda _req: (status, body)
+
+
+def _source(value):
+    return _introspect(200, {"jsonrpc": "2.0", "id": 1,
+                             "result": {"caller_type_source": value}})
+
+
+#: introspection answers that state nothing about caller-type derivation,
+#: with a fragment the detail must name.
+PTC004_UNSERVED = {
+    "deny-all": ((403, DENY_BODY), "HTTP 403 with a JSON-RPC error (-32001)"),
+    "bare-403": ((403, "Forbidden"), ""),
+    "404": ((404, "Not Found"), ""),
+    "jsonrpc-error-200": ((200, {"jsonrpc": "2.0", "id": 1,
+                                 "error": {"code": -32000, "message": "quota"}}),
+                          "HTTP 200 with a JSON-RPC error (-32000)"),
+    "2xx-empty-result": ((200, {"jsonrpc": "2.0", "id": 1, "result": {}}),
+                         "HTTP 200 without result.caller_type_source"),
+    "2xx-no-result": ((200, {}), "HTTP 200 without result.caller_type_source"),
+    "2xx-prose": ((200, "ok"), "HTTP 200 without a JSON-RPC result"),
+    "5xx": ((500, "Internal Server Error"), "HTTP 500 without a JSON-RPC result"),
+}
+
+
+class TestPTC004NeedsAServedIntrospection(unittest.TestCase):
+    def test_unserved_introspection_is_inconclusive(self):
+        for pole, (answer, fragment) in PTC004_UNSERVED.items():
+            with self.subTest(pole=pole):
+                outcome, row = ptc004(_introspect(*answer))
+                self.assertEqual(outcome, "INCONCLUSIVE", row.details)
+                self.assertTrue(row.not_evaluated)
+                self.assertFalse(row.passed)
+                self.assertNotIn("does not confirm server-side derivation", row.details)
+                self.assertIn(fragment, row.details)
+
+    def test_deny_all_detail_names_what_was_seen(self):
+        _, row = ptc004(_introspect(403, DENY_BODY))
+        self.assertIn("ptc/introspect answered HTTP 403", row.details)
+        self.assertIn("never exercised", row.details)
+
+    def test_transport_failure_is_inconclusive(self):
+        suite = PTCTests(CLOSED_PORT_URL)
+        with contextlib.redirect_stdout(io.StringIO()):
+            suite.test_ptc_004_caller_type_spoofing()
+        self.assertEqual(row_outcome(suite.results[0]), "INCONCLUSIVE")
+        self.assertIsNone(PTCTests._served_caller_type_source(
+            dict(TRANSPORT_FAILURE)))
+
+    def test_served_server_derived_passes(self):
+        outcome, row = ptc004(_source("server_derived"))
+        self.assertEqual(outcome, "PASS", row.details)
+
+    def test_served_client_controlled_fails(self):
+        for value in ("client_asserted", "client", "header"):
+            with self.subTest(value=value):
+                outcome, row = ptc004(_source(value))
+                self.assertEqual(outcome, "FAIL", row.details)
+                self.assertIn("does not confirm server-side derivation", row.details)
+
+
+# ---- #614 ------------------------------------------------------------------
 
 #: test method -> row id, for every multi-prompt check that reads replies.
 BATTERIES = {
