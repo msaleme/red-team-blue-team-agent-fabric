@@ -96,6 +96,9 @@ from protocol_tests.http_helpers import (
     looks_like_refusal,
     INCONCLUSIVE_PREFIX,
     instrument_transport,
+    payment_surface_detail,
+    payment_surface_evidence,
+    EXIT_INCONCLUSIVE,
     silence_detail,
     silence_evidence,
 )
@@ -394,9 +397,51 @@ class X402SecurityTests:
             result.passed = False
             result.details = detail
             result.response_received = silence_evidence(seen, result.response_received)
+        elif seen:
+            # Owner decision 2026-09-24: a URL that never answers 402 has no
+            # payment surface (http_helpers.payment_surface_detail). Against a
+            # 404- or bare-403-everywhere host this module PASSed 41 rejection
+            # counts ("5/5 malformed authorizations rejected") and FAILed six
+            # conformance checks ("Expected HTTP 402, got 404").
+            probe = self._payment_surface()
+            detail = payment_surface_detail(probe, "x402", result.details)
+            if detail is not None:
+                result.passed = False
+                result.not_evaluated = True
+                result.details = detail
+                result.response_received = payment_surface_evidence(
+                    probe, self._paid_path or "/", result.response_received)
         self.results.append(result)
         status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
+
+    def _payment_surface(self) -> dict:
+        """The response to one unpaid request to the protected resource.
+
+        The same request `_get_challenge` and X4-001 send (the transport's
+        default method and body on `paid_path`, no payment header). Sent once
+        per transport and cached on it, so a `--trials N` run probes once, not
+        once per trial. Not logged in `_seen`: it is evidence about the
+        surface, not an attempt at the test.
+        """
+        probe = getattr(self.transport, "_x402_payment_surface", None)
+        if isinstance(probe, dict):
+            return probe
+        mark = len(self._seen)
+        probe = self.transport.get()
+        del self._seen[mark:]
+        if not isinstance(probe, dict):
+            probe = {"status": 0, "_error": True}
+        try:
+            self.transport._x402_payment_surface = probe
+        except AttributeError:
+            pass
+        return probe
+
+    def has_payment_surface(self) -> bool:
+        """True when the protected resource answered the unpaid probe with
+        402, or served it (2xx); see http_helpers.payment_surface_detail."""
+        return payment_surface_detail(self._payment_surface(), "x402", "") is None
 
     @property
     def _paid_path(self) -> str:
@@ -3974,7 +4019,8 @@ def _run_statistical(
             "summary": {
                 "total": len(all_results),
                 "passed": sum(1 for r in all_results if r.passed),
-                "failed": sum(1 for r in all_results if not r.passed),
+                "failed": sum(1 for r in all_results if not r.passed and not r.not_evaluated),
+                "not_evaluated": sum(1 for r in all_results if r.not_evaluated),
             },
             "autonomy_risk_score": autonomy_risk,
             "results": [asdict(r) for r in all_results],
@@ -3984,6 +4030,12 @@ def _run_statistical(
             json.dump(report, f, indent=2, default=str)
         print(f"NIST AI 800-2 aligned report written to {report_path}")
 
+    # No payment surface: every trial was INCONCLUSIVE, which this path cannot
+    # count per trial, so the run as a whole established nothing (exit 2).
+    if not last_suite.has_payment_surface():
+        print("No x402 payment surface: the protected resource never answered "
+              "HTTP 402. Nothing was established (exit 2).")
+        sys.exit(EXIT_INCONCLUSIVE)
     failed_tests = sum(1 for tr in trial_results if tr.pass_rate < 1.0)
     sys.exit(1 if failed_tests > 0 else 0)
 

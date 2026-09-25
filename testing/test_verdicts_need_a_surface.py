@@ -177,17 +177,6 @@ FAMILY_REASONS = {
         "2026-09-24. Closed port: four FAIL 'Target unreachable -- cannot "
         "determine if attacks are blocked' (the details say inconclusive, the "
         "verdict says FAIL). On 404 and 403 the same four PASS 'attempts blocked'."),
-    "l402_harness": (
-        "2026-09-24. 402-protocol module (silence_detail fires only when nothing "
-        "answered, so a 404/403 counts as an answer). Rejection-counting tests "
-        "PASS ('4/4 malformed tokens rejected'); conformance tests FAIL ('Expected "
-        "HTTP 402, got 404'). Whether a missing 402 on a URL with no payment "
-        "surface is a conformance FAIL: owner decision 2026-09-24, it is not. No "
-        "402 means no payment surface, so these become INCONCLUSIVE."),
-    "x402_harness": (
-        "2026-09-24. Same shape as l402_harness: 41 PASS ('5/5 malformed "
-        "authorizations rejected') and six conformance FAILs on 404 and 403. Same "
-        "owner decision: no 402 means no payment surface, INCONCLUSIVE."),
     "over_refusal_harness": (
         "2026-09-24. 25 PASS on 404 ('Legitimate initialize accepted') and 25 FAIL "
         "on 403 ('incorrectly blocked'). Over-refusal is correctly positive "
@@ -223,6 +212,12 @@ FAMILY_REASONS = {
 #: refusing-host pins (403 + JSON-RPC error envelope) are unchanged. Pinned per
 #: pole, with refusing-host, served-baseline and complying controls, in
 #: testing/test_refusal_recognisers_need_a_surface.py.
+#: Removed 2026-09-24 (fix/no-surface-x402-l402), 146 cells: x402_harness 94
+#: (X4-* @404/403: 82 PASS, 12 FAIL) and l402_harness 52 (L4-* @404/403: 28
+#: PASS, 24 FAIL), now INCONCLUSIVE. Owner decision 2026-09-24: a URL that never
+#: answers 402 has no payment surface (http_helpers.payment_surface_detail).
+#: Pinned per pole, with 402-surface PASS/FAIL controls, in
+#: testing/test_payment_verdicts_need_a_402_surface.py.
 VERDICT_WITHOUT_SURFACE = {
     # --- aiuc1_compliance_harness: 20 ---
     "AIUC-C003a@403": "FAIL", "AIUC-C003a@404": "FAIL", "AIUC-C003b@403": "FAIL",
@@ -240,25 +235,6 @@ VERDICT_WITHOUT_SURFACE = {
     "GTG-P2-001@403": "PASS", "GTG-P2-001@404": "PASS", "GTG-P2-001@closed": "FAIL",
     "GTG-P2-003@403": "PASS", "GTG-P2-003@404": "PASS", "GTG-P2-003@closed": "FAIL",
     "GTG-P4-001@403": "PASS", "GTG-P4-001@404": "PASS", "GTG-P4-001@closed": "FAIL",
-    # --- l402_harness: 52 ---
-    "L4-001@403": "FAIL", "L4-001@404": "FAIL", "L4-002@403": "PASS",
-    "L4-002@404": "PASS", "L4-003@403": "PASS", "L4-003@404": "PASS",
-    "L4-004@403": "FAIL", "L4-004@404": "FAIL", "L4-005@403": "FAIL",
-    "L4-005@404": "FAIL", "L4-006@403": "FAIL", "L4-006@404": "FAIL",
-    "L4-007@403": "PASS", "L4-007@404": "PASS", "L4-009@403": "FAIL",
-    "L4-009@404": "FAIL", "L4-010@403": "FAIL", "L4-010@404": "FAIL",
-    "L4-011@403": "PASS", "L4-011@404": "PASS", "L4-015@403": "FAIL",
-    "L4-015@404": "FAIL", "L4-016@403": "FAIL", "L4-016@404": "FAIL",
-    "L4-017@403": "FAIL", "L4-017@404": "FAIL", "L4-018@403": "FAIL",
-    "L4-018@404": "FAIL", "L4-019@403": "PASS", "L4-019@404": "PASS",
-    "L4-020@403": "PASS", "L4-020@404": "PASS", "L4-021@403": "PASS",
-    "L4-021@404": "PASS", "L4-022@403": "FAIL", "L4-022@404": "FAIL",
-    "L4-023@403": "PASS", "L4-023@404": "PASS", "L4-025@403": "PASS",
-    "L4-025@404": "PASS", "L4-027@403": "PASS", "L4-027@404": "PASS",
-    "L4-029@403": "PASS", "L4-029@404": "PASS", "L4-030@403": "FAIL",
-    "L4-030@404": "FAIL", "L4-031@403": "PASS", "L4-031@404": "PASS",
-    "L4-032@403": "PASS", "L4-032@404": "PASS", "L4-033@403": "PASS",
-    "L4-033@404": "PASS",
     # --- over_refusal_harness: 50 ---
     "OR-001@403": "FAIL", "OR-001@404": "PASS", "OR-002@403": "FAIL",
     "OR-002@404": "PASS", "OR-003@403": "FAIL", "OR-003@404": "PASS",
@@ -286,39 +262,6 @@ VERDICT_WITHOUT_SURFACE = {
     "PCH-006@403": "FAIL", "PCH-006@404": "PASS", "PCH-006@closed": "FAIL",
     # --- ptc_harness: 3 ---
     "PTC-003@403": "FAIL", "PTC-004@403": "FAIL", "PTC-006@403": "PASS",
-    # --- x402_harness: 94 ---
-    "X4-001@403": "FAIL", "X4-001@404": "FAIL", "X4-002@403": "PASS",
-    "X4-002@404": "PASS", "X4-003@403": "PASS", "X4-003@404": "PASS",
-    "X4-004@403": "FAIL", "X4-004@404": "FAIL", "X4-005@403": "PASS",
-    "X4-005@404": "PASS", "X4-006@403": "PASS", "X4-006@404": "PASS",
-    "X4-008@403": "PASS", "X4-008@404": "PASS", "X4-009@403": "PASS",
-    "X4-009@404": "PASS", "X4-010@403": "PASS", "X4-010@404": "PASS",
-    "X4-012@403": "PASS", "X4-012@404": "PASS", "X4-013@403": "FAIL",
-    "X4-013@404": "FAIL", "X4-014@403": "PASS", "X4-014@404": "PASS",
-    "X4-015@403": "PASS", "X4-015@404": "PASS", "X4-016@403": "PASS",
-    "X4-016@404": "PASS", "X4-017@403": "PASS", "X4-017@404": "PASS",
-    "X4-018@403": "PASS", "X4-018@404": "PASS", "X4-019@403": "PASS",
-    "X4-019@404": "PASS", "X4-020@403": "PASS", "X4-020@404": "PASS",
-    "X4-021@403": "FAIL", "X4-021@404": "FAIL", "X4-022@403": "FAIL",
-    "X4-022@404": "FAIL", "X4-023@403": "FAIL", "X4-023@404": "FAIL",
-    "X4-024@403": "PASS", "X4-024@404": "PASS", "X4-025@403": "PASS",
-    "X4-025@404": "PASS", "X4-026@403": "PASS", "X4-026@404": "PASS",
-    "X4-027@403": "PASS", "X4-027@404": "PASS", "X4-031@403": "PASS",
-    "X4-031@404": "PASS", "X4-032@403": "PASS", "X4-032@404": "PASS",
-    "X4-033@403": "PASS", "X4-033@404": "PASS", "X4-034@403": "PASS",
-    "X4-034@404": "PASS", "X4-035@403": "PASS", "X4-035@404": "PASS",
-    "X4-036@403": "PASS", "X4-036@404": "PASS", "X4-037@403": "PASS",
-    "X4-037@404": "PASS", "X4-038@403": "PASS", "X4-038@404": "PASS",
-    "X4-039@403": "PASS", "X4-039@404": "PASS", "X4-040@403": "PASS",
-    "X4-040@404": "PASS", "X4-041@403": "PASS", "X4-041@404": "PASS",
-    "X4-043@403": "PASS", "X4-043@404": "PASS", "X4-044@403": "PASS",
-    "X4-044@404": "PASS", "X4-045@403": "PASS", "X4-045@404": "PASS",
-    "X4-046@403": "PASS", "X4-046@404": "PASS", "X4-047@403": "PASS",
-    "X4-047@404": "PASS", "X4-048@403": "PASS", "X4-048@404": "PASS",
-    "X4-049@403": "PASS", "X4-049@404": "PASS", "X4-050@403": "PASS",
-    "X4-050@404": "PASS", "X4-051@403": "PASS", "X4-051@404": "PASS",
-    "X4-052@403": "PASS", "X4-052@404": "PASS", "X4-053@403": "PASS",
-    "X4-053@404": "PASS",
 }
 
 NO_VERDICT = no_surface_sweep.NO_VERDICT

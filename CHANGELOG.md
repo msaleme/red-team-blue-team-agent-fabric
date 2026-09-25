@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — x402 and L402 graded a URL that never asked for payment (146 register cells)
+
+`x402_harness` and `l402_harness` returned verdicts against a host answering HTTP 404 to
+everything and against one answering a bare 403 to everything. x402 PASSed 41 tests ("5/5
+malformed authorizations rejected": a 404 is not a 200) and FAILed six ("Expected HTTP 402,
+got 404"). L402 PASSed 14 ("4/4 malformed tokens rejected") and FAILed 12. The silence
+guard (#351) fires only when nothing answered, so an error page counted as an answer. A
+closed port was already INCONCLUSIVE.
+
+- **Payment-surface rule (owner decision 2026-09-24), one implementation.** A URL that
+  never answers HTTP 402 has no payment surface. `http_helpers.payment_surface_detail`,
+  used by both modules' `_record`. Each module sends one unpaid request to its protected
+  resource: x402 uses the transport's default method and body on `paid_path`, and L402
+  sends `GET PATH_INDEX`. These are the requests their own challenge fetches send. The
+  probe runs once per transport and is not logged as a test attempt. On a 402, every
+  verdict stands. That includes the conformance FAILs, which grade the challenge's
+  shape. On any other status (404, bare 403, 401, 5xx), every test that sent a request
+  is INCONCLUSIVE. The detail names the status.
+- **A 2xx is not the no-surface case.** A protected resource served without payment is
+  an observation about that resource: the paywall is absent or bypassable. Verdicts
+  against a 200-everywhere host are unchanged (X4-001 / L4-001 still FAIL "Expected HTTP
+  402, got 200"), and so are the allow-all registers.
+- **Exit status.** A no-surface run now exits 2. It was 1, because of the conformance
+  FAILs. The `--trials N` statistical paths still count trial passes only, and they now
+  exit 2 when the protected resource never answered 402. The x402 statistical report's
+  `failed` count excludes INCONCLUSIVE rows, and it gains `not_evaluated`, like L402's.
+- **Evidence.** `testing/test_payment_verdicts_need_a_402_surface.py` runs loopback stubs
+  for both modules. A closed port, 404 and bare 403 give INCONCLUSIVE on every row. A 402
+  with a conformant challenge that rejects every payment PASSes every formerly
+  registered PASS test and the challenge checks. A 402 server that serves any paid request
+  FAILs the payment-rejection tests. A 402 with a non-conformant challenge FAILs X4-001 /
+  X4-004 and L402's challenge, macaroon and invoice checks. CLI exit codes are pinned too.
+  Verdicts against the 402 stubs match `a858702` exactly.
+- `VERDICT_WITHOUT_SURFACE` loses 146 cells and 2 FAMILY_REASONS (109 cells in 6
+  harnesses after this and the refusal-recognisers fix below). `RECOGNISES_NO_REFUSAL`: `x402_harness` and `l402_harness` join
+  on purpose (the deny-all host refuses the unpaid probe with a 403, not a 402).
+
 ### Fixed — the refusal-recognising harnesses need a surface (85 register cells)
 
 `identity`, `provenance`, `governance-modification`, `kill-switch` and `incident-response`

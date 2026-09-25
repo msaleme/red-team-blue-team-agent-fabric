@@ -204,6 +204,23 @@ RECOGNISES_NO_REFUSAL = {
     "framework_adapters::LangChainAdapter",
     "framework_adapters::OpenAIAgentsAdapter",
     "framework_adapters::PraisonAIAdapter",
+    # 2026-09-24: joined ON PURPOSE, the cloud-agent precedent above. x402 and
+    # l402 PASSed their rejection counts here, and against a host answering 404
+    # or a bare 403 to everything, because any non-200 read as a rejected
+    # payment. Owner decision 2026-09-24: a URL that never answers HTTP 402 has
+    # no payment surface (http_helpers.payment_surface_detail). This target
+    # refuses the unpaid probe with a 403 and a JSON-RPC envelope, not a 402
+    # challenge, so every row is INCONCLUSIVE. The verdicts can still be right:
+    # against a 402 server that rejects malformed payments every formerly
+    # registered PASS test PASSes, and the payment-rejection tests FAIL against
+    # one that accepts them. Pinned by
+    # testing/test_payment_verdicts_need_a_402_surface.py
+    # (test_every_row_is_inconclusive_on_every_no_surface_pole,
+    # test_a_server_that_rejects_malformed_payments_passes and
+    # test_a_server_that_accepts_malformed_payments_fails). Passing here would
+    # be the defect.
+    "x402_harness",
+    "l402_harness",
     "ap2_harness",
     "card_token_harness",
     "delegation_chain_harness",
