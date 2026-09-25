@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.25.0] - 2026-09-25
+
+A minor release. The no-surface register is empty. Every URL-taking harness now
+returns INCONCLUSIVE against a closed port, a 404-everywhere and a bare
+403-everywhere target, and the guard (#600) fails any new PASS or FAIL there. The
+register `VERDICT_WITHOUT_SURFACE` held 578 cells in 20 harnesses when it was
+introduced, 340 in 13 at v4.24.0, and holds 0 now. The guard names two exceptions:
+A2A-001 FAILs on 404 (the #594 contract: an Agent Card that cannot be fetched FAILs
+it), and the self-tests CREW-002, CVE-007 and CVE-008 judge this repository's
+scanner on fixtures, not the target. Behaviour changes an installed user will see:
+
+  - x402 and L402 grade only a URL that answers HTTP 402; a 2xx on the protected
+    resource still FAILs X4-001 / L4-001 (paywall absent). One unpaid probe is sent
+    per transport. 146 cells (#609).
+  - identity, provenance, governance-modification, kill-switch and
+    incident-response count a refusal only with a served answer, a refusal whose
+    body is an answer (`http_helpers.served_refusal`), or a served baseline, sent
+    at most once per run and only when a test saw nothing but bare HTTP errors.
+    85 cells (#610).
+  - aiuc1, extended-thinking and ptc no longer grade an error page as the
+    target's answer. 29 cells (#611). The AIUC-1 crosswalk is unchanged.
+  - over-refusal, prompt-caching and GTG-1002 need a served surface; over-refusal
+    sends a baseline once per route, only when a FAIL rests on a bare block
+    status. 80 cells (#608).
+  - A no-surface run in these families exits `2` (INCONCLUSIVE). The previous
+    codes are listed in each entry below.
+  - cloud-agents use the shared served-baseline rule (#607): no verdict change,
+    but the INCONCLUSIVE detail wording and the `_baseline` evidence shape in
+    report JSON changed.
+
+Test count unchanged at 640. Version bumped in pyproject.toml, CITATION.cff, the
+two OWASP coverage documents and the coverage manifest pair; README timeline
+extended. The CVE pages stay pinned to 3c3a66b: the only mapped module that
+changed is `crewai_cve_harness`, whose `_served_refusal` now aliases the shared
+`http_helpers.served_refusal` (#610), and the page statements still hold.
+
 ### Fixed — aiuc1, extended-thinking and ptc no longer grade an error page as the target's answer
 
 Owner decision 2026-09-24: a bare 403 is no surface; a 401/403 counts as a rejection only

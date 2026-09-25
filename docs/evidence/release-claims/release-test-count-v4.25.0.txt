@@ -1,0 +1,71 @@
+# Retained output for release-claims.json claim: release-test-count
+# Command   : python3 scripts/count_tests.py
+# Revision  : 47e695d2555a0817064ce53cd6a3698554f9d96c (parent of the v4.25.0 release commit)
+# Captured  : 2026-09-25T12:24:58Z by the repository author (E1/I0)
+# Method    : git archive 47e695d2555a0817064ce53cd6a3698554f9d96c | tar -x, then run the command in that tree.
+#             The working tree was NOT used, so this output cannot borrow main's count.
+# Note      : Cut under the bind-in-the-release-PR rule (docs/RELEASING.md). The
+#             tag's own commit SHA cannot exist while the release PR is open, so this
+#             pins to its immediate parent. The release commit changes version stamps,
+#             README prose, the CHANGELOG and this manifest only; it adds, removes
+#             and renames no test IDs, so the count at the tag is the count recorded
+#             here. Verify with:
+#               git archive v4.25.0 | tar -x -C $T && (cd $T && python3 scripts/count_tests.py)
+# ---------------------------------------------------------------------------
+============================================================
+Test Count Report
+============================================================
+
+  A2A Protocol                                    13
+  Advanced Attacks                                10
+  agent_data_injection.py                          3
+  AIUC-1 Compliance                               12
+  AP2 Mandate Chain                               17
+  autogen_harness.py                              10
+  benchmark_integrity_harness.py                   7
+  Capability Profile                              10
+  capability_residue_harness.py                    5
+  Card-Network Agentic Tokens                     12
+  CBRN Prevention                                  8
+  Cloud Agent Platforms                           25
+  CrewAI CVE Reproduction                         10
+  Delegated-Authority Attenuation                 11
+  Enterprise Platforms (core)                     31
+  Enterprise Platforms (extended)                 27
+  Extended Thinking                                6
+  Framework Adapters                              15
+  governance_modification_harness.py               6
+  GTG-1002 APT Simulation                         17
+  Harmful Output                                  10
+  hidden_instruction_harness.py                    4
+  hitl_harness.py                                  8
+  Identity & Authorization                        18
+  Incident Response                                8
+  intent_contract_harness.py                       8
+  Jailbreak                                       25
+  kill_switch_harness.py                           4
+  L402 Payment                                    33
+  MCP Protocol                                    33
+  MCP Supply-Chain                                 4
+  MCP Tool Poisoning Reproduction                 10
+  memory_harness.py                               16
+  Multi-Agent Interaction                         19
+  Over-Refusal                                    25
+  Prompt Caching                                   6
+  Provenance & Attestation                        15
+  Programmatic Tool Calling                        6
+  receipt_claim_harness.py                        11
+  Return Channel                                   8
+  Denial-of-Settlement / Finality                  8
+  skill_security_harness.py                        8
+  Tool Search (Embeddings)                         6
+  UCP/ACP Merchant Journey                        12
+  watermark_harness.py                             5
+  workspace_trust_harness.py                       4
+  x402 Fireblocks Extension                       17
+  x402 Payment                                    54
+
+  TOTAL UNIQUE TEST IDS                          640
+  SUM OF PER-MODULE COUNTS                       640
+
+Definitive count: 640
