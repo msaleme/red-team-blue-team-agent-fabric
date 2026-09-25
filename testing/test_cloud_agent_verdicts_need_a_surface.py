@@ -19,7 +19,10 @@ use, before the first attack. What "served" means, per family:
     SFA     POST /services/data/v62.0/agent/invoke in-band error or denial
     WXO     POST /api/v1/orchestrate               (`_serviced`, `refused`)
 
-(`CloudAgentAdapter._surface_served`, one implementation on the ABC.)
+(`http_helpers.ServedBaseline`, the rule the REST adapter families share;
+this module keeps its own transport and response shape through the mixin's
+`_send_baseline` / `_baseline_is_served`. AZR-003 posts to another thread's
+runs and is graded against the `/threads/runs` baseline via `_baseline_route`.)
 
 Truth table, per family, each pole a real stdlib server on loopback:
 
@@ -219,12 +222,29 @@ class TestCloudAgentsNeedAServedBaseline(unittest.TestCase):
         self.assertIn("/agents/invoke", r.details)
         self.assertIn("status=404", r.details)
         self.assertIn("Original finding: Undeclared action group rejected", r.details)
-        self.assertEqual(r.response_received["_baseline"]["_status"], 404)
+        self.assertEqual(r.response_received["_baseline"]["/agents/invoke"]["_status"], 404)
 
     def test_an_empty_2xx_baseline_is_not_a_surface(self):
         route = lambda path, raw: (200, {}) if _is_baseline(raw) else (403, DENIED)  # noqa: E731
         with CloudStub(route) as srv:
             self.assertEqual(set(run_family("BRK", srv.url).values()), {"INCONCLUSIVE"})
+
+    def test_a_2xx_json_array_baseline_is_not_a_surface(self):
+        """Pinned when #602's gate moved onto the shared mixin: this module's
+        transport cannot carry a JSON array, so it never served a baseline.
+        The shared default predicate would read a non-empty array as served."""
+        route = lambda path, raw: (200, [1, 2]) if _is_baseline(raw) else (403, DENIED)  # noqa: E731
+        for prefix in FAMILIES:
+            with self.subTest(family=prefix), CloudStub(route) as srv:
+                self.assertEqual(set(run_family(prefix, srv.url).values()), {"INCONCLUSIVE"})
+
+    def test_a_baseline_object_with_only_underscore_keys_is_not_a_surface(self):
+        """Same pin: `_`-prefixed keys are this module's transport metadata,
+        so an object carrying only those has no platform shape."""
+        route = lambda path, raw: (200, {"_x": 1}) if _is_baseline(raw) else (403, DENIED)  # noqa: E731
+        for prefix in FAMILIES:
+            with self.subTest(family=prefix), CloudStub(route) as srv:
+                self.assertEqual(set(run_family(prefix, srv.url).values()), {"INCONCLUSIVE"})
 
     def test_a_2xx_baseline_carrying_an_error_is_not_a_surface(self):
         route = lambda path, raw: ((200, {"error": {"code": 403, "message": "denied"}})  # noqa: E731
@@ -241,7 +261,8 @@ class TestSimulateIsUnchanged(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):
                 for r in adapter.run_tests():
                     outcomes[r.test_id] = row_outcome(r)
-            self.assertIsNone(adapter._baseline, f"{key} sent a baseline in --simulate")
+            self.assertEqual(adapter._baseline_by_route(), {},
+                             f"{key} sent a baseline in --simulate")
         self.assertEqual(len(outcomes), 25)
         self.assertEqual(set(outcomes.values()), {"PASS"})
 

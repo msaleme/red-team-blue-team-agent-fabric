@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (internal) — cloud-agents use the shared served-baseline rule
+
+`cloud_agent_harness.CloudAgentAdapter` now inherits `http_helpers.ServedBaseline` (#605)
+instead of carrying its own copy of the rule (#602). No verdict changes: a before/after
+matrix over all 25 cloud tests on 18 targets (closed, 404, bare 403, refuses-baseline,
+served + refuse / comply / plain, ten baseline edge shapes, the refusing host) plus
+`--simulate` is identical, as are the request sequences and the refusing-host sweep rows.
+
+- `ServedBaseline` gains three overridable defaults: `_baseline_route` (Azure grades
+  AZR-003's `/threads/<id>/runs` against the `/threads/runs` baseline, as before),
+  `_send_baseline` and `_baseline_is_served` (cloud keeps its own transport and #602's
+  served predicate, so a 2xx JSON array or an object with only `_`-prefixed keys stays
+  not served; both are now pinned).
+- Report JSON: on a no-surface row, `response_received["_baseline"]` is now keyed by
+  route (`{"/agents/invoke": {...}}`) like the other adapter families, not the bare
+  baseline response. The INCONCLUSIVE detail now names the adapter (`bedrock`) and puts
+  the route inside the parentheses (`(/agents/invoke status=404)`).
+- `BASELINE_PROMPT` is single-sourced in `http_helpers` (re-exported by the cloud module).
+  Test IDs and count (640) unchanged; no register changes.
+
 ## [4.24.0] - 2026-09-25
 
 A minor release. A verdict now needs a target that answered. One guard (#600) runs

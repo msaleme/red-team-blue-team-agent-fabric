@@ -1782,12 +1782,11 @@ def nothing_to_scan(n: int, what: str) -> str | None:
 # everything, or refusing every request alike, the benign request is refused
 # too, so a refusal of the attack discriminates nothing.
 #
-# cloud_agent_harness carries the first copy of this rule (#602,
-# CloudAgentAdapter._surface_served, one route per family). The three REST
-# adapter families -- enterprise_adapters, extended_enterprise_adapters and
-# framework_adapters -- share this one: their attacks use several routes per
-# adapter (OpenClawAdapter posts to four), so the baseline is per route, and a
-# rejection is graded only against the route it came from.
+# Four REST adapter families share this one implementation: enterprise_adapters,
+# extended_enterprise_adapters, framework_adapters and cloud_agent_harness (the
+# first copy, #602, folded in here). Attacks can use several routes per adapter
+# (OpenClawAdapter posts to four), so the baseline is per route, and a rejection
+# is graded only against the route it came from.
 
 #: The benign request an adapter sends, in its own request shape, before the
 #: first attack on a route. It asks for no action, no data and no policy
@@ -1835,6 +1834,14 @@ class ServedBaseline(ABC):
     A test that sends through its own transport rather than ``_post`` / ``_get``
     (PraisonAIAdapter's PA-002 / PA-003 carry their own differentials) records
     no route and is not gated here.
+
+    Three defaults a family may override:
+
+        _baseline_route(route)    which declared route grades a request's
+                                  route (identity; cloud Azure maps a
+                                  foreign thread's runs to /threads/runs)
+        _send_baseline(...)       the transport the baseline goes through
+        _baseline_is_served(resp) served, for that transport's response shape
     """
 
     @abstractmethod
@@ -1864,6 +1871,30 @@ class ServedBaseline(ABC):
         path = url[len(base):] if base and url.startswith(base) else urllib.parse.urlsplit(url).path
         return path.split("?", 1)[0] or "/"
 
+    # -- overridable defaults ------------------------------------------------
+
+    def _baseline_route(self, route: str) -> str:
+        """The declared route whose baseline grades a request to *route*.
+
+        Identity by default. Override where an attack targets a resource the
+        benign request cannot, by design, be served on (another tenant's
+        thread), so the platform's collection route is the evidence of a
+        surface and the refusal on the foreign resource is the control.
+        """
+        return route
+
+    def _send_baseline(self, url: str, payload: dict | None, headers=None,
+                       timeout: int = 15) -> dict:
+        """Send one baseline. ``None`` payload means GET."""
+        return (http_get(url, headers=headers, timeout=timeout)
+                if payload is None
+                else http_post(url, payload, headers=headers, timeout=timeout))
+
+    def _baseline_is_served(self, resp) -> bool:
+        """Whether a baseline response counts as served. Must agree with the
+        response shape ``_send_baseline`` returns."""
+        return baseline_served(resp)
+
     # -- the three hooks -----------------------------------------------------
 
     def _before_request(self, url: str, headers=None, timeout: int = 15) -> None:
@@ -1873,7 +1904,7 @@ class ServedBaseline(ABC):
         served when its attacks would be. The baseline is not logged in
         ``_seen``: it is evidence about the surface, not an attempt at the test.
         """
-        route = self._route_of(url)
+        route = self._baseline_route(self._route_of(url))
         self._routes_of_test().append(route)
         baselines = self._baseline_by_route()
         if route in baselines:
@@ -1882,11 +1913,9 @@ class ServedBaseline(ABC):
         if route not in declared:
             baselines[route] = {"_undeclared": True}
             return
-        payload = declared[route]
-        full = f"{getattr(self, 'base_url', '')}{route}"
-        baselines[route] = (http_get(full, headers=headers, timeout=timeout)
-                            if payload is None
-                            else http_post(full, payload, headers=headers, timeout=timeout))
+        baselines[route] = self._send_baseline(
+            f"{getattr(self, 'base_url', '')}{route}", declared[route],
+            headers=headers, timeout=timeout)
 
     def _take_routes(self) -> list[str]:
         routes = self._routes_of_test()
@@ -1902,7 +1931,7 @@ class ServedBaseline(ABC):
         if not seen or not routes or is_inconclusive(details):
             return None
         baselines = self._baseline_by_route()
-        unserved = [r for r in routes if not baseline_served(baselines.get(r))]
+        unserved = [r for r in routes if not self._baseline_is_served(baselines.get(r))]
         if not unserved:
             return None
         observed = ", ".join(
