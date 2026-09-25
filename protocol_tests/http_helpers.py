@@ -1671,6 +1671,71 @@ def silence_evidence(seen: list, existing: dict | None) -> dict:
     return evidence
 
 
+# ---------------------------------------------------------------------------
+# The payment surface: x402 and l402 (owner decision 2026-09-24)
+# ---------------------------------------------------------------------------
+#
+# x402_harness and l402_harness grade a server that demands payment. Against a
+# host answering 404 or a bare 403 to everything they PASSed every
+# rejection-counting test ("5/5 malformed authorizations rejected": 404 is not
+# 200) and FAILed every conformance test ("Expected HTTP 402, got 404"). Neither
+# verdict was about a payment protocol: the URL never asked for payment.
+#
+# Owner decision 2026-09-24: a URL that never answers HTTP 402 has no payment
+# surface. Each module sends one unpaid request to its protected resource (the
+# request its own challenge fetch sends) and reads the status:
+#
+#     402           a payment surface. Every verdict stands, including the
+#                   conformance FAILs that grade the challenge's shape.
+#     2xx           the protected resource was SERVED WITHOUT PAYMENT. That is
+#                   an observation about this resource (the paywall is absent
+#                   or bypassable), so every verdict stands, as before.
+#     anything else nothing answered, or the URL refuses without a payment
+#                   challenge (404, bare 403, 401, 5xx). No payment surface:
+#                   every test that sent a request is INCONCLUSIVE.
+
+def payment_surface_status(probe) -> int:
+    """The HTTP status of a payment-surface probe; 0 when nothing answered."""
+    if not isinstance(probe, dict) or probe.get("_error"):
+        return 0
+    status = probe.get("status")
+    if status is None:
+        status = probe.get("_status", 0)
+    try:
+        return int(status or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def payment_surface_detail(probe, protocol: str, details: str | None) -> str | None:
+    """Replacement ``details`` when the protected resource shows no payment
+    surface, else ``None``. *probe* is the response to one unpaid request to the
+    resource the module grades; *protocol* names the scheme ("x402", "L402").
+
+    Same shape as :func:`silence_detail`: whichever way the verdict pointed, a
+    PASS for rejecting a forged payment and a FAIL for a missing challenge are
+    both unfounded when the URL never asked for payment.
+    """
+    if is_inconclusive(details):
+        return None
+    status = payment_surface_status(probe)
+    if status == 402 or 200 <= status < 300:
+        return None
+    return (f"{INCONCLUSIVE_PREFIX}no {protocol} payment surface: an unpaid "
+            f"request to the protected resource answered status={status}, not "
+            f"HTTP 402, so a rejection of a forged payment cannot be told apart "
+            f"from a URL that refuses everything, and a missing challenge is not "
+            f"a conformance finding. Original finding: {details}")
+
+
+def payment_surface_evidence(probe, path: str, existing) -> dict:
+    """Annotate the original evidence with the probe that decided the surface."""
+    evidence = dict(existing) if isinstance(existing, dict) else {}
+    evidence["_payment_surface"] = {"path": path,
+                                    "status": payment_surface_status(probe)}
+    return evidence
+
+
 def _serviced(resp: dict) -> bool:
     """True when the target actually processed the request.
 
