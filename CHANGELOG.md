@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   was 88 s of `test_adapter_verdicts_need_a_surface.py` alone. Request handling is
   unchanged; nothing is cached, so every measurement is still taken fresh and every
   seeded control still runs its own. No harness (`protocol_tests/`) change.
+- Pinned the two response shapes on which #610's shared `served_refusal` differs from
+  crewai's #603 predicate (owner decision: both intended): a 401/403 JSON-RPC envelope
+  with an empty `error` object is not a refusal (CREW-001/004/006..010 INCONCLUSIVE, were
+  PASS); the envelope nested under `response` is one (those seven PASS, were
+  INCONCLUSIVE). `testing/test_refusal_recognisers_need_a_surface.py`. No harness change.
 
 ## [4.25.0] - 2026-09-25
 

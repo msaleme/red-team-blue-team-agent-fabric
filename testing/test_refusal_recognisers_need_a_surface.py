@@ -384,9 +384,96 @@ class TestServedRefusal(unittest.TestCase):
                 self.assertIs(served_refusal(resp), refusal)
                 self.assertIs(shows_surface(resp), surface)
 
+    def test_the_two_shapes_where_610_changed_crewai(self):
+        """2026-09-25: #610 replaced crewai's own `_served_refusal` (#603) with
+        this one, and the two differ on exactly these shapes. Owner decision
+        2026-09-25: both are the intended behaviour.
+
+          * a 401/403 JSON-RPC envelope with an EMPTY error object -- #603 read
+            it as a refusal; it carries no answer, so it is not one now;
+          * the envelope nested under ``response`` (how http_helpers transports
+            report a body) -- #603 missed it; it is a refusal now.
+        """
+        env = {"jsonrpc": "2.0", "id": 1,
+               "error": {"code": -32001, "message": "Forbidden"}}
+        for status in (401, 403):
+            with self.subTest(shape="empty error object", status=status):
+                resp = {"_status": status, "_rejected": True,
+                        "jsonrpc": "2.0", "error": {}}
+                self.assertIs(served_refusal(resp), False)
+                self.assertIs(shows_surface(resp), False)
+            with self.subTest(shape="nested under response", status=status):
+                resp = {"_status": status, "_error": True, "response": env}
+                self.assertIs(served_refusal(resp), True)
+                self.assertIs(shows_surface(resp), True)
+
     def test_crewai_uses_the_shared_definition(self):
         from protocol_tests import crewai_cve_harness
         self.assertIs(crewai_cve_harness._served_refusal, http_helpers.served_refusal)
+
+
+class TestCrewaiThroughTheTwoShapes(unittest.TestCase):
+    """The #610 shape changes, end to end through crewai_cve_harness.
+
+    crewai merges a parsed error body at the top level (`_http_error_response`),
+    so a server whose 403 body is ``{"response": <envelope>}`` produces the
+    nested shape through this transport too. Measured 2026-09-25: under #603's
+    predicate the empty-error stub PASSed the seven cells below and the nested
+    stub left them INCONCLUSIVE; #610 inverts both. CREW-002 is a harness
+    self-test (`locally_decided`), so it PASSes against any target.
+    """
+
+    #: The target-dependent cells a served 403 refusal decides (the refusing
+    #: host's PASS set, less CREW-002).
+    DECIDED = {"CREW-001", "CREW-004", "CREW-006", "CREW-007", "CREW-008",
+               "CREW-009", "CREW-010"}
+
+    @staticmethod
+    def _outcomes(body: dict) -> dict[str, str]:
+        from protocol_tests.crewai_cve_harness import CrewAICVETests
+        raw = json.dumps(body).encode()
+
+        class _Stub(BaseHTTPRequestHandler):
+            def _answer(self):
+                n = int(self.headers.get("Content-Length") or 0)
+                if n:
+                    self.rfile.read(n)
+                self.send_response(403)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+
+            do_GET = do_POST = _answer
+
+            def log_message(self, *args):
+                pass
+
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), _Stub)
+        t = threading.Thread(target=srv.serve_forever,
+                             kwargs={"poll_interval": 0.01}, daemon=True)
+        t.start()
+        try:
+            suite = CrewAICVETests(f"http://127.0.0.1:{srv.server_address[1]}")
+            with contextlib.redirect_stdout(io.StringIO()):
+                suite.run_all()
+        finally:
+            srv.shutdown()
+            srv.server_close()
+            t.join(timeout=5)
+        return {r.test_id: row_outcome(r) for r in suite.results}
+
+    def test_403_with_an_empty_error_object_is_inconclusive(self):
+        out = self._outcomes({"jsonrpc": "2.0", "error": {}})
+        self.assertEqual(_with(out, "PASS"), {"CREW-002"})
+        for tid in self.DECIDED:
+            self.assertEqual(out[tid], "INCONCLUSIVE", tid)
+
+    def test_403_with_the_envelope_nested_under_response_passes(self):
+        out = self._outcomes({"response": {
+            "jsonrpc": "2.0", "id": 1,
+            "error": {"code": -32001, "message": "Forbidden"}}})
+        self.assertEqual(_with(out, "PASS"), self.DECIDED | {"CREW-002"})
 
 
 class TestSurfaceGate(unittest.TestCase):
