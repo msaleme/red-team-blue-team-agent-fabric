@@ -241,69 +241,69 @@ DCA-011 | Three-Hop Chain: Intermediate Re-Widens What Its Parent Narrowed | pro
 ### Enterprise Platforms (core) (`protocol_tests/enterprise_adapters.py`) — 31 tests
 
 ```
-AQ-001 | Data Source Boundary Escape (S3 + Confluence) | protocol_tests/enterprise_adapters.py:501
-AQ-002 | IAM Role Escalation | protocol_tests/enterprise_adapters.py:518
-AQ-003 | Destructive Action Execution | protocol_tests/enterprise_adapters.py:536
-ENT-OR-001 | Supplier Bank Detail Exfiltration | protocol_tests/enterprise_adapters.py:756
-ENT-OR-002 | Approval Workflow Bypass (Purchase Orders) | protocol_tests/enterprise_adapters.py:774
-ENT-OR-003 | SQL Injection via Agent | protocol_tests/enterprise_adapters.py:794
-GC-001 | Agent Injection (BigQuery + Drive) | protocol_tests/enterprise_adapters.py:427
-GC-002 | Data Store Grounding Poisoning | protocol_tests/enterprise_adapters.py:444
-GC-003 | Workspace Action Boundary (Email Exfil) | protocol_tests/enterprise_adapters.py:463
-MS-001 | Copilot Prompt Injection (Dataverse + Power Automate) | protocol_tests/enterprise_adapters.py:337
-MS-002 | Plugin/Connector Permission Escape | protocol_tests/enterprise_adapters.py:355
-MS-003 | Cross-Tenant Data Access | protocol_tests/enterprise_adapters.py:372
-MS-004 | Graph API Scope Escalation | protocol_tests/enterprise_adapters.py:390
-OC-001 | Session Message Injection | protocol_tests/enterprise_adapters.py:246
-OC-002 | Cross-Session History Access | protocol_tests/enterprise_adapters.py:262
-OC-003 | Elevated Tool Execution Escape | protocol_tests/enterprise_adapters.py:279
-OC-004 | Cron Job Injection | protocol_tests/enterprise_adapters.py:298
-SAP-001 | Financial Posting Injection (Vendor Invoice) | protocol_tests/enterprise_adapters.py:665
-SAP-002 | Safety Procedure Override (Plant Maintenance) | protocol_tests/enterprise_adapters.py:685
-SAP-003 | Cross-Company Code Data Access | protocol_tests/enterprise_adapters.py:701
-SAP-004 | SCADA Setpoint Manipulation via Agent | protocol_tests/enterprise_adapters.py:719
-SF-001 | Cross-Object Data Access (Opportunities + Contacts) | protocol_tests/enterprise_adapters.py:831
-SF-002 | Destructive Flow Trigger via Agent | protocol_tests/enterprise_adapters.py:849
-SF-003 | MuleSoft API Policy Bypass | protocol_tests/enterprise_adapters.py:865
-SN-001 | CMDB Data Exfiltration (Server Inventory) | protocol_tests/enterprise_adapters.py:901
-SN-002 | Change Management Bypass (Emergency Change) | protocol_tests/enterprise_adapters.py:920
-SN-003 | Mass Incident Escalation Manipulation | protocol_tests/enterprise_adapters.py:939
-WD-001 | PII Exfiltration via HCM Agent | protocol_tests/enterprise_adapters.py:573
-WD-002 | Payroll Modification via Social Engineering | protocol_tests/enterprise_adapters.py:592
-WD-003 | Cross-Employee Data Access (CEO Compensation) | protocol_tests/enterprise_adapters.py:608
-WD-004 | Mass Benefits Enrollment Manipulation | protocol_tests/enterprise_adapters.py:626
+AQ-001 | Data Source Boundary Escape (S3 + Confluence) | protocol_tests/enterprise_adapters.py:548
+AQ-002 | IAM Role Escalation | protocol_tests/enterprise_adapters.py:565
+AQ-003 | Destructive Action Execution | protocol_tests/enterprise_adapters.py:583
+ENT-OR-001 | Supplier Bank Detail Exfiltration | protocol_tests/enterprise_adapters.py:812
+ENT-OR-002 | Approval Workflow Bypass (Purchase Orders) | protocol_tests/enterprise_adapters.py:830
+ENT-OR-003 | SQL Injection via Agent | protocol_tests/enterprise_adapters.py:850
+GC-001 | Agent Injection (BigQuery + Drive) | protocol_tests/enterprise_adapters.py:471
+GC-002 | Data Store Grounding Poisoning | protocol_tests/enterprise_adapters.py:488
+GC-003 | Workspace Action Boundary (Email Exfil) | protocol_tests/enterprise_adapters.py:507
+MS-001 | Copilot Prompt Injection (Dataverse + Power Automate) | protocol_tests/enterprise_adapters.py:378
+MS-002 | Plugin/Connector Permission Escape | protocol_tests/enterprise_adapters.py:396
+MS-003 | Cross-Tenant Data Access | protocol_tests/enterprise_adapters.py:413
+MS-004 | Graph API Scope Escalation | protocol_tests/enterprise_adapters.py:431
+OC-001 | Session Message Injection | protocol_tests/enterprise_adapters.py:284
+OC-002 | Cross-Session History Access | protocol_tests/enterprise_adapters.py:300
+OC-003 | Elevated Tool Execution Escape | protocol_tests/enterprise_adapters.py:317
+OC-004 | Cron Job Injection | protocol_tests/enterprise_adapters.py:336
+SAP-001 | Financial Posting Injection (Vendor Invoice) | protocol_tests/enterprise_adapters.py:718
+SAP-002 | Safety Procedure Override (Plant Maintenance) | protocol_tests/enterprise_adapters.py:738
+SAP-003 | Cross-Company Code Data Access | protocol_tests/enterprise_adapters.py:754
+SAP-004 | SCADA Setpoint Manipulation via Agent | protocol_tests/enterprise_adapters.py:772
+SF-001 | Cross-Object Data Access (Opportunities + Contacts) | protocol_tests/enterprise_adapters.py:890
+SF-002 | Destructive Flow Trigger via Agent | protocol_tests/enterprise_adapters.py:908
+SF-003 | MuleSoft API Policy Bypass | protocol_tests/enterprise_adapters.py:924
+SN-001 | CMDB Data Exfiltration (Server Inventory) | protocol_tests/enterprise_adapters.py:963
+SN-002 | Change Management Bypass (Emergency Change) | protocol_tests/enterprise_adapters.py:982
+SN-003 | Mass Incident Escalation Manipulation | protocol_tests/enterprise_adapters.py:1001
+WD-001 | PII Exfiltration via HCM Agent | protocol_tests/enterprise_adapters.py:623
+WD-002 | Payroll Modification via Social Engineering | protocol_tests/enterprise_adapters.py:642
+WD-003 | Cross-Employee Data Access (CEO Compensation) | protocol_tests/enterprise_adapters.py:658
+WD-004 | Mass Benefits Enrollment Manipulation | protocol_tests/enterprise_adapters.py:676
 ```
 
 ### Enterprise Platforms (extended) (`protocol_tests/extended_enterprise_adapters.py`) — 27 tests
 
 ```
-AP-001 | KYC Process Rule Override | protocol_tests/extended_enterprise_adapters.py:773
-AP-002 | Record-Level Security Bypass | protocol_tests/extended_enterprise_adapters.py:787
-AT-001 | Cross-Project Data Access (Security + HR) | protocol_tests/extended_enterprise_adapters.py:524
-AT-002 | Confluence Knowledge Base Poisoning | protocol_tests/extended_enterprise_adapters.py:540
-DB-001 | Unity Catalog Permission Bypass | protocol_tests/extended_enterprise_adapters.py:355
-DB-002 | Notebook Code Execution Escape | protocol_tests/extended_enterprise_adapters.py:372
-DB-003 | MLflow Model Registry Poisoning | protocol_tests/extended_enterprise_adapters.py:390
-HS-001 | Contact PII Export (Including DNC) | protocol_tests/extended_enterprise_adapters.py:727
-HS-002 | Mass Phishing Email via Agent | protocol_tests/extended_enterprise_adapters.py:743
-IF-001 | MRO Approved Supplier Override | protocol_tests/extended_enterprise_adapters.py:620
-IF-002 | Field Service Safety Permit Bypass | protocol_tests/extended_enterprise_adapters.py:637
-IF-003 | Safety Budget Reallocation | protocol_tests/extended_enterprise_adapters.py:654
-IN-001 | Multi-Tenant Cross-Company Access | protocol_tests/extended_enterprise_adapters.py:683
-IN-002 | Supply Chain Address Redirect | protocol_tests/extended_enterprise_adapters.py:699
-MX-001 | Mass Work Order Close (Skip Safety Inspection) | protocol_tests/extended_enterprise_adapters.py:207
-MX-002 | Asset Data Bulk Export | protocol_tests/extended_enterprise_adapters.py:221
-MX-003 | IoT Sensor Threshold Manipulation (Pump Vibration) | protocol_tests/extended_enterprise_adapters.py:237
-MX-004 | Predictive Maintenance Alert Override | protocol_tests/extended_enterprise_adapters.py:255
-PG-001 | Mass Claim Approval (Skip Fraud Detection) | protocol_tests/extended_enterprise_adapters.py:426
-PG-002 | Decision Strategy Override (Credit Risk) | protocol_tests/extended_enterprise_adapters.py:442
-SC-001 | SQL Injection via Cortex Analyst | protocol_tests/extended_enterprise_adapters.py:291
-SC-002 | Cross-Database Boundary Escape | protocol_tests/extended_enterprise_adapters.py:305
-SC-003 | Data Share Exfiltration to External Account | protocol_tests/extended_enterprise_adapters.py:321
-UI-001 | Robot Credential Asset Exfiltration | protocol_tests/extended_enterprise_adapters.py:475
-UI-002 | Process Execution with Injected Connection | protocol_tests/extended_enterprise_adapters.py:491
-ZD-001 | Customer PII Bulk Exfiltration | protocol_tests/extended_enterprise_adapters.py:568
-ZD-002 | Mass Ticket Closure (Competitor Sabotage) | protocol_tests/extended_enterprise_adapters.py:584
+AP-001 | KYC Process Rule Override | protocol_tests/extended_enterprise_adapters.py:827
+AP-002 | Record-Level Security Bypass | protocol_tests/extended_enterprise_adapters.py:841
+AT-001 | Cross-Project Data Access (Security + HR) | protocol_tests/extended_enterprise_adapters.py:563
+AT-002 | Confluence Knowledge Base Poisoning | protocol_tests/extended_enterprise_adapters.py:579
+DB-001 | Unity Catalog Permission Bypass | protocol_tests/extended_enterprise_adapters.py:385
+DB-002 | Notebook Code Execution Escape | protocol_tests/extended_enterprise_adapters.py:402
+DB-003 | MLflow Model Registry Poisoning | protocol_tests/extended_enterprise_adapters.py:420
+HS-001 | Contact PII Export (Including DNC) | protocol_tests/extended_enterprise_adapters.py:778
+HS-002 | Mass Phishing Email via Agent | protocol_tests/extended_enterprise_adapters.py:794
+IF-001 | MRO Approved Supplier Override | protocol_tests/extended_enterprise_adapters.py:665
+IF-002 | Field Service Safety Permit Bypass | protocol_tests/extended_enterprise_adapters.py:682
+IF-003 | Safety Budget Reallocation | protocol_tests/extended_enterprise_adapters.py:699
+IN-001 | Multi-Tenant Cross-Company Access | protocol_tests/extended_enterprise_adapters.py:731
+IN-002 | Supply Chain Address Redirect | protocol_tests/extended_enterprise_adapters.py:747
+MX-001 | Mass Work Order Close (Skip Safety Inspection) | protocol_tests/extended_enterprise_adapters.py:231
+MX-002 | Asset Data Bulk Export | protocol_tests/extended_enterprise_adapters.py:245
+MX-003 | IoT Sensor Threshold Manipulation (Pump Vibration) | protocol_tests/extended_enterprise_adapters.py:261
+MX-004 | Predictive Maintenance Alert Override | protocol_tests/extended_enterprise_adapters.py:279
+PG-001 | Mass Claim Approval (Skip Fraud Detection) | protocol_tests/extended_enterprise_adapters.py:459
+PG-002 | Decision Strategy Override (Credit Risk) | protocol_tests/extended_enterprise_adapters.py:475
+SC-001 | SQL Injection via Cortex Analyst | protocol_tests/extended_enterprise_adapters.py:318
+SC-002 | Cross-Database Boundary Escape | protocol_tests/extended_enterprise_adapters.py:332
+SC-003 | Data Share Exfiltration to External Account | protocol_tests/extended_enterprise_adapters.py:348
+UI-001 | Robot Credential Asset Exfiltration | protocol_tests/extended_enterprise_adapters.py:511
+UI-002 | Process Execution with Injected Connection | protocol_tests/extended_enterprise_adapters.py:527
+ZD-001 | Customer PII Bulk Exfiltration | protocol_tests/extended_enterprise_adapters.py:610
+ZD-002 | Mass Ticket Closure (Competitor Sabotage) | protocol_tests/extended_enterprise_adapters.py:626
 ```
 
 ### Extended Thinking (`protocol_tests/extended_thinking_harness.py`) — 6 tests
@@ -320,21 +320,21 @@ ET-006 | Silent Thinking-Budget Truncation | protocol_tests/extended_thinking_ha
 ### Framework Adapters (`protocol_tests/framework_adapters.py`) — 15 tests
 
 ```
-AG-002 | Code Execution Sandbox Escape | protocol_tests/framework_adapters.py:555
-AG-004 | Agent Group Chat Participant Injection | protocol_tests/framework_adapters.py:590
-AG-005 | Speaker Selection Poisoning | protocol_tests/framework_adapters.py:622
-AG-006 | Nested Conversation Escape | protocol_tests/framework_adapters.py:654
-AG-007 | Message Source Spoofing | protocol_tests/framework_adapters.py:690
-BR-004 | Session Hijacking | protocol_tests/framework_adapters.py:846
-CA-002 | Crew Member Injection | protocol_tests/framework_adapters.py:484
-LC-002 | Schema Disclosure Check | protocol_tests/framework_adapters.py:392
-LC-005 | Chain-of-Thought / System Prompt Extraction | protocol_tests/framework_adapters.py:431
-OA-002 | Handoff to Unauthorized Agent | protocol_tests/framework_adapters.py:739
-OA-004 | Tool Schema Injection via Run | protocol_tests/framework_adapters.py:770
-PA-001 | Prompt Injection via Workflow YAML | protocol_tests/framework_adapters.py:905
-PA-002 | Browser Bridge Unauthenticated Access | protocol_tests/framework_adapters.py:1005
-PA-003 | Event Stream Exposure | protocol_tests/framework_adapters.py:1129
-PA-004 | Template Injection via Tool Definitions | protocol_tests/framework_adapters.py:1212
+AG-002 | Code Execution Sandbox Escape | protocol_tests/framework_adapters.py:603
+AG-004 | Agent Group Chat Participant Injection | protocol_tests/framework_adapters.py:638
+AG-005 | Speaker Selection Poisoning | protocol_tests/framework_adapters.py:670
+AG-006 | Nested Conversation Escape | protocol_tests/framework_adapters.py:702
+AG-007 | Message Source Spoofing | protocol_tests/framework_adapters.py:738
+BR-004 | Session Hijacking | protocol_tests/framework_adapters.py:901
+CA-002 | Crew Member Injection | protocol_tests/framework_adapters.py:526
+LC-002 | Schema Disclosure Check | protocol_tests/framework_adapters.py:428
+LC-005 | Chain-of-Thought / System Prompt Extraction | protocol_tests/framework_adapters.py:467
+OA-002 | Handoff to Unauthorized Agent | protocol_tests/framework_adapters.py:790
+OA-004 | Tool Schema Injection via Run | protocol_tests/framework_adapters.py:821
+PA-001 | Prompt Injection via Workflow YAML | protocol_tests/framework_adapters.py:966
+PA-002 | Browser Bridge Unauthenticated Access | protocol_tests/framework_adapters.py:1066
+PA-003 | Event Stream Exposure | protocol_tests/framework_adapters.py:1190
+PA-004 | Template Injection via Tool Definitions | protocol_tests/framework_adapters.py:1284
 ```
 
 ### governance_modification_harness.py (`protocol_tests/governance_modification_harness.py`) — 6 tests

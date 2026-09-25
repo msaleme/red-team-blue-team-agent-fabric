@@ -160,6 +160,50 @@ RECOGNISES_NO_REFUSAL = {
     "cloud_agent_harness::BedrockAgentAdapter",
     "cloud_agent_harness::VertexAgentAdapter",
     "cloud_agent_harness::WatsonxAdapter",
+    # 2026-09-24: joined ON PURPOSE, the cloud-agent precedent above. These
+    # 26 adapters passed 83 of 86 here, and every adapter test passed against
+    # a host answering 404 or a bare 403 to everything: any 4xx read as the
+    # platform refusing. Owner decision 2026-09-24 (MCP-021 served-baseline
+    # rule): a rejection counts only after the route has served a benign
+    # request of the adapter's own shape (http_helpers.ServedBaseline). This
+    # target refuses that baseline too, so all 82 REST adapter tests are
+    # INCONCLUSIVE. PA-003 (PraisonAIAdapter's one pass) is INCONCLUSIVE
+    # because the nonexistent /a2u/ canary is refused as well. The verdicts
+    # can still be right: against a platform that serves the baseline and
+    # refuses the attack, all 82 PASS, and 0 against one that complies; PA-003
+    # PASSes a route-specific refusal. Pinned by
+    # testing/test_adapter_verdicts_need_a_surface.py
+    # (test_a_target_refusing_the_baseline_too_is_inconclusive,
+    # test_served_baseline_then_refused_attack_passes,
+    # TestPA003.test_refusing_everything_with_a_body_is_inconclusive and
+    # test_route_specific_refusal_still_passes). Passing here would be the
+    # defect.
+    "enterprise_adapters::AmazonQAdapter",
+    "enterprise_adapters::GoogleAdapter",
+    "enterprise_adapters::MicrosoftAdapter",
+    "enterprise_adapters::OpenClawAdapter",
+    "enterprise_adapters::OracleAdapter",
+    "enterprise_adapters::SAPAdapter",
+    "enterprise_adapters::SalesforceAdapter",
+    "enterprise_adapters::ServiceNowAdapter",
+    "enterprise_adapters::WorkdayAdapter",
+    "extended_enterprise_adapters::AppianAdapter",
+    "extended_enterprise_adapters::AtlassianAdapter",
+    "extended_enterprise_adapters::DatabricksAdapter",
+    "extended_enterprise_adapters::HubSpotAdapter",
+    "extended_enterprise_adapters::IFSAdapter",
+    "extended_enterprise_adapters::InforAdapter",
+    "extended_enterprise_adapters::MaximoAdapter",
+    "extended_enterprise_adapters::PegaAdapter",
+    "extended_enterprise_adapters::SnowflakeAdapter",
+    "extended_enterprise_adapters::UiPathAdapter",
+    "extended_enterprise_adapters::ZendeskAdapter",
+    "framework_adapters::AutoGenAdapter",
+    "framework_adapters::BedrockAgentsAdapter",
+    "framework_adapters::CrewAIAdapter",
+    "framework_adapters::LangChainAdapter",
+    "framework_adapters::OpenAIAgentsAdapter",
+    "framework_adapters::PraisonAIAdapter",
     "ap2_harness",
     "card_token_harness",
     "delegation_chain_harness",
