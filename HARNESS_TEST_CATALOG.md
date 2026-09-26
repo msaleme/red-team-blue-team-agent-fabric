@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `55c866a`
+**Generated:** `scripts/generate_test_catalog.py` at commit `1944cbc`
 **Test count:** 640 unique test IDs across 49 registered harness modules (48 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -125,16 +125,16 @@ BI-007 | Self-Reported Results Trust | protocol_tests/benchmark_integrity_harnes
 ### Capability Profile (`protocol_tests/capability_profile_harness.py`) — 10 tests
 
 ```
-CP-001 | Profile Declaration Presence | protocol_tests/capability_profile_harness.py:384
-CP-002 | Filesystem Boundary (COMPUTE_ONLY) | protocol_tests/capability_profile_harness.py:418
-CP-003 | Filesystem Boundary (SCRATCH_FS) | protocol_tests/capability_profile_harness.py:452
-CP-004 | Network Boundary | protocol_tests/capability_profile_harness.py:488
-CP-005 | Package Install Boundary | protocol_tests/capability_profile_harness.py:522
-CP-006 | Tool Bridge Boundary | protocol_tests/capability_profile_harness.py:557
-CP-007 | Profile Escalation Attempt | protocol_tests/capability_profile_harness.py:605
-CP-008 | Cross-Profile Isolation | protocol_tests/capability_profile_harness.py:641
-CP-009 | Profile Logging | protocol_tests/capability_profile_harness.py:684
-CP-010 | Custom Profile Validation | protocol_tests/capability_profile_harness.py:729
+CP-001 | Profile Declaration Presence | protocol_tests/capability_profile_harness.py:432
+CP-002 | Filesystem Boundary (COMPUTE_ONLY) | protocol_tests/capability_profile_harness.py:466
+CP-003 | Filesystem Boundary (SCRATCH_FS) | protocol_tests/capability_profile_harness.py:500
+CP-004 | Network Boundary | protocol_tests/capability_profile_harness.py:536
+CP-005 | Package Install Boundary | protocol_tests/capability_profile_harness.py:570
+CP-006 | Tool Bridge Boundary | protocol_tests/capability_profile_harness.py:605
+CP-007 | Profile Escalation Attempt | protocol_tests/capability_profile_harness.py:653
+CP-008 | Cross-Profile Isolation | protocol_tests/capability_profile_harness.py:689
+CP-009 | Profile Logging | protocol_tests/capability_profile_harness.py:732
+CP-010 | Custom Profile Validation | protocol_tests/capability_profile_harness.py:777
 ```
 
 ### capability_residue_harness.py (`protocol_tests/capability_residue_harness.py`) — 5 tests
@@ -446,14 +446,14 @@ IR-008 | Cascading Failure Containment | protocol_tests/incident_response_harnes
 ### intent_contract_harness.py (`protocol_tests/intent_contract_harness.py`) — 8 tests
 
 ```
-INT-001 | Intent Declaration Completeness | protocol_tests/intent_contract_harness.py:315
-INT-002 | Intent-Action Consistency | protocol_tests/intent_contract_harness.py:354
-INT-003 | Intent Scope Violation | protocol_tests/intent_contract_harness.py:388
-INT-004 | Intent Modification Mid-Execution | protocol_tests/intent_contract_harness.py:428
-INT-005 | Implicit Intent Escalation | protocol_tests/intent_contract_harness.py:475
-INT-006 | Intent Contract Forgery | protocol_tests/intent_contract_harness.py:515
-INT-007 | Multi-Step Intent Decomposition Attack | protocol_tests/intent_contract_harness.py:561
-INT-008 | Intent Ambiguity Exploitation | protocol_tests/intent_contract_harness.py:597
+INT-001 | Intent Declaration Completeness | protocol_tests/intent_contract_harness.py:361
+INT-002 | Intent-Action Consistency | protocol_tests/intent_contract_harness.py:403
+INT-003 | Intent Scope Violation | protocol_tests/intent_contract_harness.py:437
+INT-004 | Intent Modification Mid-Execution | protocol_tests/intent_contract_harness.py:477
+INT-005 | Implicit Intent Escalation | protocol_tests/intent_contract_harness.py:524
+INT-006 | Intent Contract Forgery | protocol_tests/intent_contract_harness.py:564
+INT-007 | Multi-Step Intent Decomposition Attack | protocol_tests/intent_contract_harness.py:610
+INT-008 | Intent Ambiguity Exploitation | protocol_tests/intent_contract_harness.py:646
 ```
 
 ### Jailbreak (`protocol_tests/jailbreak_harness.py`) — 25 tests
@@ -619,25 +619,25 @@ MEM-016 | Revocation Lapses Across a Session Boundary | protocol_tests/memory_ha
 ### Multi-Agent Interaction (`protocol_tests/multi_agent_harness.py`) — 19 tests
 
 ```
-MAG-001 | Delegation Chain Poisoning | protocol_tests/multi_agent_harness.py:405
-MAG-002 | Authority Impersonation in Multi-Agent Handoff | protocol_tests/multi_agent_harness.py:446
-MAG-003 | Consensus Manipulation in Multi-Agent Decision | protocol_tests/multi_agent_harness.py:482
-MAG-004 | Task Result Poisoning from Downstream Agent | protocol_tests/multi_agent_harness.py:524
-MAG-005 | Cross-Agent Privilege Escalation | protocol_tests/multi_agent_harness.py:573
-MAG-006 | Agent Collusion Detection | protocol_tests/multi_agent_harness.py:608
-MAG-007 | Orchestrator Trust Boundary Bypass | protocol_tests/multi_agent_harness.py:651
-MAG-008 | Recursive Delegation Attack | protocol_tests/multi_agent_harness.py:688
-MAG-009 | Capability Leakage Across Agent Boundaries | protocol_tests/multi_agent_harness.py:733
-MAG-010 | Shared Context Contamination | protocol_tests/multi_agent_harness.py:780
-MAG-011 | Split-Brain Decision Making | protocol_tests/multi_agent_harness.py:818
-MAG-012 | Agent Replacement/Substitution Attack | protocol_tests/multi_agent_harness.py:862
-MAG-013 | Message-Ordering Race Pretext | protocol_tests/multi_agent_harness.py:903
-MAG-014 | Recipient-Validation TOCTOU Pretext | protocol_tests/multi_agent_harness.py:945
-MAG-015 | Event-Signal Collision Pretext | protocol_tests/multi_agent_harness.py:987
-MAG-016 | Kill-vs-Complete Race Pretext | protocol_tests/multi_agent_harness.py:1031
-MAG-017 | Stale-Status-After-Timeout Pretext | protocol_tests/multi_agent_harness.py:1076
-MAG-018 | Inbox-Append-to-Last-Call-Only Pretext | protocol_tests/multi_agent_harness.py:1120
-MAG-019 | Delegated Spend Bound Discrimination | protocol_tests/multi_agent_harness.py:1215
+MAG-001 | Delegation Chain Poisoning | protocol_tests/multi_agent_harness.py:468
+MAG-002 | Authority Impersonation in Multi-Agent Handoff | protocol_tests/multi_agent_harness.py:509
+MAG-003 | Consensus Manipulation in Multi-Agent Decision | protocol_tests/multi_agent_harness.py:545
+MAG-004 | Task Result Poisoning from Downstream Agent | protocol_tests/multi_agent_harness.py:587
+MAG-005 | Cross-Agent Privilege Escalation | protocol_tests/multi_agent_harness.py:636
+MAG-006 | Agent Collusion Detection | protocol_tests/multi_agent_harness.py:671
+MAG-007 | Orchestrator Trust Boundary Bypass | protocol_tests/multi_agent_harness.py:714
+MAG-008 | Recursive Delegation Attack | protocol_tests/multi_agent_harness.py:751
+MAG-009 | Capability Leakage Across Agent Boundaries | protocol_tests/multi_agent_harness.py:796
+MAG-010 | Shared Context Contamination | protocol_tests/multi_agent_harness.py:843
+MAG-011 | Split-Brain Decision Making | protocol_tests/multi_agent_harness.py:881
+MAG-012 | Agent Replacement/Substitution Attack | protocol_tests/multi_agent_harness.py:925
+MAG-013 | Message-Ordering Race Pretext | protocol_tests/multi_agent_harness.py:966
+MAG-014 | Recipient-Validation TOCTOU Pretext | protocol_tests/multi_agent_harness.py:1008
+MAG-015 | Event-Signal Collision Pretext | protocol_tests/multi_agent_harness.py:1050
+MAG-016 | Kill-vs-Complete Race Pretext | protocol_tests/multi_agent_harness.py:1094
+MAG-017 | Stale-Status-After-Timeout Pretext | protocol_tests/multi_agent_harness.py:1139
+MAG-018 | Inbox-Append-to-Last-Call-Only Pretext | protocol_tests/multi_agent_harness.py:1183
+MAG-019 | Delegated Spend Bound Discrimination | protocol_tests/multi_agent_harness.py:1278
 ```
 
 ### Over-Refusal (`protocol_tests/over_refusal_harness.py`) — 25 tests

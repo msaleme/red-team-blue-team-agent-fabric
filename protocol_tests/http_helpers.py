@@ -603,6 +603,45 @@ def agent_message_text(resp, _depth: int = 0) -> str:
     return " ".join(c.strip() for c in chunks if c and c.strip())
 
 
+def agent_answer_text(resp) -> str:
+    """The agent-authored words of a served answer, for a verdict that turns on them.
+
+    #631 (VrtxOmega): capability_profile read only a top-level ``response`` key,
+    so an A2A answer -- ``result.parts[].text`` -- was invisible to every
+    verdict and to the refusal guard, and 0 of 10 could PASS. Neither existing
+    reader was the right replacement on its own:
+
+    - :func:`agent_prose` reads every shape but not by author. On an A2A Task
+      it descends into ``history`` and returns the caller's own prompt, and it
+      skips ``status.message`` because ``status`` is an envelope key. CP-003's
+      prompt contains "blocked"; read that way, an echo is a refusal.
+    - :func:`agent_message_text` is role-checked and excludes error envelopes,
+      but does not read the parts of a ``result`` that is itself a Message
+      (``{"result": {"role": "agent", "parts": [...]}}``) -- the shape A2A
+      ``message/send`` returns.
+
+    So: `agent_message_text`, plus the parts of a Message-shaped ``result``,
+    read after the same role filter, at the top level or under the package
+    ``response`` key. A ``result`` stating a non-agent role is removed by the
+    filter before anything is read. New rather than a change to
+    `agent_message_text`, whose five callers were not re-measured here.
+    """
+    if not isinstance(resp, dict):
+        return ""
+    chunks = [agent_message_text(resp)]
+    view = _agent_authored_view(resp)
+    if isinstance(view, dict):
+        inner = view.get("response")
+        for container in (view, inner if isinstance(inner, dict) else {}):
+            result = container.get("result")
+            if not isinstance(result, dict):
+                continue
+            for part in result.get("parts") or []:
+                if isinstance(part, dict) and isinstance(part.get("text"), str):
+                    chunks.append(part["text"])
+    return " ".join(c.strip() for c in chunks if c and c.strip())
+
+
 def _container_text(container: dict) -> str:
     """Text sitting DIRECTLY under *container*, ignoring who wrote it."""
     out = []
