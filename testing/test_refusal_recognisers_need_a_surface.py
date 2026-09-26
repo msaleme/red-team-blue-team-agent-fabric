@@ -372,7 +372,12 @@ class TestServedRefusal(unittest.TestCase):
             ({"_error": True, "_status": 500, "_body": self.ENVELOPE}, False, False),
             # served 2xx
             ({"_status": 200, "response": {"text": "hello"}}, False, True),
-            ({"_status": 200}, False, True),
+            # #622: an empty 2xx is not a surface (http_helpers.empty_2xx);
+            # a 2xx that carries a body is.
+            ({"_status": 200}, False, False),
+            ({"_status": 204}, False, False),
+            ({"_status": 200, "_raw": "  \n"}, False, False),
+            ({"_status": 200, "response": {"result": "ok"}}, False, True),
             ({"jsonrpc": "2.0", "error": {"code": -32601}, "_status": 200}, False, True),
             # silence and a 2xx the transport could not decode
             ({"_error": True, "_exception": "Connection refused"}, False, False),
@@ -502,7 +507,7 @@ class TestSurfaceGate(unittest.TestCase):
     def test_a_served_response_in_the_test_needs_no_baseline(self):
         gate, calls = self._gate(None)
         self.assertIsNone(gate.no_surface_detail(
-            [self.BARE, {"_status": 200, "response": {}}], "x"))
+            [self.BARE, {"_status": 200, "response": {"result": "ok"}}], "x"))
         self.assertEqual(calls, [])
 
     def test_silence_is_left_to_the_silence_guard(self):

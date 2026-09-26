@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `89d2079`
+**Generated:** `scripts/generate_test_catalog.py` at commit `1505c7f`
 **Test count:** 640 unique test IDs across 49 registered harness modules (48 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -98,16 +98,16 @@ AP2-017 | vct Exact-Match Enforcement | protocol_tests/ap2_harness.py:840
 ### autogen_harness.py (`protocol_tests/autogen_harness.py`) — 10 tests
 
 ```
-AG-MS-001 | Agent Impersonation via Name Field | protocol_tests/autogen_harness.py:468
-AG-MS-002 | System Config Injection via Spoofed Assistant | protocol_tests/autogen_harness.py:513
-AG-MS-003 | HMAC Verification Bypass with Forged Signature | protocol_tests/autogen_harness.py:565
-AG-MS-004 | Cross-Conversation Message Replay Attack | protocol_tests/autogen_harness.py:612
-AG-NE-001 | Nested Conversation Escape via Fake Terminator | protocol_tests/autogen_harness.py:321
-AG-NE-002 | Shared State Poisoning via Nested Context | protocol_tests/autogen_harness.py:369
-AG-NE-003 | Local Executor Trust Boundary Bypass | protocol_tests/autogen_harness.py:415
-AG-SP-001 | Direct Speaker Override via Prompt Injection | protocol_tests/autogen_harness.py:183
-AG-SP-002 | Fake Task Completion to Skip Agents | protocol_tests/autogen_harness.py:229
-AG-SP-003 | Security Agent Exclusion via Fake Maintenance | protocol_tests/autogen_harness.py:272
+AG-MS-001 | Agent Impersonation via Name Field | protocol_tests/autogen_harness.py:489
+AG-MS-002 | System Config Injection via Spoofed Assistant | protocol_tests/autogen_harness.py:534
+AG-MS-003 | HMAC Verification Bypass with Forged Signature | protocol_tests/autogen_harness.py:586
+AG-MS-004 | Cross-Conversation Message Replay Attack | protocol_tests/autogen_harness.py:633
+AG-NE-001 | Nested Conversation Escape via Fake Terminator | protocol_tests/autogen_harness.py:342
+AG-NE-002 | Shared State Poisoning via Nested Context | protocol_tests/autogen_harness.py:390
+AG-NE-003 | Local Executor Trust Boundary Bypass | protocol_tests/autogen_harness.py:436
+AG-SP-001 | Direct Speaker Override via Prompt Injection | protocol_tests/autogen_harness.py:204
+AG-SP-002 | Fake Task Completion to Skip Agents | protocol_tests/autogen_harness.py:250
+AG-SP-003 | Security Agent Exclusion via Fake Maintenance | protocol_tests/autogen_harness.py:293
 ```
 
 ### benchmark_integrity_harness.py (`protocol_tests/benchmark_integrity_harness.py`) — 7 tests

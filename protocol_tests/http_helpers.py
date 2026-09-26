@@ -2118,16 +2118,66 @@ def bare_auth_refusal(resp) -> bool:
                 and ("error" in body or "result" in body))
 
 
+#: Response keys that are metadata about the exchange, never its content. Every
+#: other ``_``-prefixed key is metadata too; these are the unprefixed ones.
+_STATUS_KEYS = frozenset({"status", "_status"})
+
+#: ``_``-prefixed keys that hold the body text a transport kept.
+_BODY_TEXT_KEYS = frozenset({"_body", "_raw", "_raw_sse"})
+
+
+def _carries_content(value) -> bool:
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (dict, list, tuple)):
+        return bool(value)
+    return value is not None
+
+
+def empty_2xx(resp) -> bool:
+    """True for a 2xx answer that carries no body: a 204, or an empty or
+    whitespace-only body at any other 2xx.
+
+    #622 (VrtxOmega): an empty 200 or 204 to every request was read as a served
+    refusal ("Spoofed identity rejected") or as acceptance ("did not detect or
+    respond"). The status says a server answered; with no body it says nothing
+    about what the target did with the request, so it is not a served answer.
+
+    Shape-independent across this package's transports: the body lives in
+    ``_body``/``_raw``/``_raw_sse`` (text), ``response`` (parsed), ``raw``/
+    ``body`` (autogen), or merged at the top level (kill_switch, _utils). Any of
+    those carrying content makes it not empty. Only the status keys and other
+    ``_``-prefixed metadata are ignored.
+    """
+    if not isinstance(resp, dict) or resp.get("_error") or not answered(resp):
+        return False
+    status = _status_of(resp)
+    if not 200 <= status < 300:
+        return False
+    if status == 204:
+        return True
+    for key, value in resp.items():
+        key = str(key)
+        if key in _STATUS_KEYS:
+            continue
+        if key.startswith("_") and key not in _BODY_TEXT_KEYS:
+            continue
+        if _carries_content(value):
+            return False
+    return True
+
+
 def shows_surface(resp) -> bool:
     """Whether *resp* shows the target serving something at all.
 
-    A 2xx that is not a transport error, or a served refusal. Not: silence, a
-    bare 404/403, an error page, a 5xx.
+    A 2xx that is not a transport error and carries a body, or a served
+    refusal. Not: silence, a bare 404/403, an error page, a 5xx, an empty 2xx
+    (a 204, or an empty or whitespace-only body; #622).
     """
     if not isinstance(resp, dict) or not answered(resp):
         return False
     if not resp.get("_error") and 200 <= _status_of(resp) < 300:
-        return True
+        return not empty_2xx(resp)
     return served_refusal(resp)
 
 
@@ -2178,9 +2228,9 @@ class SurfaceGate:
         statuses = sorted({_status_of(r) for r in seen if answered(r)})
         base = self.baseline() if isinstance(self.baseline(), dict) else {}
         return (f"{INCONCLUSIVE_PREFIX}no surface: {len(seen)} request(s) "
-                f"answered only with HTTP error pages (status "
-                f"{'/'.join(str(s) for s in statuses)}) carrying no protocol "
-                f"answer, and a benign baseline was not served either "
+                f"answered only with HTTP error pages or empty 2xx bodies "
+                f"(status {'/'.join(str(s) for s in statuses)}) carrying no "
+                f"protocol answer, and a benign baseline was not served either "
                 f"(status={_status_of(base) or 'none'}). A refusal from a target "
                 f"that serves nothing cannot be told apart from a URL or "
                 f"credential that refuses everything. Original finding: {details}")
