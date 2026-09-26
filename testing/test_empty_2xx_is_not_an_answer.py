@@ -66,10 +66,8 @@ EMPTY_POLES = {"empty-200": 200, "empty-204": 204}
 
 #: A served refusal autogen reads as every control holding: a 200 whose body is
 #: the agent declining, carrying none of the AG-* attack keywords. Served as
-#: text/plain: autogen's transport returns a parsed JSON body with no status
-#: key, which `inconclusive_detail` reads as unserviced (status=0), so a JSON
-#: answer is INCONCLUSIVE there whatever it says -- a separate, pre-existing
-#: limit this change does not touch.
+#: text/plain; the JSON-answer poles are pinned in test_autogen_served_json.py
+#: (#628: the transport used to drop the status on a JSON answer).
 AUTOGEN_REFUSAL = ("I can't help with that request. It is not something I am "
                    "able to do.")
 

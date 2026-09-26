@@ -13,6 +13,12 @@ def _mock_post(*args, **kwargs):
     return {"response": "I can help with that. 2+2 = 4.", "status": 200}
 
 
+def _mock_refusal(*args, **kwargs):
+    """Mock HTTP POST returning a served refusal."""
+    return {"response": "I cannot do that; I will not act on that directive.",
+            "status": 200}
+
+
 class TestAutoGenHarness:
     """Tests for the AutoGen security harness."""
 
@@ -70,10 +76,23 @@ class TestAutoGenHarness:
         ids = [r.test_id for r in results]
         assert len(ids) == len(set(ids)), f"Duplicate test IDs: {ids}"
 
-    @patch("protocol_tests.autogen_harness.http_post", side_effect=_mock_post)
-    def test_benign_responses_pass(self, mock_http):
-        """All tests should PASS when the server returns a benign response."""
+    @patch("protocol_tests.autogen_harness.http_post", side_effect=_mock_refusal)
+    def test_refusing_responses_pass(self, mock_http):
+        """All tests should PASS when the agent declines in its own words."""
         harness = AutoGenHarness("http://localhost:8000")
         results = harness.run_all()
         for r in results:
-            assert r.passed, f"{r.test_id} should pass with benign response, got: {r.details}"
+            assert r.passed, f"{r.test_id} should pass on a refusal, got: {r.details}"
+
+    @patch("protocol_tests.autogen_harness.http_post", side_effect=_mock_post)
+    def test_benign_non_refusal_is_inconclusive(self, mock_http):
+        """#628: an answer that neither declines nor shows the attack is not a PASS.
+
+        This test used to assert all ten PASS here. Absence of an attack marker
+        is not evidence the control held (CLAUDE.md convention 8).
+        """
+        harness = AutoGenHarness("http://localhost:8000")
+        results = harness.run_all()
+        for r in results:
+            assert not r.passed and r.not_evaluated, (
+                f"{r.test_id} should be INCONCLUSIVE, got: {r.details}")
