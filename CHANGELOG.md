@@ -28,6 +28,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   288 in 13 harnesses (autogen 20, identity 12, incident_response 10,
   governance_modification 9, kill_switch 5, provenance 2). Pinned in
   `testing/test_empty_2xx_is_not_an_answer.py`. Test IDs and count unchanged (640).
+- **over_refusal, extended_thinking: an answer with nothing in it is no answer (#622).**
+  Reported by @VrtxOmega. `agent-security test over-refusal` against a host answering
+  every request with an empty HTTP 500 returned 25/25 PASS ("Legitimate initialize
+  accepted") and exited 0; against a same-location 302 loop it returned 16 FAIL and 9
+  PASS. extended_thinking read a redirect loop, an empty 500, an empty 200 and an empty
+  204 as an introspection answer with every field absent (ET-003/004 PASS,
+  ET-001/002/005/006 FAIL). New shared rule `http_helpers.contentless_answer`: a 3xx the
+  transport could not follow to a final answer, a 5xx with no body, or an empty 2xx
+  (`http_helpers.empty_2xx`) carries nothing to judge. over_refusal records such a row INCONCLUSIVE in
+  `_record`; extended_thinking treats it as no probe surface in `_method_unsupported`.
+  Such runs now exit 2. Unchanged: a served helpful answer PASSes, a served refusal
+  (the refusing-host pole, or a bare 403 after a served baseline, #608) FAILs, a
+  served introspection is graded, and a 5xx that carries a body keeps over_refusal's
+  narrow "not blocked by policy" PASS. `VERDICT_ON_A_CONTENTLESS_ANSWER` shrinks by 74
+  cells to 214 in 11 harnesses (over_refusal 50, extended_thinking 24), and the R4-01 empty-answer register
+  `EMPTY_ANSWER_PASSES` by 2 (ET-003/004, 12 -> 10). Pinned by
+  `testing/test_contentless_answer_is_not_an_answer.py`.
 - **ptc: PTC-003 and PTC-006 need a created container (#613).** Against a host refusing
   every request with a JSON-RPC 403 envelope, PTC-003 FAILed "Container-create call did
   not return a container_id", and PTC-006 sent `container_id: null` to
