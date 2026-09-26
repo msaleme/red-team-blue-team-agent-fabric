@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `283de1d`
+**Generated:** `scripts/generate_test_catalog.py` at commit `6931f71`
 **Test count:** 640 unique test IDs across 49 registered harness modules (48 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -59,18 +59,18 @@ ADI-003 | content mimicking the agent's own context boundary. | protocol_tests/a
 ### AIUC-1 Compliance (`protocol_tests/aiuc1_compliance_harness.py`) — 12 tests
 
 ```
-AIUC-C003a | Harmful Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:994
-AIUC-C003b | Deceptive Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:1023
-AIUC-C004a | Out-of-Scope Execution Refusal | protocol_tests/aiuc1_compliance_harness.py:1101
-AIUC-C004b | Scope Creep Detection | protocol_tests/aiuc1_compliance_harness.py:1169
-AIUC-C004c | Authority Impersonation Refusal | protocol_tests/aiuc1_compliance_harness.py:1197
-AIUC-E001 | Incident Detection Latency | protocol_tests/aiuc1_compliance_harness.py:121
-AIUC-E002 | Incident Containment | protocol_tests/aiuc1_compliance_harness.py:699
-AIUC-E003 | Incident Audit Trail | protocol_tests/aiuc1_compliance_harness.py:803
-AIUC-F002a | Test refusal of chemical weapon synthesis instructions. | protocol_tests/aiuc1_compliance_harness.py:906
-AIUC-F002b | Test refusal of biological weapon creation instructions. | protocol_tests/aiuc1_compliance_harness.py:911
-AIUC-F002c | Test refusal of radiological/nuclear weapon instructions. | protocol_tests/aiuc1_compliance_harness.py:916
-AIUC-F002d | CBRN Dual-Use Detection | protocol_tests/aiuc1_compliance_harness.py:962
+AIUC-C003a | Harmful Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:1011
+AIUC-C003b | Deceptive Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:1040
+AIUC-C004a | Out-of-Scope Execution Refusal | protocol_tests/aiuc1_compliance_harness.py:1118
+AIUC-C004b | Scope Creep Detection | protocol_tests/aiuc1_compliance_harness.py:1186
+AIUC-C004c | Authority Impersonation Refusal | protocol_tests/aiuc1_compliance_harness.py:1214
+AIUC-E001 | Incident Detection Latency | protocol_tests/aiuc1_compliance_harness.py:122
+AIUC-E002 | Incident Containment | protocol_tests/aiuc1_compliance_harness.py:717
+AIUC-E003 | Incident Audit Trail | protocol_tests/aiuc1_compliance_harness.py:821
+AIUC-F002a | Test refusal of chemical weapon synthesis instructions. | protocol_tests/aiuc1_compliance_harness.py:923
+AIUC-F002b | Test refusal of biological weapon creation instructions. | protocol_tests/aiuc1_compliance_harness.py:928
+AIUC-F002c | Test refusal of radiological/nuclear weapon instructions. | protocol_tests/aiuc1_compliance_harness.py:933
+AIUC-F002d | CBRN Dual-Use Detection | protocol_tests/aiuc1_compliance_harness.py:979
 ```
 
 ### AP2 Mandate Chain (`protocol_tests/ap2_harness.py`) — 17 tests
@@ -125,16 +125,16 @@ BI-007 | Self-Reported Results Trust | protocol_tests/benchmark_integrity_harnes
 ### Capability Profile (`protocol_tests/capability_profile_harness.py`) — 10 tests
 
 ```
-CP-001 | Profile Declaration Presence | protocol_tests/capability_profile_harness.py:378
-CP-002 | Filesystem Boundary (COMPUTE_ONLY) | protocol_tests/capability_profile_harness.py:412
-CP-003 | Filesystem Boundary (SCRATCH_FS) | protocol_tests/capability_profile_harness.py:446
-CP-004 | Network Boundary | protocol_tests/capability_profile_harness.py:482
-CP-005 | Package Install Boundary | protocol_tests/capability_profile_harness.py:516
-CP-006 | Tool Bridge Boundary | protocol_tests/capability_profile_harness.py:551
-CP-007 | Profile Escalation Attempt | protocol_tests/capability_profile_harness.py:599
-CP-008 | Cross-Profile Isolation | protocol_tests/capability_profile_harness.py:635
-CP-009 | Profile Logging | protocol_tests/capability_profile_harness.py:678
-CP-010 | Custom Profile Validation | protocol_tests/capability_profile_harness.py:723
+CP-001 | Profile Declaration Presence | protocol_tests/capability_profile_harness.py:384
+CP-002 | Filesystem Boundary (COMPUTE_ONLY) | protocol_tests/capability_profile_harness.py:418
+CP-003 | Filesystem Boundary (SCRATCH_FS) | protocol_tests/capability_profile_harness.py:452
+CP-004 | Network Boundary | protocol_tests/capability_profile_harness.py:488
+CP-005 | Package Install Boundary | protocol_tests/capability_profile_harness.py:522
+CP-006 | Tool Bridge Boundary | protocol_tests/capability_profile_harness.py:557
+CP-007 | Profile Escalation Attempt | protocol_tests/capability_profile_harness.py:605
+CP-008 | Cross-Profile Isolation | protocol_tests/capability_profile_harness.py:641
+CP-009 | Profile Logging | protocol_tests/capability_profile_harness.py:684
+CP-010 | Custom Profile Validation | protocol_tests/capability_profile_harness.py:729
 ```
 
 ### capability_residue_harness.py (`protocol_tests/capability_residue_harness.py`) — 5 tests
@@ -167,14 +167,14 @@ CTK-012 | Cross-Network Token Substitution | protocol_tests/card_token_harness.p
 ### CBRN Prevention (`protocol_tests/cbrn_harness.py`) — 8 tests
 
 ```
-CBRN-001 | Direct Knowledge Boundary | protocol_tests/cbrn_harness.py:342
-CBRN-002 | Dual-Use Redirection | protocol_tests/cbrn_harness.py:373
-CBRN-003 | Multi-Step Synthesis Chain | protocol_tests/cbrn_harness.py:410
-CBRN-004 | Tool-Assisted Knowledge Extraction | protocol_tests/cbrn_harness.py:446
-CBRN-005 | Academic Framing Bypass | protocol_tests/cbrn_harness.py:474
-CBRN-006 | Fiction/Roleplay Framing | protocol_tests/cbrn_harness.py:503
-CBRN-007 | Translation/Encoding Bypass | protocol_tests/cbrn_harness.py:537
-CBRN-008 | Threshold Testing | protocol_tests/cbrn_harness.py:580
+CBRN-001 | Direct Knowledge Boundary | protocol_tests/cbrn_harness.py:348
+CBRN-002 | Dual-Use Redirection | protocol_tests/cbrn_harness.py:379
+CBRN-003 | Multi-Step Synthesis Chain | protocol_tests/cbrn_harness.py:416
+CBRN-004 | Tool-Assisted Knowledge Extraction | protocol_tests/cbrn_harness.py:452
+CBRN-005 | Academic Framing Bypass | protocol_tests/cbrn_harness.py:480
+CBRN-006 | Fiction/Roleplay Framing | protocol_tests/cbrn_harness.py:509
+CBRN-007 | Translation/Encoding Bypass | protocol_tests/cbrn_harness.py:543
+CBRN-008 | Threshold Testing | protocol_tests/cbrn_harness.py:586
 ```
 
 ### Cloud Agent Platforms (`protocol_tests/cloud_agent_harness.py`) — 25 tests
@@ -373,16 +373,16 @@ HALL-002 | Credential Fabrication (No Prior Context) | protocol_tests/gtg1002_si
 ### Harmful Output (`protocol_tests/harmful_output_harness.py`) — 10 tests
 
 ```
-HO-001 | Direct Toxicity Elicitation | protocol_tests/harmful_output_harness.py:363
-HO-002 | Indirect Toxicity via Context | protocol_tests/harmful_output_harness.py:392
-HO-003 | Distressed Output Detection | protocol_tests/harmful_output_harness.py:425
-HO-004 | High-Risk Advice Boundary | protocol_tests/harmful_output_harness.py:459
-HO-005 | Bias Probing (Demographic) | protocol_tests/harmful_output_harness.py:511
-HO-006 | Deception Encouragement | protocol_tests/harmful_output_harness.py:538
-HO-007 | Scope Boundary (Political) | protocol_tests/harmful_output_harness.py:569
-HO-008 | Scope Boundary (Medical) | protocol_tests/harmful_output_harness.py:596
-HO-009 | Multi-Step Harmful Chain | protocol_tests/harmful_output_harness.py:636
-HO-010 | Output Content Classification | protocol_tests/harmful_output_harness.py:688
+HO-001 | Direct Toxicity Elicitation | protocol_tests/harmful_output_harness.py:369
+HO-002 | Indirect Toxicity via Context | protocol_tests/harmful_output_harness.py:398
+HO-003 | Distressed Output Detection | protocol_tests/harmful_output_harness.py:431
+HO-004 | High-Risk Advice Boundary | protocol_tests/harmful_output_harness.py:465
+HO-005 | Bias Probing (Demographic) | protocol_tests/harmful_output_harness.py:517
+HO-006 | Deception Encouragement | protocol_tests/harmful_output_harness.py:544
+HO-007 | Scope Boundary (Political) | protocol_tests/harmful_output_harness.py:575
+HO-008 | Scope Boundary (Medical) | protocol_tests/harmful_output_harness.py:602
+HO-009 | Multi-Step Harmful Chain | protocol_tests/harmful_output_harness.py:642
+HO-010 | Output Content Classification | protocol_tests/harmful_output_harness.py:694
 ```
 
 ### hidden_instruction_harness.py (`protocol_tests/hidden_instruction_harness.py`) — 4 tests
@@ -397,14 +397,14 @@ HI-004 | no tag-block codepoint reached the tool layer. | protocol_tests/hidden_
 ### hitl_harness.py (`protocol_tests/hitl_harness.py`) — 8 tests
 
 ```
-HITL-001 | Approval Flood Rate Limiting | protocol_tests/hitl_harness.py:309
-HITL-002 | High-Risk Approval Starvation | protocol_tests/hitl_harness.py:357
-HITL-003 | Decision Context Stripped From Approval | protocol_tests/hitl_harness.py:408
-HITL-004 | Denied Decision Replayed Without Flag | protocol_tests/hitl_harness.py:451
-HITL-005 | Payment Redirect Induced Toward the User. | protocol_tests/hitl_harness.py:618
-HITL-006 | Credential Lure Directed at the Principal. | protocol_tests/hitl_harness.py:626
-HITL-007 | Coercing the Principal Past a Verification Step. | protocol_tests/hitl_harness.py:634
-HITL-008 | Fabricated Authority Used to Move a Human. | protocol_tests/hitl_harness.py:642
+HITL-001 | Approval Flood Rate Limiting | protocol_tests/hitl_harness.py:325
+HITL-002 | High-Risk Approval Starvation | protocol_tests/hitl_harness.py:387
+HITL-003 | Decision Context Stripped From Approval | protocol_tests/hitl_harness.py:438
+HITL-004 | Denied Decision Replayed Without Flag | protocol_tests/hitl_harness.py:490
+HITL-005 | Payment Redirect Induced Toward the User. | protocol_tests/hitl_harness.py:665
+HITL-006 | Credential Lure Directed at the Principal. | protocol_tests/hitl_harness.py:673
+HITL-007 | Coercing the Principal Past a Verification Step. | protocol_tests/hitl_harness.py:681
+HITL-008 | Fabricated Authority Used to Move a Human. | protocol_tests/hitl_harness.py:689
 ```
 
 ### Identity & Authorization (`protocol_tests/identity_harness.py`) — 18 tests
@@ -446,14 +446,14 @@ IR-008 | Cascading Failure Containment | protocol_tests/incident_response_harnes
 ### intent_contract_harness.py (`protocol_tests/intent_contract_harness.py`) — 8 tests
 
 ```
-INT-001 | Intent Declaration Completeness | protocol_tests/intent_contract_harness.py:309
-INT-002 | Intent-Action Consistency | protocol_tests/intent_contract_harness.py:348
-INT-003 | Intent Scope Violation | protocol_tests/intent_contract_harness.py:382
-INT-004 | Intent Modification Mid-Execution | protocol_tests/intent_contract_harness.py:422
-INT-005 | Implicit Intent Escalation | protocol_tests/intent_contract_harness.py:469
-INT-006 | Intent Contract Forgery | protocol_tests/intent_contract_harness.py:509
-INT-007 | Multi-Step Intent Decomposition Attack | protocol_tests/intent_contract_harness.py:555
-INT-008 | Intent Ambiguity Exploitation | protocol_tests/intent_contract_harness.py:591
+INT-001 | Intent Declaration Completeness | protocol_tests/intent_contract_harness.py:315
+INT-002 | Intent-Action Consistency | protocol_tests/intent_contract_harness.py:354
+INT-003 | Intent Scope Violation | protocol_tests/intent_contract_harness.py:388
+INT-004 | Intent Modification Mid-Execution | protocol_tests/intent_contract_harness.py:428
+INT-005 | Implicit Intent Escalation | protocol_tests/intent_contract_harness.py:475
+INT-006 | Intent Contract Forgery | protocol_tests/intent_contract_harness.py:515
+INT-007 | Multi-Step Intent Decomposition Attack | protocol_tests/intent_contract_harness.py:561
+INT-008 | Intent Ambiguity Exploitation | protocol_tests/intent_contract_harness.py:597
 ```
 
 ### Jailbreak (`protocol_tests/jailbreak_harness.py`) — 25 tests
@@ -619,25 +619,25 @@ MEM-016 | Revocation Lapses Across a Session Boundary | protocol_tests/memory_ha
 ### Multi-Agent Interaction (`protocol_tests/multi_agent_harness.py`) — 19 tests
 
 ```
-MAG-001 | Delegation Chain Poisoning | protocol_tests/multi_agent_harness.py:400
-MAG-002 | Authority Impersonation in Multi-Agent Handoff | protocol_tests/multi_agent_harness.py:441
-MAG-003 | Consensus Manipulation in Multi-Agent Decision | protocol_tests/multi_agent_harness.py:477
-MAG-004 | Task Result Poisoning from Downstream Agent | protocol_tests/multi_agent_harness.py:519
-MAG-005 | Cross-Agent Privilege Escalation | protocol_tests/multi_agent_harness.py:568
-MAG-006 | Agent Collusion Detection | protocol_tests/multi_agent_harness.py:603
-MAG-007 | Orchestrator Trust Boundary Bypass | protocol_tests/multi_agent_harness.py:646
-MAG-008 | Recursive Delegation Attack | protocol_tests/multi_agent_harness.py:683
-MAG-009 | Capability Leakage Across Agent Boundaries | protocol_tests/multi_agent_harness.py:728
-MAG-010 | Shared Context Contamination | protocol_tests/multi_agent_harness.py:775
-MAG-011 | Split-Brain Decision Making | protocol_tests/multi_agent_harness.py:813
-MAG-012 | Agent Replacement/Substitution Attack | protocol_tests/multi_agent_harness.py:857
-MAG-013 | Message-Ordering Race Pretext | protocol_tests/multi_agent_harness.py:898
-MAG-014 | Recipient-Validation TOCTOU Pretext | protocol_tests/multi_agent_harness.py:940
-MAG-015 | Event-Signal Collision Pretext | protocol_tests/multi_agent_harness.py:982
-MAG-016 | Kill-vs-Complete Race Pretext | protocol_tests/multi_agent_harness.py:1026
-MAG-017 | Stale-Status-After-Timeout Pretext | protocol_tests/multi_agent_harness.py:1071
-MAG-018 | Inbox-Append-to-Last-Call-Only Pretext | protocol_tests/multi_agent_harness.py:1115
-MAG-019 | Delegated Spend Bound Discrimination | protocol_tests/multi_agent_harness.py:1210
+MAG-001 | Delegation Chain Poisoning | protocol_tests/multi_agent_harness.py:405
+MAG-002 | Authority Impersonation in Multi-Agent Handoff | protocol_tests/multi_agent_harness.py:446
+MAG-003 | Consensus Manipulation in Multi-Agent Decision | protocol_tests/multi_agent_harness.py:482
+MAG-004 | Task Result Poisoning from Downstream Agent | protocol_tests/multi_agent_harness.py:524
+MAG-005 | Cross-Agent Privilege Escalation | protocol_tests/multi_agent_harness.py:573
+MAG-006 | Agent Collusion Detection | protocol_tests/multi_agent_harness.py:608
+MAG-007 | Orchestrator Trust Boundary Bypass | protocol_tests/multi_agent_harness.py:651
+MAG-008 | Recursive Delegation Attack | protocol_tests/multi_agent_harness.py:688
+MAG-009 | Capability Leakage Across Agent Boundaries | protocol_tests/multi_agent_harness.py:733
+MAG-010 | Shared Context Contamination | protocol_tests/multi_agent_harness.py:780
+MAG-011 | Split-Brain Decision Making | protocol_tests/multi_agent_harness.py:818
+MAG-012 | Agent Replacement/Substitution Attack | protocol_tests/multi_agent_harness.py:862
+MAG-013 | Message-Ordering Race Pretext | protocol_tests/multi_agent_harness.py:903
+MAG-014 | Recipient-Validation TOCTOU Pretext | protocol_tests/multi_agent_harness.py:945
+MAG-015 | Event-Signal Collision Pretext | protocol_tests/multi_agent_harness.py:987
+MAG-016 | Kill-vs-Complete Race Pretext | protocol_tests/multi_agent_harness.py:1031
+MAG-017 | Stale-Status-After-Timeout Pretext | protocol_tests/multi_agent_harness.py:1076
+MAG-018 | Inbox-Append-to-Last-Call-Only Pretext | protocol_tests/multi_agent_harness.py:1120
+MAG-019 | Delegated Spend Bound Discrimination | protocol_tests/multi_agent_harness.py:1215
 ```
 
 ### Over-Refusal (`protocol_tests/over_refusal_harness.py`) — 25 tests
@@ -798,11 +798,11 @@ UCP-006 | Agent Profile Takeover (rebind) | protocol_tests/ucp_acp_harness.py:49
 ### watermark_harness.py (`protocol_tests/watermark_harness.py`) — 5 tests
 
 ```
-WM-001 | Watermark Presence Validation | protocol_tests/watermark_harness.py:174
-WM-002 | Watermark Forgery Resistance | protocol_tests/watermark_harness.py:194
-WM-003 | Watermark Stripping Resistance | protocol_tests/watermark_harness.py:274
-WM-004 | Watermark Parameter Extraction Resistance | protocol_tests/watermark_harness.py:338
-WM-005 | Multi-Language Watermark Compliance | protocol_tests/watermark_harness.py:404
+WM-001 | Watermark Presence Validation | protocol_tests/watermark_harness.py:180
+WM-002 | Watermark Forgery Resistance | protocol_tests/watermark_harness.py:200
+WM-003 | Watermark Stripping Resistance | protocol_tests/watermark_harness.py:280
+WM-004 | Watermark Parameter Extraction Resistance | protocol_tests/watermark_harness.py:344
+WM-005 | Multi-Language Watermark Compliance | protocol_tests/watermark_harness.py:410
 ```
 
 ### workspace_trust_harness.py (`protocol_tests/workspace_trust_harness.py`) — 4 tests

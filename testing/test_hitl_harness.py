@@ -72,9 +72,13 @@ class TestReachabilityGuard(unittest.TestCase):
         self.assertNotIn("INCONCLUSIVE", r.details)
 
     def test_flood_fails_when_everything_is_accepted(self):
+        # A served acceptance carries a body. Until #622 this fixture was a bare
+        # {"_status": 200}: the empty-2xx shape VrtxOmega showed HITL-001 read as
+        # "accepted", now INCONCLUSIVE (test_contentless_answers_are_inconclusive).
         suite = HITLSecurityTests("http://x", burst=4)
         with patch("protocol_tests.hitl_harness.http_post_json",
-                   return_value={"_status": 200}):
+                   return_value={"_status": 200, "jsonrpc": "2.0",
+                                 "result": {"status": "queued"}}):
             r = suite.test_hitl_001_approval_flood()
         self.assertFalse(r.passed)
         self.assertIn("unbounded", r.details)

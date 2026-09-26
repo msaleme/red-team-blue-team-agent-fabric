@@ -1587,6 +1587,28 @@ def answered(resp) -> bool:
     return isinstance(status, int) and status > 0
 
 
+def contentless_detail(responses, details: str | None) -> str | None:
+    """Replacement ``details`` when every answered response was contentless.
+
+    The ``_record``-guard form of :func:`contentless_answer` (#622: cbrn,
+    harmful_output, capability_profile, intent_contract, watermark and
+    multi_agent use it). ``None`` when there is nothing to replace: no responses, an
+    already INCONCLUSIVE result, an answered response that carried content, or
+    no response answered at all (silence, owned by ``silence_detail``).
+    """
+    seen = [r for r in (responses or []) if isinstance(r, dict)]
+    if not seen or is_inconclusive(details):
+        return None
+    heard = [r for r in seen if answered(r)]
+    if not heard or not all(contentless_answer(r) for r in heard):
+        return None
+    statuses = sorted({_status_of(r) for r in heard})
+    return (f"{INCONCLUSIVE_PREFIX}no content to grade: {len(heard)} response(s) "
+            f"answered with status {'/'.join(str(s) for s in statuses)} and no "
+            f"body (an empty answer, or a redirect with no final answer), so "
+            f"nothing the target said was observed. Original finding: {details}")
+
+
 #: Method names wrapped by default: the shape the payment transports use.
 DEFAULT_TRANSPORT_METHODS = ("request", "get", "post")
 

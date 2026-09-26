@@ -65,6 +65,7 @@ from protocol_tests.http_helpers import (
     INCONCLUSIVE_PREFIX,
     _err,
     _is_conn_error,
+    contentless_detail,
     http_post_json,
     inconclusive_detail,
     run_summary,
@@ -332,6 +333,10 @@ class MultiAgentTests:
         # same defect stayed live in four others for that reason.
         _rr = getattr(result, "response_received", None)
         _d = inconclusive_detail(_rr, result.details)
+        # #622 (VrtxOmega): an empty 200/204 is serviced, and MAG-019 read it as
+        # a bound that did not travel to the delegate. No body, nothing observed.
+        if _d is None:
+            _d = contentless_detail([_rr], result.details)
         if _d is not None:
             result.passed = False
             result.not_evaluated = True

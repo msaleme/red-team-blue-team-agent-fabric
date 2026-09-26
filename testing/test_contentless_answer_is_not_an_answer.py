@@ -85,6 +85,9 @@ class TestTheSharedRule(unittest.TestCase):
             {"_status": 204, "_body": "", "response": {}},           # http_helpers empty 2xx
             {"_status": 200, "_raw": ""},
             {"_error": True, "status": 500},                         # `status` convention
+            {"_status": 200, "_body": ""},                           # aiuc1 http_post
+            {"_raw": "", "_status": 204},                            # module-local http_post_json
+            {"_status": 200, "_body": "", "response": {}},           # http_helpers.http_post
         ):
             with self.subTest(resp=resp):
                 self.assertTrue(contentless_answer(resp))
@@ -98,6 +101,8 @@ class TestTheSharedRule(unittest.TestCase):
             {"_status": 200, "result": {"ok": True}},
             {"_status": 200, "_body": "{}", "response": {"a": 1}},
             {"_status": 200, "_raw": "hello"},
+            {"_status": 200, "response": "hello"},
+            {"_status": 200, "jsonrpc": "2.0", "result": {"x": 1}},  # merged JSON-RPC
             None, "not a dict",
         ):
             with self.subTest(resp=resp):
