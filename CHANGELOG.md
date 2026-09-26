@@ -38,6 +38,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests — `pytest testing/` 625 s -> 333 s locally, same 1584 passed / 3823 subtests
 
+- **The no-surface guard (#600) gains six poles from #622, reported by @VrtxOmega.**
+  VrtxOmega reproduced the v4.25.0 claim on its three poles against independent
+  targets, then showed four more shapes where a response carries nothing to judge and
+  harnesses still returned PASS or FAIL: a same-location 302 redirect loop, an empty
+  HTTP 500, an empty 200 and an empty 204 (45 / 35 / 134 / 144 rows on v4.25.0). A bare
+  401 and a TLS failure were clean. `scripts/no_surface_sweep.py` now sweeps all six
+  (`CONTENTLESS_POLES`) with the same machinery; `testing/test_verdicts_need_a_surface.py`
+  holds them in a new shrink-only register, `VERDICT_ON_A_CONTENTLESS_ANSWER`: **346
+  cells in 19 harnesses** at b06aa33 (redirect loop 42, empty 500 32, empty 200 130,
+  empty 204 142; bare 401 and TLS 0, kept as regression poles). The three PTC cells per
+  pole that v4.25.0 also produced were already fixed on `main` by #618/#620.
+  `VERDICT_WITHOUT_SURFACE` stays empty and keeps stating the three-pole claim alone.
+  Two exceptions, each naming the assertion the status is sufficient evidence for and
+  pinned by an existing test (`A402SurfaceIsStillGraded`): X4-001 and L4-001 FAIL on an
+  empty 200 ("Expected HTTP 402, got 200", the #609 2xx contract). Seeded controls: a
+  target-blind harness turns the guard red on each new pole, an honest one stays green.
+  The register is also reported with its denominator in
+  `test_evidence_integrity_registers.py`. No harness change; test IDs and count
+  unchanged (640).
+
 - Every loopback stub server in `testing/`, `tests/` and the sweep scripts
   (`scripts/{no_surface,permissive_host,refusing_host,empty_answer}_sweep.py`) now runs
   `serve_forever(poll_interval=0.01)`. `shutdown()` waits for the serve loop's next poll,

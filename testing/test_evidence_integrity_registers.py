@@ -421,6 +421,24 @@ REGISTERS: dict[str, Register] = {
             "that refuses and FAIL against one that accepts, as #591 and #594 "
             "pinned for the CVE and A2A families"),
         review_by="2026-11-01"),
+    "VERDICT_ON_A_CONTENTLESS_ANSWER": Register(
+        # The #622 poles (VrtxOmega): a same-location 302 loop, an empty
+        # 500/200/204, a bare 401 and a TLS failure. Same cached measurement,
+        # same ratchet; its own register so VERDICT_WITHOUT_SURFACE keeps
+        # meaning the three-pole claim v4.25.0 published.
+        numerator=lambda: _mod_surface().VERDICT_ON_A_CONTENTLESS_ANSWER,
+        population=lambda: _mod_surface()._contentless_population_cells(),
+        note="PASS/FAIL cells on a response that carries nothing to judge, of "
+             "all live-target cells on the six #622 poles",
+        numerator_kind=NUMERATOR_DECLARED,
+        population_kind=POPULATION_SWEEP,
+        owner=MAINTAINER,
+        positive_control=(
+            "per family, the verdict re-grounded on served content: INCONCLUSIVE "
+            "on all six #622 poles, PASS against a surface that refuses and FAIL "
+            "against one that complies; or a named assertion the status is "
+            "sufficient evidence for, pinned by a regression test"),
+        review_by="2026-11-01"),
 }
 
 
@@ -531,7 +549,11 @@ class TestEveryRegisterReportsBothNumbers(unittest.TestCase):
                       # VERDICT_WITHOUT_SURFACE, which is the debt queue and
                       # does report a denominator above.
                       "NO_NETWORK_TARGET", "SELF_TESTS", "CONTRACT_CONSISTENT",
-                      "FAMILY_REASONS"}
+                      "FAMILY_REASONS",
+                      # ...and the same two for VERDICT_ON_A_CONTENTLESS_ANSWER
+                      # (the #622 poles), which reports a denominator above.
+                      "CONTENTLESS_CONTRACT_CONSISTENT",
+                      "CONTENTLESS_FAMILY_REASONS"}
         expected = declaring - taxonomies
         missing = expected - set(REGISTERS)
         self.assertEqual(
@@ -764,6 +786,8 @@ def _numerator_probe(name: str) -> tuple[object, str, int]:
         "GRANDFATHERED_UNLABELLED": (_mod_simulated(), "GRANDFATHERED_UNLABELLED", 1),
         "GRANDFATHERED_UNREADABLE": (_mod_simulated(), "GRANDFATHERED_UNREADABLE", 1),
         "VERDICT_WITHOUT_SURFACE": (_mod_surface(), "VERDICT_WITHOUT_SURFACE", 1),
+        "VERDICT_ON_A_CONTENTLESS_ANSWER":
+            (_mod_surface(), "VERDICT_ON_A_CONTENTLESS_ANSWER", 1),
     }
     return probes[name]
 
@@ -830,6 +854,12 @@ def _grow_population(name: str):
         seeded = {("seeded", SEEDED[0], "closed"):
                   {"outcome": "INCONCLUSIVE", "locally_decided": False}}
         return (m, "_cells", lambda: {**base, **seeded}, 1)
+    if name == "VERDICT_ON_A_CONTENTLESS_ANSWER":
+        m = _mod_surface()
+        base = dict(m._contentless_cells())
+        seeded = {("seeded", SEEDED[0], "empty-200"):
+                  {"outcome": "INCONCLUSIVE", "locally_decided": False}}
+        return (m, "_contentless_cells", lambda: {**base, **seeded}, 1)
     raise KeyError(name)
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-r"""Run every live-target harness against three targets with no surface, and report any verdict.
+r"""Run every live-target harness against targets with nothing to judge, and report any verdict.
 
 ## The defect class
 
@@ -45,6 +45,22 @@ verdict to discriminate (INCONCLUSIVE at the 404 pole and the closed port).
 It does not call it a defect, and it does not extend it to anything unpinned.
 See `testing/test_verdicts_need_a_surface.py`.
 
+## The #622 poles: an answer with nothing in it
+
+VrtxOmega (#622) found that the property behind the three poles -- no PASS or
+FAIL when the response carries nothing a harness can judge -- did not hold for
+four more shapes. `CONTENTLESS_POLES` adds them, and two that were already
+clean as regression poles:
+
+    redirect-loop  302 to the same location, every request
+    empty-500      HTTP 500, no body, Content-Length 0
+    empty-200      HTTP 200, no body, Content-Length 0
+    empty-204      HTTP 204, no body, Content-Length 0
+    bare-401       HTTP 401 "Unauthorized", no protocol shape
+    tls-fail       an https:// URL to a plaintext listener
+
+The guard holds them under a separate register; see the test file.
+
 ## Population
 
 Derived, not listed: `dead_host_sweep.registry_coverage()` -- the CLI registry
@@ -80,12 +96,36 @@ POLES: dict[str, tuple[int, str] | None] = {
     "403": (403, "Forbidden"),
 }
 
+#: Pole name -> target spec, for the shapes VrtxOmega reported in #622 against
+#: v4.25.0: a response arrives, but it carries nothing a harness can judge. Kept
+#: apart from POLES so the three-pole claim v4.25.0 published, and its empty
+#: register, stay separately checkable; testing/test_verdicts_need_a_surface.py
+#: holds these under their own shrink-only register.
+#:
+#:   redirect-loop  every request: 302, Location = the URL just requested
+#:   empty-500/200/204  every request: that status, no body, Content-Length 0
+#:   bare-401       every request: 401 "Unauthorized", no protocol shape
+#:                  (clean on v4.25.0; a regression pole)
+#:   tls-fail       an https:// URL to a plaintext listener: the handshake
+#:                  fails before any HTTP exchange (clean; a regression pole)
+CONTENTLESS_POLES: dict[str, dict] = {
+    "redirect-loop": {"status": 302, "body": "", "redirect": True},
+    "empty-500": {"status": 500, "body": ""},
+    "empty-200": {"status": 200, "body": ""},
+    "empty-204": {"status": 204, "body": ""},
+    "bare-401": {"status": 401, "body": "Unauthorized"},
+    "tls-fail": {"status": 200, "body": "", "scheme": "https"},
+}
+
+#: Every pole the sweep measures, in table order.
+ALL_POLES: dict[str, object] = {**POLES, **CONTENTLESS_POLES}
+
 #: The outcomes that are not a verdict about the target. `row_outcome` folds
 #: NOT_EXECUTED into INCONCLUSIVE, so this is the whole set.
 NO_VERDICT = frozenset({"INCONCLUSIVE"})
 
 
-def _handler(status: int, body: str):
+def _handler(status: int, body: str, redirect: bool = False):
     payload = body.encode()
 
     class _Everywhere(BaseHTTPRequestHandler):
@@ -94,10 +134,16 @@ def _handler(status: int, body: str):
             if n:
                 self.rfile.read(n)
             self.send_response(status)
-            self.send_header("Content-Type", "text/plain")
+            if redirect:
+                # The URL just requested, absolute: a same-location loop that
+                # never reaches anything but itself.
+                host, port = self.server.server_address[:2]
+                self.send_header("Location", f"http://{host}:{port}{self.path}")
+            if payload:
+                self.send_header("Content-Type", "text/plain")
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
-            if self.command != "HEAD":
+            if payload and self.command != "HEAD":
                 self.wfile.write(payload)
 
         do_GET = do_POST = do_PUT = do_DELETE = do_PATCH = do_HEAD = do_OPTIONS = _answer
@@ -115,18 +161,22 @@ class status_everywhere_target:
     cannot collide with a real service or expose anything off the machine.
     """
 
-    def __init__(self, status: int, body: str):
+    def __init__(self, status: int, body: str, redirect: bool = False,
+                 scheme: str = "http"):
         self._status, self._body = status, body
+        self._redirect, self._scheme = redirect, scheme
 
     def __enter__(self) -> str:
-        self._server = ThreadingHTTPServer(("127.0.0.1", 0),
-                                           _handler(self._status, self._body))
+        self._server = ThreadingHTTPServer(
+            ("127.0.0.1", 0), _handler(self._status, self._body, self._redirect))
         self._thread = threading.Thread(target=self._server.serve_forever,
                                         kwargs={"poll_interval": 0.01},
                                         daemon=True)
         self._thread.start()
         host, port = self._server.server_address[:2]
-        return f"http://{host}:{port}"
+        # scheme="https" points a TLS client at this plaintext listener: the
+        # handshake fails, so no request is ever exchanged.
+        return f"{self._scheme}://{host}:{port}"
 
     def __exit__(self, *exc):
         self._server.shutdown()
@@ -178,14 +228,20 @@ def no_network_target_harnesses() -> dict[str, str]:
     return {name: stem for name, stem in exercised.items() if name not in live}
 
 
-def pole_sweeps() -> dict[str, list[dict]]:
-    """Pole -> the dead-host sweep's rows against that pole. Same machinery."""
+def pole_sweeps(poles=None) -> dict[str, list[dict]]:
+    """Pole -> the dead-host sweep's rows against that pole. Same machinery.
+
+    *poles* defaults to ALL_POLES: the three no-surface poles and the #622
+    contentless ones.
+    """
     out: dict[str, list[dict]] = {}
-    for pole, spec in POLES.items():
+    for pole, spec in (ALL_POLES if poles is None else poles).items():
         if spec is None:
             out[pole] = sweep(target=CLOSED_PORT)
             continue
-        with status_everywhere_target(*spec) as url:
+        target = (status_everywhere_target(**spec) if isinstance(spec, dict)
+                  else status_everywhere_target(*spec))
+        with target as url:
             out[pole] = sweep(target=url)
     return out
 
@@ -218,10 +274,10 @@ def cells(rows_by_pole: dict[str, list[dict]], stems) -> dict[tuple[str, str, st
 
 @functools.lru_cache(maxsize=1)
 def measured_live_cells() -> dict[tuple[str, str, str], dict]:
-    """The three-pole measurement over the derived population, taken once.
+    """The all-pole measurement over the derived population, taken once.
 
     Cached per process because two test files read it (the guard and the
-    evidence-integrity registers) and each run costs three full sweeps.
+    evidence-integrity registers) and each run costs one full sweep per pole.
     """
     return cells(pole_sweeps(), live_target_harnesses().values())
 
@@ -249,17 +305,19 @@ def main() -> int:
 
     per = defaultdict(Counter)
     for (m, _t, p), o in found.items():
-        per[m][f"{p}:{o}"] += 1
-    cols = [f"{p}:{o}" for p in POLES for o in ("PASS", "FAIL")]
-    print(f"{'module':34s} " + " ".join(f"{c:>11s}" for c in cols))
-    print("-" * (35 + 12 * len(cols)))
+        per[m][f"{p}:{o[0]}"] += 1
+    # One column per pole and verdict, e.g. "empty-200:P"; sized to the name.
+    cols = [f"{p}:{o}" for p in ALL_POLES for o in ("P", "F")]
+    w = [len(c) for c in cols]
+    print(f"{'module':34s} " + " ".join(f"{c:>{n}s}" for c, n in zip(cols, w)))
+    print("-" * (35 + sum(n + 1 for n in w)))
     for m in sorted(per, key=lambda m: (-sum(per[m].values()), m)):
-        print(f"{m:34s} " + " ".join(f"{per[m][c] or '':>11}" for c in cols))
-    print("-" * (35 + 12 * len(cols)))
+        print(f"{m:34s} " + " ".join(f"{per[m][c] or '':>{n}}" for c, n in zip(cols, w)))
+    print("-" * (35 + sum(n + 1 for n in w)))
     total = Counter(p for (_m, _t, p) in cell_map)
     print(f"{len(live)} live-target harnesses, {len(cell_map)} cells "
           f"({', '.join(f'{p}: {n}' for p, n in total.items())}); "
-          f"{len(found)} are a PASS or FAIL against a target with no surface.")
+          f"{len(found)} are a PASS or FAIL on a pole with nothing to judge.")
     print("Self-tests (locally_decided) are included above; the guard in "
           "testing/test_verdicts_need_a_surface.py excludes them by name.")
     return 0
