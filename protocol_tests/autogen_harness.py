@@ -44,9 +44,14 @@ from datetime import datetime, timezone
 from typing import Any
 
 from protocol_tests.http_helpers import (
+    INCONCLUSIVE_PREFIX,
+    console_status,
     declined,
+    empty_2xx,
     exit_code,
     inconclusive_detail,
+    is_inconclusive,
+    run_summary,
 )
 
 # ---------------------------------------------------------------------------
@@ -68,8 +73,15 @@ class AutoGenTestResult:
     response_received: dict | None = None
     elapsed_s: float = 0.0
     timestamp: str = ""
+    # The structural INCONCLUSIVE marker (http_helpers.INCONCLUSIVE_FIELDS):
+    # set with the prefix, so a serialised row carries the state as a field.
+    not_evaluated: bool = False
 
     def __post_init__(self) -> None:
+        # A prefix written into `details` is the state too, not only a
+        # guard's decision. Derived here so both paths are structural.
+        if is_inconclusive(self.details):
+            self.not_evaluated = True
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -136,13 +148,22 @@ class AutoGenHarness:
         # is decided by a response, and they read "not poisoned" / "not
         # succeeded" -- shapes that report a control holding when nothing
         # answered at all.
-        _d = inconclusive_detail(getattr(result, "response_received", None), result.details)
+        resp = getattr(result, "response_received", None)
+        _d = inconclusive_detail(resp, result.details)
+        # #622 (VrtxOmega): an empty 200/204 is serviced by status alone, and
+        # every AG-* verdict reads "no attack keyword in the body" as the
+        # control holding, so an empty body PASSed all ten. An empty 2xx is
+        # not an answer (http_helpers.empty_2xx, the rule SurfaceGate uses).
+        if _d is None and empty_2xx(resp):
+            _d = (f"{INCONCLUSIVE_PREFIX}target answered HTTP "
+                  f"{resp.get('status', resp.get('_status'))} with an empty "
+                  f"body: nothing to judge. Original finding: {result.details}")
         if _d is not None:
             result.passed = False
+            result.not_evaluated = True
             result.details = _d
         self.results.append(result)
-        status = "PASS" if result.passed else "FAIL"
-        print(f"  [{status}] {result.test_id}: {result.name}")
+        print(f"  [{console_status(result)}] {result.test_id}: {result.name}")
 
     def _resp_lower(self, resp: dict[str, Any] | None) -> str:
         return json.dumps(resp).lower() if resp else ""
@@ -689,22 +710,19 @@ def main() -> None:
     else:
         raw = single_run()
         results = raw["results"]
-        passed = sum(1 for r in results if r.passed)
         report = {
             "suite": "AutoGen Security Tests",
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "summary": {
-                "total": len(results),
-                "passed": passed,
-                "failed": len(results) - passed,
-            },
+            # run_summary keeps INCONCLUSIVE out of "failed" (#404).
+            "summary": run_summary(results),
             "results": [asdict(r) for r in results],
         }
 
     print(f"\n{'='*60}")
     print("AUTOGEN SECURITY TESTS COMPLETE")
     s = report["summary"]
-    print(f"Total: {s['total']}  Passed: {s['passed']}  Failed: {s['failed']}")
+    print(f"Total: {s['total']}  Passed: {s['passed']}  Failed: {s['failed']}"
+          + (f"  Inconclusive: {s['inconclusive']}" if s.get("inconclusive") else ""))
     print(f"{'='*60}")
 
     report_json = json.dumps(report, indent=2, default=str)
