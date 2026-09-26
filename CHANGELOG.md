@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.26.0] - 2026-09-26
+
+A minor release. An external reproduction (#622, reported by @VrtxOmega) ran the
+v4.25.0 wheel against independently written targets with its own row classifier and
+confirmed the v4.25.0 claim on its three poles (closed port, 404-everywhere, bare
+403-everywhere). It then found four more shapes where a response carries nothing to
+judge and harnesses still returned PASS or FAIL: a same-location 302 redirect loop,
+an empty HTTP 500, an empty 200 and an empty 204 (45 / 35 / 134 / 144 rows on
+v4.25.0). A bare 401 and a TLS failure were clean. All four are fixed. The no-surface
+guard now runs every URL-taking harness against nine poles (#624), and both of its
+registers are empty: `VERDICT_WITHOUT_SURFACE` (three poles) and
+`VERDICT_ON_A_CONTENTLESS_ANSWER` (six poles; 346 cells at introduction, 0 now). The
+guard names these exceptions: A2A-001 FAILs on 404 (the #594 contract); X4-001 and
+L4-001 FAIL on an empty 200 or 204 ("Expected HTTP 402, got 2xx": the paywall is
+absent); and the self-tests CREW-002, CVE-007 and CVE-008.
+
+One shared rule decides it: `http_helpers.contentless_answer` (#626) is true for any
+3xx the transport could not follow to a final answer, a 5xx with no body, or an empty
+2xx (`http_helpers.empty_2xx`, #625: a 204, or an empty or whitespace-only body at
+any other 2xx; response headers are metadata, not body, #630). Behaviour changes an
+installed user will see:
+
+  - identity, provenance, governance-modification, kill-switch, incident-response
+    and autogen no longer read an empty 2xx as a served refusal or acceptance.
+    58 cells (#625). autogen rows gain the structural `not_evaluated` field and an
+    INCONCLUSIVE autogen row is no longer counted as failed.
+  - over-refusal and extended-thinking no longer read a redirect loop, an empty 5xx
+    or an empty 2xx as an answer; over-refusal against an empty 500 no longer PASSes.
+    74 cells (#626).
+  - aiuc1, cbrn, harmful-output, capability-profile, intent-contract, watermark,
+    multi-agent and hitl no longer grade an empty 2xx or a redirect loop as the
+    agent's answer. 58 cells (#627). The AIUC-1 crosswalk is unchanged.
+  - A2A: a contentless answer is neither a JSON-RPC surface nor a served Agent Card;
+    A2A-001 FAILs only on a 404. The transport now keeps the status on an empty body
+    (an empty body was `{}`). 12 cells (#629).
+  - x402 and L402 on an empty 2xx grade only the challenge checks X4-001 and L4-001;
+    every other X4-*/L4-* row is INCONCLUSIVE. A 2xx carrying a body keeps the #609
+    behaviour. 144 cells (#630).
+  - A contentless run in these families exits `2` (INCONCLUSIVE). Of the entries
+    below, only #626 records the previous code: over-refusal against an empty 500
+    exited 0. x402/L402 `--trials` on an empty 2xx exits on the challenge check alone
+    (1), or 2 when no graded row ran (#630).
+
+Also in this release: ptc PTC-003/006 need a created container and an aiuc1 transport
+failure is no evidence (#618, fixes #613 and #614); PTC-004 grades only a served
+introspection (#620); the two shapes where #610 changed crewai's `served_refusal` are
+pinned (#617); and stub servers stop in 10 ms, which cut `pytest testing/` from 625 s
+to 333 s locally (#615).
+
+Test count unchanged at 640. Version bumped in pyproject.toml, CITATION.cff, the two
+OWASP coverage documents and the coverage manifest pair; README timeline extended. The
+CVE pages stay pinned to 3c3a66b: no mapped module (`crewai_cve_harness`,
+`mcp_harness`, `memory_harness`, `framework_adapters`, `workspace_trust_harness`)
+changed since v4.25.0, and none of the `http_helpers` functions they import changed.
+
 ### Fixed
 
 - **x402/L402: an empty 2xx grades only the challenge check (#622, reported by
