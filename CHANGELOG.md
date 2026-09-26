@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **x402/L402: an empty 2xx grades only the challenge check (#622, reported by
+  @VrtxOmega).** Against a target answering every request with an empty 200 or 204,
+  x402 returned 50 FAIL and 43 PASS beyond X4-001 ("5/5 malformed authorizations
+  rejected" from a 204) and L402 returned 36 FAIL and 15 PASS beyond L4-001: #609's
+  "2xx: verdicts stand" rule graded a body that was not there. Owner decision
+  (Michael Saleme, 2026-09-26, on #622): on an empty 2xx only the challenge checks
+  X4-001 and L4-001 stand, and they FAIL "Expected HTTP 402, got 2xx" (an unpaid
+  request was served without a payment challenge: the paywall is absent). Every other
+  X4-*/L4-* row is INCONCLUSIVE, because an empty body has nothing to grade.
+  `http_helpers.payment_surface_detail` now takes the row's test ID and applies this
+  through `http_helpers.empty_2xx` (`PAYMENT_CHALLENGE_CHECKS`); a 2xx carrying a body
+  keeps the #609 behaviour, and the 402-surface PASS/FAIL controls are unchanged. The
+  shared classifier (`empty_2xx`, and so `contentless_answer`) now treats an unprefixed
+  `headers` mapping as metadata rather than body: a transport that keeps response
+  headers beside an empty body, as the x402/L402 transports do, still reports an empty
+  2xx. No other family's verdict moved on any pole.
+  X4-023's revocation fetch now reports its answers to `_record`, which could not see
+  them before. `--trials` on an empty 2xx exits on the challenge check alone (1), or 2
+  when no graded row ran. X4-001@empty-204 and L4-001@empty-204 join the two empty-200
+  entries in `CONTENTLESS_CONTRACT_CONSISTENT`, and
+  `VERDICT_ON_A_CONTENTLESS_ANSWER` shrinks by 144 cells (x402 93, l402 51) to 0: the
+  #622 register is empty. Pinned in `testing/test_payment_verdicts_need_a_402_surface.py`. Test
+  IDs and count unchanged (640).
 - **A2A: an empty answer is no Agent Card and no JSON-RPC surface (#622, reported by
   @VrtxOmega; owner decision 2026-09-26).** Against a target answering every request
   with a same-location redirect loop, an empty 500, an empty 200 or an empty 204,

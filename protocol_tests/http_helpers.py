@@ -22,6 +22,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Mapping
 
 # ---------------------------------------------------------------------------
 # HTTP transport
@@ -1712,6 +1713,13 @@ def silence_evidence(seen: list, existing: dict | None) -> dict:
 #     2xx           the protected resource was SERVED WITHOUT PAYMENT. That is
 #                   an observation about this resource (the paywall is absent
 #                   or bypassable), so every verdict stands, as before.
+#     empty 2xx     a 204, or a 2xx with an empty body (http_helpers.empty_2xx).
+#                   Owner decision 2026-09-26 (#622): only the challenge checks
+#                   (PAYMENT_CHALLENGE_CHECKS: X4-001, L4-001) stand, and they
+#                   FAIL "Expected HTTP 402, got 2xx": an unpaid request was
+#                   served without a payment challenge, so the paywall is
+#                   absent. Every other row is INCONCLUSIVE: an empty body has
+#                   nothing to grade. A 2xx WITH a body keeps the rule above.
 #     anything else nothing answered, or the URL refuses without a payment
 #                   challenge (404, bare 403, 401, 5xx). No payment surface:
 #                   every test that sent a request is INCONCLUSIVE.
@@ -1729,18 +1737,39 @@ def payment_surface_status(probe) -> int:
         return 0
 
 
-def payment_surface_detail(probe, protocol: str, details: str | None) -> str | None:
+#: The rows that grade whether an unpaid request is answered with a payment
+#: challenge at all. On an empty 2xx the status alone answers that question
+#: (no challenge was sent), so these are the only verdicts that stand there.
+PAYMENT_CHALLENGE_CHECKS = frozenset({"X4-001", "L4-001"})
+
+
+
+def payment_surface_detail(probe, protocol: str, details: str | None,
+                           test_id: str | None = None) -> str | None:
     """Replacement ``details`` when the protected resource shows no payment
     surface, else ``None``. *probe* is the response to one unpaid request to the
-    resource the module grades; *protocol* names the scheme ("x402", "L402").
+    resource the module grades; *protocol* names the scheme ("x402", "L402");
+    *test_id* is the row being recorded.
 
     Same shape as :func:`silence_detail`: whichever way the verdict pointed, a
     PASS for rejecting a forged payment and a FAIL for a missing challenge are
     both unfounded when the URL never asked for payment.
+
+    On an empty 2xx only :data:`PAYMENT_CHALLENGE_CHECKS` stand (owner decision
+    2026-09-26, #622); every other row, including one recorded without a
+    *test_id*, is INCONCLUSIVE.
     """
     if is_inconclusive(details):
         return None
     status = payment_surface_status(probe)
+    if 200 <= status < 300 and empty_2xx(probe):
+        if test_id in PAYMENT_CHALLENGE_CHECKS:
+            return None
+        return (f"{INCONCLUSIVE_PREFIX}empty {protocol} answer: an unpaid request "
+                f"to the protected resource answered status={status} with no "
+                f"body. That the resource is served without a payment challenge "
+                f"is graded by the challenge check alone; an empty body has "
+                f"nothing else to grade. Original finding: {details}")
     if status == 402 or 200 <= status < 300:
         return None
     return (f"{INCONCLUSIVE_PREFIX}no {protocol} payment surface: an unpaid "
@@ -2144,6 +2173,12 @@ def bare_auth_refusal(resp) -> bool:
 #: other ``_``-prefixed key is metadata too; these are the unprefixed ones.
 _STATUS_KEYS = frozenset({"status", "_status"})
 
+#: Unprefixed keys that hold the response headers when they are a mapping
+#: (x402/l402 transports keep ``{"status", "headers", "body"}``). Headers are
+#: metadata about the exchange: a 2xx whose only non-empty key is its headers is
+#: still an empty 2xx (#622). ``_headers`` is ``_``-prefixed and already ignored.
+_HEADER_KEYS = frozenset({"headers"})
+
 #: ``_``-prefixed keys that hold the body text a transport kept.
 _BODY_TEXT_KEYS = frozenset({"_body", "_raw", "_raw_sse"})
 
@@ -2168,8 +2203,8 @@ def empty_2xx(resp) -> bool:
     Shape-independent across this package's transports: the body lives in
     ``_body``/``_raw``/``_raw_sse`` (text), ``response`` (parsed), ``raw``/
     ``body`` (autogen), or merged at the top level (kill_switch, _utils). Any of
-    those carrying content makes it not empty. Only the status keys and other
-    ``_``-prefixed metadata are ignored.
+    those carrying content makes it not empty. Only the status keys, a
+    ``headers`` mapping and other ``_``-prefixed metadata are ignored.
     """
     if not isinstance(resp, dict) or resp.get("_error") or not answered(resp):
         return False
@@ -2183,10 +2218,13 @@ def empty_2xx(resp) -> bool:
 
 def _no_body(resp: dict) -> bool:
     """True when no body-bearing key of *resp* carries content, in any transport
-    shape (see :func:`empty_2xx`). Status keys and ``_`` metadata are ignored."""
+    shape (see :func:`empty_2xx`). Status keys, a ``headers`` mapping and ``_``
+    metadata are ignored."""
     for key, value in resp.items():
         key = str(key)
         if key in _STATUS_KEYS:
+            continue
+        if key in _HEADER_KEYS and isinstance(value, Mapping):
             continue
         if key.startswith("_") and key not in _BODY_TEXT_KEYS:
             continue

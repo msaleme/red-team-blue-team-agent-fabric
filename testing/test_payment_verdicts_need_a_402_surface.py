@@ -25,11 +25,20 @@ Truth table, each pole a real stdlib server on loopback:
                                                             tests FAIL
     200 to everything (resource served without payment)    graded, as before:
                                                             X4-001 / L4-001 FAIL
+    empty 200 / 204 to everything (#622)                   X4-001 / L4-001 FAIL;
+                                                            every other row
+                                                            INCONCLUSIVE
 
-The last row is deliberate. A 2xx on the protected resource is an observation
+The 200 row is deliberate. A 2xx on the protected resource is an observation
 about that resource (the paywall is absent or bypassable), so it is not the
 no-surface case, and the allow-all registers in test_permissive_host_state are
 unchanged by this rule.
+
+The empty-2xx row is owner decision 2026-09-26 on #622 (VrtxOmega): an unpaid
+request answered 2xx without a challenge FAILs the challenge check ("Expected
+HTTP 402, got 2xx": the paywall is absent), and nothing else is graded, because
+an empty body has nothing to grade. It narrows the 2xx row above to a 2xx that
+carries a body.
 """
 
 from __future__ import annotations
@@ -117,6 +126,10 @@ def _handler(kind: str):
                 status, headers, body = 403, {}, b"Forbidden"
             elif kind == "ok":
                 status, headers, body = 200, {"Content-Type": "application/json"}, b'{"data":"x"}'
+            elif kind == "empty-200":
+                status, headers, body = 200, {}, b""
+            elif kind == "empty-204":
+                status, headers, body = 204, {}, b""
             elif kind == "nonconformant":
                 status, headers, body = 402, {}, b"pay up"
             elif kind == "accept" and _paid(self.headers):
@@ -228,12 +241,56 @@ class A402SurfaceIsStillGraded(unittest.TestCase):
                 self.assertEqual(conformance - failing, set())
 
     def test_a_resource_served_without_payment_is_still_graded(self):
-        """2xx is not the no-surface case (see the module docstring)."""
+        """2xx is not the no-surface case (see the module docstring). A 200
+        with a body, an empty 200 and a 204 all FAIL the challenge checks
+        X4-001 and L4-001: an unpaid request was served without a payment
+        challenge (#609; owner decision 2026-09-26 on #622)."""
         for module, tid in (("x402", "X4-001"), ("l402", "L4-001")):
+            for kind, assertion in (("ok", "Expected HTTP 402, got 200"),
+                                    ("empty-200", "Expected HTTP 402, got 200"),
+                                    ("empty-204", "Expected HTTP 402, got 204")):
+                with self.subTest(module=module, pole=kind):
+                    outcome, detail = _run(module, kind)[tid]
+                    self.assertEqual(outcome, "FAIL")
+                    self.assertIn(assertion, detail)
+
+
+class AnEmpty2xxGradesOnlyTheChallengeCheck(unittest.TestCase):
+    """Owner decision 2026-09-26 (#622): on an empty 200 or 204 the challenge
+    checks FAIL and every other X4-*/L4-* row is INCONCLUSIVE."""
+
+    CHALLENGE = {"x402": "X4-001", "l402": "L4-001"}
+
+    def test_every_other_row_is_inconclusive(self):
+        for module, tid in self.CHALLENGE.items():
+            for kind in ("empty-200", "empty-204"):
+                with self.subTest(module=module, pole=kind):
+                    rows = _run(module, kind)
+                    self.assertGreaterEqual(len(rows), 33)
+                    graded = {t: o for t, (o, _d) in rows.items() if o != "INCONCLUSIVE"}
+                    self.assertEqual(graded, {tid: "FAIL"})
+
+    def test_the_detail_says_the_answer_was_empty(self):
+        for module, word in (("x402", "empty x402 answer"), ("l402", "empty L402 answer")):
+            for kind, status in (("empty-200", "status=200"), ("empty-204", "status=204")):
+                with self.subTest(module=module, pole=kind):
+                    rows = _run(module, kind)
+                    named = {t: d for t, (_o, d) in rows.items() if word in d}
+                    # Rows already INCONCLUSIVE for their own reason keep it.
+                    self.assertGreaterEqual(len(named), 25)
+                    self.assertNotIn(self.CHALLENGE[module], named)
+                    for tid, detail in named.items():
+                        self.assertIn(status, detail, tid)
+                        self.assertIn("Original finding:", detail, tid)
+
+    def test_a_200_with_a_body_keeps_the_609_rule(self):
+        """Only an EMPTY 2xx is narrowed: a served body is still graded."""
+        for module, word in (("x402", "empty x402 answer"), ("l402", "empty L402 answer")):
             with self.subTest(module=module):
-                outcome, detail = _run(module, "ok")[tid]
-                self.assertEqual(outcome, "FAIL")
-                self.assertIn("Expected HTTP 402, got 200", detail)
+                rows = _run(module, "ok")
+                graded = {t for t, (o, _d) in rows.items() if o != "INCONCLUSIVE"}
+                self.assertGreater(len(graded), 1)
+                self.assertFalse([t for t, (_o, d) in rows.items() if word in d])
 
 
 class TheProbeIsOnePerTransport(unittest.TestCase):
@@ -273,6 +330,20 @@ class ExitStatus(unittest.TestCase):
                     _cli(module, url, "--trials", "2", "--categories",
                          "payment_challenge" if module == "x402" else "invoice_validation"),
                     2)
+
+    def test_an_empty_2xx_exits_on_the_challenge_check_alone(self):
+        """Single run and `--trials`: the challenge check's FAIL exits 1; a
+        category with no challenge check has nothing graded and exits 2."""
+        for module, challenge_cat, other_cat in (
+                ("x402", "payment_challenge", "session_security"),
+                ("l402", "invoice_validation", "macaroon_integrity")):
+            for kind in ("empty-200", "empty-204"):
+                with self.subTest(module=module, pole=kind), _target(kind) as url:
+                    self.assertEqual(_cli(module, url), 1)
+                    self.assertEqual(_cli(module, url, "--trials", "2",
+                                          "--categories", challenge_cat), 1)
+                    self.assertEqual(_cli(module, url, "--trials", "2",
+                                          "--categories", other_cat), 2)
 
     def test_a_402_surface_still_exits_on_its_verdicts(self):
         for module in ("x402", "l402"):
