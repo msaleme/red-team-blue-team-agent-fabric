@@ -51,6 +51,7 @@ from protocol_tests.http_helpers import (
     console_status,
     looks_like_refusal,
     agent_prose,
+    contentless_answer,
     INCONCLUSIVE_PREFIX,
     instrument_transport,
     is_inconclusive,
@@ -88,8 +89,12 @@ class A2ATransport:
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
                 body = resp.read().decode("utf-8", errors="replace")
+                if not body.strip():
+                    # Keep the status: a bare `{}` hid an empty 200/204 from
+                    # http_helpers.empty_2xx, which needs a status (#622).
+                    return {"_status": resp.status}
                 try:
-                    return json.loads(body) if body else {}
+                    return json.loads(body)
                 except json.JSONDecodeError:
                     # A 200 with a non-JSON body — surface it as raw rather than masking
                     # it as an _error, so a path-traversal leak (e.g. /etc/passwd content)
@@ -120,8 +125,12 @@ class A2ATransport:
             with urllib.request.urlopen(req, timeout=15) as resp:
                 content_type = resp.headers.get("Content-Type", "")
                 body = resp.read().decode("utf-8")
+                if not body.strip():
+                    # An empty 2xx under any Content-Type: status kept so
+                    # http_helpers.empty_2xx can see it (#622).
+                    return {"_status": resp.status}
                 if "application/json" in content_type:
-                    return json.loads(body) if body else {}
+                    return json.loads(body)
                 elif "text/event-stream" in content_type:
                     # Parse SSE events
                     events = []
@@ -240,7 +249,10 @@ def _shows_a2a_surface(resp) -> bool:
         return False
     if _jsonrpc_envelope(resp) is not None:
         return True
-    if resp.get("_error"):
+    if resp.get("_error") or contentless_answer(resp):
+        # An empty 2xx (a 204, or no body) is not a surface either (#622,
+        # owner decision 2026-09-26): the status says something answered,
+        # and nothing in it says a JSON-RPC dispatcher did.
         return False
     status = resp.get("_status", 200)
     return isinstance(status, int) and 200 <= status < 300
@@ -250,13 +262,34 @@ def _served_agent_card(resp) -> bool:
     """Whether *resp* is an Agent Card the target actually served.
 
     A 2xx whose body parsed to a non-empty JSON object. An error, a non-JSON
-    body (``_raw``) and an empty object are not a card.
+    body (``_raw``), an empty object and a contentless answer
+    (``http_helpers.contentless_answer``, e.g. a 204 or a 200 with no body)
+    are not a card.
     """
     if not isinstance(resp, dict) or not _answered(resp) or resp.get("_error"):
         return False
-    if "_raw" in resp:
+    if "_raw" in resp or contentless_answer(resp):
         return False
-    return bool(resp)
+    return any(k != "_status" for k in resp)
+
+
+def _no_card_to_judge(resp) -> str | None:
+    """Why *resp* to the Agent Card GET carries no card to judge, or None.
+
+    Owner decision 2026-09-26 (#622, VrtxOmega): A2A-001 FAILs on a 404, the
+    #594 contract (a served "not here"). A redirect loop with no final answer,
+    an empty 5xx, and an empty 2xx (a 204, or a 200 with no body) are not a
+    card and not a statement that there is none, so A2A-001 is INCONCLUSIVE
+    on them. The shapes are ``http_helpers.contentless_answer``'s; this only
+    names them for the INCONCLUSIVE detail.
+    """
+    if not contentless_answer(resp):
+        return None
+    status = resp.get("_status")
+    if isinstance(status, int) and 300 <= status < 400:
+        return (f"HTTP {status}, a redirect that never reached a final answer "
+                f"(a redirect loop)")
+    return f"an empty HTTP {status}"
 
 
 def _status_summary(responses) -> str:
@@ -610,6 +643,28 @@ class A2ASecurityTests:
         t0 = time.monotonic()
         resp = self.transport.get(self.agent_card_path)
         elapsed = time.monotonic() - t0
+
+        no_card = _no_card_to_judge(resp)
+        if no_card:
+            # Owner decision 2026-09-26 (#622): a 404 is the one status that
+            # FAILs here (#594). A redirect loop, an empty 5xx or an empty
+            # 2xx is no Agent Card and no answer that there is none.
+            self._record(A2ATestResult(
+                test_id="A2A-001",
+                name="Agent Card Discovery",
+                category="agent_card",
+                owasp_asi="ASI03",
+                severity=Severity.HIGH.value,
+                passed=False,
+                details=(f"{INCONCLUSIVE_PREFIX}the Agent Card request drew "
+                         f"{no_card}, which carries no Agent Card to judge, "
+                         f"so neither the card's absence nor its integrity "
+                         f"was observed."),
+                a2a_method="GET /.well-known/agent.json",
+                response_received=resp,
+                elapsed_s=round(elapsed, 3),
+            ))
+            return
 
         if (resp.get("_error") and resp.get("_status") in (401, 403)
                 and not self._surface_present([])[0]):
