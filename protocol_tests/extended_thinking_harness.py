@@ -51,6 +51,7 @@ from datetime import datetime, timezone
 from protocol_tests._utils import Severity, http_post_json, jsonrpc_request, wilson_ci
 from protocol_tests.http_helpers import (
     bare_auth_refusal,
+    contentless_answer,
     exit_code,
     console_status,
     INCONCLUSIVE_PREFIX,
@@ -173,10 +174,18 @@ class ExtendedThinkingTests:
         confirmation-graded rows FAILed. A 401/403 carrying a JSON-RPC envelope
         is a protocol surface refusing, and is still graded
         (http_helpers.bare_auth_refusal).
+
+        #622 (VrtxOmega, 2026-09-26): also a response carrying nothing to judge
+        (http_helpers.contentless_answer) -- a redirect never followed to a
+        final answer, an empty 5xx, an empty 200/204. Each was read as an
+        introspection answer with every field absent: ET-003/004 PASSed and
+        ET-001/002/005/006 FAILed.
         """
         if resp.get("_status") == 404:
             return True
         if bare_auth_refusal(resp):
+            return True
+        if contentless_answer(resp):
             return True
         err = resp.get("error")
         if isinstance(err, dict) and err.get("code") == -32601:

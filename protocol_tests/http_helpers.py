@@ -2156,6 +2156,12 @@ def empty_2xx(resp) -> bool:
         return False
     if status == 204:
         return True
+    return _no_body(resp)
+
+
+def _no_body(resp: dict) -> bool:
+    """True when no body-bearing key of *resp* carries content, in any transport
+    shape (see :func:`empty_2xx`). Status keys and ``_`` metadata are ignored."""
     for key, value in resp.items():
         key = str(key)
         if key in _STATUS_KEYS:
@@ -2179,6 +2185,33 @@ def shows_surface(resp) -> bool:
     if not resp.get("_error") and 200 <= _status_of(resp) < 300:
         return not empty_2xx(resp)
     return served_refusal(resp)
+
+
+def contentless_answer(resp) -> bool:
+    """True when the target answered, but the answer carries nothing to judge.
+
+    #622 (VrtxOmega): the no-surface property -- no PASS or FAIL when the
+    response carries nothing a harness can judge -- did not hold for these
+    shapes, and on each the honest verdict is INCONCLUSIVE:
+
+      * a 3xx. The stdlib opener follows redirects, so a 3xx that reaches a
+        harness is one it could not follow to a final answer (a same-location
+        loop, a redirect limit). Nothing was served, whatever the 3xx body says.
+      * a 5xx with no body. "Legitimate initialize accepted" read off an empty
+        500 was the false-assurance row quoted on #622.
+      * an empty 2xx (:func:`empty_2xx`: a 204, or an empty body at any 2xx).
+
+    Not: silence (``silence_detail`` owns it), a 4xx (``served_refusal`` and
+    the per-module baseline rules own those), or a 2xx/5xx that carries a body.
+    """
+    if not isinstance(resp, dict) or not answered(resp):
+        return False
+    status = _status_of(resp)
+    if 300 <= status < 400:
+        return True
+    if status >= 500:
+        return _no_body(resp)
+    return empty_2xx(resp)
 
 
 class SurfaceGate:

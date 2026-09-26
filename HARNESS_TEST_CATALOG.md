@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `1505c7f`
+**Generated:** `scripts/generate_test_catalog.py` at commit `283de1d`
 **Test count:** 640 unique test IDs across 49 registered harness modules (48 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -309,12 +309,12 @@ ZD-002 | Mass Ticket Closure (Competitor Sabotage) | protocol_tests/extended_ent
 ### Extended Thinking (`protocol_tests/extended_thinking_harness.py`) — 6 tests
 
 ```
-ET-001 | Tampered Thinking-Block Signature Accepted | protocol_tests/extended_thinking_harness.py:222
-ET-002 | Missing Thinking Block Before Tool-Result Turn Accepted | protocol_tests/extended_thinking_harness.py:309
-ET-003 | Redacted-Thinking Payload Exposed to End User | protocol_tests/extended_thinking_harness.py:402
-ET-004 | Intermediate Reasoning Exposed Mid-Tool-Chain | protocol_tests/extended_thinking_harness.py:495
-ET-005 | Cross-Conversation Signature Replay Accepted | protocol_tests/extended_thinking_harness.py:580
-ET-006 | Silent Thinking-Budget Truncation | protocol_tests/extended_thinking_harness.py:663
+ET-001 | Tampered Thinking-Block Signature Accepted | protocol_tests/extended_thinking_harness.py:231
+ET-002 | Missing Thinking Block Before Tool-Result Turn Accepted | protocol_tests/extended_thinking_harness.py:318
+ET-003 | Redacted-Thinking Payload Exposed to End User | protocol_tests/extended_thinking_harness.py:411
+ET-004 | Intermediate Reasoning Exposed Mid-Tool-Chain | protocol_tests/extended_thinking_harness.py:504
+ET-005 | Cross-Conversation Signature Replay Accepted | protocol_tests/extended_thinking_harness.py:589
+ET-006 | Silent Thinking-Budget Truncation | protocol_tests/extended_thinking_harness.py:672
 ```
 
 ### Framework Adapters (`protocol_tests/framework_adapters.py`) — 15 tests
@@ -643,31 +643,31 @@ MAG-019 | Delegated Spend Bound Discrimination | protocol_tests/multi_agent_harn
 ### Over-Refusal (`protocol_tests/over_refusal_harness.py`) — 25 tests
 
 ```
-OR-001 | Valid MCP Initialize Handshake | protocol_tests/over_refusal_harness.py:570
-OR-002 | Valid MCP Tools List | protocol_tests/over_refusal_harness.py:587
-OR-003 | Valid MCP Tool Call | protocol_tests/over_refusal_harness.py:607
-OR-004 | Valid MCP Prompts List | protocol_tests/over_refusal_harness.py:624
-OR-005 | Valid MCP Resources List | protocol_tests/over_refusal_harness.py:641
-OR-006 | Valid A2A Agent Card Discovery | protocol_tests/over_refusal_harness.py:661
-OR-007 | Valid A2A Task Delegation | protocol_tests/over_refusal_harness.py:683
-OR-008 | Valid A2A Task Status Check | protocol_tests/over_refusal_harness.py:702
-OR-009 | Valid A2A Message with Context | protocol_tests/over_refusal_harness.py:730
-OR-010 | Valid A2A Task Cancel | protocol_tests/over_refusal_harness.py:749
-OR-011 | Valid L402 Invoice Request | protocol_tests/over_refusal_harness.py:771
-OR-012 | Valid L402 Macaroon Format Presentation | protocol_tests/over_refusal_harness.py:802
-OR-013 | Valid L402 Preimage Presentation | protocol_tests/over_refusal_harness.py:832
-OR-014 | Valid L402 Resource-Specific Request | protocol_tests/over_refusal_harness.py:849
-OR-015 | Valid L402 Ask Endpoint | protocol_tests/over_refusal_harness.py:875
-OR-016 | Valid x402 Payment Challenge | protocol_tests/over_refusal_harness.py:896
-OR-017 | Valid x402 USDC Payment Header | protocol_tests/over_refusal_harness.py:928
-OR-018 | Valid x402 Receipt Verification | protocol_tests/over_refusal_harness.py:950
-OR-019 | Valid x402 Pricing Discovery | protocol_tests/over_refusal_harness.py:967
-OR-020 | Valid x402 Payment Options Request | protocol_tests/over_refusal_harness.py:993
-OR-021 | Long but Valid Parameters | protocol_tests/over_refusal_harness.py:1026
-OR-022 | Special Characters in Valid Fields | protocol_tests/over_refusal_harness.py:1050
-OR-023 | Unicode in Valid Content | protocol_tests/over_refusal_harness.py:1076
-OR-024 | Rapid Sequential Legitimate Requests | protocol_tests/over_refusal_harness.py:1099
-OR-025 | Large but Valid JSON Payload | protocol_tests/over_refusal_harness.py:1123
+OR-001 | Valid MCP Initialize Handshake | protocol_tests/over_refusal_harness.py:591
+OR-002 | Valid MCP Tools List | protocol_tests/over_refusal_harness.py:608
+OR-003 | Valid MCP Tool Call | protocol_tests/over_refusal_harness.py:628
+OR-004 | Valid MCP Prompts List | protocol_tests/over_refusal_harness.py:645
+OR-005 | Valid MCP Resources List | protocol_tests/over_refusal_harness.py:662
+OR-006 | Valid A2A Agent Card Discovery | protocol_tests/over_refusal_harness.py:682
+OR-007 | Valid A2A Task Delegation | protocol_tests/over_refusal_harness.py:704
+OR-008 | Valid A2A Task Status Check | protocol_tests/over_refusal_harness.py:723
+OR-009 | Valid A2A Message with Context | protocol_tests/over_refusal_harness.py:751
+OR-010 | Valid A2A Task Cancel | protocol_tests/over_refusal_harness.py:770
+OR-011 | Valid L402 Invoice Request | protocol_tests/over_refusal_harness.py:792
+OR-012 | Valid L402 Macaroon Format Presentation | protocol_tests/over_refusal_harness.py:823
+OR-013 | Valid L402 Preimage Presentation | protocol_tests/over_refusal_harness.py:853
+OR-014 | Valid L402 Resource-Specific Request | protocol_tests/over_refusal_harness.py:870
+OR-015 | Valid L402 Ask Endpoint | protocol_tests/over_refusal_harness.py:896
+OR-016 | Valid x402 Payment Challenge | protocol_tests/over_refusal_harness.py:917
+OR-017 | Valid x402 USDC Payment Header | protocol_tests/over_refusal_harness.py:949
+OR-018 | Valid x402 Receipt Verification | protocol_tests/over_refusal_harness.py:971
+OR-019 | Valid x402 Pricing Discovery | protocol_tests/over_refusal_harness.py:988
+OR-020 | Valid x402 Payment Options Request | protocol_tests/over_refusal_harness.py:1014
+OR-021 | Long but Valid Parameters | protocol_tests/over_refusal_harness.py:1047
+OR-022 | Special Characters in Valid Fields | protocol_tests/over_refusal_harness.py:1071
+OR-023 | Unicode in Valid Content | protocol_tests/over_refusal_harness.py:1097
+OR-024 | Rapid Sequential Legitimate Requests | protocol_tests/over_refusal_harness.py:1120
+OR-025 | Large but Valid JSON Payload | protocol_tests/over_refusal_harness.py:1144
 ```
 
 ### Prompt Caching (`protocol_tests/prompt_caching_harness.py`) — 6 tests
