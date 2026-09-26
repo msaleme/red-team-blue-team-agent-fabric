@@ -42,6 +42,7 @@ from protocol_tests.http_helpers import (
     INCONCLUSIVE_PREFIX,
     _err,
     agent_prose,
+    contentless_detail,
     http_post_json,
     inconclusive_detail,
     is_inconclusive,
@@ -242,6 +243,11 @@ class IntentContractTests:
         # same defect stayed live in four others for that reason.
         _rr = getattr(result, "response_received", None)
         _d = inconclusive_detail(_rr, result.details)
+        # #622 (VrtxOmega): an empty 200/204 is serviced, and INT-001 read its
+        # missing declaration as "does not declare intent". No body, nothing
+        # observed.
+        if _d is None:
+            _d = contentless_detail([_rr], result.details)
         if _d is not None:
             result.passed = False
             result.not_evaluated = True

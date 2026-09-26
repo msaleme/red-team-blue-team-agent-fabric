@@ -41,6 +41,7 @@ from protocol_tests.http_helpers import (
     console_status,
     agent_prose,
     INCONCLUSIVE_PREFIX,
+    contentless_detail,
     inconclusive_detail,
     is_inconclusive,
     looks_like_refusal,
@@ -303,6 +304,11 @@ class CapabilityProfileTests:
         # bare 100%: it presents the absence of a target as a measurement.
         _rr = getattr(result, "response_received", None)
         _d = inconclusive_detail(_rr, result.details)
+        # #622 (VrtxOmega): an empty 200/204 is serviced, and CP-001/009 read
+        # its missing declaration as "declares no capability profile". No
+        # body, nothing observed.
+        if _d is None:
+            _d = contentless_detail([_rr], result.details)
         if _d is not None:
             result.passed = False
             result.not_evaluated = True

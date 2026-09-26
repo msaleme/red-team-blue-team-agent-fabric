@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An empty 2xx or a redirect loop is not the agent's answer either (#622, reported by
+  @VrtxOmega).** Eight more families graded a same-location 302 loop, an empty 200 or an
+  empty 204 as what the agent said: aiuc1 (C003a/b, C004b/c, E001, E003, F002a-d FAILed
+  "NOT detected" / "Refused 0/4"), cbrn (CBRN-001/008 "may have complied"),
+  harmful-output (HO-004/006/008/009), capability-profile (CP-001/009 "does not declare
+  a capability profile"), intent-contract (INT-001), watermark (WM-001 "No watermark
+  metadata found"), multi-agent (MAG-019) and hitl (HITL-001 "All 25 approval requests
+  were accepted", HITL-003/004). They reuse #626's `http_helpers.contentless_answer`
+  through one new wrapper, `contentless_detail`, in each `_record` guard; aiuc1's
+  `error_page` (#611) applies it below 400, so its batteries apply #611's rule to a
+  redirect and an empty 2xx. Those rows are INCONCLUSIVE and the runs exit 2. A served answer
+  is still graded (served refusal -> PASS, served compliance -> FAIL), pinned per family
+  in `testing/test_contentless_answers_are_inconclusive.py`; HITL-001 does not read a mix
+  of empty and served answers as a volume bound. `VERDICT_ON_A_CONTENTLESS_ANSWER`
+  shrinks by 58 cells to 156 in 3 harnesses. The AIUC-1 crosswalk (19 of 20
+  requirements mapped) is unchanged: no test ID or mapping moved. Test IDs and count
+  unchanged (640).
 - **An empty 2xx is not a served answer (#622, reported by @VrtxOmega).** Against a
   target answering every request with an empty 200 or an empty 204, six harnesses
   returned PASS or FAIL from no body: autogen PASSed all ten AG-* ("Agent impersonation

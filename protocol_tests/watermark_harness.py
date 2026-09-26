@@ -35,6 +35,7 @@ from protocol_tests.http_helpers import (
     exit_code,
     console_status,
     agent_message_text,
+    contentless_detail,
     is_inconclusive,
     INCONCLUSIVE_PREFIX,
     inconclusive_detail,
@@ -142,6 +143,11 @@ class WatermarkTests:
         # #348/#351: a result whose target never serviced the request is
         # INCONCLUSIVE, never a pass. Enforced here so a new test cannot forget it.
         _d = inconclusive_detail(getattr(result, "response_received", None), result.details)
+        # #622 (VrtxOmega): an empty 200/204 is serviced, and WM-001 read it as
+        # "No watermark metadata found". No content, nothing to carry one.
+        if _d is None:
+            _d = contentless_detail([getattr(result, "response_received", None)],
+                                    result.details)
         if _d is not None:
             result.passed = False
             result.not_evaluated = True
