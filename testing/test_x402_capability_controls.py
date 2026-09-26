@@ -52,7 +52,9 @@ from protocol_tests.x402_harness import X402SecurityTests, X402Transport
 DEAD = lambda p, h: {"_error": True, "_exception": "conn refused", "status": 0}
 NO_CAPABILITY = lambda p, h: {"status": 402}
 HEADER_ONLY = lambda p, h: {"status": 200 if "X-Payment-Authorization" in h else 402}
-ACCEPTS_ALL = lambda p, h: {"status": 200}
+# Serves content: a bare {"status": 200} is an empty 2xx, where only X4-001 is
+# graded (owner decision 2026-09-26 on #622), so it cannot be the FAIL control.
+ACCEPTS_ALL = lambda p, h: {"status": 200, "headers": {}, "body": '{"data": "premium content"}'}
 
 
 class _Fake(X402Transport):

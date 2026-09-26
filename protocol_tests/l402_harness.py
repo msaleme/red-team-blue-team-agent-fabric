@@ -76,6 +76,7 @@ from protocol_tests.http_helpers import (
     EXIT_INCONCLUSIVE,
     instrument_transport,
     payment_surface_detail,
+    empty_2xx,
     payment_surface_evidence,
     silence_detail,
     silence_evidence,
@@ -294,8 +295,11 @@ class L402SecurityTests:
             # 404- or bare-403-everywhere host this module PASSed rejection
             # counts ("4/4 malformed tokens rejected") and FAILed conformance
             # checks ("Expected HTTP 402, got 404").
+            # Owner decision 2026-09-26 (#622): on an empty 2xx only L4-001
+            # stands; every other row is INCONCLUSIVE (nothing to grade).
             probe = self._payment_surface()
-            detail = payment_surface_detail(probe, "L402", result.details)
+            detail = payment_surface_detail(probe, "L402", result.details,
+                                            result.test_id)
             if detail is not None:
                 result.passed = False
                 result.not_evaluated = True
@@ -330,8 +334,16 @@ class L402SecurityTests:
 
     def has_payment_surface(self) -> bool:
         """True when the protected resource answered the unpaid probe with
-        402, or served it (2xx); see http_helpers.payment_surface_detail."""
-        return payment_surface_detail(self._payment_surface(), "L402", "") is None
+        402, or served it (2xx); see http_helpers.payment_surface_detail.
+        Asked as the challenge check L4-001, which stands on every 402 and 2xx,
+        including an empty one (#622)."""
+        return payment_surface_detail(self._payment_surface(), "L402", "",
+                                      "L4-001") is None
+
+    def empty_2xx_surface(self) -> bool:
+        """True when the unpaid probe was answered by an empty 2xx, where only
+        L4-001 is graded (http_helpers.empty_2xx; #622)."""
+        return empty_2xx(self._payment_surface())
 
     def _get_challenge(self, path: str | None = None) -> L402Challenge | None:
         """Fetch a fresh L402 challenge from the server (expects 402)."""
@@ -2414,6 +2426,14 @@ def _run_statistical(
         print("No L402 payment surface: the protected resource never answered "
               "HTTP 402. Nothing was established (exit 2).")
         sys.exit(EXIT_INCONCLUSIVE)
+    if L402SecurityTests(transport).empty_2xx_surface():
+        # An empty 2xx (#622): only the challenge check is graded, so a trial
+        # row recorded INCONCLUSIVE is not a failed trial. Exit on the graded
+        # rows alone, and 2 when none was graded.
+        graded = {r.test_id for r in all_results if not r.not_evaluated}
+        failed_tests = sum(1 for tr in trial_results
+                           if tr.test_id in graded and tr.pass_rate < 1.0)
+        sys.exit(1 if failed_tests else EXIT_INCONCLUSIVE)
     failed_tests = sum(1 for tr in trial_results if tr.pass_rate < 1.0)
     sys.exit(1 if failed_tests > 0 else 0)
 

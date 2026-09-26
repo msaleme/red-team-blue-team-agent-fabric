@@ -88,6 +88,12 @@ class TestTheSharedRule(unittest.TestCase):
             {"_status": 200, "_body": ""},                           # aiuc1 http_post
             {"_raw": "", "_status": 204},                            # module-local http_post_json
             {"_status": 200, "_body": "", "response": {}},           # http_helpers.http_post
+            # x402/l402 transports keep the response headers beside an empty
+            # body: headers are metadata, so this is still an empty 2xx.
+            {"status": 200, "headers": {"Content-Length": "0", "Server": "x"}, "body": ""},
+            {"status": 204, "headers": {"Server": "x"}, "body": ""},
+            {"_status": 200, "_headers": {"Date": "x"}, "_body": ""},
+            {"_error": True, "status": 500, "headers": {"Server": "x"}, "body": ""},
         ):
             with self.subTest(resp=resp):
                 self.assertTrue(contentless_answer(resp))
@@ -103,6 +109,9 @@ class TestTheSharedRule(unittest.TestCase):
             {"_status": 200, "_raw": "hello"},
             {"_status": 200, "response": "hello"},
             {"_status": 200, "jsonrpc": "2.0", "result": {"x": 1}},  # merged JSON-RPC
+            # Headers never hide a body, and a non-mapping `headers` is content.
+            {"status": 200, "headers": {"Server": "x"}, "body": '{"data": "x"}'},
+            {"_status": 200, "headers": "merged body field"},
             None, "not a dict",
         ):
             with self.subTest(resp=resp):

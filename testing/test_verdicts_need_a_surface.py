@@ -273,20 +273,20 @@ CONTENTLESS_CONTRACT_CONSISTENT = {
         "FAIL", _PAY_PIN, "Expected HTTP 402, got 200",
         ("#609 owner decision: an unpaid request answered 2xx means the protected "
          "resource is served without an L402 challenge; the status is the finding")),
+    "X4-001@empty-204": (
+        "FAIL", _PAY_PIN, "Expected HTTP 402, got 204",
+        ("owner decision 2026-09-26 on #622: an unpaid request answered 204 was "
+         "served without a payment challenge (paywall absent); the status is the finding")),
+    "L4-001@empty-204": (
+        "FAIL", _PAY_PIN, "Expected HTTP 402, got 204",
+        ("owner decision 2026-09-26 on #622: an unpaid request answered 204 was "
+         "served without an L402 challenge (paywall absent); the status is the finding")),
 }
 
 #: Why each family is on the #622 register. Dated; every registered family must
 #: have one and none may be orphaned.
 _622 = "2026-09-26. #622 (VrtxOmega), measured at b06aa33: "
 CONTENTLESS_FAMILY_REASONS = {
-    "l402_harness": _622 + (
-        "23 FAIL and 2 PASS registered on empty 200 (L4-001 excepted), 13 FAIL "
-        "and 13 PASS on empty 204: the #609 2xx rule lets every L4-* row grade "
-        "a bare 2xx; only L4-001 on empty 200 is pinned"),
-    "x402_harness": _622 + (
-        "44 FAIL and 3 PASS registered on empty 200 (X4-001 excepted), 6 FAIL and 40 "
-        "PASS on empty 204 ('5/5 malformed authorizations rejected'): the #609 "
-        "2xx rule grades a bare 2xx; only X4-001 on empty 200 is pinned"),
 }
 
 #: Measured 2026-09-26 at b06aa33 with scripts/no_surface_sweep.py: every
@@ -334,153 +334,17 @@ CONTENTLESS_FAMILY_REASONS = {
 #: via contentless_detail in each module's _record, and aiuc1's error_page.
 #: Pinned per family, with served PASS and FAIL controls and exit 2, in
 #: testing/test_contentless_answers_are_inconclusive.py.
+#:
+#: Removed 2026-09-26 (fix/contentless-g4-payment-empty-2xx), 144 cells, every
+#: X4-*/L4-* PASS/FAIL on empty-200/204: x402_harness 93 (empty-200 44 FAIL,
+#: 3 PASS; empty-204 6 FAIL, 40 PASS) and l402_harness 51 (empty-200 23 FAIL,
+#: 2 PASS; empty-204 13 FAIL, 13 PASS), now INCONCLUSIVE. Owner decision
+#: 2026-09-26 on #622: on an empty 2xx only the challenge checks stand
+#: (http_helpers.PAYMENT_CHALLENGE_CHECKS), so X4-001@empty-204 and
+#: L4-001@empty-204 move to CONTENTLESS_CONTRACT_CONSISTENT beside the two
+#: empty-200 entries. Pinned, with 402-surface PASS/FAIL controls, in
+#: testing/test_payment_verdicts_need_a_402_surface.py.
 VERDICT_ON_A_CONTENTLESS_ANSWER = {
-    # l402_harness (51)
-    "L4-002@empty-200": "FAIL",
-    "L4-003@empty-200": "FAIL",
-    "L4-004@empty-200": "FAIL",
-    "L4-005@empty-200": "FAIL",
-    "L4-006@empty-200": "FAIL",
-    "L4-007@empty-200": "FAIL",
-    "L4-009@empty-200": "FAIL",
-    "L4-010@empty-200": "FAIL",
-    "L4-011@empty-200": "FAIL",
-    "L4-015@empty-200": "FAIL",
-    "L4-016@empty-200": "FAIL",
-    "L4-017@empty-200": "FAIL",
-    "L4-018@empty-200": "FAIL",
-    "L4-019@empty-200": "FAIL",
-    "L4-020@empty-200": "FAIL",
-    "L4-021@empty-200": "FAIL",
-    "L4-022@empty-200": "FAIL",
-    "L4-023@empty-200": "FAIL",
-    "L4-025@empty-200": "FAIL",
-    "L4-027@empty-200": "FAIL",
-    "L4-029@empty-200": "PASS",
-    "L4-030@empty-200": "FAIL",
-    "L4-031@empty-200": "PASS",
-    "L4-032@empty-200": "FAIL",
-    "L4-033@empty-200": "FAIL",
-    "L4-001@empty-204": "FAIL",
-    "L4-002@empty-204": "PASS",
-    "L4-003@empty-204": "PASS",
-    "L4-004@empty-204": "FAIL",
-    "L4-005@empty-204": "FAIL",
-    "L4-006@empty-204": "FAIL",
-    "L4-007@empty-204": "PASS",
-    "L4-009@empty-204": "FAIL",
-    "L4-010@empty-204": "FAIL",
-    "L4-011@empty-204": "PASS",
-    "L4-015@empty-204": "FAIL",
-    "L4-016@empty-204": "FAIL",
-    "L4-017@empty-204": "FAIL",
-    "L4-018@empty-204": "FAIL",
-    "L4-019@empty-204": "PASS",
-    "L4-020@empty-204": "PASS",
-    "L4-021@empty-204": "PASS",
-    "L4-022@empty-204": "FAIL",
-    "L4-023@empty-204": "PASS",
-    "L4-025@empty-204": "PASS",
-    "L4-027@empty-204": "PASS",
-    "L4-029@empty-204": "PASS",
-    "L4-030@empty-204": "FAIL",
-    "L4-031@empty-204": "PASS",
-    "L4-032@empty-204": "PASS",
-    "L4-033@empty-204": "FAIL",
-    # x402_harness (93)
-    "X4-002@empty-200": "FAIL",
-    "X4-003@empty-200": "FAIL",
-    "X4-004@empty-200": "FAIL",
-    "X4-005@empty-200": "FAIL",
-    "X4-006@empty-200": "FAIL",
-    "X4-008@empty-200": "FAIL",
-    "X4-009@empty-200": "FAIL",
-    "X4-010@empty-200": "PASS",
-    "X4-012@empty-200": "FAIL",
-    "X4-013@empty-200": "FAIL",
-    "X4-014@empty-200": "FAIL",
-    "X4-015@empty-200": "FAIL",
-    "X4-016@empty-200": "FAIL",
-    "X4-017@empty-200": "PASS",
-    "X4-019@empty-200": "FAIL",
-    "X4-020@empty-200": "FAIL",
-    "X4-021@empty-200": "FAIL",
-    "X4-022@empty-200": "FAIL",
-    "X4-023@empty-200": "FAIL",
-    "X4-024@empty-200": "FAIL",
-    "X4-025@empty-200": "FAIL",
-    "X4-026@empty-200": "FAIL",
-    "X4-027@empty-200": "FAIL",
-    "X4-031@empty-200": "FAIL",
-    "X4-032@empty-200": "FAIL",
-    "X4-033@empty-200": "FAIL",
-    "X4-034@empty-200": "FAIL",
-    "X4-035@empty-200": "FAIL",
-    "X4-036@empty-200": "FAIL",
-    "X4-037@empty-200": "FAIL",
-    "X4-038@empty-200": "FAIL",
-    "X4-039@empty-200": "FAIL",
-    "X4-040@empty-200": "FAIL",
-    "X4-041@empty-200": "FAIL",
-    "X4-043@empty-200": "FAIL",
-    "X4-044@empty-200": "FAIL",
-    "X4-045@empty-200": "FAIL",
-    "X4-046@empty-200": "FAIL",
-    "X4-047@empty-200": "FAIL",
-    "X4-048@empty-200": "FAIL",
-    "X4-049@empty-200": "FAIL",
-    "X4-050@empty-200": "FAIL",
-    "X4-051@empty-200": "FAIL",
-    "X4-052@empty-200": "FAIL",
-    "X4-053@empty-200": "PASS",
-    "X4-056@empty-200": "FAIL",
-    "X4-057@empty-200": "FAIL",
-    "X4-001@empty-204": "FAIL",
-    "X4-002@empty-204": "PASS",
-    "X4-003@empty-204": "PASS",
-    "X4-004@empty-204": "FAIL",
-    "X4-005@empty-204": "PASS",
-    "X4-006@empty-204": "PASS",
-    "X4-008@empty-204": "PASS",
-    "X4-009@empty-204": "PASS",
-    "X4-010@empty-204": "PASS",
-    "X4-012@empty-204": "PASS",
-    "X4-013@empty-204": "FAIL",
-    "X4-014@empty-204": "PASS",
-    "X4-015@empty-204": "PASS",
-    "X4-016@empty-204": "PASS",
-    "X4-017@empty-204": "PASS",
-    "X4-019@empty-204": "PASS",
-    "X4-020@empty-204": "PASS",
-    "X4-021@empty-204": "FAIL",
-    "X4-022@empty-204": "FAIL",
-    "X4-023@empty-204": "FAIL",
-    "X4-024@empty-204": "PASS",
-    "X4-025@empty-204": "PASS",
-    "X4-026@empty-204": "PASS",
-    "X4-027@empty-204": "PASS",
-    "X4-031@empty-204": "PASS",
-    "X4-032@empty-204": "PASS",
-    "X4-033@empty-204": "PASS",
-    "X4-034@empty-204": "PASS",
-    "X4-035@empty-204": "PASS",
-    "X4-036@empty-204": "PASS",
-    "X4-037@empty-204": "PASS",
-    "X4-038@empty-204": "PASS",
-    "X4-039@empty-204": "PASS",
-    "X4-040@empty-204": "PASS",
-    "X4-041@empty-204": "PASS",
-    "X4-043@empty-204": "PASS",
-    "X4-044@empty-204": "PASS",
-    "X4-045@empty-204": "PASS",
-    "X4-046@empty-204": "PASS",
-    "X4-047@empty-204": "PASS",
-    "X4-048@empty-204": "PASS",
-    "X4-049@empty-204": "PASS",
-    "X4-050@empty-204": "PASS",
-    "X4-051@empty-204": "PASS",
-    "X4-052@empty-204": "PASS",
-    "X4-053@empty-204": "PASS",
 }
 
 NO_VERDICT = no_surface_sweep.NO_VERDICT
@@ -1054,9 +918,15 @@ class TestTheReadmeStatesTheContentlessRegister(unittest.TestCase):
         owner = _owner_of(_contentless_cells())
         families = {owner[k.rpartition("@")[0]] for k in VERDICT_ON_A_CONTENTLESS_ANSWER}
         per_pole = Counter(k.rpartition("@")[2] for k in VERDICT_ON_A_CONTENTLESS_ANSWER)
+        if not VERDICT_ON_A_CONTENTLESS_ANSWER:
+            # An empty register is stated as such, and no count may survive it.
+            self.assertIn("`VERDICT_ON_A_CONTENTLESS_ANSWER`, which is **empty**", readme)
+            self.assertNotIn("`VERDICT_ON_A_CONTENTLESS_ANSWER`, which holds", readme)
+            return
         self.assertIn(f"`VERDICT_ON_A_CONTENTLESS_ANSWER`, which holds "
                       f"**{len(VERDICT_ON_A_CONTENTLESS_ANSWER)} cells in "
-                      f"{len(families)} harnesses**", readme)
+                      f"{len(families)} harness{'' if len(families) == 1 else 'es'}**",
+                      readme)
         stated = (f"(redirect loop {per_pole['redirect-loop']}, empty 500 "
                   f"{per_pole['empty-500']}, empty 200 {per_pole['empty-200']}, "
                   f"empty 204 {per_pole['empty-204']})")

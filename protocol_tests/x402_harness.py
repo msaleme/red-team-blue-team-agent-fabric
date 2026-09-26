@@ -97,6 +97,7 @@ from protocol_tests.http_helpers import (
     INCONCLUSIVE_PREFIX,
     instrument_transport,
     payment_surface_detail,
+    empty_2xx,
     payment_surface_evidence,
     EXIT_INCONCLUSIVE,
     silence_detail,
@@ -403,8 +404,11 @@ class X402SecurityTests:
             # 404- or bare-403-everywhere host this module PASSed 41 rejection
             # counts ("5/5 malformed authorizations rejected") and FAILed six
             # conformance checks ("Expected HTTP 402, got 404").
+            # Owner decision 2026-09-26 (#622): on an empty 2xx only X4-001
+            # stands; every other row is INCONCLUSIVE (nothing to grade).
             probe = self._payment_surface()
-            detail = payment_surface_detail(probe, "x402", result.details)
+            detail = payment_surface_detail(probe, "x402", result.details,
+                                            result.test_id)
             if detail is not None:
                 result.passed = False
                 result.not_evaluated = True
@@ -440,8 +444,16 @@ class X402SecurityTests:
 
     def has_payment_surface(self) -> bool:
         """True when the protected resource answered the unpaid probe with
-        402, or served it (2xx); see http_helpers.payment_surface_detail."""
-        return payment_surface_detail(self._payment_surface(), "x402", "") is None
+        402, or served it (2xx); see http_helpers.payment_surface_detail.
+        Asked as the challenge check X4-001, which stands on every 402 and 2xx,
+        including an empty one (#622)."""
+        return payment_surface_detail(self._payment_surface(), "x402", "",
+                                      "X4-001") is None
+
+    def empty_2xx_surface(self) -> bool:
+        """True when the unpaid probe was answered by an empty 2xx, where only
+        X4-001 is graded (http_helpers.empty_2xx; #622)."""
+        return empty_2xx(self._payment_surface())
 
     @property
     def _paid_path(self) -> str:
@@ -1835,6 +1847,9 @@ class X402SecurityTests:
         parsed_url = urllib.parse.urlparse(self.transport.base_url)
         base_origin = f"{parsed_url.scheme}://{parsed_url.netloc}"
         revocation_transport = X402Transport(base_origin)
+        # Its answers are this test's evidence, so _record must see them: an
+        # empty 200 here was graded "non-JSON body" with nothing in _seen (#622).
+        instrument_transport(revocation_transport, self._seen)
         rev_resp = revocation_transport.get("/.well-known/oatr-revocation.json", timeout=10.0)
 
         if rev_resp.get("status") == 200:
@@ -1861,6 +1876,7 @@ class X402SecurityTests:
                         # Try fetching the revocation URL from the attestation
                         try:
                             rev_transport = X402Transport(rev_url)
+                            instrument_transport(rev_transport, self._seen)
                             rev_resp2 = rev_transport.get(timeout=10.0)
                             if rev_resp2.get("status") == 200:
                                 revocation_functional = True
@@ -4036,6 +4052,14 @@ def _run_statistical(
         print("No x402 payment surface: the protected resource never answered "
               "HTTP 402. Nothing was established (exit 2).")
         sys.exit(EXIT_INCONCLUSIVE)
+    if last_suite.empty_2xx_surface():
+        # An empty 2xx (#622): only the challenge check is graded, so a trial
+        # row recorded INCONCLUSIVE is not a failed trial. Exit on the graded
+        # rows alone, and 2 when none was graded.
+        graded = {r.test_id for r in all_results if not r.not_evaluated}
+        failed_tests = sum(1 for tr in trial_results
+                           if tr.test_id in graded and tr.pass_rate < 1.0)
+        sys.exit(1 if failed_tests else EXIT_INCONCLUSIVE)
     failed_tests = sum(1 for tr in trial_results if tr.pass_rate < 1.0)
     sys.exit(1 if failed_tests > 0 else 0)
 
