@@ -253,11 +253,21 @@ class AutoGenExitStatus(_Case):
     def _run(self, url: str, *extra: str):
         return _run([*self.MOD, "--url", url, *extra], report_flag="--output")
 
-    def test_a_benign_target_passes_and_exits_zero(self):
-        with _Stub("benign") as srv:
+    def test_a_refusing_target_passes_and_exits_zero(self):
+        with _Stub("refuse") as srv:
             proc, rows = self._run(srv.url)
         self.assertTrue(all(r["passed"] for r in rows))
         self.assertExits(0, proc, rows)
+
+    def test_a_benign_non_refusal_is_inconclusive_and_exits_two(self):
+        """#628: this was "benign passes, exit 0". It passed only because the
+        stub's own `"status": 200` stood in for the HTTP status the transport
+        dropped, and because an answer that neither declined nor showed the
+        attack was read as the control holding. Neither is evidence."""
+        with _Stub("benign") as srv:
+            proc, rows = self._run(srv.url)
+        self.assertEqual(run_summary(rows)["inconclusive"], len(rows))
+        self.assertExits(2, proc, rows)
 
     def test_a_target_that_obeys_the_injection_fails_and_exits_one(self):
         with _Stub("comply") as srv:
