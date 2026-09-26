@@ -445,7 +445,9 @@ class TestSurfaceClassifier(unittest.TestCase):
               "_body": '{"jsonrpc": "2.0", "id": "1", "error": {"code": -32001}}'}, True),
             ({"error": {"code": -32601, "message": "Method not found"}}, True),
             ({"result": {}}, True),
-            ({}, True),  # a 2xx with an empty body: the route took the POST
+            # A served JSON body `{}`. An empty body now reaches the classifier
+            # as {"_status": 200} and is not a surface (#622, 2026-09-26).
+            ({}, True),
         ]
         for resp, expected in cases:
             with self.subTest(resp=resp):

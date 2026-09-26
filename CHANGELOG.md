@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A2A: an empty answer is no Agent Card and no JSON-RPC surface (#622, reported by
+  @VrtxOmega; owner decision 2026-09-26).** Against a target answering every request
+  with a same-location redirect loop, an empty 500, an empty 200 or an empty 204,
+  A2A-001 FAILed ("Could not fetch Agent Card", "Missing fields") and A2A-004/007/008/009
+  FAILed on the empty 2xx, which `_shows_a2a_surface` counted as a served JSON-RPC
+  endpoint. A contentless answer (`http_helpers.contentless_answer`: a 3xx the transport
+  could not follow, an empty 5xx, an empty 2xx) is now neither a surface nor a served
+  card, and the transport keeps the status on an empty body so the predicate can see it
+  (an empty body was `{}`). A2A-001 is INCONCLUSIVE on those shapes and FAILs only on a
+  404 (the #594 contract, unchanged).
+  A served card with the attack refused still PASSes, a served compliance still FAILs,
+  and the bare 401/403 rule (#601) and the refusing-host pins (403 + JSON-RPC envelope)
+  are unchanged. `VERDICT_ON_A_CONTENTLESS_ANSWER` shrinks by 12 cells to 144 in 2
+  harnesses; `a2a_harness` leaves it. Pinned in `testing/test_a2a_contentless_answers.py`.
+  Test IDs and count unchanged (640).
 - **An empty 2xx or a redirect loop is not the agent's answer either (#622, reported by
   @VrtxOmega).** Eight more families graded a same-location 302 loop, an empty 200 or an
   empty 204 as what the agent said: aiuc1 (C003a/b, C004b/c, E001, E003, F002a-d FAILed

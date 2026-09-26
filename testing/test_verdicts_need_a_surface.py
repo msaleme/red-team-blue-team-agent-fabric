@@ -178,7 +178,9 @@ _A2A_PIN = "testing/test_a2a_verdicts_need_an_a2a_surface.py"
 CONTRACT_CONSISTENT = {
     "A2A-001@404": ("FAIL", f"{_A2A_PIN}::TestA2A001IsUnchanged::test_404_fails",
                     "#594 owner decision: A2A-001 fetches and validates the Agent "
-                    "Card, and an unfetchable card FAILs it"),
+                    "Card, and a 404 on the card FAILs it (a redirect loop, an "
+                    "empty 5xx or an empty 2xx is INCONCLUSIVE, owner decision "
+                    "2026-09-26)"),
 }
 
 #: Why each family is on the register. Dated; every registered cell's module
@@ -277,10 +279,6 @@ CONTENTLESS_CONTRACT_CONSISTENT = {
 #: have one and none may be orphaned.
 _622 = "2026-09-26. #622 (VrtxOmega), measured at b06aa33: "
 CONTENTLESS_FAMILY_REASONS = {
-    "a2a_harness": _622 + (
-        "A2A-001 FAILs on the redirect loop and empty 500 ('Could not fetch Agent "
-        "Card') and on empty 200/204 ('Missing fields'); A2A-004/007/008/009 FAIL "
-        "on empty 200/204. The #594 contract pins A2A-001 only on 404"),
     "l402_harness": _622 + (
         "23 FAIL and 2 PASS registered on empty 200 (L4-001 excepted), 13 FAIL "
         "and 13 PASS on empty 204: the #609 2xx rule lets every L4-* row grade "
@@ -297,6 +295,14 @@ CONTENTLESS_FAMILY_REASONS = {
 #: redirect-loop 42, empty-500 32, empty-200 130, empty-204 142; bare-401 and
 #: tls-fail 0. `TEST-ID@pole` -> verdict. May shrink. Must never grow. A fix
 #: removes its entries in the same PR.
+#:
+#: Removed 2026-09-26 (fix/contentless-g5-a2a), 12 cells, owner decision 5:
+#: a2a_harness A2A-001 @redirect-loop/empty-500/empty-200/empty-204 FAIL and
+#: A2A-004/007/008/009 @empty-200/204 FAIL, now INCONCLUSIVE. A contentless
+#: answer (http_helpers.contentless_answer) is neither a JSON-RPC surface nor a
+#: served Agent Card, and A2A-001 has no card to judge on a redirect loop, an
+#: empty 5xx or an empty 2xx; it FAILs only on a 404 (#594, the A2A-001@404 contract entry
+#: above, TestA2A001IsUnchanged::test_404_fails). Pinned in testing/test_a2a_contentless_answers.py.
 #:
 #: Removed 2026-09-26 (fix/contentless-g2-empty-2xx-as-answer), 58 cells, an
 #: empty 2xx read as a served refusal or acceptance: autogen_harness 20
@@ -329,19 +335,6 @@ CONTENTLESS_FAMILY_REASONS = {
 #: Pinned per family, with served PASS and FAIL controls and exit 2, in
 #: testing/test_contentless_answers_are_inconclusive.py.
 VERDICT_ON_A_CONTENTLESS_ANSWER = {
-    # a2a_harness (12)
-    "A2A-001@redirect-loop": "FAIL",
-    "A2A-001@empty-500": "FAIL",
-    "A2A-001@empty-200": "FAIL",
-    "A2A-004@empty-200": "FAIL",
-    "A2A-007@empty-200": "FAIL",
-    "A2A-008@empty-200": "FAIL",
-    "A2A-009@empty-200": "FAIL",
-    "A2A-001@empty-204": "FAIL",
-    "A2A-004@empty-204": "FAIL",
-    "A2A-007@empty-204": "FAIL",
-    "A2A-008@empty-204": "FAIL",
-    "A2A-009@empty-204": "FAIL",
     # l402_harness (51)
     "L4-002@empty-200": "FAIL",
     "L4-003@empty-200": "FAIL",
