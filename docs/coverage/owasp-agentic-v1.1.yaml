@@ -174,7 +174,20 @@ assessment:
       a total left stale would fail rather than mislead. commit and assessed_at are
       deliberately unchanged from 1.1, following the 1.6 and 1.7 precedent.
 
-  total_repository_tests: 640
+  - report: '1.10'
+    commit: HEAD
+    harness: 4.26.1
+    date: '2026-10-11'
+    change: Repository test total 640 -> 641 on the addition of MCP-022, bearer-token
+      audience binding (GHSA-w4fh-qvv9-3v23, a valid token issued for another resource
+      server accepted by an MCP server). Test-bearing modules unchanged at 48. The test
+      carries an ASI03 primary on its own results and is attributable, so the corpus
+      ASI03 count moves 137 -> 138. This mapping does NOT adjudicate it; no scenario
+      here enumerates it, so unique_mapped_tests is unchanged and this mapping claims
+      none of it. Recorded because r15_total compares the stated total against a live
+      count.
+
+  total_repository_tests: 641
   total_tests_command: python scripts/count_tests.py
   unique_mapped_tests: 96
   adjudicated_by: corpus author - NOT independent review

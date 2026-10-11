@@ -3,7 +3,7 @@
 [![PyPI version](https://badge.fury.io/py/agent-security-harness.svg)](https://pypi.org/project/agent-security-harness/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/security%20tests-640-green.svg)](#three-layers-of-agent-decision-security)
+[![Tests](https://img.shields.io/badge/security%20tests-641-green.svg)](#three-layers-of-agent-decision-security)
 [![OWASP Agentic T1-T17](https://img.shields.io/badge/OWASP%20Agentic%20v1.1-13%2F17%20direct-blue.svg)](docs/OWASP-AGENTIC-V1.1-COVERAGE.md)
 [![ClawScan](https://img.shields.io/badge/ClawScan-Benign-brightgreen)](https://clawhub.ai/msaleme/agent-security-harness)
 [![Static Analysis](https://img.shields.io/badge/Static%20Analysis-Benign-brightgreen)](https://clawhub.ai/msaleme/agent-security-harness)
@@ -77,7 +77,7 @@ Results: 8/10 passed (80% pass rate) - see report.json
 > servicing the request, reports **INCONCLUSIVE** — never PASS. See
 > [v4.13.1](CHANGELOG.md) for why that distinction is enforced rather than assumed.
 
-640 executable security tests across 48 test-bearing modules on `main` (verified 2026-09-26 via `scripts/count_tests.py`; the v4.26.1 release carries the same 640). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
+641 executable security tests across 48 test-bearing modules on `main` (verified 2026-10-11 via `scripts/count_tests.py`; the v4.26.1 release carries 640). MCP + A2A + L402 + x402 wire-protocol testing, plus UCP/ACP merchant-journey, AP2 mandate-chain, Fireblocks x402 hardening, Visa TAP / Mastercard Agentic Token funding-instrument, and denial-of-settlement finality conformance across the full agentic-payments stack. Decision-layer attack scenarios. One `pip install` away.
 
 If this evidence discipline is useful in your agent-security work, **star this
 repository to follow releases**.
@@ -238,7 +238,7 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 | **Research backing** | - | Cisco blog | Papers | **7 DOIs + 3 NIST submissions** (self-authored; see [Research](#research)) |
 | **MCP server mode** | - | - | - | **Yes - invoke from any AI agent** |
 | **Statistical testing** | - | - | - | **Wilson CIs, multi-trial** |
-| **Total tests** | Config checks | YARA rules | Model probes | **640 active tests across 48 test-bearing modules** |
+| **Total tests** | Config checks | YARA rules | Model probes | **641 active tests across 48 test-bearing modules** |
 
 Star counts verified 2026-08-02 via the GitHub API. Invariant Labs' `mcp-scan` now redirects to
 `snyk/agent-scan` and is listed once rather than as two separate projects. Competitor rows describe
@@ -316,7 +316,7 @@ model, a standards landscape, and the live reference environment the telemetry a
 | Resource | Link |
 |---|---|
 | Expanded Quick Start | [docs/QUICKSTART.md](docs/QUICKSTART.md) |
-| Full Test Inventory (640 tests) | [docs/TEST-INVENTORY.md](docs/TEST-INVENTORY.md) |
+| Full Test Inventory (641 tests) | [docs/TEST-INVENTORY.md](docs/TEST-INVENTORY.md) |
 | OWASP Agentic v1.1 Coverage (T1–T17) | [docs/OWASP-AGENTIC-V1.1-COVERAGE.md](docs/OWASP-AGENTIC-V1.1-COVERAGE.md) |
 | Canonical coverage mapping (source of truth) | [docs/coverage/owasp-agentic-v1.1.yaml](docs/coverage/owasp-agentic-v1.1.yaml) |
 | Testing for a published CVE: CVE to test index | [docs/cve/README.md](docs/cve/README.md) |
@@ -351,16 +351,16 @@ mapping and the human-in-the-loop harness** · v4.13.1 a correctness fix to that
 endpoint provenance · v4.16.0 three target shapes: a verdict must be able to be wrong AND to be right · v4.17.0 eight modules could not tell a refusal from a compliance · v4.18.0 INCONCLUSIVE became a field, and the read-list emptied · v4.19.0 a correctness disclosure: verdicts moved in both directions · v4.20.0 the last absence-graded verdicts got a positive control · v4.21.0 the instrument was the thing under test: 7 of 9 defects were in the measurement apparatus · v4.21.1 the published wheel reported 17/17 against a host that did not exist · v4.21.2 a fourth review asked what the repaired layer assumes: 47 rows called a control held on a reply that said nothing · v4.21.3 a fifth review asked whether the checks can fail: the workflow contract tests passed with every step disabled, and nine of twelve register denominators could be replaced by a constant · v4.22.0 `scripts` shipped as a namespace portion and the console printed INCONCLUSIVE as FAIL in twenty-nine harnesses; four new families took the release from 623 to 640 · v4.23.0 exit status separates FAIL (1) from INCONCLUSIVE (2), six harnesses that always exited 0 now follow that contract, an MCP bootstrap failure emits NOT_EXECUTED rows, and the Action's default `fail_on: critical`, which could never fire, now does · v4.24.0 a verdict needs a target that answered: a guard runs every URL-taking harness against a closed port, a 404-everywhere and a 403-everywhere target, where a PASS or FAIL is a defect; the A2A, cloud-agent, CrewAI CVE, CVE-005 and REST adapter families were repaired and left its register (578 cells to 340) · v4.25.0 the no-surface register is empty: the x402/L402, refusal-recognising, AIUC-1/extended-thinking/PTC and over-refusal/prompt-caching/GTG-1002 families were repaired (340 cells to 0), so every URL-taking harness returns INCONCLUSIVE against those three targets · v4.26.0 an external reproduction (#622, VrtxOmega) confirmed the v4.25.0 claim on its three targets and found four more shapes still producing verdicts: a redirect loop, an empty 500, an empty 200 and an empty 204; one shared rule, `http_helpers.contentless_answer`, makes them INCONCLUSIVE (346 cells to 0), and the guard now covers nine poles with both registers empty · **v4.26.1 served answers reach the right verdict (#631, #628, VrtxOmega): capability-profile (CP-001..010), INT-001 and MAG-019 can PASS on a served answer, and autogen keeps the real HTTP status on JSON answers; two false PASSes in v4.26.0 are closed (a JSON `null`, `[]` or `""` at 200, and a plain-text complying answer, each PASSed all ten AG-* rows; both are now INCONCLUSIVE)** · v4.15.0 unserviced requests are no longer recorded as passes; that did not hold in every harness until v4.25.0, and not on every shape until v4.26.0. Since v4.26.0 the guard in `testing/test_verdicts_need_a_surface.py` runs every URL-taking harness against nine poles: a closed port, a 404-everywhere and a bare 403-everywhere target (since v4.25.0), and a same-location 302 redirect loop, an empty HTTP 500, an empty 200, an empty 204, a bare 401 and a TLS failure (since v4.26.0; VrtxOmega reported the first four in #622, the last two were already clean and are kept as regression poles). The first three poles have a shrink-only register, `VERDICT_WITHOUT_SURFACE`, which is **empty**; the other six have their own, `VERDICT_ON_A_CONTENTLESS_ANSWER`, which is **empty**; and the guard fails any new PASS or FAIL returned on any of the nine. It names three exceptions: A2A-001 FAILs on 404 (an Agent Card that cannot be fetched, the #594 contract); X4-001 and L4-001 FAIL on an empty 200 or 204, because an unpaid request was served without a payment challenge ("Expected HTTP 402, got 2xx"; every other x402/L402 row on an empty 2xx is INCONCLUSIVE, owner decision on #622); and the self-tests CREW-002, CVE-007 and CVE-008 PASS everywhere because they judge this repository's scanner on fixtures, not the target (see
 [CHANGELOG.md](CHANGELOG.md)).
 
-The release carries **640** tests; `main` is at **640**. They agree as of v4.26.1, and the
-two numbers stay separately stated because that is temporary: the next merge to `main`
-reopens the gap. They did not agree at v4.21.3, which
+The release carries **640** tests; `main` is at **641**. They do not agree right now: the
+difference is MCP-022, the bearer-token audience test, which landed after v4.26.1. They
+also did not agree at v4.21.3, which
 carried 623 while `main` stood at 640: the difference was MEM-013..MEM-016, the memory
 revocation-enforcement family, WT-001..WT-004, the workspace-trust ingestion family,
 HI-001..HI-004, the hidden-instruction family, and CR-001..CR-005, the capability-residue
 family, all of which landed after that tag. The same divergence held at v4.15.0, where the
 release carried 603 while `main` was at 608. Both numbers were correct for their own ref,
-and agreement now is a property of this release being fresh rather than a guarantee: the
-next merge to `main` reopens the gap. That is why
+and agreement, when it holds, is a property of a fresh release rather than a guarantee.
+That is why
 `scripts/check_public_metadata.py` compares public claims against the release rather than against `main`,
 and why `docs/release-claims.json` pins the release count to a commit where re-running the command
 reproduces it.

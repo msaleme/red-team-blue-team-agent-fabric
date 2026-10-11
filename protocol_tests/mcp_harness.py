@@ -319,6 +319,55 @@ def _auth_outcome(response: dict | None) -> str:
     return "indeterminate"
 
 
+def _jwt_claims(credential: str) -> dict | None:
+    """Unverified JWT payload of a ``Bearer <jwt>`` value, or None if not a readable JWT.
+
+    Used only to reject an ill-posed MCP-022 run. Never used to grant a pass.
+    """
+    token = credential.split(None, 1)[1] if " " in credential.strip() else credential
+    parts = token.strip().split(".")
+    if len(parts) != 3:
+        return None
+    try:
+        padded = parts[1] + "=" * (-len(parts[1]) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(padded.encode("ascii")))
+    except (ValueError, UnicodeError):
+        return None
+    return claims if isinstance(claims, dict) else None
+
+
+def _audience_precondition(valid: str, other: str) -> str:
+    """Whether MCP-022's two credentials are a same-issuer, different-audience pair.
+
+    Returns a string starting ``ill-posed`` when readable claims show the run
+    cannot test audience binding, otherwise a note on what was checked.
+    """
+    a, b = _jwt_claims(valid), _jwt_claims(other)
+    if a is None or b is None:
+        return ("opaque token(s): same issuer and different audience are the "
+                "operator's statement, not checked")
+
+    def auds(claims):
+        aud = claims.get("aud")
+        if isinstance(aud, str):
+            return {aud}
+        if isinstance(aud, list):
+            return {x for x in aud if isinstance(x, str)}
+        return set()
+
+    if a.get("iss") and b.get("iss") and a["iss"] != b["iss"]:
+        return ("ill-posed run: the two tokens name different issuers "
+                f"({a['iss']!r} vs {b['iss']!r}). That is an issuer test (MCP-RC-012), "
+                "not an audience test.")
+    if auds(a) and auds(b) and auds(a) & auds(b):
+        return ("ill-posed run: the other token also names this server's audience "
+                f"{sorted(auds(a) & auds(b))}, so it is not a wrong-audience token.")
+    if not (auds(a) and auds(b)):
+        return "JWT claims read, but at least one token carries no aud; difference not checked"
+    return (f"JWT claims read (unverified): same issuer, audiences {sorted(auds(a))} "
+            f"vs {sorted(auds(b))}")
+
+
 def _probe_failed(response: dict | None) -> bool:
     """Whether a configured probe failed before it could yield a valid result."""
     return not response or bool(
@@ -709,6 +758,7 @@ class MCPSecurityTests:
         trace_attacker_headers: dict | None = None,
         issuer_probe: dict | None = None,
         issuer_attacker_headers: dict | None = None,
+        audience_attacker_headers: dict | None = None,
     ):
         self.transport = transport
         self.results: list[MCPTestResult] = []
@@ -734,6 +784,7 @@ class MCPSecurityTests:
         self.trace_attacker_headers = trace_attacker_headers
         self.issuer_probe = issuer_probe
         self.issuer_attacker_headers = issuer_attacker_headers
+        self.audience_attacker_headers = audience_attacker_headers
         self.selected_protocol_version: str | None = None
         #: Set by `run_all` when `initialize()` failed and every row it returns
         #: is NOT_EXECUTED. A consumer that used to read "zero rows" as "the
@@ -3087,6 +3138,143 @@ class MCPSecurityTests:
             "token validation rejects both garbage shapes while the configured credential "
             f"is accepted and the header-less request is refused: {outcomes}"))
 
+    def test_mcp_022_bearer_audience_binding(self):
+        """MCP-022: Bearer Token Audience Binding (token issued for another resource server).
+
+        GHSA-w4fh-qvv9-3v23 (``mcp`` 1.10.0-1.29.1 and 2.0.0-2.1.1, 2026-10-05):
+        the Python SDK's server-side bearer authentication "had no way to check
+        that a token was issued for your server (its audience)". Where one
+        authorization server issues tokens for several services, a valid token
+        for another service was accepted. The fix adds ``validate_token_resource``,
+        which is off unless set, so the deployed configuration decides the
+        outcome and the package version does not.
+
+        MCP-021 cannot see this: every token it sends is invalid. MCP-RC-012
+        sends a credential from a *different issuer*. This test sends a token
+        that is validly issued by the *same* authorization server, for a
+        different resource server.
+
+        Three legs on ``tools/list``:
+
+        ==========================  ========  ==============  =======  ===========
+        request                     holding   audience-blind  no auth  refuses all
+        ==========================  ========  ==============  =======  ===========
+        no credential header        rejected  rejected        served   rejected
+        token for another resource  rejected  **served**      served   rejected
+        the configured credential   served    served          served   **rejected**
+        ==========================  ========  ==============  =======  ===========
+
+        * **PASS**: header-less rejected, the other-resource token rejected, and
+          the configured credential served. The last leg is the positive control.
+        * **FAIL**: header-less rejected and the configured credential served,
+          but the other-resource token is also served.
+        * **INCONCLUSIVE**: no configured credential; no other-resource token
+          supplied (``--audience-attacker-header``); the header-less request is
+          served (the route is not authenticating); the configured credential is
+          rejected (control not exercised -- this is also what the advisory's
+          half-applied fix looks like, where every request gets 401); any leg
+          indeterminate; or both tokens are readable JWTs and they show different
+          issuers (that is MCP-RC-012's case) or the other token also names this
+          server's audience (it is not a wrong-audience token).
+
+        Opaque tokens cannot be checked, so for them "same issuer, different
+        audience" is the operator's statement and the details say so. Claims are
+        decoded without signature verification and used only to reject an
+        ill-posed run, never to pass one.
+        """
+        t0 = time.monotonic()
+        msg = jsonrpc_request("tools/list", {})
+        name = "Bearer Token Audience Binding"
+
+        def record(passed, details, outcomes=None):
+            self._record(MCPTestResult(
+                test_id="MCP-022", name=name, category="authentication",
+                owasp_asi="ASI03", severity=Severity.HIGH.value,
+                passed=passed, details=details, mcp_method="tools/list",
+                request_sent=msg,
+                response_received={"outcomes": outcomes} if outcomes is not None else None,
+                elapsed_s=round(time.monotonic() - t0, 3),
+            ))
+
+        if self.simulate:
+            record(True, "[simulate] Compiled three-leg audience differential; no HTTP call made")
+            return
+
+        if not getattr(self.transport, "supports_header_overrides", False):
+            record(False, INCONCLUSIVE_PREFIX + (
+                "this transport cannot override request headers, so a second "
+                "credential cannot be presented. The control was never exercised."))
+            return
+
+        configured = {k: v for k, v in getattr(self.transport, "headers", {}).items()
+                      if k.lower() == "authorization"}
+        if not configured:
+            record(False, INCONCLUSIVE_PREFIX + (
+                "no Authorization credential is configured for this target, so the "
+                "accept-the-right-audience control cannot run."))
+            return
+        header_name, valid_value = next(iter(configured.items()))
+
+        attacker = {k: v for k, v in (self.audience_attacker_headers or {}).items()
+                    if k.lower() == header_name.lower()}
+        if not attacker:
+            record(False, INCONCLUSIVE_PREFIX + (
+                "no token issued for another resource server was supplied "
+                f"(--audience-attacker-header '{header_name}:Bearer ...'). Without it "
+                "the audience check is never exercised."))
+            return
+        wrong_value = next(iter(attacker.values()))
+        if wrong_value == valid_value:
+            record(False, INCONCLUSIVE_PREFIX + (
+                "the other-resource token is identical to the configured credential."))
+            return
+
+        precondition = _audience_precondition(valid_value, wrong_value)
+        if precondition.startswith("ill-posed"):
+            record(False, INCONCLUSIVE_PREFIX + precondition)
+            return
+
+        legs = {
+            "no_header": {header_name: None},
+            "other_audience": {header_name: wrong_value},
+            "valid": None,
+        }
+        outcomes = {}
+        for leg, override in legs.items():
+            outcomes[leg] = _auth_outcome(self.transport.send(msg, header_overrides=override))
+
+        indeterminate = [k for k, v in outcomes.items() if v == "indeterminate"]
+        if indeterminate:
+            record(False, INCONCLUSIVE_PREFIX + (
+                f"leg(s) {indeterminate} returned neither a result nor a refusal, so "
+                f"the differential was not established: {outcomes}"), outcomes)
+            return
+        if outcomes["no_header"] == "served":
+            record(False, INCONCLUSIVE_PREFIX + (
+                "the server served a request carrying no credential, so this route is "
+                f"not authenticating and audience behaviour says nothing: {outcomes}"),
+                outcomes)
+            return
+        if outcomes["valid"] == "rejected":
+            record(False, INCONCLUSIVE_PREFIX + (
+                "the configured credential was rejected, so the accept control never "
+                "passed. A rejected other-resource token is then equally consistent "
+                "with audience enforcement and with a server that refuses everything "
+                "(including GHSA-w4fh-qvv9-3v23's half-applied fix): " + str(outcomes)),
+                outcomes)
+            return
+        if outcomes["other_audience"] == "served":
+            record(False, (
+                "AUDIENCE NOT ENFORCED: header-less request rejected and the configured "
+                "credential accepted, but a token issued for another resource server was "
+                f"SERVED (GHSA-w4fh-qvv9-3v23 shape). {precondition}: {outcomes}"),
+                outcomes)
+            return
+        record(True, (
+            "a token issued for another resource server is rejected while the configured "
+            f"credential is accepted and the header-less request is refused. {precondition}: "
+            f"{outcomes}"), outcomes)
+
     # ------------------------------------------------------------------
     # Category 9: SSRF via Tool Call URI Parameter (ASI02)
     # ------------------------------------------------------------------
@@ -3583,6 +3771,7 @@ class MCPSecurityTests:
             ],
             "authentication": [
                 self.test_mcp_021_auth_fail_open,
+                self.test_mcp_022_bearer_audience_binding,
             ],
             "ssrf": [
                 self.test_mcp_ssrf_via_uri_parameter,
@@ -3860,6 +4049,12 @@ def main():
               "It is redacted from reports."),
     )
     ap.add_argument(
+        "--audience-attacker-header", action="append", default=[],
+        help=("MCP-022: a token from the same authorization server, issued for a different "
+              "resource server, key:value (e.g. Authorization:Bearer ...). The header name "
+              "must match the configured credential's. It is redacted from reports."),
+    )
+    ap.add_argument(
         "--protocol-version",
         choices=[MODERN_PROTOCOL_VERSION, AUTO_PROTOCOL_VERSION, DIFFERENTIAL_PROTOCOL_VERSION],
         help=("Use the stateless 2026-07-28 protocol flow, or 'auto' to probe "
@@ -3915,6 +4110,7 @@ def main():
     trace_attacker_headers = {}
     issuer_probe = None
     issuer_attacker_headers = {}
+    audience_attacker_headers = {}
     if args.mrtr_probe:
         try:
             mrtr_probe = json.loads(args.mrtr_probe)
@@ -4048,6 +4244,13 @@ def main():
         issuer_attacker_headers[key.strip()] = value.strip()
     if any((issuer_probe, issuer_attacker_headers)) and not all((issuer_probe, issuer_attacker_headers)):
         ap.error("--issuer-probe and --issuer-attacker-header must be supplied together")
+    for header in args.audience_attacker_header:
+        if ":" not in header:
+            ap.error("--audience-attacker-header must use key:value form")
+        key, value = header.split(":", 1)
+        if not key.strip():
+            ap.error("--audience-attacker-header must include a header name")
+        audience_attacker_headers[key.strip()] = value.strip()
     for header in args.mrtr_attacker_header:
         if ":" not in header:
             ap.error("--mrtr-attacker-header must use key:value form")
@@ -4093,7 +4296,8 @@ def main():
                                      cache_resource_uri=args.cache_resource_uri, task_create=task_create,
                                      task_read=task_read, task_attacker_headers=task_attacker_headers,
                                      trace_probe=trace_probe, trace_attacker_headers=trace_attacker_headers,
-                                     issuer_probe=issuer_probe, issuer_attacker_headers=issuer_attacker_headers)
+                                     issuer_probe=issuer_probe, issuer_attacker_headers=issuer_attacker_headers,
+                                 audience_attacker_headers=audience_attacker_headers)
             try:
                 results = suite.run_all(categories=categories)
                 return build_report(
@@ -4142,7 +4346,8 @@ def main():
                                      cache_resource_uri=args.cache_resource_uri, task_create=task_create,
                                      task_read=task_read, task_attacker_headers=task_attacker_headers,
                                      trace_probe=trace_probe, trace_attacker_headers=trace_attacker_headers,
-                                     issuer_probe=issuer_probe, issuer_attacker_headers=issuer_attacker_headers)
+                                     issuer_probe=issuer_probe, issuer_attacker_headers=issuer_attacker_headers,
+                                 audience_attacker_headers=audience_attacker_headers)
             try:
                 return {"results": suite.run_all(categories=categories)}
             finally:
@@ -4172,7 +4377,8 @@ def main():
                                  cache_resource_uri=args.cache_resource_uri, task_create=task_create,
                                  task_read=task_read, task_attacker_headers=task_attacker_headers,
                                  trace_probe=trace_probe, trace_attacker_headers=trace_attacker_headers,
-                                 issuer_probe=issuer_probe, issuer_attacker_headers=issuer_attacker_headers)
+                                 issuer_probe=issuer_probe, issuer_attacker_headers=issuer_attacker_headers,
+                                 audience_attacker_headers=audience_attacker_headers)
         try:
             results = suite.run_all(categories=categories)
             conn_error = getattr(suite, "_connection_error", None)

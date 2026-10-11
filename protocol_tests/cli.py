@@ -319,7 +319,7 @@ def _live_run_counts(ns: dict, report_path: str | None = None) -> dict:
 HARNESSES = {
     "mcp": {
         "module": "protocol_tests.mcp_harness",
-        "description": "MCP wire-protocol security tests (33 tests, JSON-RPC 2.0)",
+        "description": "MCP wire-protocol security tests (34 tests, JSON-RPC 2.0)",
     },
     "workspace-trust": {
         "module": "protocol_tests.workspace_trust_harness",
