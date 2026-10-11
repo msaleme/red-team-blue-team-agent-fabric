@@ -42,7 +42,12 @@ from mcp_reference_calibration import REFERENCE_SERVER, calibrate, server_comman
 #: That is the intended verdict for this target, not a regression: an auth test
 #: that graded a credential-less stdio server would be reporting on something it
 #: never exercised.
-EXPECTED = {"PASS": 16, "FAIL": 2, "INCONCLUSIVE": 15}
+#:
+#: 2026-10-11: INCONCLUSIVE 15 -> 16 on the addition of MCP-022 (bearer-token
+#: audience binding, GHSA-w4fh-qvv9-3v23). Over stdio there are no request
+#: headers to override, so no second credential can be presented and the test
+#: says the control was never exercised. Same reasoning as MCP-021 above.
+EXPECTED = {"PASS": 16, "FAIL": 2, "INCONCLUSIVE": 16}
 
 #: The two FAILs are findings about this reference server in this configuration.
 #: MCP-008: it ignores malformed messages without reporting a parse error.

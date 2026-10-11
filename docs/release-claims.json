@@ -18,7 +18,7 @@
       "surfaces": [
         {
           "path": "README.md",
-          "pattern": "the v4\\.26\\.1 release carries the same (\\d+)"
+          "pattern": "the v4\\.26\\.1 release carries (\\d+)"
         },
         {
           "path": "README.md",
@@ -39,8 +39,8 @@
     },
     {
       "id": "main-test-count",
-      "fact": "At the HEAD a reader resolves, main carries the number of unique test IDs that `scripts/count_tests.py` reports; 640 at the time of writing.",
-      "value": "640",
+      "fact": "At the HEAD a reader resolves, main carries the number of unique test IDs that `scripts/count_tests.py` reports; 641 at the time of writing.",
+      "value": "641",
       "release_tag": null,
       "commit": "HEAD",
       "command": "python3 scripts/count_tests.py",
