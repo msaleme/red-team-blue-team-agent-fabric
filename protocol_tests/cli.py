@@ -329,6 +329,10 @@ HARNESSES = {
         "module": "protocol_tests.capability_residue_harness",
         "description": "Capability-residue pre-flight tests (5 tests, a seeded canary capability recovered from emitted artifacts, and a grant that outlives its revocation; reports residue-positive/artifacts-inspected)",
     },
+    "approval-binding": {
+        "module": "protocol_tests.approval_binding_harness",
+        "description": "Approval-binding runtime tests (3 tests, an approval for X executing Y, a single-use approval executing twice, a declared deny rule not enforced; caller supplies the target adapter)",
+    },
     "hidden-instruction": {
         "module": "protocol_tests.hidden_instruction_harness",
         "description": "Hidden-instruction pre-flight tests (4 tests, Unicode tag-block payload reaching a credentialed irreversible action; caller supplies the target adapter)",

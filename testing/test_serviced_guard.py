@@ -66,6 +66,13 @@ GUARDED = [
     # verdicts cannot disagree.
     ("protocol_tests.capability_residue_harness", "CapabilityResidueHarness",
      "CapabilityResidueResult"),
+    # approval_binding_harness: same shape as capability_residue. It inherits
+    # RecordingHarness with no _record of its own, its INCONCLUSIVE paths carry
+    # the prefix, and not_evaluated is derived from it. Its evidence is the
+    # exchange, so a refused 403 leg does not downgrade a PASS whose control
+    # leg was serviced (pinned in testing/test_approval_binding_controls.py).
+    ("protocol_tests.approval_binding_harness", "ApprovalBindingHarness",
+     "ApprovalBindingResult"),
     ("protocol_tests.multi_agent_harness", "MultiAgentTests", "MultiAgentTestResult"),
     ("protocol_tests.advanced_attacks", "AdvancedAttackTests", "AdvancedTestResult"),
     ("protocol_tests.memory_harness", "MemoryTests", "MemoryTestResult"),

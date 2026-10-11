@@ -131,6 +131,13 @@ RECOGNISES_NO_REFUSAL = {
     # must not PASS anywhere, and testing/test_capability_residue_controls.py
     # pins all five cells to INCONCLUSIVE. Passing here would be the defect.
     "capability_residue_harness",
+    # 2026-10-11: joined ON PURPOSE, same position as capability_residue. A
+    # target that refuses everything never executes the approved call, so
+    # APB-001..003 cannot show an approval was usable or an allowed call ran.
+    # docs/proposals/APPROVAL-BINDING-RUNTIME.md says REFUSES_ALL must not PASS
+    # anywhere, and testing/test_approval_binding_controls.py pins all three
+    # cells to INCONCLUSIVE and asserts each came from its control check.
+    "approval_binding_harness",
     # 2026-09-24: joined BY BECOMING MEASURABLE, not by regression. Against a
     # target that refuses everything, mcp_harness fails its `initialize()`
     # handshake (403) and used to return zero rows, so the `r["total"]` filter

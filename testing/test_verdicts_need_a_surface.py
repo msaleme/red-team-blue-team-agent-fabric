@@ -152,6 +152,9 @@ NO_NETWORK_TARGET = {
     "capability-residue": (
         "caller supplies a target adapter object, not a URL; the sweep's URL "
         "is not an input it reads (all cells INCONCLUSIVE when measured)"),
+    "approval-binding": (
+        "caller supplies a runtime adapter object, not a URL; the sweep's URL "
+        "is not an input it reads (all cells INCONCLUSIVE when measured)"),
     "hidden-instruction": (
         "caller supplies a target adapter object, not a URL; the sweep's URL "
         "is not an input it reads (all cells INCONCLUSIVE when measured)"),
