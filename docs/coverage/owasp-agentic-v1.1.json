@@ -115,9 +115,16 @@
         "harness": "4.26.1",
         "date": "2026-10-11",
         "change": "Repository test total 640 -> 641 on the addition of MCP-022, bearer-token audience binding (GHSA-w4fh-qvv9-3v23, a valid token issued for another resource server accepted by an MCP server). Test-bearing modules unchanged at 48. The test carries an ASI03 primary on its own results and is attributable, so the corpus ASI03 count moves 137 -> 138. This mapping does NOT adjudicate it; no scenario here enumerates it, so unique_mapped_tests is unchanged and this mapping claims none of it. Recorded because r15_total compares the stated total against a live count."
+      },
+      {
+        "report": "1.11",
+        "commit": "HEAD",
+        "harness": "4.26.1",
+        "date": "2026-10-11",
+        "change": "Repository test total 641 -> 644 on the addition of APB-001..APB-003, the approval-binding runtime family (an approval for one argument set executing another, a single-use approval executing twice, a declared deny rule not enforced; GHSA-29r9-67vg-qj56, GHSA-5r6c-gj4g-r697). Test-bearing modules 48 -> 49. All three carry an ASI03 primary on their own results and are attributable, so the corpus ASI03 count moves 138 -> 141. This mapping does NOT adjudicate them; no scenario here enumerates them, so unique_mapped_tests is unchanged and this mapping claims none of them. Recorded because r15_total compares the stated total against a live count."
       }
     ],
-    "total_repository_tests": 641,
+    "total_repository_tests": 644,
     "total_tests_command": "python scripts/count_tests.py",
     "unique_mapped_tests": 96,
     "adjudicated_by": "corpus author - NOT independent review"
