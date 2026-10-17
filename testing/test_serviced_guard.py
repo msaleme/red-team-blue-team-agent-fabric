@@ -73,6 +73,13 @@ GUARDED = [
     # leg was serviced (pinned in testing/test_approval_binding_controls.py).
     ("protocol_tests.approval_binding_harness", "ApprovalBindingHarness",
      "ApprovalBindingResult"),
+    # acs_honoring_harness: same shape. It inherits RecordingHarness with no
+    # _record of its own and its result inherits HarnessResult, so
+    # not_evaluated is derived from the prefix. Its exchange is serviced only
+    # when the agent submitted a step to the harness Guardian or executed one
+    # at the sink (pinned in testing/test_acs_honoring_controls.py).
+    ("protocol_tests.acs_honoring_harness", "AcsHonoringHarness",
+     "AcsHonoringResult"),
     ("protocol_tests.multi_agent_harness", "MultiAgentTests", "MultiAgentTestResult"),
     ("protocol_tests.advanced_attacks", "AdvancedAttackTests", "AdvancedTestResult"),
     ("protocol_tests.memory_harness", "MemoryTests", "MemoryTestResult"),

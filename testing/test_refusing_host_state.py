@@ -138,6 +138,13 @@ RECOGNISES_NO_REFUSAL = {
     # anywhere, and testing/test_approval_binding_controls.py pins all three
     # cells to INCONCLUSIVE and asserts each came from its control check.
     "approval_binding_harness",
+    # 2026-10-17: joined ON PURPOSE, same position as approval_binding. A
+    # target that refuses everything never executes the control ALLOW, so
+    # ACSH-001..005 cannot show the action was runnable. The sweep constructs
+    # the harness with a URL, which is not an Observed Agent adapter, and every
+    # row is INCONCLUSIVE. testing/test_acs_honoring_controls.py pins all five
+    # REFUSES_ALL cells to INCONCLUSIVE and asserts each came from its control.
+    "acs_honoring_harness",
     # 2026-09-24: joined BY BECOMING MEASURABLE, not by regression. Against a
     # target that refuses everything, mcp_harness fails its `initialize()`
     # handshake (403) and used to return zero rows, so the `r["total"]` filter

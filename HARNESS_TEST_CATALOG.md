@@ -1,8 +1,8 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `8188b9d`
-**Test count:** 644 unique test IDs across 50 registered harness modules (49 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
+**Generated:** `scripts/generate_test_catalog.py` at commit `65d4ce5`
+**Test count:** 649 unique test IDs across 51 registered harness modules (50 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
 ## Rules for Citation
@@ -31,6 +31,16 @@ A2A-010 | Malformed Request Handling | protocol_tests/a2a_harness.py:486
 A2A-011 | Undocumented Method Enumeration | protocol_tests/a2a_harness.py:487
 A2A-012 | Cross-Context Data Leakage | protocol_tests/a2a_harness.py:488
 A2A-013 | Agent Card Limitations Field Verification | protocol_tests/a2a_harness.py:489
+```
+
+### acs_honoring_harness.py (`protocol_tests/acs_honoring_harness.py`) — 5 tests
+
+```
+ACSH-001 | Deny Honored | protocol_tests/acs_honoring_harness.py:515
+ACSH-002 | Fail-Closed Posture on Silence | protocol_tests/acs_honoring_harness.py:529
+ACSH-003 | Forged Allow Is a Decision Failure | protocol_tests/acs_honoring_harness.py:542
+ACSH-004 | Fail-Open Proceed Is Audited | protocol_tests/acs_honoring_harness.py:555
+ACSH-005 | In-Time Decision Overrides Posture | protocol_tests/acs_honoring_harness.py:610
 ```
 
 ### Advanced Attacks (`protocol_tests/advanced_attacks.py`) — 10 tests

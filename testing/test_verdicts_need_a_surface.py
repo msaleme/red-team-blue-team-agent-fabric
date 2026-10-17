@@ -155,6 +155,10 @@ NO_NETWORK_TARGET = {
     "approval-binding": (
         "caller supplies a runtime adapter object, not a URL; the sweep's URL "
         "is not an input it reads (all cells INCONCLUSIVE when measured)"),
+    "acs-honoring": (
+        "the harness is the Guardian and the caller supplies an Observed Agent "
+        "adapter object, not a URL; the sweep's URL is not an input it reads "
+        "(all cells INCONCLUSIVE when measured)"),
     "hidden-instruction": (
         "caller supplies a target adapter object, not a URL; the sweep's URL "
         "is not an input it reads (all cells INCONCLUSIVE when measured)"),
