@@ -47,6 +47,7 @@ class TestAllModulesImportable(unittest.TestCase):
         "protocol_tests.workspace_trust_harness",
         "protocol_tests.capability_residue_harness",
         "protocol_tests.approval_binding_harness",
+        "protocol_tests.acs_honoring_harness",
     "protocol_tests.hidden_instruction_harness",
         "protocol_tests.receipt_claim_harness",
         "protocol_tests.tool_search_harness",
@@ -83,7 +84,7 @@ class TestRegX402(unittest.TestCase):
         self.assertIn("x402", HARNESSES)
     def test_harness_count(self):
         from protocol_tests.cli import HARNESSES
-        self.assertEqual(len(HARNESSES), 50)
+        self.assertEqual(len(HARNESSES), 51)
     def test_modules_exist(self):
         from protocol_tests.cli import HARNESSES
         for n, i in HARNESSES.items():

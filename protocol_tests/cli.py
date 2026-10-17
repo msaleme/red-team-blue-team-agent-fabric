@@ -333,6 +333,10 @@ HARNESSES = {
         "module": "protocol_tests.approval_binding_harness",
         "description": "Approval-binding runtime tests (3 tests, an approval for X executing Y, a single-use approval executing twice, a declared deny rule not enforced; caller supplies the target adapter)",
     },
+    "acs-honoring": {
+        "module": "protocol_tests.acs_honoring_harness",
+        "description": "ACS decision-honoring tests (5 tests, the harness plays the OWASP ACS v0.1.4 Guardian: a valid DENY, silence under a deny posture, a wrong-key ALLOW, an unaudited fail-open proceed, an in-time DENY under a proceed posture; caller supplies the Observed Agent adapter)",
+    },
     "hidden-instruction": {
         "module": "protocol_tests.hidden_instruction_harness",
         "description": "Hidden-instruction pre-flight tests (4 tests, Unicode tag-block payload reaching a credentialed irreversible action; caller supplies the target adapter)",

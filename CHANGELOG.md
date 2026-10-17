@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **ACSH-001..ACSH-005, does the agent honor the Guardian's decision (#650, #651).**
+  OWASP ACS v0.1.4 makes decision honoring an ACS-Core MUST (spec §6.4) and states
+  that "no decision event proves enforcement on its own". The harness plays the
+  Guardian and a sink tool observes whether the action actually ran. ACSH-001 in-time
+  DENY; ACSH-002 fail-closed posture on silence; ACSH-003 ALLOW signed with the wrong
+  key under fail-closed; ACSH-004 a fail-open proceed must leave an audit record;
+  ACSH-005 an in-time DENY overrides a fail-open posture. Each test sends a correctly
+  signed in-time ALLOW first as its positive control, or it is INCONCLUSIVE. 8
+  reference shapes, 40 cells, in `testing/test_acs_honoring_controls.py`. Design first:
+  `docs/proposals/ACS-DECISION-HONORING.md`. Not run against any live Observed Agent
+  yet. ACS §10 does not fix the HKDF parameters, so the harness declares its own and
+  records them on every result; an agent that derives the key differently is
+  INCONCLUSIVE.
+
 ## [4.27.0] - 2026-10-17
 
 A minor release. Two new test families, each for a check that exists but does not run:
