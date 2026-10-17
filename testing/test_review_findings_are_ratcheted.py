@@ -385,6 +385,14 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "ASH pole-pilot follow-up 2026-09-24", GUARDED,
      "testing/test_exit_code_contract.py: "
      "test_one_not_executed_row_per_registered_test_and_exit_two"),
+
+    # --- 2026-10-17, internal coverage review (#653) --------------------------
+    ("stateful live rows (CTK-004, CTK-005, AP2-011, AP2-013, UCP-006, ACP-004) "
+     "sent only their final request, so a correct target saw a fresh credential, "
+     "accepted it, and was graded FAIL; rows also shared one credential id",
+     "internal coverage review 2026-10-17 (#653)", GUARDED,
+     "testing/test_stateful_live_rows.py: "
+     "StatefulRowTruthTable"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.

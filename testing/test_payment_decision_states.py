@@ -480,7 +480,9 @@ class TestAP2AgainstAnEmptyAnswer(unittest.TestCase):
                 self.assertTrue(row["details"].startswith(INCONCLUSIVE_PREFIX))
                 self.assertIn("no decision", row["details"])
                 self.assertNotIn("ACCEPTED", row["details"])
-                self.assertEqual(row["live_evidence"],
+                # Stateful rows (#653) add their setup steps; the answer is the same.
+                ev = row["live_evidence"]
+                self.assertEqual({k: ev[k] for k in ("verdict", "status")},
                                  {"verdict": "undecided", "status": 200})
                 self.assertIsInstance(row["reference_verdict"], dict)
 

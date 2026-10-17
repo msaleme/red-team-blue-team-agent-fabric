@@ -447,6 +447,53 @@ def _run_exit_detector(directory: pathlib.Path) -> list[str]:
     return sorted({name for name, _ in mod._result_derived_exits(directory)})
 
 
+def _run_stateful_setup_detector(directory: pathlib.Path) -> list[str]:
+    import test_stateful_live_rows as mod
+    return mod.sweep(directory)[1]
+
+
+_STATEFUL_VIOLATION = '''"""A stateful row that sends only its final request live (#653)."""
+
+
+class Suite:
+    def test_replay(self):
+        verifier = Verifier()
+        first = verifier.authorize(token, txn, now)
+        replay = verifier.authorize(token, txn, now)
+        self._finish(model_pass=first.ok and not replay.ok,
+                     attack_payload={"token": token, "transaction": txn})
+
+    def _finish(self, **kw):
+        pass
+'''
+
+_STATEFUL_CONTROL = '''"""The fixed form, plus a stateful row with no live probe at all.
+
+Prose naming the wrong form, `attack_payload=` without `setup_payloads`, must
+not fire.
+"""
+
+
+class Suite:
+    def test_replay(self):
+        verifier = Verifier()
+        first = verifier.authorize(token, txn, now)
+        replay = verifier.authorize(token, txn, now)
+        self._finish(model_pass=first.ok and not replay.ok,
+                     setup_payloads=[{"token": token, "transaction": txn}],
+                     attack_payload={"token": token, "transaction": txn})
+
+    def test_model_only(self):
+        ch = Channel()
+        a = ch.redeem(v1, now)
+        b = ch.redeem(v1, now)
+        self._finish(model_pass=a and not b, attack_payload=None)
+
+    def _finish(self, **kw):
+        pass
+'''
+
+
 _SEVERITY_VIOLATION = '''"""A harness inventing a critical spelling the CI gate cannot read."""
 from dataclasses import dataclass
 
@@ -521,6 +568,9 @@ DETECTORS = {
     "shipped script resolving data relative to the checkout": (
         _run_checkout_join_detector, _CHECKOUT_JOIN_VIOLATION,
         _CHECKOUT_JOIN_CONTROL, "test_packaged_scripts_resolve.py"),
+    "stateful live row sending only its final request": (
+        _run_stateful_setup_detector, _STATEFUL_VIOLATION, _STATEFUL_CONTROL,
+        "test_stateful_live_rows.py"),
 }
 
 #: Derived, never written down: the files that have a seeded control pair.
