@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.27.0] - 2026-10-17
+
+A minor release. Two new test families, each for a check that exists but does not run:
+a fix that ships off by default, and an approval that authorizes more than the person
+approved. 640 to 644 tests across 49 test-bearing modules (was 48); one new CLI command,
+`agent-security test approval-binding`. No existing verdict changed.
+
+### Added
+
+- **MCP-022, Bearer Token Audience Binding (#645, #646).** GHSA-w4fh-qvv9-3v23: the
+  Python MCP SDK's bearer authentication accepted a valid token issued for a different
+  resource server, and the fix (`validate_token_resource`) is off unless set, so
+  upgrading alone changes nothing and only a test against the deployed server can tell.
+  A three-leg `tools/list` differential: no credential, a token for another resource
+  server, the configured credential. PASS only when the other-audience token is rejected
+  **and** the configured one is served; a server that rejects everything, or serves
+  without auth, is INCONCLUSIVE, not PASS. Readable JWT claims can only invalidate an
+  ill-posed run, never pass one. New flag `--audience-attacker-header`. No earlier test
+  sent a validly issued wrong-audience token (MCP-021 sends invalid tokens; MCP-RC-012 a
+  different issuer with no accept leg). Controls: `testing/test_mcp022_audience_binding.py`,
+  19 tests over the real HTTP transport against stub servers, mutation-checked.
+- **APB-001..APB-003, approval binding at runtime (#643, #647).** Motivated by
+  GHSA-29r9-67vg-qj56 (approval cache keyed on tool name) and GHSA-5r6c-gj4g-r697
+  (declared policy not consulted). APB-001: an approval for (T, X) must not execute
+  (T, Y). APB-002: on single-use profiles, one approval executes once. APB-003: a declared
+  deny rule holds at execution even when the call was approved. The oracle is the
+  runtime's own execution list, diffed around each call; refusal text is never evidence,
+  and each test has a positive control or it is INCONCLUSIVE. No standard approval
+  protocol exists, so the caller supplies a five-op adapter (`approve`, `call`,
+  `executions`, `profile`, `declare`), as with capability-residue; there is no default
+  endpoint, and `--self-test --shape <S>` runs a reference shape. Design and truth table
+  first: `docs/proposals/APPROVAL-BINDING-RUNTIME.md`. Controls: 30 cells (10 shapes x 3)
+  in `testing/test_approval_binding_controls.py`, including standing approvals, which
+  are legal and must PASS APB-001/003.
+
+### Not established
+
+- Anything about a real approval runtime until someone writes its adapter. CVE-2026-60085
+  and CVE-2026-60087 are cited as motivation and excluded from the CVE pages with a
+  reason: these tests were never run against PraisonAI. Child-task inheritance and
+  approval expiry are not tested.
+- MCP-022 against stdio: it cannot present a second credential, so the reference
+  calibration expects one more INCONCLUSIVE (15 to 16).
+
+Version bumped in pyproject.toml, CITATION.cff (date-released 2026-10-17), the two OWASP
+coverage documents and the coverage manifest pair; `docs/release-claims.json` rebound to
+v4.27.0; README timeline extended.
+
 ## [4.26.1] - 2026-09-26
 
 A patch release. Two reports from @VrtxOmega, each reproduced against the published
