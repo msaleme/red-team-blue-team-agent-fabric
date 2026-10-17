@@ -1323,6 +1323,7 @@ def fold_live_verdict(*, live_requested: bool, verdict: str | None,
                       accepted_detail: str | None = None,
                       rejected_detail: str | None = None,
                       positive_control: bool = False,
+                      setup_detail: str | None = None,
                       ) -> tuple[bool, str, dict | None]:
     """``(passed, details, reference_verdict)`` for a reference-vs-live row.
 
@@ -1357,6 +1358,11 @@ def fold_live_verdict(*, live_requested: bool, verdict: str | None,
       live was observed, and the reference verdict is preserved SEPARATELY under
       ``reference_verdict`` with its own scope statement -- never in ``passed``.
 
+    - Live, ``setup_detail`` set: a stateful row's setup steps were not all
+      accepted (see `live_sequence`), so the state the final step tests was
+      never established. INCONCLUSIVE. Checked before ``verdict``, which is
+      ``None`` on that path.
+
     ``reference_verdict`` is returned whenever live mode was requested, so a
     consumer can always see what the reference model said and always sees that
     it is about the reference model.
@@ -1369,6 +1375,13 @@ def fold_live_verdict(*, live_requested: bool, verdict: str | None,
                 f"target was contacted, so this control was not exercised. "
                 f"Reference-model verdict preserved under reference_verdict and "
                 f"not scored: {model_reason}",
+                reference)
+    if setup_detail:
+        return (False,
+                f"{INCONCLUSIVE_PREFIX}{setup_detail}. The final step was not "
+                f"sent, so neither an absent nor a held control was observed. "
+                f"Not scored. Reference-model verdict preserved under "
+                f"reference_verdict.",
                 reference)
     if verdict == "accepted":
         return (False,
@@ -1404,6 +1417,53 @@ def fold_live_verdict(*, live_requested: bool, verdict: str | None,
             f"Reference-model verdict preserved under reference_verdict and not "
             f"scored.",
             reference)
+
+
+def live_sequence(probe, url: str, headers: dict, setup: list, attack: dict
+                  ) -> tuple[str | None, dict, str | None]:
+    """Replay a stateful row live: every setup step, then the attack (#653).
+
+    Some controls exist only relative to earlier state: a velocity cap needs
+    earlier spend, a replay needs a first use, a double-spend needs a first
+    payment. Sending only the last request asks a correct target about a
+    fresh credential, which it accepts, and the row read that as the attack
+    getting through. CTK-004, CTK-005, AP2-011, AP2-013, UCP-006 and ACP-004
+    shipped that way through v4.27.0.
+
+    Each setup step is a legitimate request, so the target accepting all of
+    them is the row's positive control: a target that rejects everything
+    stops at step 1. Returns ``(verdict, live_evidence, setup_detail)``:
+
+    - a setup step ``unreachable`` or ``undecided``: that verdict is returned
+      as the row's, so the shared fold words it as it words any such answer
+      (INCONCLUSIVE either way); the attack is never sent;
+    - a setup step ``rejected``: ``verdict`` is ``None`` and ``setup_detail``
+      says which step; the attack is never sent, and `fold_live_verdict`
+      reports INCONCLUSIVE, because a target that refuses everything looks
+      exactly like this;
+    - otherwise ``verdict`` is the attack's, and ``setup_detail`` is ``None``.
+
+    ``live_evidence["verdict"]`` is always the last answer the target gave,
+    and ``stopped_at_setup_step`` names the step when the attack was not sent.
+
+    Callers give each row its own credential id, so state another row left
+    behind cannot satisfy or spoil this row's setup.
+    """
+    steps = []
+    for i, payload in enumerate(setup, 1):
+        v, ev = probe(url, headers, payload)
+        steps.append({"step": i, "verdict": v, "status": ev.get("_status", 0)})
+        if v != "accepted":
+            ev_out = {"setup": steps, "verdict": v, "status": ev.get("_status", 0),
+                      "stopped_at_setup_step": i}
+            if v != "rejected":
+                return v, ev_out, None
+            return (None, ev_out,
+                    f"setup step {i} of {len(setup)} (a legitimate request) was "
+                    f"rejected, so the state this control depends on was never "
+                    f"established")
+    v, ev = probe(url, headers, attack)
+    return v, {"setup": steps, "verdict": v, "status": ev.get("_status", 0)}, None
 
 
 def live_run_scope(results, *, live_requested: bool, target: str | None) -> dict:

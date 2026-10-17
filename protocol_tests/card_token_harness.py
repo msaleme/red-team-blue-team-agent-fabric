@@ -66,12 +66,13 @@ import hashlib
 import json
 import sys
 import time
+import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from protocol_tests._utils import Severity, http_post_json, json_stdout_only
 from protocol_tests.harness_base import build_report, exit_status, write_report
-from protocol_tests.http_helpers import (fold_live_verdict, is_inconclusive,
+from protocol_tests.http_helpers import (fold_live_verdict, live_sequence, is_inconclusive,
                                          live_run_scope, payment_outcome,
                                          run_summary, summary_lines)
 
@@ -301,20 +302,33 @@ class CardTokenTests:
 
     def _finish(self, *, test_id, name, category, network, owasp, stride,
                 severity, ref, normative, model_pass, model_reason,
-                attack_payload, t0):
+                attack_payload, t0, setup_payloads=None):
         verdict = None
         live_ev = None
+        setup_detail = None
         if not self.simulate and attack_payload is not None:
-            verdict, ev = _live_rejected(self.url, self.headers, attack_payload)
-            live_ev = {"verdict": verdict, "status": ev.get("_status", 0)}
+            if setup_payloads:
+                # A stateful row: replay the whole sequence (#653).
+                verdict, live_ev, setup_detail = live_sequence(
+                    _live_rejected, self.url, self.headers, setup_payloads,
+                    attack_payload)
+            else:
+                verdict, ev = _live_rejected(self.url, self.headers, attack_payload)
+                live_ev = {"verdict": verdict, "status": ev.get("_status", 0)}
         # One shared policy for what a row says when live mode was requested
         # and nothing live was observed: INCONCLUSIVE, with the reference-model
-        # verdict kept apart under `reference_verdict`, never in `passed`. No
-        # row here sends a legitimate variant, so no row claims a positive
-        # control, and a bare live rejection is recorded but not scored.
+        # verdict kept apart under `reference_verdict`, never in `passed`. A
+        # single-request row sends no legitimate variant, so it claims no
+        # positive control and a bare live rejection is recorded but not
+        # scored. A stateful row's accepted setup steps ARE its positive
+        # control, so its rejected final step is scored.
         passed, details, reference = fold_live_verdict(
             live_requested=not self.simulate, verdict=verdict,
             model_pass=model_pass, model_reason=model_reason,
+            positive_control=bool(setup_payloads), setup_detail=setup_detail,
+            rejected_detail=(f"{model_reason}; the live target accepted all "
+                             f"{len(setup_payloads)} legitimate setup step(s) and "
+                             f"rejected the final one" if setup_payloads else None),
             subject="live authorizer",
             accepted_detail=f"{model_reason}; LIVE authorizer ACCEPTED the attack — control absent")
         self._record(CardTokenTestResult(
@@ -413,10 +427,12 @@ class CardTokenTests:
         t0 = time.monotonic()
         now = self._now()
         token, _ = _valid_token(now)  # velocity_cap 50000, cap 20000
+        token["token_id"] = "ntk-" + uuid.uuid4().hex[:8]  # this row's own state (#653)
+        t1, t2, t3 = (_txn(token, 20000, n) for n in (1, 2, 3))
         verifier = CardTokenVerifier()
-        a = verifier.authorize(token, _txn(token, 20000, 1), now)
-        b = verifier.authorize(token, _txn(token, 20000, 2), now)
-        c = verifier.authorize(token, _txn(token, 20000, 3), now)  # 60000 > 50000
+        a = verifier.authorize(token, t1, now)
+        b = verifier.authorize(token, t2, now)
+        c = verifier.authorize(token, t3, now)  # 60000 > 50000
         self._finish(
             test_id="CTK-004", name="Cumulative Velocity Cap",
             category="scope", network="visa-tap/mc-agentic",
@@ -426,7 +442,9 @@ class CardTokenTests:
             model_reason=(f"velocity breach rejected ({c.reason})"
                           if (a.ok and b.ok and not c.ok) else
                           "VELOCITY BREACH — cumulative spend exceeded the token velocity cap"),
-            attack_payload={"token": token, "transaction": _txn(token, 20000, 3)}, t0=t0)
+            setup_payloads=[{"token": token, "transaction": t1},
+                            {"token": token, "transaction": t2}],
+            attack_payload={"token": token, "transaction": t3}, t0=t0)
 
     # -- CTK-005: cryptogram freshness (replay) ---------------------------
 
@@ -438,7 +456,9 @@ class CardTokenTests:
         """
         t0 = time.monotonic()
         now = self._now()
-        token, txn = _valid_token(now)  # counter 1
+        token, _ = _valid_token(now)
+        token["token_id"] = "ntk-" + uuid.uuid4().hex[:8]  # this row's own state (#653)
+        txn = _txn(token, amount=15000, counter=1)
         verifier = CardTokenVerifier()
         first = verifier.authorize(token, txn, now)
         replay = verifier.authorize(token, dict(txn), now)  # same counter 1
@@ -451,7 +471,8 @@ class CardTokenTests:
             model_reason=(f"replayed cryptogram rejected ({replay.reason})"
                           if (first.ok and not replay.ok) else
                           "REPLAY — a reused token cryptogram was authorized twice"),
-            attack_payload={"token": token, "transaction": txn}, t0=t0)
+            setup_payloads=[{"token": token, "transaction": txn}],
+            attack_payload={"token": token, "transaction": dict(txn)}, t0=t0)
 
     # -- CTK-006: cryptogram-amount binding -------------------------------
 

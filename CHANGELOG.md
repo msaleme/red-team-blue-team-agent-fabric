@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Six stateful live rows graded a correct target FAIL (#653).** CTK-004 (velocity
+  cap), CTK-005 (cryptogram replay), AP2-011 (payment replay), AP2-013 (double-spend),
+  UCP-006 (profile takeover) and ACP-004 (duplicate order) test a control that exists
+  only relative to earlier state. The reference model built that state; the live leg
+  sent only the final request, so a correct target saw a fresh credential, accepted it,
+  and the row reported "ACCEPTED the attack". All six also shared one credential id, so
+  results depended on run order. Affects every released version through v4.27.0: **a
+  live FAIL on any of the six from those versions is unreliable.** The issue named
+  three; a sweep of every `_finish` caller found the other three. Each row now uses its
+  own credential id and replays the whole sequence through `http_helpers.live_sequence`.
+  The final step is graded only if the target accepted every setup step, which is the
+  row's positive control; a rejected setup step is INCONCLUSIVE. FB-014 and FB-017 have
+  the same model shape but send no live probe, so were not affected. Guard:
+  `testing/test_stateful_live_rows.py` (stateful-correct stub PASS, permissive FAIL,
+  refuse-all INCONCLUSIVE, full suites order-independent, and an AST sweep with a seeded
+  control pair). Against v4.27.0 code the stateful-correct stub fails on all six.
+  Limit: a target that rejects every Nth request regardless of content would PASS
+  CTK-004; the row has no within-cap control for the final charge.
+
 ### Added
 
 - **ACSH-001..ACSH-005, does the agent honor the Guardian's decision (#650, #651).**

@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `65d4ce5`
+**Generated:** `scripts/generate_test_catalog.py` at commit `a630753`
 **Test count:** 649 unique test IDs across 51 registered harness modules (50 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -86,23 +86,23 @@ AIUC-F002d | CBRN Dual-Use Detection | protocol_tests/aiuc1_compliance_harness.p
 ### AP2 Mandate Chain (`protocol_tests/ap2_harness.py`) — 17 tests
 
 ```
-AP2-001 | Checkout Hash Tamper | protocol_tests/ap2_harness.py:440
-AP2-002 | Stale / Cross-Session Cart | protocol_tests/ap2_harness.py:463
-AP2-003 | Amount Cap Escalation (Intent→Cart) | protocol_tests/ap2_harness.py:488
-AP2-004 | Merchant Allowlist Constraint | protocol_tests/ap2_harness.py:509
-AP2-005 | Line-Item / SKU Constraint | protocol_tests/ap2_harness.py:528
-AP2-006 | Unknown Constraint Fail-Closed | protocol_tests/ap2_harness.py:554
-AP2-007 | Mandate Chain Link (transaction_id) | protocol_tests/ap2_harness.py:578
-AP2-008 | Open-Mandate Substitution (sd_hash) | protocol_tests/ap2_harness.py:601
-AP2-009 | Agent Key Forgery (cnf mismatch) | protocol_tests/ap2_harness.py:624
-AP2-010 | Missing User Signature (human-present) | protocol_tests/ap2_harness.py:643
-AP2-011 | Payment Mandate Replay (jti) | protocol_tests/ap2_harness.py:668
-AP2-012 | Expired Payment Mandate | protocol_tests/ap2_harness.py:688
-AP2-013 | Double-Spend on Open Mandate | protocol_tests/ap2_harness.py:713
-AP2-014 | Symmetric/Keyed-MAC Signature Scheme | protocol_tests/ap2_harness.py:742
-AP2-015 | Funding-Instrument Scope Binding | protocol_tests/ap2_harness.py:783
-AP2-016 | Premature Credential Release | protocol_tests/ap2_harness.py:815
-AP2-017 | vct Exact-Match Enforcement | protocol_tests/ap2_harness.py:840
+AP2-001 | Checkout Hash Tamper | protocol_tests/ap2_harness.py:453
+AP2-002 | Stale / Cross-Session Cart | protocol_tests/ap2_harness.py:476
+AP2-003 | Amount Cap Escalation (Intent→Cart) | protocol_tests/ap2_harness.py:501
+AP2-004 | Merchant Allowlist Constraint | protocol_tests/ap2_harness.py:522
+AP2-005 | Line-Item / SKU Constraint | protocol_tests/ap2_harness.py:541
+AP2-006 | Unknown Constraint Fail-Closed | protocol_tests/ap2_harness.py:567
+AP2-007 | Mandate Chain Link (transaction_id) | protocol_tests/ap2_harness.py:591
+AP2-008 | Open-Mandate Substitution (sd_hash) | protocol_tests/ap2_harness.py:614
+AP2-009 | Agent Key Forgery (cnf mismatch) | protocol_tests/ap2_harness.py:637
+AP2-010 | Missing User Signature (human-present) | protocol_tests/ap2_harness.py:656
+AP2-011 | Payment Mandate Replay (jti) | protocol_tests/ap2_harness.py:682
+AP2-012 | Expired Payment Mandate | protocol_tests/ap2_harness.py:703
+AP2-013 | Double-Spend on Open Mandate | protocol_tests/ap2_harness.py:729
+AP2-014 | Symmetric/Keyed-MAC Signature Scheme | protocol_tests/ap2_harness.py:759
+AP2-015 | Funding-Instrument Scope Binding | protocol_tests/ap2_harness.py:800
+AP2-016 | Premature Credential Release | protocol_tests/ap2_harness.py:832
+AP2-017 | vct Exact-Match Enforcement | protocol_tests/ap2_harness.py:857
 ```
 
 ### approval_binding_harness.py (`protocol_tests/approval_binding_harness.py`) — 3 tests
@@ -168,18 +168,18 @@ CR-005 | Clean capability handling accepted (control) | protocol_tests/capabilit
 ### Card-Network Agentic Tokens (`protocol_tests/card_token_harness.py`) — 12 tests
 
 ```
-CTK-001 | Agent Holder-Key Binding | protocol_tests/card_token_harness.py:347
-CTK-002 | Token Merchant Scope | protocol_tests/card_token_harness.py:366
-CTK-003 | Per-Transaction Amount Cap | protocol_tests/card_token_harness.py:396
-CTK-004 | Cumulative Velocity Cap | protocol_tests/card_token_harness.py:421
-CTK-005 | Cryptogram Freshness (counter replay) | protocol_tests/card_token_harness.py:446
-CTK-006 | Cryptogram-Amount Binding | protocol_tests/card_token_harness.py:471
-CTK-007 | Token Expiry | protocol_tests/card_token_harness.py:490
-CTK-008 | Token Revocation / Suspension | protocol_tests/card_token_harness.py:513
-CTK-009 | Consent-Policy Binding | protocol_tests/card_token_harness.py:532
-CTK-010 | Channel / Domain Binding | protocol_tests/card_token_harness.py:555
-CTK-011 | PAN De-Tokenization Protection | protocol_tests/card_token_harness.py:579
-CTK-012 | Cross-Network Token Substitution | protocol_tests/card_token_harness.py:602
+CTK-001 | Agent Holder-Key Binding | protocol_tests/card_token_harness.py:361
+CTK-002 | Token Merchant Scope | protocol_tests/card_token_harness.py:380
+CTK-003 | Per-Transaction Amount Cap | protocol_tests/card_token_harness.py:410
+CTK-004 | Cumulative Velocity Cap | protocol_tests/card_token_harness.py:437
+CTK-005 | Cryptogram Freshness (counter replay) | protocol_tests/card_token_harness.py:466
+CTK-006 | Cryptogram-Amount Binding | protocol_tests/card_token_harness.py:492
+CTK-007 | Token Expiry | protocol_tests/card_token_harness.py:511
+CTK-008 | Token Revocation / Suspension | protocol_tests/card_token_harness.py:534
+CTK-009 | Consent-Policy Binding | protocol_tests/card_token_harness.py:553
+CTK-010 | Channel / Domain Binding | protocol_tests/card_token_harness.py:576
+CTK-011 | PAN De-Tokenization Protection | protocol_tests/card_token_harness.py:600
+CTK-012 | Cross-Network Token Substitution | protocol_tests/card_token_harness.py:623
 ```
 
 ### CBRN Prevention (`protocol_tests/cbrn_harness.py`) — 8 tests
@@ -800,18 +800,18 @@ TS-006 | Missing Permission Metadata on Search Results | protocol_tests/tool_sea
 ### UCP/ACP Merchant Journey (`protocol_tests/ucp_acp_harness.py`) — 12 tests
 
 ```
-ACP-001 | Checkout-Session Binding | protocol_tests/ucp_acp_harness.py:520
-ACP-002 | Delegated-Token Merchant Scope | protocol_tests/ucp_acp_harness.py:543
-ACP-003 | Delegated-Token Amount Scope | protocol_tests/ucp_acp_harness.py:566
-ACP-004 | Order Idempotency (replay) | protocol_tests/ucp_acp_harness.py:590
-ACP-005 | Product-Feed Authenticity | protocol_tests/ucp_acp_harness.py:614
-ACP-006 | Checkout-Session Expiry | protocol_tests/ucp_acp_harness.py:633
-UCP-001 | Agent Profile Owner-Key Binding | protocol_tests/ucp_acp_harness.py:382
-UCP-002 | Cross-Merchant Line-Item Injection | protocol_tests/ucp_acp_harness.py:404
-UCP-003 | Journey Step-Order (skip consent) | protocol_tests/ucp_acp_harness.py:426
-UCP-004 | Quote Integrity (quote-vs-checkout) | protocol_tests/ucp_acp_harness.py:448
-UCP-005 | Cart Scope vs Stated Intent | protocol_tests/ucp_acp_harness.py:470
-UCP-006 | Agent Profile Takeover (rebind) | protocol_tests/ucp_acp_harness.py:494
+ACP-001 | Checkout-Session Binding | protocol_tests/ucp_acp_harness.py:535
+ACP-002 | Delegated-Token Merchant Scope | protocol_tests/ucp_acp_harness.py:558
+ACP-003 | Delegated-Token Amount Scope | protocol_tests/ucp_acp_harness.py:581
+ACP-004 | Order Idempotency (replay) | protocol_tests/ucp_acp_harness.py:607
+ACP-005 | Product-Feed Authenticity | protocol_tests/ucp_acp_harness.py:632
+ACP-006 | Checkout-Session Expiry | protocol_tests/ucp_acp_harness.py:651
+UCP-001 | Agent Profile Owner-Key Binding | protocol_tests/ucp_acp_harness.py:395
+UCP-002 | Cross-Merchant Line-Item Injection | protocol_tests/ucp_acp_harness.py:417
+UCP-003 | Journey Step-Order (skip consent) | protocol_tests/ucp_acp_harness.py:439
+UCP-004 | Quote Integrity (quote-vs-checkout) | protocol_tests/ucp_acp_harness.py:461
+UCP-005 | Cart Scope vs Stated Intent | protocol_tests/ucp_acp_harness.py:483
+UCP-006 | Agent Profile Takeover (rebind) | protocol_tests/ucp_acp_harness.py:508
 ```
 
 ### watermark_harness.py (`protocol_tests/watermark_harness.py`) — 5 tests

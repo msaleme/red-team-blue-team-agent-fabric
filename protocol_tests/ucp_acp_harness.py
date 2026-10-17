@@ -82,7 +82,7 @@ from datetime import datetime, timezone
 
 from protocol_tests._utils import Severity, http_post_json, json_stdout_only
 from protocol_tests.harness_base import build_report, exit_status, write_report
-from protocol_tests.http_helpers import (fold_live_verdict, is_inconclusive,
+from protocol_tests.http_helpers import (fold_live_verdict, live_sequence, is_inconclusive,
                                          live_run_scope, payment_outcome,
                                          run_summary, summary_lines)
 
@@ -341,20 +341,33 @@ class UCPACPJourneyTests:
 
     def _finish(self, *, test_id, name, category, protocol, owasp, stride,
                 severity, ref, normative, model_pass, model_reason,
-                attack_payload, t0):
+                attack_payload, t0, setup_payloads=None):
         verdict = None
         live_ev = None
+        setup_detail = None
         if not self.simulate and attack_payload is not None:
-            verdict, ev = _live_rejected(self.url, self.headers, attack_payload)
-            live_ev = {"verdict": verdict, "status": ev.get("_status", 0)}
+            if setup_payloads:
+                # A stateful row: replay the whole sequence (#653).
+                verdict, live_ev, setup_detail = live_sequence(
+                    _live_rejected, self.url, self.headers, setup_payloads,
+                    attack_payload)
+            else:
+                verdict, ev = _live_rejected(self.url, self.headers, attack_payload)
+                live_ev = {"verdict": verdict, "status": ev.get("_status", 0)}
         # One shared policy for what a row says when live mode was requested
         # and nothing live was observed: INCONCLUSIVE, with the reference-model
-        # verdict kept apart under `reference_verdict`, never in `passed`. No
-        # row here sends a legitimate variant, so no row claims a positive
-        # control, and a bare live rejection is recorded but not scored.
+        # verdict kept apart under `reference_verdict`, never in `passed`. A
+        # single-request row sends no legitimate variant, so it claims no
+        # positive control and a bare live rejection is recorded but not
+        # scored. A stateful row's accepted setup steps ARE its positive
+        # control, so its rejected final step is scored.
         passed, details, reference = fold_live_verdict(
             live_requested=not self.simulate, verdict=verdict,
             model_pass=model_pass, model_reason=model_reason,
+            positive_control=bool(setup_payloads), setup_detail=setup_detail,
+            rejected_detail=(f"{model_reason}; the live target accepted all "
+                             f"{len(setup_payloads)} legitimate setup step(s) and "
+                             f"rejected the final one" if setup_payloads else None),
             subject="live verifier",
             accepted_detail=f"{model_reason}; LIVE verifier ACCEPTED the attack — control absent")
         self._record(JourneyTestResult(
@@ -486,6 +499,7 @@ class UCPACPJourneyTests:
         """
         t0 = time.monotonic()
         profile, _, _ = _valid_ucp()
+        profile["profile_id"] = "agent-prof-" + uuid.uuid4().hex[:8]  # own state (#653)
         verifier = UCPVerifier()
         first = verifier.verify_profile(profile)
         rebind = dict(profile, owner_kid="attacker-key-9", signed_by="attacker-key-9")
@@ -499,6 +513,7 @@ class UCPACPJourneyTests:
             model_reason=(f"profile rebind rejected ({v2.reason})"
                           if (first.ok and not v2.ok) else
                           "TAKEOVER — a profile id was rebound to a different key"),
+            setup_payloads=[{"profile": profile}],
             attack_payload={"profile": rebind}, t0=t0)
 
     # === ACP =============================================================
@@ -583,6 +598,8 @@ class UCPACPJourneyTests:
         t0 = time.monotonic()
         now = self._now()
         session, completion = _valid_acp(now)
+        sid = "sess-" + uuid.uuid4().hex[:8]  # this row's own state (#653)
+        session["id"] = completion["session_id"] = sid
         verifier = ACPVerifier()
         first = verifier.verify_completion(session, completion, now)
         replay = verifier.verify_completion(session, dict(completion), now)  # same idem key
@@ -595,7 +612,8 @@ class UCPACPJourneyTests:
             model_reason=(f"duplicate order rejected ({replay.reason})"
                           if (first.ok and not replay.ok) else
                           "DOUBLE-ORDER — a replayed completion placed a second order"),
-            attack_payload={"session": session, "completion": completion}, t0=t0)
+            setup_payloads=[{"session": session, "completion": completion}],
+            attack_payload={"session": session, "completion": dict(completion)}, t0=t0)
 
     # -- ACP-005: product-feed authenticity -------------------------------
 
