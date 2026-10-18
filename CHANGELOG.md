@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.28.0] - 2026-10-18
+
+A minor release, and a correctness disclosure. Six stateful live rows could grade a
+correct target FAIL in every released version through v4.27.0; they are fixed, and a
+live FAIL on any of them from an earlier version should be re-run on this one. One new
+test family checks whether an agent honors an OWASP ACS Guardian's decision. 644 to 649
+tests across 50 test-bearing modules (was 49); one new CLI command,
+`agent-security test acs-honoring`.
+
 ### Fixed
 
 - **Six stateful live rows graded a correct target FAIL (#653).** CTK-004 (velocity
