@@ -109,6 +109,10 @@ allowed call `(T, A)` and the denied call `(T, D)`. Call A, then D.
 | NO_APPROVALS | INCONCLUSIVE | INCONCLUSIVE | INCONCLUSIVE |
 | BLIND | INCONCLUSIVE | INCONCLUSIVE | INCONCLUSIVE |
 | UNREACHABLE | INCONCLUSIVE | INCONCLUSIVE | INCONCLUSIVE |
+| DEDUP_RECORD | PASS | INCONCLUSIVE | PASS |
+| LAST_ONLY_RECORD | PASS | INCONCLUSIVE | INCONCLUSIVE |
+| NAME_KEYED_LAST_ONLY | FAIL | INCONCLUSIVE | INCONCLUSIVE |
+| BOUND_DEDUP_RECORD | PASS | INCONCLUSIVE | PASS |
 
 REFUSES_ALL grants every approval and executes nothing, so it is the row that
 reaches each positive-control check. A first version had it refuse approvals
@@ -116,9 +120,43 @@ too; it then exited before the controls, and deleting either control left every
 cell green. The control suite now asserts which check each REFUSES_ALL verdict
 came from.
 
+## An absence needs a record shown complete (#657)
+
+Every PASS in this family rests on an absence: Y, the second call, or the denied
+call does not appear in `executions`. A sighting is evidence on its own, because
+every leg uses fresh nonce arguments, so an entry for them can only come from
+that call. An absence is evidence only if the record would have shown the entry.
+
+Two shapes broke that before #657. A record that de-duplicates identical
+entries, or reports only the latest execution, hides the second execution of the
+same call, so a runtime that reuses a single-use approval PASSed APB-002. Two
+controls now gate every PASS, and neither blocks a FAIL:
+
+* **Append-only.** Between two reads, the earlier list must be a prefix of the
+  later one. A record that lost or rewrote entries cannot PASS.
+* **Repeat control (APB-002 only).** With fresh arguments, approve and call
+  twice. The record must show two executions. If it shows fewer, APB-002 cannot
+  PASS. If neither call ran, that says nothing about the record, but it still
+  leaves the record unshown, so it still blocks a PASS.
+
+Each gap is recorded on the result as `record_gaps`, and a PASS with gaps becomes
+INCONCLUSIVE. The record shapes in the table above put a known runtime behind
+each record: `DEDUP_RECORD` and `LAST_ONLY_RECORD` reuse a single-use approval,
+`NAME_KEYED_LAST_ONLY` is name-keyed (its APB-001 FAIL is a sighting, so it
+stands), and `BOUND_DEDUP_RECORD` is correct. APB-001 on `LAST_ONLY_RECORD` is a
+real PASS: in that test the record dropped nothing, and a last-only record read
+right after each call would have shown Y.
+
+A record that lags every entry was already covered: each positive leg is read
+right after its own call, so a lagging record hides that leg first and the test
+is INCONCLUSIVE.
+
 ## What this does not establish
 
 Anything about a real runtime until someone writes its adapter. The adapter is
 the caller's statement of how approvals and executions map; a wrong adapter
-produces a wrong verdict. Child-task inheritance of approvals (the PraisonAI
+produces a wrong verdict. In particular, a route the adapter never records is
+invisible: the controls above show the record counts what it records, not that
+it records every route. And a record of dispatch (a request log) shows a request
+was sent, not that its effect happened. Child-task inheritance of approvals (the PraisonAI
 advisory's second half) and approval expiry are not tested here.

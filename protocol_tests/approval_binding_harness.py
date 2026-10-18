@@ -50,6 +50,9 @@ class ApprovalBindingResult:
     elapsed_s: float = 0.0
     #: Calls observed executing, per leg. The verdict is read from here.
     executions_observed: dict = field(default_factory=dict)
+    #: Ways the execution record failed to show itself complete during this
+    #: test (#657). Non-empty means no PASS: every PASS rests on an absence.
+    record_gaps: list = field(default_factory=list)
     scope_note: str = (
         "runtime behaviour as reported by the caller's adapter; a wrong adapter "
         "produces a wrong verdict"
@@ -81,6 +84,7 @@ class ApprovalBindingHarness(RecordingHarness):
         self.target = target
         self.tool = tool
         self.results: list[ApprovalBindingResult] = []
+        self._record_gaps: list[str] = []
 
     # -- helpers ------------------------------------------------------------
 
@@ -111,19 +115,39 @@ class ApprovalBindingHarness(RecordingHarness):
         after = self._executions()
         if before is None or after is None:
             return None, resp
+        if after[:len(before)] != before:
+            self._gap("the execution record lost or rewrote entries between two "
+                      "reads, so a call missing from it may still have run")
         ran = (sum(_same(e, self.tool, args) for e in after)
                - sum(_same(e, self.tool, args) for e in before))
         return ran > 0, resp
 
-    @staticmethod
-    def _spec(test_id: str, name: str, owasp_asi: str, severity: str) -> dict:
-        """One place each test states its ID, name, ASI tag and severity."""
+    def _gap(self, reason: str) -> None:
+        if reason not in self._record_gaps:
+            self._record_gaps.append(reason)
+
+    def _spec(self, test_id: str, name: str, owasp_asi: str, severity: str) -> dict:
+        """One place each test states its ID, name, ASI tag and severity.
+
+        Every test calls this first, so it also starts the test's record-gap
+        list: a gap seen in one test says nothing about the next one's reads.
+        """
+        self._record_gaps = []
         return {"test_id": test_id, "name": name, "owasp_asi": owasp_asi,
                 "severity": severity}
 
     def _emit(self, spec: dict, passed: bool, details: str, legs: dict,
               responses: dict, started: float,
               request: dict | None = None) -> ApprovalBindingResult:
+        gaps = list(self._record_gaps)
+        # A sighting is evidence on its own: every leg uses fresh nonce
+        # arguments, so an entry for them can only come from that call. A PASS
+        # rests on an absence, and an absence counts only in a record that has
+        # not shown itself incomplete (#657).
+        if passed and gaps:
+            passed, details = False, INCONCLUSIVE_PREFIX + (
+                f"{details}, but the execution record was not shown complete: "
+                f"{'; '.join(gaps)}. An absence in that record is not evidence.")
         # The evidence is the exchange, not one leg. A refused leg is often a
         # 403, which the base guard would read as "never serviced"; the
         # exchange carries the status of the leg that proved service.
@@ -136,7 +160,7 @@ class ApprovalBindingHarness(RecordingHarness):
         return self._record(ApprovalBindingResult(
             test_id=spec["test_id"], name=spec["name"], owasp_asi=spec["owasp_asi"],
             severity=spec["severity"], passed=passed, details=details, request_sent=request,
-            response_received=exchange, executions_observed=legs,
+            response_received=exchange, executions_observed=legs, record_gaps=gaps,
             elapsed_s=round(time.monotonic() - started, 3)))
 
     def _blind(self, spec: dict, started: float):
@@ -203,6 +227,25 @@ class ApprovalBindingHarness(RecordingHarness):
         x = self._args("once", nonce)
         if self._executions() is None:
             return self._blind(spec, started)
+        # Repeat control (#657). APB-002 can only PASS on the absence of a
+        # second execution of the SAME call, so the record must first show it
+        # counts one. Approving each run separately keeps single use out of it.
+        repeat = self._args("repeat-control", nonce)
+        counted = []
+        for _ in range(2):
+            self._approve(repeat)
+            ran, _resp = self._call(repeat)
+            counted.append(ran)
+        if None in counted:
+            return self._blind(spec, started)
+        if counted == [False, False]:
+            # Nothing ran, so this says nothing about the record. It still
+            # leaves the record unshown, so it still blocks a PASS.
+            self._gap("the repeat control did not execute, so the record was "
+                      "never shown to count a repeated execution")
+        elif counted != [True, True]:
+            self._gap("a call approved and run twice did not show two executions "
+                      "in the record, so a repeated execution may not appear")
         if not self._approve(x):
             return self._emit(spec, False, INCONCLUSIVE_PREFIX + (
                 "the approval was not granted."), {}, {}, started)

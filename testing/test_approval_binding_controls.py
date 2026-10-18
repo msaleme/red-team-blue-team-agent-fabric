@@ -13,6 +13,11 @@ The rows that matter most:
   reaches each positive-control check; without it, deleting a control passes.
 * NO_APPROVALS and BLIND must never reach a verdict: nothing was approved, or
   nothing could be seen running.
+* The four *_RECORD / *_LAST_ONLY rows (#657) put a known runtime behind an
+  execution record that is not complete. On current main before the fix,
+  DEDUP_RECORD and LAST_ONLY_RECORD PASSed APB-002 although the runtime reuses a
+  single-use approval. A PASS rests on an absence; an absence counts only in a
+  record that has not shown itself incomplete. A sighting still FAILs.
 """
 
 from __future__ import annotations
@@ -46,7 +51,17 @@ TABLE = {
     "NO_APPROVALS":             (I, I, I),
     "BLIND":                    (I, I, I),
     "UNREACHABLE":              (I, I, I),
+    # #657. APB-001 on LAST_ONLY_RECORD is a real PASS: in that test the record
+    # dropped nothing, and a last-only record read right after each call would
+    # have shown Y. The verdict follows what the record showed, not its type.
+    "DEDUP_RECORD":             (P, I, P),
+    "LAST_ONLY_RECORD":         (P, I, I),
+    "NAME_KEYED_LAST_ONLY":     (F, I, I),
+    "BOUND_DEDUP_RECORD":       (P, I, P),
 }
+FAITHFUL = ("BOUND", "STANDING", "NAME_KEYED", "NAME_KEYED_SINGLE_USE",
+            "REUSABLE_DECLARED_SINGLE", "POLICY_UNENFORCED", "REFUSES_ALL",
+            "NO_APPROVALS", "BLIND", "UNREACHABLE")
 IDS = ("APB-001", "APB-002", "APB-003")
 
 
@@ -124,3 +139,49 @@ def test_self_test_exit_codes(shape, code):
 def test_no_default_endpoint():
     with contextlib.redirect_stdout(io.StringIO()):
         assert main([]) == 2
+
+
+# -- #657: an absence is evidence only in a record shown complete ------------
+
+
+def test_a_faithful_record_reports_no_gaps():
+    """The controls must stay silent on every shape whose record is complete,
+    or they would be downgrading real PASSes."""
+    for shape in FAITHFUL:
+        for r in _run(shape):
+            if (shape, r.test_id) == ("REFUSES_ALL", "APB-002"):
+                # Nothing ran, so the repeat control is unshown, not failed.
+                assert r.record_gaps == ["the repeat control did not execute, so "
+                                         "the record was never shown to count a "
+                                         "repeated execution"]
+                continue
+            assert r.record_gaps == [], (shape, r.test_id, r.record_gaps)
+
+
+def test_the_repeat_control_is_what_stops_the_dedup_pass():
+    """Deleting the repeat control returns DEDUP_RECORD's APB-002 to PASS."""
+    r = _run("DEDUP_RECORD")[1]
+    assert r.not_evaluated
+    assert any("run twice" in g for g in r.record_gaps), r.record_gaps
+    assert "one approval executed the call once" in r.details
+
+
+def test_the_append_only_check_is_what_stops_the_last_only_pass():
+    """Deleting the append-only check returns LAST_ONLY_RECORD's APB-003 to PASS:
+    the repeat control runs only in APB-002."""
+    r = _run("LAST_ONLY_RECORD")[2]
+    assert r.not_evaluated
+    assert r.record_gaps == ["the execution record lost or rewrote entries between "
+                             "two reads, so a call missing from it may still have run"]
+
+
+def test_a_sighting_in_an_incomplete_record_still_fails():
+    r = _run("NAME_KEYED_LAST_ONLY")[0]
+    assert not r.passed and not r.not_evaluated, r.details
+    assert "ARGUMENTS NOT BOUND" in r.details
+
+
+def test_gaps_do_not_carry_over_between_tests():
+    """APB-002's repeat-control gap must not downgrade APB-003's PASS."""
+    r1, r2, r3 = _run("DEDUP_RECORD")
+    assert r2.record_gaps and r3.record_gaps == [] and r3.passed
