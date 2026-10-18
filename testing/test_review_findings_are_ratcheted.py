@@ -393,6 +393,14 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "internal coverage review 2026-10-17 (#653)", GUARDED,
      "testing/test_stateful_live_rows.py: "
      "StatefulRowTruthTable"),
+
+    # --- 2026-10-18, public reply review (#657) ---------------------------------
+    ("APB-001..003 counted an absence in the adapter's execution record as "
+     "evidence without the record showing itself complete: a de-duplicating or "
+     "last-only record let a runtime that reuses a single-use approval PASS APB-002",
+     "public reply review 2026-10-18 (#657)", GUARDED,
+     "testing/test_approval_binding_controls.py: "
+     "test_the_repeat_control_is_what_stops_the_dedup_pass"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.

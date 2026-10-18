@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `a630753`
+**Generated:** `scripts/generate_test_catalog.py` at commit `96097db`
 **Test count:** 649 unique test IDs across 51 registered harness modules (50 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -108,9 +108,9 @@ AP2-017 | vct Exact-Match Enforcement | protocol_tests/ap2_harness.py:857
 ### approval_binding_harness.py (`protocol_tests/approval_binding_harness.py`) — 3 tests
 
 ```
-APB-001 | Approval Bound to Its Arguments | protocol_tests/approval_binding_harness.py:151
-APB-002 | Single-Use Approval Executes Once | protocol_tests/approval_binding_harness.py:190
-APB-003 | Declared Deny Rule Enforced at Execution | protocol_tests/approval_binding_harness.py:231
+APB-001 | Approval Bound to Its Arguments | protocol_tests/approval_binding_harness.py:175
+APB-002 | Single-Use Approval Executes Once | protocol_tests/approval_binding_harness.py:214
+APB-003 | Declared Deny Rule Enforced at Execution | protocol_tests/approval_binding_harness.py:274
 ```
 
 ### autogen_harness.py (`protocol_tests/autogen_harness.py`) — 10 tests

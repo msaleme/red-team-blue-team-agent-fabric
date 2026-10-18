@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **APB-002 could PASS on an execution record that hides repeats (#657).** Every
+  APB PASS rests on an absence in the adapter's `executions` list, and the harness
+  counted an absence without the record showing itself complete. A record that
+  de-duplicates identical entries, or reports only the latest execution, let a
+  runtime that reuses a single-use approval PASS APB-002 (reproduced on v4.28.0
+  with the new `DEDUP_RECORD` and `LAST_ONLY_RECORD` reference shapes). Two
+  controls now gate every PASS: the record must be append-only between reads,
+  and APB-002 first approves and runs a fresh call twice and requires two
+  executions in the record. A failed control is recorded in the new
+  `record_gaps` field and turns a PASS into INCONCLUSIVE; it never blocks a
+  FAIL, because a sighting of a fresh-nonce call is evidence on its own. No
+  verdict changed on any existing reference shape. Not covered: a route the
+  adapter never records, and a dispatch record standing in for an effect.
+  Guard: four new rows and five tests in
+  `testing/test_approval_binding_controls.py`; deleting either control or the
+  PASS gate fails between three and six of them.
+
 ## [4.28.0] - 2026-10-18
 
 A minor release, and a correctness disclosure. Six stateful live rows could grade a

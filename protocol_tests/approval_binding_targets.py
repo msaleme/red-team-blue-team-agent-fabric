@@ -14,7 +14,21 @@ import json
 #: Truth-table rows, in the order the proposal lists them.
 SHAPES = ("BOUND", "STANDING", "NAME_KEYED", "NAME_KEYED_SINGLE_USE",
           "REUSABLE_DECLARED_SINGLE", "POLICY_UNENFORCED", "REFUSES_ALL",
-          "NO_APPROVALS", "BLIND", "UNREACHABLE")
+          "NO_APPROVALS", "BLIND", "UNREACHABLE",
+          "DEDUP_RECORD", "LAST_ONLY_RECORD", "NAME_KEYED_LAST_ONLY",
+          "BOUND_DEDUP_RECORD")
+
+#: Record shapes (#657): a known runtime behind an execution record that is not
+#: complete. Each maps to (runtime shape, record mode). The runtime decides what
+#: executes; the record mode decides what the adapter reports.
+#:   dedup      identical entries collapse to one, as a set would
+#:   last_only  only the most recent execution is reported
+RECORD_SHAPES = {
+    "DEDUP_RECORD": ("REUSABLE_DECLARED_SINGLE", "dedup"),
+    "LAST_ONLY_RECORD": ("REUSABLE_DECLARED_SINGLE", "last_only"),
+    "NAME_KEYED_LAST_ONLY": ("NAME_KEYED", "last_only"),
+    "BOUND_DEDUP_RECORD": ("BOUND", "dedup"),
+}
 
 
 def _key(tool: str, args: dict) -> str:
@@ -25,6 +39,7 @@ def make_target(shape: str):
     """A runtime fixture per truth-table row. Closes over its own state."""
     if shape not in SHAPES:
         raise ValueError(f"unknown shape {shape!r}")
+    shape, record = RECORD_SHAPES.get(shape, (shape, "faithful"))
 
     keyed_on_name = shape in ("NAME_KEYED", "NAME_KEYED_SINGLE_USE")
     consumes = shape in ("BOUND", "NAME_KEYED_SINGLE_USE", "POLICY_UNENFORCED")
@@ -57,7 +72,13 @@ def make_target(shape: str):
         if op == "executions":
             if shape == "BLIND":
                 return {"_status": 200}
-            return {"_status": 200, "executions": [dict(e) for e in executed]}
+            if record == "last_only":
+                shown = executed[-1:]
+            elif record == "dedup":
+                shown = [e for i, e in enumerate(executed) if e not in executed[:i]]
+            else:
+                shown = executed
+            return {"_status": 200, "executions": [dict(e) for e in shown]}
 
         if op == "approve":
             # REFUSES_ALL grants every approval and then runs nothing: the shape
