@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.28.1] - 2026-10-18
+
+A patch release with one correctness fix. APB-002 could report PASS for a runtime that
+reuses a single-use approval, when the adapter's execution record hid the repeat. A
+v4.28.0 APB PASS from an adapter whose record de-duplicates or keeps only the latest
+execution should be re-run on this version. No test IDs added or removed: 649 tests
+across 50 test-bearing modules.
+
 ### Fixed
 
 - **APB-002 could PASS on an execution record that hides repeats (#657).** Every
