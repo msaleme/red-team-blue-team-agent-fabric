@@ -65,7 +65,7 @@ harness already expected.
 
 ```
 $ agent-security test mcp --url http://localhost:8080/mcp
-Running MCP Protocol Security Tests v4.17.0...
+Running MCP Protocol Security Tests...
  MCP-001: Tool List Integrity Check [PASS] (0.234s)
  MCP-002: Tool Registration via Call Injection [PASS] (0.412s)
  MCP-003: Capability Escalation via Initialize [FAIL] (0.156s)
