@@ -126,7 +126,7 @@
       {
         "report": "1.12",
         "commit": "HEAD",
-        "harness": "4.26.1",
+        "harness": "4.27.0",
         "date": "2026-10-17",
         "change": "Repository test total 644 -> 649 on the addition of ACSH-001..ACSH-005, the ACS decision-honoring family (the harness plays the OWASP Agent Control Standard v0.1.4 Guardian and observes at its own sink whether the Observed Agent applied a valid DENY, a deny posture on silence, a wrong-key ALLOW as a decision failure, an audited fail-open proceed, and an in-time DENY over a proceed posture). Test-bearing modules 49 -> 50. ACSH-001, -002, -004 and -005 carry an ASI02 primary and ACSH-003 an ASI07 primary on their own results, all attributable, so the corpus ASI02 count moves 89 -> 93 and ASI07 32 -> 33. This mapping does NOT adjudicate them; no scenario here enumerates them, so unique_mapped_tests is unchanged and this mapping claims none of them. Recorded because r15_total compares the stated total against a live count."
       }

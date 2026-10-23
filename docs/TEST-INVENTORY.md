@@ -1,14 +1,13 @@
 # Test Inventory
 
-**649 security tests across 50 test-bearing modules** on `main` (verified 2026-10-11 by `scripts/count_tests.py`)
+**649 security tests across 50 test-bearing modules** on `main` (verified 2026-10-18 by `scripts/count_tests.py`)
 
 See also: **[OWASP Agentic AI v1.1 Threat Coverage Report](OWASP-AGENTIC-V1.1-COVERAGE.md)** — per-threat T1–T17 evidence mapping with scenario coverage, mitigation-control validation and evidence classes, generated from `coverage/owasp-agentic-v1.1.yaml`. ([T1–T15 submission view](OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md))
 
-> **Canonical figures (verified 2026-09-10).** Main branch: 649 test IDs across
-> 50 test-bearing modules in `protocol_tests/` (files with no `test_id` — CLI,
-> helpers, telemetry, registry — are not counted as modules). `main`'s
-> `pyproject.toml` is at `agent-security-harness` v4.20.0 (611 tests); `main` and
-> that version agree, with no test added or removed since (see `CHANGELOG.md`). Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: 19 of
+> **Canonical figures (verified 2026-10-18).** `main` and the v4.28.1 release
+> (`pyproject.toml`) both carry 649 test IDs across 50 test-bearing modules in
+> `protocol_tests/` (files with no `test_id` — CLI, helpers, telemetry, registry —
+> are not counted as modules; see `CHANGELOG.md`). Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: 19 of
 > 20 testable requirements (95%). Research: 7 public Zenodo preprints (not
 > peer-reviewed) + 3 NIST submissions. Regenerate with `python
 > scripts/count_tests.py`.
@@ -234,7 +233,7 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 ## Test Harness Modules (representative summary)
 
 > This table lists the largest modules; the full harness spans **50 test-bearing
-> modules / 649 tests** on `main` (verified 2026-10-11 via `scripts/count_tests.py`).
+> modules / 649 tests** on `main` (verified 2026-10-18 via `scripts/count_tests.py`).
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|

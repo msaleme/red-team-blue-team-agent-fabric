@@ -87,7 +87,7 @@ agent-security-harness/
 └── docs/                    # Documentation (this directory)
 ```
 
-**Total: 649 security tests across 50 test-bearing modules** (verified 2026-10-11 via `scripts/count_tests.py`)
+**Total: 649 security tests across 50 test-bearing modules** (verified 2026-10-18 via `scripts/count_tests.py`)
 
 ---
 
