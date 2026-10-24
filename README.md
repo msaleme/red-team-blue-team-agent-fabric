@@ -251,11 +251,12 @@ project's own output first: the AIUC-1 crosswalk is E1 material regardless of co
 requirements, and this harness holds **no I2 evidence** at all, because it reads protocol responses
 the target itself emits. No claim here is deliberately made about how other projects handle this.
 
-**One external check.** The `Research backing` row says self-authored because it is. The one
-exception is [#304](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/304), where an
-outside party reimplemented the receipt-claim oracle from the published contract and replayed a
-pinned corpus. One reproduction, of one corpus, by one party, is not independent review of the
-harness as a whole, and this project still does not have that.
+**Outside checks.** The `Research backing` row says self-authored because it is. The exceptions
+are two reports from one outside party: [#304](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/304), which reimplemented
+the receipt-claim oracle from the published contract and replayed a pinned corpus, and
+[#622](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/622), which ran the released harness against targets the reporter
+wrote and found four target shapes that still produced verdicts. Two reports from one party are not
+independent review of the harness as a whole, and this project still does not have that.
 
 **Use both.** Scan with [Snyk Agent Scan](https://github.com/snyk/agent-scan) or [Cisco MCP Scanner](https://github.com/cisco-ai-defense/mcp-scanner) for static analysis. Test with this framework for active exploitation. They're complementary layers.
 
@@ -279,8 +280,8 @@ Seven public preprints and notes deposited on Zenodo (not represented as peer-re
 portfolio. An OpenAlex `cited_by` audit on 2026-08-02 found **30 citation edges and 0 qualifying
 independent citations** — every edge is a self-citation, collapsing to nine duplicate/version records
 across three title families. Nothing here should be read as third-party validation or scholarly
-adoption. The one external check this project has received is an independent reproduction, listed
-under [Used By](#used-by).
+adoption. The external checks this project has received are two reports from one party, listed
+under [Outside checks](#outside-checks).
 
 > **Correction (2026-08-02).** Two entries previously in this table cited DOIs belonging to other
 > researchers — `10.5281/zenodo.15105866` (a MALDI mass-spectrometry dataset by Ranes et al.) and
@@ -323,7 +324,7 @@ model, a standards landscape, and the live reference environment the telemetry a
 | Release history & known gaps | [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) |
 | E1-E5 Evidence Class Taxonomy (canonical) | [docs/EVIDENCE-CLASS-TAXONOMY.md](docs/EVIDENCE-CLASS-TAXONOMY.md) |
 | Reproducing this harness (and disagreeing with it) | [docs/REPRODUCING.md](docs/REPRODUCING.md) |
-| The one external reproduction, written up (E2/I1 for the fixture corpus) | [docs/RCL-CROSS-IMPLEMENTATION-INTEROP.md](docs/RCL-CROSS-IMPLEMENTATION-INTEROP.md) |
+| The external reimplementation, written up (E2/I1 for the fixture corpus) | [docs/RCL-CROSS-IMPLEMENTATION-INTEROP.md](docs/RCL-CROSS-IMPLEMENTATION-INTEROP.md) |
 | The acceptance criterion that does not require the mechanism (5 recorded instances) | [docs/VERIFICATION-DESIGN-DEFECT.md](docs/VERIFICATION-DESIGN-DEFECT.md) |
 | Attestation registry (client, opt-in publishing) | [docs/attestation-registry.md](docs/attestation-registry.md) |
 | Attestation registry server contract (self-hosted; no registry is operated by this project) | [docs/ATTESTATION-REGISTRY-SERVER-CONTRACT.md](docs/ATTESTATION-REGISTRY-SERVER-CONTRACT.md) |
@@ -377,14 +378,19 @@ explicitly *not* goals. Full detail and the anti-goals in [ROADMAP.md](ROADMAP.m
 |-----|----------|
 | [FransDevelopment / Open Agent Trust Registry](https://github.com/FransDevelopment/open-agent-trust-registry) | OATR SDK v1.2.0 test fixtures (X4-021 through X4-027) -- Ed25519 attestation verification |
 
-### Independent reproduction
+### Outside checks
 
-The only external check this project has received. [@VrtxOmega](https://github.com/VrtxOmega), in
-[veritas-agent-trust-lab](https://github.com/VrtxOmega/veritas-agent-trust-lab), wrote a **separate Node
+This project has received two external reports, both from one party,
+[@VrtxOmega](https://github.com/VrtxOmega), named with their consent (granted 2026-08-31 on #304 and
+2026-09-26 on #622). Neither is independent review of the harness as a whole, which this project
+still does not have.
+
+**A second implementation (I1 for the receipt-claim corpus).** In
+[veritas-agent-trust-lab](https://github.com/VrtxOmega/veritas-agent-trust-lab), they wrote a **separate Node
 verifier** for the portable receipt-claim oracle fixtures and ran it against a pinned commit and fixture
 hash, matching all 11 RCL results including both acceptance controls — so it did not pass by rejecting
-everything. Reported in [#304](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/304);
-named here with their consent, granted 2026-08-31. The result is written up in
+everything. Reported in [#304](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/304).
+The result is written up in
 [docs/RCL-CROSS-IMPLEMENTATION-INTEROP.md](docs/RCL-CROSS-IMPLEMENTATION-INTEROP.md),
 with their own report and verifier runner linked as the primary artifacts.
 
@@ -392,9 +398,21 @@ The exchange also produced two corrections to this repository: `signature_algori
 actual encoding and states plainly that it is **not** RFC 8785 JCS, and `coverage_gaps` now declares
 that freshness is exercised only in the stale direction. Both are in `fixtures/rcl/`.
 
-It is a reproduction of a pinned artifact by one external party, submitted as a report and explicitly
-**not** as a contribution, endorsement, certification, or adoption. It is not a substitute for
-independent review of the harness as a whole, which this project still does not have.
+**A run against their own targets (I0 for the harness).** In
+[#622](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/622), they installed the published v4.25.0 wheel, ran it against
+targets they wrote, and classified the rows themselves. The release claim held on the three shapes
+it named: against a closed port, a 404-everywhere and a 403-everywhere target, no URL-taking harness
+returned PASS or FAIL beyond the declared exceptions. They then tried six shapes the claim did not
+name, and four still produced verdicts: a redirect loop (45 rows), an empty 500 (35), an empty 200
+(134) and an empty 204 (144). Those four are now poles in the CI guard, and v4.26.0 returns
+INCONCLUSIVE on them, except X4-001 and L4-001, which FAIL on an empty 200 or 204 by design (an
+unpaid request served without a payment challenge). Their [public, rerunnable retest](https://github.com/VrtxOmega/veritas-agent-trust-lab/actions/runs/36254603030)
+of the published v4.26.0 wheel found no unexpected PASS or FAIL on any of the nine poles. Running
+our code is I0 by the table in [`docs/REPRODUCING.md`](docs/REPRODUCING.md): it shows where a stated
+claim holds and where it breaks, not that the verdict logic is right.
+
+Both were submitted as reports and explicitly **not** as contributions, endorsements,
+certifications, or adoption.
 
 **"A third independent implementation is worth more to this corpus than any additional vector."**
 That is [`fixtures/rcl/CONFORMANCE.md`](fixtures/rcl/CONFORMANCE.md) §7, verbatim, and it is not
@@ -411,10 +429,20 @@ result counts at all: **write the verifier from the published contract, not from
 result into a port, and the value is entirely in the independence. File it with the
 [reproduction report template](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/new?template=reproduction-report.yml).
 
-**A result that contradicts ours gets published too.** #304 is the precedent for that as well: it
-matched 11 of 11 and *still* surfaced two defects in our own contract description, both corrected
-above. Disagreement is the more useful outcome, not the awkward one — a reproduction that only
+**A result that contradicts ours gets published too.** #304 matched 11 of 11 and *still* surfaced
+two defects in our own contract description, both corrected above. #622 confirmed the claim as
+stated and then broke it on four shapes the claim had not named; the fix and its counts are in the
+[v4.26.0 changelog](CHANGELOG.md#4260---2026-09-26). Disagreement is the more useful outcome, not the awkward one — a reproduction that only
 agrees may just mean two implementations share the same wrong assumption.
+
+### Merged outside contributions
+
+| PR | From | What it added |
+|----|------|---------------|
+| [#101](https://github.com/msaleme/red-team-blue-team-agent-fabric/pull/101) | [FransDevelopment](https://github.com/FransDevelopment) | OATR SDK v1.2.0 test fixtures: suspended issuer and grace period |
+| [#516](https://github.com/msaleme/red-team-blue-team-agent-fabric/pull/516) | [Salento91](https://github.com/Salento91) | Four community fixtures for constraint preservation across delegation: a constraint kept, safely narrowed, dropped or widened (`community_modules/contrib/`) |
+
+A merged contribution is code this project reviewed and accepted. It is not validation of the harness.
 
 *Using the harness? Open a PR to add yourself, or tag us in your project.*
 
