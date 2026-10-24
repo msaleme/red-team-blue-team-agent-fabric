@@ -1,0 +1,11 @@
+# Every change to main needs approval from a person.
+#
+# Agents open pull requests through their own GitHub Apps (for example
+# msaleme-claude-agent[bot]), never as msaleme. The main-branch ruleset requires a
+# code-owner approval on the most recent push, and only the people listed here are
+# code owners. An App can comment on or even approve a pull request, but that approval
+# does not satisfy the rule, because no App is a code owner.
+#
+# List people only. Adding an App or a team that contains one would let an agent
+# approve its own work.
+* @msaleme
