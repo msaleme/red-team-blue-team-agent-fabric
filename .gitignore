@@ -43,6 +43,9 @@ november-meeting-extracted.txt
 !package.json
 !pyproject.json
 !schemas/*.json
+# Fourth time: the pinned AIUC-1 standard snapshot is read by tests/test_aiuc1_mapping_matches_standard.py.
+# The blanket *.json dropped it from the first push of PR #671, so CI failed on a file that existed locally.
+!configs/*.json
 # Published fixture sets are deliverables, not run artifacts. Without this the
 # blanket *.json above silently drops them from `git add -A` (see PR #299).
 !fixtures/**/*.json

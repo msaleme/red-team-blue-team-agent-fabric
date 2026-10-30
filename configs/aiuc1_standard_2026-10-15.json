@@ -1,0 +1,345 @@
+{
+  "standard": "AIUC-1",
+  "release": "2026-10-15",
+  "release_note": "Q4 2026 standard update, per https://standard.aiuc-1.com/changelog/",
+  "source": "https://standard.aiuc-1.com/llms.txt",
+  "source_sha256": "6cc61db4e1dc5bac90340a22fa75f7bc8791743ba4a5ec90d31f15bb52978a6a",
+  "retrieved_at": "2026-10-30T11:20:43Z",
+  "counts": {
+    "total": 55,
+    "active": 50,
+    "retired": 5
+  },
+  "requirements": [
+    {
+      "id": "A001",
+      "title": "Establish input data policy",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/data-and-privacy/establish-data-use-policy.md"
+    },
+    {
+      "id": "A002",
+      "title": "Establish output data policy",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/data-and-privacy/define-output-rights.md"
+    },
+    {
+      "id": "A003",
+      "title": "Limit AI agent data access",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/data-and-privacy/implement-contextual-data-safeguards.md"
+    },
+    {
+      "id": "A004",
+      "title": "Protect IP & trade secrets",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/data-and-privacy/protect-ip-trade-secrets.md"
+    },
+    {
+      "id": "A005",
+      "title": "Prevent cross-customer data exposure",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/data-and-privacy/prevent-cross-customer-data-exposure.md"
+    },
+    {
+      "id": "A006",
+      "title": "Prevent PII leakage",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/data-and-privacy/prevent-pii-leakage.md"
+    },
+    {
+      "id": "A007",
+      "title": "Prevent IP violations",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/data-and-privacy/prevent-ip-violations.md"
+    },
+    {
+      "id": "A008",
+      "title": "Prevent leakage of credentials and secrets",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/data-and-privacy/prevent-secrets-leakage.md"
+    },
+    {
+      "id": "A009",
+      "title": "Third-party testing for data & privacy risk",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/data-and-privacy/3rd-party-testing-for-data-and-privacy-risk.md"
+    },
+    {
+      "id": "B001",
+      "title": "Third-party testing for security risk",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/security/test-adversarial-robustness.md"
+    },
+    {
+      "id": "B002",
+      "title": "Detect adversarial input",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/security/detect-adversarial-input.md"
+    },
+    {
+      "id": "B003",
+      "title": "Manage public release of technical details",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/security/limit-technical-over-disclosure.md"
+    },
+    {
+      "id": "B004",
+      "title": "Prevent AI endpoint scraping",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/security/prevent-ai-endpoint-scraping.md"
+    },
+    {
+      "id": "B005",
+      "title": "Implement real-time input filtering",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/security/implement-real-time-input-filtering.md"
+    },
+    {
+      "id": "B006",
+      "title": "Prevent unauthorized AI agent actions",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/security/enforce-contextual-access-controls.md"
+    },
+    {
+      "id": "B007",
+      "title": "Enforce user access privileges to AI systems",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/security/enforce-ai-access-privileges.md"
+    },
+    {
+      "id": "B008",
+      "title": "Protect AI system deployment environment",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/security/protect-model-deployment-environment.md"
+    },
+    {
+      "id": "B009",
+      "title": "Limit output over-exposure",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/security/limit-output-over-exposure.md"
+    },
+    {
+      "id": "B010",
+      "title": "Promote secure patterns in generated code",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/security/promote-secure-code-patterns.md"
+    },
+    {
+      "id": "C001",
+      "title": "Define AI risk taxonomy",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/safety/define-ai-risk-taxonomy.md"
+    },
+    {
+      "id": "C002",
+      "title": "Conduct pre-deployment testing",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/safety/conduct-pre-deployment-testing.md"
+    },
+    {
+      "id": "C003",
+      "title": "Prevent harmful outputs",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/safety/prevent-harmful-outputs.md"
+    },
+    {
+      "id": "C004",
+      "title": "Prevent out-of-scope outputs",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/safety/prevent-out-of-scope-outputs.md"
+    },
+    {
+      "id": "C005",
+      "title": "Prevent agent-specific high risk outputs",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/safety/prevent-other-high-risk-outputs.md"
+    },
+    {
+      "id": "C006",
+      "title": "Prevent output vulnerabilities",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/safety/prevent-output-vulnerabilities.md"
+    },
+    {
+      "id": "C007",
+      "title": "Flag high risk outputs for human review",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/safety/flag-high-risk-recommendations.md"
+    },
+    {
+      "id": "C008",
+      "title": "Monitor AI risk categories",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/safety/monitor-ai-risk-categories.md"
+    },
+    {
+      "id": "C009",
+      "title": "Enable real-time feedback and intervention",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/safety/collect-real-time-feedback.md"
+    },
+    {
+      "id": "C010",
+      "title": "Third-party testing for safety risk",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/safety/3rd-party-testing-for-harmful-outputs.md"
+    },
+    {
+      "id": "C011",
+      "title": "Third-party testing for out-of-scope outputs",
+      "status": "retired",
+      "url": "https://standard.aiuc-1.com/safety/3rd-party-testing-for-out-of-scope-outputs.md"
+    },
+    {
+      "id": "C012",
+      "title": "Third-party testing for customer-defined risk",
+      "status": "retired",
+      "url": "https://standard.aiuc-1.com/safety/3rd-party-testing-for-other-risk.md"
+    },
+    {
+      "id": "D001",
+      "title": "Prevent hallucinated outputs",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/reliability/prevent-hallucinated-outputs.md"
+    },
+    {
+      "id": "D002",
+      "title": "Third-party testing for hallucinations",
+      "status": "retired",
+      "url": "https://standard.aiuc-1.com/reliability/3rd-party-testing-for-hallucinations.md"
+    },
+    {
+      "id": "D003",
+      "title": "Restrict unsafe tool calls",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/reliability/restrict-unsafe-tool-calls.md"
+    },
+    {
+      "id": "D004",
+      "title": "Third-party testing for reliability risk",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/reliability/3rd-party-testing-of-tool-calls.md"
+    },
+    {
+      "id": "E001",
+      "title": "AI failure plan for security breaches",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/accountability/ai-failure-plan-for-security-breaches.md"
+    },
+    {
+      "id": "E002",
+      "title": "AI failure plan for harmful outputs",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/accountability/ai-failure-plan-for-harmful-outputs.md"
+    },
+    {
+      "id": "E003",
+      "title": "AI failure plan for hallucinations",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/accountability/ai-failure-plan-for-hallucinations.md"
+    },
+    {
+      "id": "E004",
+      "title": "Assign accountability",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/accountability/assign-accountability.md"
+    },
+    {
+      "id": "E005",
+      "title": "Document data storage security",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/accountability/assess-cloud-vs-on-prem-processing.md"
+    },
+    {
+      "id": "E006",
+      "title": "Conduct vendor and model due diligence",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/accountability/conduct-vendor-due-diligence.md"
+    },
+    {
+      "id": "E007",
+      "title": "Document system change approvals",
+      "status": "retired",
+      "url": "https://standard.aiuc-1.com/accountability/document-system-change-approvals.md"
+    },
+    {
+      "id": "E008",
+      "title": "Review internal processes",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/accountability/review-internal-processes.md"
+    },
+    {
+      "id": "E009",
+      "title": "Monitor third-party access",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/accountability/monitor-3rd-party-access.md"
+    },
+    {
+      "id": "E010",
+      "title": "Establish AI acceptable use policy",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/accountability/establish-ai-acceptable-use-policy.md"
+    },
+    {
+      "id": "E011",
+      "title": "Record processing locations",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/accountability/record-processing-locations.md"
+    },
+    {
+      "id": "E012",
+      "title": "Document regulatory compliance",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/accountability/document-regulatory-compliance.md"
+    },
+    {
+      "id": "E013",
+      "title": "Implement quality management system",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/accountability/implement-quality-management-system.md"
+    },
+    {
+      "id": "E014",
+      "title": "Share transparency reports",
+      "status": "retired",
+      "url": "https://standard.aiuc-1.com/accountability/share-transparency-reports.md"
+    },
+    {
+      "id": "E015",
+      "title": "Log AI system activity",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/accountability/log-model-activity.md"
+    },
+    {
+      "id": "E016",
+      "title": "Implement AI disclosure mechanisms",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/accountability/implement-ai-disclosure-mechanisms.md"
+    },
+    {
+      "id": "E017",
+      "title": "Document system transparency policy",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/accountability/document-system-transparency-policy.md"
+    },
+    {
+      "id": "E018",
+      "title": "Third-party testing for accountability risk",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/accountability/3rd-party-testing-for-accountability-risk.md"
+    },
+    {
+      "id": "F001",
+      "title": "Prevent AI cyber misuse",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/society/prevent-ai-cyber-misuse.md"
+    },
+    {
+      "id": "F002",
+      "title": "Prevent catastrophic misuse",
+      "status": "active",
+      "url": "https://standard.aiuc-1.com/society/prevent-catastrophic-misuse.md"
+    }
+  ]
+}
