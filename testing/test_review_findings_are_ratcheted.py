@@ -401,6 +401,12 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "public reply review 2026-10-18 (#657)", GUARDED,
      "testing/test_approval_binding_controls.py: "
      "test_the_repeat_control_is_what_stops_the_dedup_pass"),
+    # --- 2026-10-26, GB (Grok bot) review of the x402 module; measured 2026-10-30 -----
+    ("the x402 module used a pre-spec header format (X-Payment-Authorization; challenge in "
+     "x-payment-* headers), so a spec x402 v1/v2 server ignored every probe: 43 of 54 PASS and "
+     "11 FAIL against a spec stub that accepts no payment, none of it evidence",
+     "GB review 2026-10-26", GUARDED,
+     "testing/test_x402_spec_target.py: ASpecTargetGetsNoPreSpecVerdicts"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.

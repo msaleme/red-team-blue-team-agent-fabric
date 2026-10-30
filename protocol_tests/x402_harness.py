@@ -3,7 +3,16 @@
 
 The FIRST open-source security test harness for Coinbase's x402 payment protocol.
 
-x402 Protocol Overview:
+Format caveat (2026-10-30). The flow below is the pre-spec header format these
+probes were written against. The published HTTP transport (x402-foundation/x402,
+specs/transports-v1/http.md and transports-v2/http.md) carries the challenge in a
+JSON body (v1) or a base64 `PAYMENT-REQUIRED` header (v2), and the payment in
+`X-PAYMENT` (v1) or `PAYMENT-SIGNATURE` (v2). A spec server ignores the pre-spec
+headers, so against one only SPEC_INDEPENDENT_TESTS grade and every other test
+reports INCONCLUSIVE with the reason. Spec-format probes need a valid signed
+payment as their positive control and are not built yet.
+
+x402 Protocol Overview (pre-spec format):
     x402 is an open standard for internet-native agent payments, built on
     HTTP 402 Payment Required. The flow is:
 
@@ -307,6 +316,95 @@ class X402Challenge:
 
 
 # ---------------------------------------------------------------------------
+# Spec-format challenge (x402-foundation/x402, specs/transports-v{1,2}/http.md)
+# ---------------------------------------------------------------------------
+#
+# The probes in this module were written against a pre-spec header format
+# (`X-Payment-Amount` ... in the challenge, `X-Payment-Authorization` in the
+# payment). The published HTTP transport does neither:
+#
+#     v1: 402 with a JSON body {"x402Version": 1, "accepts": [...]}; the client
+#         pays in an `X-PAYMENT` header.
+#     v2: 402 with a base64 `PAYMENT-REQUIRED` header {"x402Version": 2,
+#         "accepts": [...]}; the client pays in `PAYMENT-SIGNATURE`.
+#
+# A spec server ignores the pre-spec headers and answers every probe with its
+# normal 402, which these tests read as "rejected". Measured 2026-10-30 against
+# a spec v2 stub that accepts no payment at all: 43 of 54 PASS, none of them
+# evidence (reports/x402-spec-conformance-2026-10-30 in the operator workspace).
+# Until the probes speak the spec, a spec target gets INCONCLUSIVE from every
+# test whose verdict rests on the pre-spec format.
+
+#: Tests whose evidence is the server's own response, so their verdict stands
+#: against a spec target. X4-001 and X4-004 read the spec challenge itself.
+SPEC_INDEPENDENT_TESTS = frozenset({
+    "X4-001",  # the challenge is well-formed (spec-aware)
+    "X4-004",  # payTo is stable across challenges (spec-aware)
+    "X4-010",  # response scanned for session-data leakage
+    "X4-013",  # concurrent unpaid requests: no 5xx, no crash
+    "X4-017",  # the 402 response scanned for information leakage
+})
+
+
+def spec_challenge(resp: dict) -> dict | None:
+    """The spec challenge in *resp*, as {"version", "where", "accepts"}, or None.
+
+    Only a 402 counts. v2 is checked first: its header is the canonical location
+    (transports-v2/http.md, "Payment Required Signaling").
+    """
+    if not isinstance(resp, dict) or resp.get("status") != 402:
+        return None
+    headers = {str(k).lower(): v for k, v in (resp.get("headers") or {}).items()}
+    raw = headers.get("payment-required")
+    if raw:
+        try:
+            doc = json.loads(base64.b64decode(raw + "=" * (-len(raw) % 4)).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError, TypeError):
+            doc = None
+        if isinstance(doc, dict) and doc.get("x402Version") == 2 and isinstance(doc.get("accepts"), list):
+            return {"version": 2, "where": "PAYMENT-REQUIRED header", "accepts": doc["accepts"]}
+    body = resp.get("body")
+    if isinstance(body, str) and body.strip().startswith("{"):
+        try:
+            doc = json.loads(body)
+        except ValueError:
+            doc = None
+        if isinstance(doc, dict) and doc.get("x402Version") == 1 and isinstance(doc.get("accepts"), list):
+            return {"version": 1, "where": "JSON body", "accepts": doc["accepts"]}
+    return None
+
+
+def spec_challenge_issues(challenge: dict) -> list[str]:
+    """What a spec challenge is missing. Empty means well-formed for this check."""
+    accepts = challenge.get("accepts") or []
+    if not accepts:
+        return ["`accepts` is empty: the challenge names no way to pay"]
+    amount_key = "amount" if challenge["version"] == 2 else "maxAmountRequired"
+    issues = []
+    for i, req in enumerate(accepts):
+        if not isinstance(req, dict):
+            issues.append(f"accepts[{i}] is not an object")
+            continue
+        for key in ("scheme", "network", "payTo", "asset", amount_key):
+            if not req.get(key):
+                issues.append(f"accepts[{i}] has no {key}")
+        if req.get(amount_key) and not str(req[amount_key]).isdigit():
+            issues.append(f"accepts[{i}].{amount_key} is not an integer amount: {req[amount_key]!r}")
+        pay_to = str(req.get("payTo") or "")
+        if pay_to.startswith("0x") and not ETH_ADDRESS_RE.match(pay_to):
+            issues.append(f"accepts[{i}].payTo is not a valid EVM address: {pay_to[:60]}")
+    return issues
+
+
+def spec_inconclusive_detail(challenge: dict, original: str) -> str:
+    return (f"{INCONCLUSIVE_PREFIX}the target speaks x402 v{challenge['version']} "
+            f"(spec challenge in the {challenge['where']}). This test's probe uses the "
+            f"harness's pre-spec format (X-Payment-* headers, session tokens or "
+            f"attestations), which a spec server does not read, so its outcome does not "
+            f"show whether the control held. Original reading: {original}")
+
+
+# ---------------------------------------------------------------------------
 # Test result model (extended with x402-specific fields)
 # ---------------------------------------------------------------------------
 
@@ -415,6 +513,16 @@ class X402SecurityTests:
                 result.details = detail
                 result.response_received = payment_surface_evidence(
                     probe, self._paid_path or "/", result.response_received)
+        # 2026-10-30: a target that speaks the published x402 transport ignores
+        # this module's pre-spec probes and answers each with its normal 402, so
+        # "rejected" here shows nothing (43 of 54 PASS against a spec stub that
+        # accepts no payment). Only the response-evidence tests keep a verdict.
+        if not result.not_evaluated and result.test_id not in SPEC_INDEPENDENT_TESTS:
+            spec = spec_challenge(self._payment_surface())
+            if spec is not None:
+                result.passed = False
+                result.not_evaluated = True
+                result.details = spec_inconclusive_detail(spec, result.details)
         self.results.append(result)
         status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
@@ -490,6 +598,34 @@ class X402SecurityTests:
         issues = []
         if status != 402:
             issues.append(f"Expected HTTP 402, got {status}")
+
+        spec = spec_challenge(resp)
+        if spec is not None:
+            # A spec target is graded against the spec, not the pre-spec headers.
+            issues = spec_challenge_issues(spec)
+            passed = not issues
+            self._autonomy_signals["challenge_valid"] = passed
+            self._record(X402TestResult(
+                test_id="X4-001",
+                name="402 Payment Challenge Headers Present",
+                category="payment_challenge",
+                owasp_asi="ASI03",
+                severity=Severity.HIGH.value,
+                passed=passed,
+                details=("; ".join(issues) if issues else
+                         f"x402 v{spec['version']} challenge in the {spec['where']} is well-formed "
+                         f"({len(spec['accepts'])} payment option(s), each with scheme, network, "
+                         f"payTo, asset and an integer amount)"),
+                http_method="GET",
+                csg_mapping="HC-1: Payment protocol must return complete challenge",
+                estimated_impact="service_denial",
+                estimated_severity="high",
+                request_sent={"path": "/"},
+                response_received={"status": status, "x402_version": spec["version"],
+                                   "where": spec["where"], "accepts": spec["accepts"][:3]},
+                elapsed_s=round(elapsed, 3),
+            ))
+            return
 
         missing_headers = []
         for h in X402_REQUIRED_HEADERS:
@@ -623,7 +759,13 @@ class X402SecurityTests:
         for _ in range(5):
             resp = self.transport.get()
             if resp.get("status") == 402:
-                addr = resp.get("headers", {}).get("x-payment-recipient", "")
+                spec = spec_challenge(resp)
+                if spec is not None:
+                    # A spec challenge carries payTo per payment option.
+                    addr = ",".join(sorted(str(a.get("payTo", "")) for a in spec["accepts"]
+                                           if isinstance(a, dict)))
+                else:
+                    addr = resp.get("headers", {}).get("x-payment-recipient", "")
                 if addr:
                     recipients.append(addr)
 

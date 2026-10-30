@@ -169,7 +169,8 @@ agent-security test mcp --simulate
 # Then test your real MCP server:
 agent-security test mcp --url http://localhost:8080/mcp
 
-# Test an x402 payment endpoint
+# Test an x402 payment endpoint. Its probes predate the published x402 transport: against a
+# spec v1/v2 server only 5 tests grade, the rest report INCONCLUSIVE and say why (see CHANGELOG).
 agent-security test x402 --url https://your-x402-endpoint.com
 
 # Human-oversight surface: reviewer exposure (T10) and agent-to-human
@@ -224,7 +225,7 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 | **Approach** | Static analysis | Static + LLM classification | Model-layer probing | **Wire-protocol adversarial testing** |
 | **MCP coverage** | Tool descriptions, config files | Tool descriptions, YARA rules | - | **46 tests: protocol (32) + supply-chain (4) + tool-poisoning repro (10), real JSON-RPC 2.0 attacks** |
 | **A2A coverage** | - | - | - | **13 tests** |
-| **L402/x402 coverage** | - | - | - | **85 tests** (L402 33 + x402 52) |
+| **L402/x402 coverage** | - | - | - | **85 tests** (L402 33 + x402 52); x402 probes use a pre-spec header format, so against a spec x402 v1/v2 server 5 tests grade and the rest are INCONCLUSIVE |
 | **Merchant journey (UCP/ACP)** | - | - | - | **12 tests: agent-profile + cross-merchant cart + delegated checkout** |
 | **Funding instrument (Visa TAP / MC Agentic Tokens)** | - | - | - | **12 tests: holder/merchant/amount/velocity scope + dynamic cryptogram + revocation** |
 | **Settlement finality (denial-of-settlement)** | - | - | - | **8 tests: release-before-finality, reorg revocation, withheld-settlement liveness** |
