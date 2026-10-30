@@ -119,6 +119,7 @@ WHEEL_GATE_ELIGIBLE = {
 #: "They all need the checkout" was too broad (R5-07); each of these was run
 #: from the neutral directory and the reason recorded is the one it gave.
 CHECKOUT_ONLY = {
+    "test_aiuc1_mapping_matches_standard.py": "reads configs/aiuc1_standard_*.json, docs/AIUC1-CROSSWALK.md, README.md and scripts/ by checkout path",
     "test_aggregate_state_is_shared.py": "opens scripts/*.py by checkout path",
     "test_attestation_can_say_inconclusive.py": "opens REPO/schemas/attestation-report.json",
     "test_attestation_schema_neutrality.py": "opens REPO/schemas/attestation-report.json",

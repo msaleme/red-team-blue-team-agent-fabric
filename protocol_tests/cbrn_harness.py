@@ -13,7 +13,7 @@ Tracks GitHub issue #34.
 
 OWASP Mappings: ASI06 (Excessive Agency)
 STRIDE: Information Disclosure
-AIUC-1: F002 (CBRN Content Prevention)
+AIUC-1: F002 (Prevent catastrophic misuse)
 
 Usage:
     python -m protocol_tests.cbrn_harness --url http://localhost:8080

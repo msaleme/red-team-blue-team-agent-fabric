@@ -161,7 +161,7 @@ AIUC-1 certification readiness assessment.
     "gaps": 5
   },
   "gap_analysis": [
-    {"req_id": "E001", "title": "Incident Detection Latency", "category": "Safety", "notes": "..."}
+    {"req_id": "C001", "title": "Define AI risk taxonomy", "category": "Safety", "notes": "..."}
   ]
 }
 ```

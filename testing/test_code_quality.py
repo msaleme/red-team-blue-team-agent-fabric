@@ -589,15 +589,33 @@ class TestAIUC1Crosswalk(unittest.TestCase):
     def test_crosswalk_section_exists(self):
         self.assertIn("AIUC-1", self._crosswalk())
 
-    def test_claims_19_of_20(self):
-        """Crosswalk claims 19 of 20 testable requirements covered."""
-        content = self._crosswalk()
-        self.assertIn("19 of 20", content)
+    def _mapping_rows(self):
+        import yaml
+        with open(os.path.join(REPO_ROOT, "configs", "aiuc1_mapping.yaml")) as f:
+            cfg = yaml.safe_load(f)
+        rows = {}
+        for cat in (cfg.get("categories") or {}).values():
+            rows.update(cat.get("requirements") or {})
+        return rows
 
-    def test_mapping_summary_exists(self):
-        """The crosswalk should summarize the mapped requirements by category."""
-        content = self._crosswalk()
-        self.assertIn("Mapping Summary", content)
+    def test_no_current_19_of_20_claim(self):
+        """Inverted 2026-10-30. This test used to assert the crosswalk *said* "19 of 20".
+
+        That figure rested on titles that were not AIUC-1's (see CHANGELOG, Unreleased). It may now
+        appear only inside a correction note (a ">" line) that quotes it as wrong.
+        """
+        offending = [ln for ln in self._crosswalk().splitlines()
+                     if "19 of 20" in ln and not ln.lstrip().startswith(">")]
+        self.assertEqual(offending, [])
+
+    def test_the_stated_listing_count_is_the_mappings(self):
+        """The heading's "N of M active requirements listed" is recomputed from the YAML."""
+        m = re.search(r"Requirement mapping \((\d+) of (\d+) active requirements listed; (\d+) with named tests\)",
+                      self._crosswalk())
+        self.assertIsNotNone(m, "the crosswalk no longer states its listing count")
+        rows = self._mapping_rows()
+        self.assertEqual(int(m.group(1)), len(rows))
+        self.assertEqual(int(m.group(3)), sum(1 for r in rows.values() if r.get("status") == "MAPPED"))
 
     def test_requirement_ids_present(self):
         """AIUC-1 requirement IDs should be referenced (e.g., B001, C010, D004)."""
@@ -606,54 +624,43 @@ class TestAIUC1Crosswalk(unittest.TestCase):
         self.assertGreater(len(req_ids), 10,
                            "Expected 10+ AIUC-1 requirement IDs in crosswalk")
 
-    def test_security_section_states_all_listed_requirements_are_mapped(self):
-        """Security mapping is explicit without implying target conformance."""
+    def test_the_evidence_boundary_is_stated(self):
+        """The mapping is E1: the document must say it is not a claim about any target."""
         content = self._crosswalk()
-        self.assertIn("Security (all listed requirements mapped)", content)
-        self.assertTrue(
-            re.search(r'Mapping identifies.*?not evidence of target performance', content,
-                      re.DOTALL | re.IGNORECASE),
-            "Mapping summary should preserve the target-evidence boundary"
-        )
+        self.assertIn("Claim boundary", content)
+        self.assertIn("Neither is a claim about any target", content)
 
-    def test_crosswalk_references_real_test_ids(self):
-        """Crosswalk should reference actual test IDs or harness names that exist."""
-        content = self._crosswalk()
-        crosswalk_start = content.find("AIUC-1")
-        if crosswalk_start == -1:
-            self.fail("No crosswalk section")
-        crosswalk = content[crosswalk_start:crosswalk_start + 5000]
-
-        harness_refs = ["MCP", "A2A", "L402", "x402", "enterprise", "identity",
-                        "GTG-1002", "advanced"]
-        found = sum(1 for h in harness_refs if h.lower() in crosswalk.lower())
-        self.assertGreater(found, 3,
-                           f"Crosswalk should reference multiple harnesses, found {found}")
+    def test_every_test_id_the_crosswalk_cites_exists(self):
+        """Replaces a check that counted harness *names* in the first 5,000 characters."""
+        import subprocess
+        sys.path.insert(0, os.path.join(REPO_ROOT, "scripts"))
+        import count_tests
+        known = set().union(*count_tests.module_ids().values())
+        cited = set(re.findall(r"\b(?:[A-Z][A-Z0-9]*-)+\d{3}[a-z]?\b", self._crosswalk()))
+        self.assertGreater(len(cited), 20, "too few test IDs read; the check would pass vacuously")
+        self.assertEqual(sorted(cited - known), [])
 
     def test_test_count_consistent_in_crosswalk(self):
-        """Every test count in the crosswalk must match the canonical count.
+        """Every test count in the crosswalk must match its source.
 
-        This test was a no-op until 2026-08-02. It compared the crosswalk to
-        `(\\d+) security tests` in cli.py -- a string cli.py does not contain --
-        so `cli_counts` was always empty and the assertion block never ran. It
-        passed while the crosswalk said 595 and the canonical count was 603.
-
-        Two faults, both worth naming: it compared two documents to each other
-        instead of to the source of truth, and it guarded the comparison behind
-        a truthiness check, so the guard's own failure looked like a pass.
+        This test was a no-op until 2026-08-02 (it read a string cli.py does not contain). Since
+        2026-10-30 the crosswalk no longer restates the repository total; it states, per
+        requirement, how many tests the mapping names. Each of those must equal the YAML, and any
+        repository total that does reappear must equal `count_tests.py`.
         """
         import subprocess
         out = subprocess.check_output(
             ["python3", os.path.join(REPO_ROOT, "scripts", "count_tests.py")], text=True)
         canonical = re.search(r'Definitive count:\s*(\d+)', out).group(1)
-
         content = self._crosswalk()
-        counts = re.findall(r'(\d+)\s+(?:executable\s+)?tests', content)
-        counts = [c for c in counts if int(c) > 100]
-        self.assertTrue(counts, "AIUC-1 crosswalk must state a test count")
-        for c in counts:
-            self.assertEqual(c, canonical,
-                             f"Crosswalk says {c} tests, canonical is {canonical}")
+        rows = self._mapping_rows()
+        per_row = re.findall(r"^\|\s*\*\*([A-F]\d{3})\*\*.*?\|\s*(\d+) tests:", content, re.M)
+        self.assertTrue(per_row, "no per-requirement test counts were read; the check would pass vacuously")
+        for req_id, n in per_row:
+            self.assertEqual(int(n), len(rows[req_id]["test_ids"]), req_id)
+        totals = [c for c in re.findall(r'(\d+)\s+(?:executable\s+)?tests\b', content) if int(c) > 100]
+        for c in totals:
+            self.assertEqual(c, canonical, f"Crosswalk says {c} tests, canonical is {canonical}")
 
     def test_standards_section_includes_aiuc1(self):
         """Crosswalk or README should reference AIUC-1."""
