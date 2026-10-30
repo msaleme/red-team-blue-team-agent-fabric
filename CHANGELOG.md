@@ -30,6 +30,25 @@ carry the wrong titles.** Found by an outside review (GB, 2026-10-26).
   instead of its own copy of the invented titles.
 - Guarded by `tests/test_aiuc1_mapping_matches_standard.py`, including a positive control that a seeded
   invented title fails; registered in `testing/test_review_findings_are_ratcheted.py`.
+### Corrected: the x402 module graded spec x402 servers with probes they never read
+
+`protocol_tests/x402_harness.py` reads challenges from `X-Payment-Amount`, `X-Payment-Recipient` and similar
+headers and sends payments as `X-Payment-Authorization`. The published x402 HTTP transport
+(`x402-foundation/x402`, `specs/transports-v1/http.md`, `specs/transports-v2/http.md`) uses a JSON body (v1)
+or a base64 `PAYMENT-REQUIRED` header (v2) for the challenge, and `X-PAYMENT` (v1) or `PAYMENT-SIGNATURE`
+(v2) for the payment. A spec server ignores the pre-spec headers and answers every probe with its normal 402.
+**Measured against a spec v2 stub that accepts no payment at all: 43 of 54 PASS and 11 FAIL, none of it
+evidence** (X4-045 read "Replay correctly handled"; X4-001 failed the server for lacking headers the spec does
+not have). Found by an outside review (GB, 2026-10-26); measured 2026-10-30.
+
+- The module now recognises a spec challenge (v2 header first, then v1 body). Against a spec target, X4-001
+  grades the spec challenge (well-formed `accepts` with scheme, network, payTo, asset and an integer amount),
+  X4-004 reads payTo from it, and X4-010, X4-013 and X4-017 keep their response-evidence verdicts. **Every
+  other test reports INCONCLUSIVE and says why.** Pre-spec targets are unaffected.
+- Not fixed here: the probes still do not speak the spec. Spec-format probes need a valid signed payment as
+  their positive control (rule 9 in `CLAUDE.md`) and are a separate piece of work.
+- Guarded by `testing/test_x402_spec_target.py` (v1 and v2 targets, a negative control where X4-001 must
+  fail, and a pre-spec target the rule must not touch); registered in `test_review_findings_are_ratcheted.py`.
 
 ## [4.28.1] - 2026-10-18
 

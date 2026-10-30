@@ -414,6 +414,12 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
     ("scripts/aiuc1_prep.py carried its own copy of the invented AIUC-1 titles",
      "GB review 2026-10-26", GUARDED,
      "tests/test_aiuc1_mapping_matches_standard.py: test_the_prep_tool_reads_the_same_mapping"),
+    # --- 2026-10-26, GB (Grok bot) review of the x402 module; measured 2026-10-30 -----
+    ("the x402 module used a pre-spec header format (X-Payment-Authorization; challenge in "
+     "x-payment-* headers), so a spec x402 v1/v2 server ignored every probe: 43 of 54 PASS and "
+     "11 FAIL against a spec stub that accepts no payment, none of it evidence",
+     "GB review 2026-10-26", GUARDED,
+     "testing/test_x402_spec_target.py: ASpecTargetGetsNoPreSpecVerdicts"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.
