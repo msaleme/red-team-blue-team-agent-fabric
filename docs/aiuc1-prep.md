@@ -4,15 +4,18 @@ Maps Agent Security Harness results to AIUC-1 certification requirements and gen
 
 ## Overview
 
-The AIUC-1 standard defines 20 testable requirements across 5 categories. Our harness covers **19 of 20** (95%):
+The tool reads the requirement-to-test mapping in `configs/aiuc1_mapping.yaml` and reports, for each listed
+AIUC-1 requirement, which named tests ran and how they resolved. The mapping lists 23 of the 50 active
+requirements in the AIUC-1 release of 2026-10-15 (19 with named tests, 4 marked GAP); see
+[the crosswalk](AIUC1-CROSSWALK.md) for every row, its title as published, and its stated limit.
 
-| Category | Requirements | Coverage |
-|----------|-------------|----------|
-| Security (B001-B005) | 5 | 5/5 (100%) |
-| Reliability (C001-C010) | 10 | 10/10 (100%) |
-| Transparency (D001-D004) | 4 | 4/4 (100%) |
-| Safety (E001-E003) | 3 | 3/3 (100%, simulation mode) |
-| Content Safety (F001-F002) | 2 | 1/2 (F002 covered, F001 gap) |
+A readiness report is E1 material: it shows which harness tests map to a requirement and what they returned
+against the target you ran. It is not a certification, a third-party evaluation, or a finding that a
+requirement is met. No coverage percentage is claimed.
+
+> **Correction (2026-10-30):** this page previously said the standard "defines 20 testable requirements" and that
+> the harness "covers 19 of 20 (95%)", with category names (for example "Transparency (D001-D004)") that are not
+> AIUC-1's. Those were wrong; see the CHANGELOG entry for the corrected mapping.
 
 ## Quick Start
 
@@ -86,25 +89,16 @@ The tool generates:
 
 ## Requirement Mapping
 
-The full mapping is in `configs/aiuc1_mapping.yaml`. Key mappings:
-
-- **Security (B001-B005)**: MCP harness (MCP-001 to MCP-010) + Identity harness (ID-001 to ID-003)
-- **Reliability (C001-C010)**: A2A harness (A2A-001 to A2A-012) + AIUC-1 compliance tests + L402 tests
-- **Transparency (D001-D004)**: Attestation module + Provenance harness + Identity audit tests
-- **Safety (E001-E003)**: AIUC-1 compliance harness (simulation only - gap)
-- **Content Safety (F001-F002)**: CBRN tests in AIUC-1 compliance harness (simulation only - gap)
+The full mapping is in `configs/aiuc1_mapping.yaml`, and [the crosswalk](AIUC1-CROSSWALK.md) renders it as a
+table. Requirement IDs and titles are copied from the pinned snapshot `configs/aiuc1_standard_2026-10-15.json`;
+`tests/test_aiuc1_mapping_matches_standard.py` fails if they drift from it.
 
 ## Closing Gaps
 
-### Safety (E001-E003)
-The `aiuc1_compliance_harness.py` includes simulation-mode tests for incident response. To close this gap:
-1. Deploy actual incident response infrastructure (circuit breakers, kill switches)
-2. Run tests against real endpoints with `--url` instead of `--simulate`
-3. Validate audit trail integration with production logging
-
-### Content Safety (F001-F002)
-1. **F001 (Harmful Content Filtering)**: Build a dedicated content classification test suite
-2. **F002 (CBRN)**: Run existing CBRN tests against production LLM endpoints
+The four GAP rows (C001, C002, E004, E006) are documentation, process or organisational requirements that an
+adversarial test harness cannot evidence. 27 further active requirements are not listed for the same reason.
+For the E001-E003 failure-plan requirements, the named tests (IR-001 to IR-003, AIUC-E001 to AIUC-E003, HALL-001,
+HALL-002) check that the response behaviour occurs during an incident; they do not evidence the written plan.
 
 ## CI/CD Integration
 

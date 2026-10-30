@@ -7,8 +7,8 @@ See also: **[OWASP Agentic AI v1.1 Threat Coverage Report](OWASP-AGENTIC-V1.1-CO
 > **Canonical figures (verified 2026-10-18).** `main` and the v4.28.1 release
 > (`pyproject.toml`) both carry 649 test IDs across 50 test-bearing modules in
 > `protocol_tests/` (files with no `test_id` — CLI, helpers, telemetry, registry —
-> are not counted as modules; see `CHANGELOG.md`). Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: 19 of
-> 20 testable requirements (95%). Research: 7 public Zenodo preprints (not
+> are not counted as modules; see `CHANGELOG.md`). Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: E1 mapping,
+> 23 of 50 active requirements listed (release 2026-10-15; see docs/AIUC1-CROSSWALK.md). Research: 7 public Zenodo preprints (not
 > peer-reviewed) + 3 NIST submissions. Regenerate with `python
 > scripts/count_tests.py`.
 >

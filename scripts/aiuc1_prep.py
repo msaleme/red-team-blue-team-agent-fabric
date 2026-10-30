@@ -54,148 +54,30 @@ class RequirementStatus:
     notes: str = ""
 
 
-# Full AIUC-1 requirement mapping
-AIUC1_REQUIREMENTS: dict[str, dict] = {
-    # Security (B001-B005)
-    "B001": {
-        "title": "Tool Poisoning Prevention",
-        "category": "Security",
-        "test_ids": ["MCP-001", "MCP-002", "MCP-003"],
-    },
-    "B002": {
-        "title": "Capability Escalation Prevention",
-        "category": "Security",
-        "test_ids": ["MCP-004", "MCP-005"],
-    },
-    "B003": {
-        "title": "Protocol Downgrade Prevention",
-        "category": "Security",
-        "test_ids": ["MCP-006", "MCP-007"],
-    },
-    "B004": {
-        "title": "Input Validation & Injection Prevention",
-        "category": "Security",
-        "test_ids": ["MCP-008", "MCP-009", "MCP-010"],
-    },
-    "B005": {
-        "title": "Agent Identity & Authentication",
-        "category": "Security",
-        "test_ids": [
-            "ID-001", "ID-002", "ID-003", "ID-004", "ID-005", "ID-006",
-            "ID-007", "ID-008", "ID-009", "ID-010", "ID-011", "ID-012",
-            "ID-013", "ID-014", "ID-015", "ID-016", "ID-017", "ID-018",
-        ],
-    },
-    # Reliability (C001-C010)
-    "C001": {
-        "title": "Agent Card Spoofing Prevention",
-        "category": "Reliability",
-        "test_ids": ["A2A-001", "A2A-002"],
-    },
-    "C002": {
-        "title": "Task Lifecycle Integrity",
-        "category": "Reliability",
-        "test_ids": ["A2A-003", "A2A-004", "A2A-005"],
-    },
-    "C003": {
-        "title": "Harmful Output Prevention",
-        "category": "Reliability",
-        "test_ids": ["AIUC-C003a", "AIUC-C003b"],
-    },
-    "C004": {
-        "title": "Scope Enforcement",
-        "category": "Reliability",
-        "test_ids": ["AIUC-C004a", "AIUC-C004b", "AIUC-C004c"],
-    },
-    "C005": {
-        "title": "Message Integrity & Replay Prevention",
-        "category": "Reliability",
-        "test_ids": ["A2A-006", "A2A-007"],
-    },
-    "C006": {
-        "title": "Context Isolation",
-        "category": "Reliability",
-        "test_ids": ["A2A-008", "A2A-009"],
-    },
-    "C007": {
-        "title": "Streaming Protocol Robustness",
-        "category": "Reliability",
-        "test_ids": ["A2A-010"],
-    },
-    "C008": {
-        "title": "Push Notification Security",
-        "category": "Reliability",
-        "test_ids": ["A2A-011"],
-    },
-    "C009": {
-        "title": "Protocol Conformance",
-        "category": "Reliability",
-        "test_ids": ["A2A-012"],
-    },
-    "C010": {
-        "title": "Payment Protocol Security",
-        "category": "Reliability",
-        "test_ids": ["L4-001", "L4-002"],
-    },
-    # Transparency (D001-D004)
-    "D001": {
-        "title": "Attestation Report Generation",
-        "category": "Transparency",
-        "test_ids": ["ATT-001", "ATT-002"],
-    },
-    "D002": {
-        "title": "Scope Annotations",
-        "category": "Transparency",
-        "test_ids": ["ATT-003", "ATT-004"],
-    },
-    "D003": {
-        "title": "Supply Chain Provenance",
-        "category": "Transparency",
-        "test_ids": ["PROV-001", "PROV-002"],
-    },
-    "D004": {
-        "title": "Audit Trail Completeness",
-        "category": "Transparency",
-        "test_ids": ["ID-011", "ID-012"],
-    },
-    # Safety (E001-E003) - GAP
-    "E001": {
-        "title": "Incident Detection Latency",
-        "category": "Safety",
-        "test_ids": ["AIUC-E001"],
-        "gap": True,
-        "gap_notes": "Simulation-mode test exists but live endpoint validation needed for certification.",
-    },
-    "E002": {
-        "title": "Incident Containment",
-        "category": "Safety",
-        "test_ids": ["AIUC-E002"],
-        "gap": True,
-        "gap_notes": "Requires integration with real kill-switch / circuit-breaker mechanisms.",
-    },
-    "E003": {
-        "title": "Incident Audit Trail",
-        "category": "Safety",
-        "test_ids": ["AIUC-E003"],
-        "gap": True,
-        "gap_notes": "Requires integration with real audit logging infrastructure.",
-    },
-    # Content Safety (F001-F002) - GAP
-    "F001": {
-        "title": "Harmful Content Filtering",
-        "category": "Content Safety",
-        "test_ids": [],
-        "gap": True,
-        "gap_notes": "No dedicated content filtering harness yet. Need hate speech, misinformation, and manipulative content test suite.",
-    },
-    "F002": {
-        "title": "CBRN Content Prevention",
-        "category": "Content Safety",
-        "test_ids": ["AIUC-F002a", "AIUC-F002b", "AIUC-F002c", "AIUC-F002d"],
-        "gap": True,
-        "gap_notes": "Simulation-mode tests exist but require live LLM endpoint testing.",
-    },
-}
+# AIUC-1 requirement mapping, read from configs/aiuc1_mapping.yaml (the single source).
+# Until 2026-10-30 this script carried its own copy with titles that were not AIUC-1's
+# (e.g. B003 "Protocol Downgrade Prevention"); reading the corrected YAML removes the second copy.
+def _load_aiuc1_requirements() -> dict[str, dict]:
+    import yaml
+
+    from protocol_tests.package_data import data_path
+
+    cfg = yaml.safe_load(data_path("configs", "aiuc1_mapping.yaml").read_text(encoding="utf-8"))
+    requirements: dict[str, dict] = {}
+    for category in (cfg.get("categories") or {}).values():
+        for req_id, req in (category.get("requirements") or {}).items():
+            is_gap = req.get("status") == "GAP"
+            requirements[req_id] = {
+                "title": req["title"],
+                "category": category["name"],
+                "test_ids": list(req.get("test_ids") or []),
+                "gap": is_gap,
+                "gap_notes": req.get("note", "") if is_gap else "",
+            }
+    return requirements
+
+
+AIUC1_REQUIREMENTS: dict[str, dict] = _load_aiuc1_requirements()
 
 
 # ---------------------------------------------------------------------------

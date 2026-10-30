@@ -83,7 +83,7 @@ governance and incident-response modules that `count_tests.py` lists in full.
 | Approach | Wire-protocol adversarial testing |
 | Behavioural profiling / drift | Shipped: `scripts/behavioral_profile.py`. Compares verdict states across two runs and reports PASS/FAIL transitions as regression or improvement. Transitions into or out of INCONCLUSIVE are reported as changed *evidence*, never as behavioural drift, and pairs with an INCONCLUSIVE on either side are excluded from the stability score rather than counted. Until 2026-09-11 it compared the pass flag alone, which scored an unevaluated result as a failure. |
 | Compliance evidence packs | AIUC-1, OWASP, NIST |
-| AIUC-1 requirement mapping | `configs/aiuc1_mapping.yaml` declares 24 requirement keys: 23 COVERED, 1 GAP |
+| AIUC-1 requirement mapping | `configs/aiuc1_mapping.yaml` declares 23 requirement keys: 19 MAPPED, 4 GAP |
 | Statistical multi-trial | Wilson intervals over serviced trials (NIST AI 800-2) |
 | CI/CD integration | GitHub Action + CLI |
 | License | Apache 2.0 |

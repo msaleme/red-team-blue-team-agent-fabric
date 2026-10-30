@@ -1,275 +1,392 @@
-# AIUC-1 Requirement-to-Test Mapping
-# Maps each AIUC-1 certification requirement to harness test IDs
-# Status: COVERED = harness tests exist, GAP = not yet implemented
+# AIUC-1 requirement-to-test mapping
 #
-# Reference: AIUC-1 Certification Standard for Autonomous AI Agent Deployments
-# Framework coverage: 19/20 testable requirements (95%) — E001-E003, F002 now COVERED via aiuc1 harness
+# Evidence class E1 (a mapping). It names harness tests that may be relevant to collecting evidence for a
+# requirement. It is not a run against any target, not a third-party evaluation, and not a claim that any
+# system meets a requirement. MAPPED = relevant tests are named; GAP = no test evidences this requirement.
+#
+# Standard: AIUC-1 release 2026-10-15. Requirement IDs and titles are copied from the pinned snapshot
+# configs/aiuc1_standard_2026-10-15.json, and tests/test_aiuc1_mapping_matches_standard.py fails if they drift.
+# Rows: 23 of 50 active requirements listed; 19 with named tests. No coverage percentage is claimed.
+#
+# Correction (2026-10-30): earlier versions of this file put titles on AIUC-1 IDs that were not AIUC-1's
+# (e.g. B003 "Protocol Downgrade Prevention"; the requirement is "Manage public release of technical
+# details") and marked every row COVERED. See CHANGELOG.
 
-version: "1.0.0"
+version: "2.0.0"
 framework: "agent-security-harness"
-framework_version: "3.10.0"
+standard_release: "2026-10-15"
+standard_snapshot: "configs/aiuc1_standard_2026-10-15.json"
+evidence_class: "E1"
 
 categories:
+  data_and_privacy:
+    name: "Data & Privacy"
+    requirements:
+      A003:
+        title: "Limit AI agent data access"
+        status: MAPPED
+        note: "Data-access boundary tests across MCP, A2A and enterprise adapters."
+        test_ids:
+          - MCP-003
+          - A2A-012
+          - MS-003
+          - SAP-003
+          - SF-001
+          - WD-003
+          - AT-001
+          - OC-002
+
+      A004:
+        title: "Protect IP & trade secrets"
+        status: MAPPED
+        note: "Context exfiltration, context displacement and credential leakage tests."
+        test_ids:
+          - MCP-007
+          - MCP-011
+          - WXO-003
+
+      A009:
+        title: "Third-party testing for data & privacy risk"
+        status: MAPPED
+        note: "Data-sensitivity, cross-context leakage and PII exfiltration tests. A mapping, not a third-party evaluation report."
+        test_ids:
+          - DATA-001
+          - DATA-002
+          - DATA-003
+          - A2A-012
+          - WD-001
+          - ZD-001
+
   security:
     name: "Security"
     requirements:
       B001:
-        title: "Tool Poisoning Prevention"
-        status: COVERED
-        harness: mcp
+        title: "Third-party testing for security risk"
+        status: MAPPED
+        note: "Adversarial vectors a third-party evaluator may use. Running them is not itself a third-party evaluation."
         test_ids:
-          - MCP-001  # Tool List Integrity Check
-          - MCP-002  # Tool Poisoning via Description Injection
-          - MCP-003  # Tool Name Collision / Shadowing
-        nist_rmf: "MS-2.5"
+          - JB-001
+          - JB-002
+          - JB-003
+          - JB-004
+          - JB-005
+          - JB-006
+          - JB-007
+          - JB-008
+          - JB-009
+          - JB-010
+          - JB-011
+          - JB-012
+          - JB-013
+          - JB-014
+          - JB-015
+          - JB-016
+          - JB-017
+          - JB-018
+          - JB-019
+          - JB-020
+          - JB-021
+          - JB-022
+          - JB-023
+          - JB-024
+          - JB-025
+          - POLY-001
+          - POLY-002
+          - CHAIN-001
+          - CHAIN-002
+          - CVE-001
+          - CVE-002
+          - CVE-003
+          - CVE-004
+          - CVE-005
+          - CVE-006
+          - CVE-009
+          - CVE-010
 
       B002:
-        title: "Capability Escalation Prevention"
-        status: COVERED
-        harness: mcp
+        title: "Detect adversarial input"
+        status: MAPPED
+        note: "Adversarial input via MCP tools, A2A messages and operational data."
         test_ids:
-          - MCP-004  # Capability Negotiation Tampering
-          - MCP-005  # Unauthorized Resource Access
-        nist_rmf: "GV-1.3"
-
-      B003:
-        title: "Protocol Downgrade Prevention"
-        status: COVERED
-        harness: mcp
-        test_ids:
-          - MCP-006  # Protocol Version Downgrade
-          - MCP-007  # Transport Security Bypass
-        nist_rmf: "MS-2.3"
-
-      B004:
-        title: "Input Validation & Injection Prevention"
-        status: COVERED
-        harness: mcp
-        test_ids:
-          - MCP-008  # Malformed JSON-RPC Handling
-          - MCP-009  # Cross-Protocol Injection
-          - MCP-010  # Batch Request Abuse
-        nist_rmf: "MS-2.6"
+          - MCP-001
+          - MCP-002
+          - MCP-003
+          - MCP-004
+          - MCP-005
+          - MCP-006
+          - MCP-007
+          - MCP-008
+          - MCP-009
+          - MCP-010
+          - A2A-001
+          - A2A-002
+          - A2A-003
+          - A2A-004
+          - A2A-005
+          - A2A-006
+          - A2A-007
+          - A2A-008
+          - A2A-009
+          - A2A-010
+          - A2A-011
+          - A2A-012
+          - ADI-001
+          - ADI-002
+          - ADI-003
 
       B005:
-        title: "Agent Identity & Authentication"
-        status: COVERED
-        harness: identity
+        title: "Implement real-time input filtering"
+        status: MAPPED
+        note: "Payload-variation probes; MCP-011 is graded as denial of service, not filtering."
         test_ids:
-          - ID-001   # Agent Metadata Completeness
-          - ID-002   # Credential Strength Validation
-          - ID-003   # Authentication Bypass Attempt
-          - ID-004   # Key Management Security
-          - ID-005   # Ephemeral Identity Rotation
-          - ID-006   # OAuth 2.1 / OIDC Compliance
-          - ID-007   # SPIFFE/SPIRE Integration
-          - ID-008   # Delegation Chain Validation
-          - ID-009   # Zero-Trust Policy Enforcement
-          - ID-010   # Least Privilege Verification
-          - ID-011   # Action Logging Completeness
-          - ID-012   # Non-Repudiation Evidence
-          - ID-013   # Data Flow Provenance Tracking
-          - ID-014   # Aggregation Sensitivity Detection
-          - ID-015   # Cross-Domain Authorization
-          - ID-016   # Standards Compliance Matrix
-          - ID-017   # Certificate Rotation Under Load
-          - ID-018   # Identity Spoofing Resistance
-        nist_rmf: "GV-1"
+          - POLY-001
+          - POLY-002
+          - CVE-001
+          - MCP-011
 
-  reliability:
-    name: "Reliability"
-    requirements:
-      C001:
-        title: "Agent Card Spoofing Prevention"
-        status: COVERED
-        harness: a2a
+      B009:
+        title: "Limit output over-exposure"
+        status: MAPPED
+        note: "Output sensitivity, context exfiltration and credential exposure tests."
         test_ids:
-          - A2A-001  # Agent Card Schema Validation
-          - A2A-002  # Agent Card Spoofing Detection
-        nist_rmf: "MS-2.5"
-
-      C002:
-        title: "Task Lifecycle Integrity"
-        status: COVERED
-        harness: a2a
-        test_ids:
-          - A2A-003  # Task Hijacking via ID Prediction
-          - A2A-004  # Task State Manipulation
-          - A2A-005  # Concurrent Task Isolation
-        nist_rmf: "GV-1.3"
-
-      C003:
-        title: "Harmful Output Prevention"
-        status: COVERED
-        harness: aiuc1
-        test_ids:
-          - AIUC-C003a  # Harmful Content Generation
-          - AIUC-C003b  # Deceptive Content Generation
-        nist_rmf: "MS-2.5, MS-2.6"
-
-      C004:
-        title: "Scope Enforcement"
-        status: COVERED
-        harness: aiuc1
-        test_ids:
-          - AIUC-C004a  # Out-of-Scope Execution
-          - AIUC-C004b  # Scope Creep Detection
-          - AIUC-C004c  # Authority Impersonation Refusal
-        nist_rmf: "GV-1.3, MS-2.3"
-
-      C005:
-        title: "Message Integrity & Replay Prevention"
-        status: COVERED
-        harness: a2a
-        test_ids:
-          - A2A-006  # Message Replay Attack
-          - A2A-007  # Message Tampering Detection
-        nist_rmf: "MS-2.3"
-
-      C006:
-        title: "Context Isolation"
-        status: COVERED
-        harness: a2a
-        test_ids:
-          - A2A-008  # Context Leakage Between Tasks
-          - A2A-009  # Multi-Tenant Isolation
-        nist_rmf: "MS-2.6"
-
-      C007:
-        title: "Streaming Protocol Robustness"
-        status: COVERED
-        harness: a2a
-        test_ids:
-          - A2A-010  # Streaming Artifact Injection
-        nist_rmf: "MS-2.3"
-
-      C008:
-        title: "Push Notification Security"
-        status: COVERED
-        harness: a2a
-        test_ids:
-          - A2A-011  # Push Notification Spoofing
-        nist_rmf: "GV-1"
-
-      C009:
-        title: "Protocol Conformance"
-        status: COVERED
-        harness: a2a
-        test_ids:
-          - A2A-012  # Full Protocol Conformance Check
-        nist_rmf: "MS-2.3"
-
-      C010:
-        title: "Payment Protocol Security"
-        status: COVERED
-        harness: l402
-        test_ids:
-          - L4-001   # L402 Authorization Bypass
-          - L4-002   # Macaroon Caveat Manipulation
-        nist_rmf: "GV-1"
-
-  transparency:
-    name: "Transparency"
-    requirements:
-      D001:
-        title: "Attestation Report Generation"
-        status: COVERED
-        harness: attestation
-        test_ids:
-          - ATT-001  # Schema-compliant report generation
-          - ATT-002  # Legacy report migration
-        nist_rmf: "GV-1"
-
-      D002:
-        title: "Scope Annotations"
-        status: COVERED
-        harness: attestation
-        test_ids:
-          - ATT-003  # Per-finding scope annotation
-          - ATT-004  # Remediation guidance completeness
-        nist_rmf: "MG-2.4"
-
-      D003:
-        title: "Supply Chain Provenance"
-        status: COVERED
-        harness: provenance
-        test_ids:
-          - PROV-001  # Tool provenance verification
-          - PROV-002  # Attestation bypass detection
-        nist_rmf: "GV-1"
-
-      D004:
-        title: "Audit Trail Completeness"
-        status: COVERED
-        harness: identity
-        test_ids:
-          - ID-011   # Action Logging Completeness
-          - ID-012   # Non-Repudiation Evidence
-        nist_rmf: "MG-2.4"
+          - DATA-003
+          - MCP-007
+          - WXO-003
+          - GTG-P4-001
 
   safety:
     name: "Safety"
     requirements:
-      E001:
-        title: "Incident Detection Latency"
-        status: COVERED
-        harness: aiuc1
+      C001:
+        title: "Define AI risk taxonomy"
+        status: GAP
+        note: "Documentation-level requirement. The harness tags tests with STRIDE / OWASP Agentic / NIST categories; no test evidences a risk taxonomy."
+        test_ids: []
+
+      C002:
+        title: "Conduct pre-deployment testing"
+        status: GAP
+        note: "The harness is a pre-deployment testing tool; no single test evidences that pre-deployment testing was conducted."
+        test_ids: []
+
+      C003:
+        title: "Prevent harmful outputs"
+        status: MAPPED
+        note: "Harmful and deceptive content refusal."
         test_ids:
-          - AIUC-E001  # Incident Detection Latency
-        nist_rmf: "GV-1, MG-2.4"
-        notes: "Simulation-mode test. Live endpoint validation recommended for full certification."
+          - AIUC-C003a
+          - AIUC-C003b
+
+      C004:
+        title: "Prevent out-of-scope outputs"
+        status: MAPPED
+        note: "Out-of-scope execution refusal, scope creep, authority impersonation."
+        test_ids:
+          - AIUC-C004a
+          - AIUC-C004b
+          - AIUC-C004c
+
+      C010:
+        title: "Third-party testing for safety risk"
+        status: MAPPED
+        note: "Safety vectors a third-party evaluator may use (Q4 folded retired C011 into C010). Not itself a third-party evaluation."
+        test_ids:
+          - AIUC-C003a
+          - AIUC-C003b
+          - AIUC-C004a
+          - AIUC-C004b
+          - AIUC-C004c
+          - MCP-003
+          - A2A-004
+          - A2A-008
+
+  reliability:
+    name: "Reliability"
+    requirements:
+      D003:
+        title: "Restrict unsafe tool calls"
+        status: MAPPED
+        note: "Unauthorised tool registration, capability escalation, argument injection, task hijacking, caveat escalation."
+        test_ids:
+          - MCP-002
+          - MCP-003
+          - MCP-010
+          - A2A-004
+          - A2A-006
+          - L4-010
+
+      D004:
+        title: "Third-party testing for reliability risk"
+        status: MAPPED
+        note: "Wire-protocol reliability vectors. The x402 family is excluded until its harness uses the spec's PAYMENT-REQUIRED / PAYMENT-SIGNATURE headers."
+        test_ids:
+          - MCP-001
+          - MCP-002
+          - MCP-003
+          - MCP-004
+          - MCP-005
+          - MCP-006
+          - MCP-007
+          - MCP-008
+          - MCP-009
+          - MCP-010
+          - MCP-011
+          - MCP-012
+          - MCP-013
+          - MCP-014
+          - MCP-015
+          - MCP-016
+          - MCP-017
+          - MCP-018
+          - MCP-019
+          - MCP-020
+          - MCP-021
+          - MCP-022
+          - A2A-001
+          - A2A-002
+          - A2A-003
+          - A2A-004
+          - A2A-005
+          - A2A-006
+          - A2A-007
+          - A2A-008
+          - A2A-009
+          - A2A-010
+          - A2A-011
+          - A2A-012
+          - A2A-013
+          - L4-001
+          - L4-002
+          - L4-003
+          - L4-004
+          - L4-005
+          - L4-006
+          - L4-007
+          - L4-008
+          - L4-009
+          - L4-010
+          - L4-011
+          - L4-012
+          - L4-013
+          - L4-014
+          - L4-015
+          - L4-016
+          - L4-017
+          - L4-018
+          - L4-019
+          - L4-020
+          - L4-021
+          - L4-022
+          - L4-023
+          - L4-024
+          - L4-025
+          - L4-026
+          - L4-027
+          - L4-028
+          - L4-029
+          - L4-030
+          - L4-031
+          - L4-032
+          - L4-033
+
+  accountability:
+    name: "Accountability"
+    requirements:
+      E001:
+        title: "AI failure plan for security breaches"
+        status: MAPPED
+        note: "Tests that the response behaviour occurs during an incident; they do not evidence the written failure plan itself."
+        test_ids:
+          - IR-001
+          - IR-004
+          - AIUC-E001
 
       E002:
-        title: "Incident Containment"
-        status: COVERED
-        harness: aiuc1
+        title: "AI failure plan for harmful outputs"
+        status: MAPPED
+        note: "Tests that the response behaviour occurs during an incident; they do not evidence the written failure plan itself."
         test_ids:
-          - AIUC-E002  # Incident Containment
-        nist_rmf: "GV-1, MG-2.4"
-        notes: "Simulation-mode test. Live kill-switch / circuit-breaker validation recommended."
+          - IR-002
+          - AIUC-E002
 
       E003:
-        title: "Incident Audit Trail"
-        status: COVERED
-        harness: aiuc1
+        title: "AI failure plan for hallucinations"
+        status: MAPPED
+        note: "Tests that the response behaviour occurs during an incident; they do not evidence the written failure plan itself."
         test_ids:
-          - AIUC-E003  # Incident Audit Trail
-        nist_rmf: "GV-1, MG-2.4"
-        notes: "Simulation-mode test. Live audit logging infrastructure validation recommended."
+          - IR-003
+          - HALL-001
+          - HALL-002
 
-  content_safety:
-    name: "Content Safety"
+      E004:
+        title: "Assign accountability"
+        status: GAP
+        note: "Organisational requirement; no test evidences assigned accountability."
+        test_ids: []
+
+      E006:
+        title: "Conduct vendor and model due diligence"
+        status: GAP
+        note: "A bounded, authorised harness run may contribute technical evidence to vendor and model due diligence; it is not the review."
+        test_ids: []
+
+      E015:
+        title: "Log AI system activity"
+        status: MAPPED
+        note: "Audit-trail availability, attribution, log completeness and tamper tests."
+        test_ids:
+          - AUDIT-001
+          - AUDIT-002
+          - IR-006
+          - GM-006
+
+      E018:
+        title: "Third-party testing for accountability risk"
+        status: MAPPED
+        note: "Accountability vectors a third-party evaluator may use. A mapping, not a third-party evaluation report."
+        test_ids:
+          - AUDIT-001
+          - AUDIT-002
+          - GM-006
+          - IR-006
+
+  society:
+    name: "Society"
     requirements:
       F001:
-        title: "Harmful Content Filtering"
-        status: GAP
-        harness: null
-        test_ids: []
-        nist_rmf: "MS-2.6, MS-2.7"
-        gap_notes: >
-          No dedicated content filtering harness yet.
-          Recommend: build content classification test suite covering
-          hate speech, misinformation, and manipulative content.
+        title: "Prevent AI cyber misuse"
+        status: MAPPED
+        note: "GTG-1002 AI-orchestrated intrusion simulation."
+        test_ids:
+          - GTG-P1-001
+          - GTG-P1-002
+          - GTG-P2-001
+          - GTG-P2-002
+          - GTG-P2-003
+          - GTG-P3-001
+          - GTG-P3-002
+          - GTG-P4-001
+          - GTG-P4-002
+          - GTG-P4-003
+          - GTG-P5-001
+          - GTG-P5-002
+          - GTG-P5-003
+          - GTG-P6-001
+          - GTG-P6-002
 
       F002:
-        title: "CBRN Content Prevention"
-        status: COVERED
-        harness: aiuc1
+        title: "Prevent catastrophic misuse"
+        status: MAPPED
+        note: "CBRN refusal tests."
         test_ids:
-          - AIUC-F002a  # Chemical Synthesis Refusal
-          - AIUC-F002b  # Biological Hazard Refusal
-          - AIUC-F002c  # Radiological/Nuclear Refusal
-          - AIUC-F002d  # CBRN Dual-Use Detection
-        nist_rmf: "MS-2.6, MS-2.7"
-        notes: "Simulation-mode tests. Live LLM endpoint validation recommended for full certification."
-
-# Summary
-coverage_summary:
-  total_requirements: 20
-  covered: 19
-  gaps: 1  # F001 only
-  security_coverage: "5/5 (100%)"
-  reliability_coverage: "10/10 (100%)"
-  transparency_coverage: "4/4 (100%)"
-  safety_coverage: "3/3 (100%) - simulation mode, live validation recommended"
-  content_safety_coverage: "1/2 (50%) - F002 covered (simulation), F001 gap"
+          - CBRN-001
+          - CBRN-002
+          - CBRN-003
+          - CBRN-004
+          - CBRN-005
+          - CBRN-006
+          - CBRN-007
+          - CBRN-008
+          - AIUC-F002a
+          - AIUC-F002b
+          - AIUC-F002c

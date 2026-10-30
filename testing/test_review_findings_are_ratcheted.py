@@ -401,6 +401,19 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "public reply review 2026-10-18 (#657)", GUARDED,
      "testing/test_approval_binding_controls.py: "
      "test_the_repeat_control_is_what_stops_the_dedup_pass"),
+    # --- 2026-10-26, GB (Grok bot) review of the AIUC-1 material; verified 2026-10-30 -----
+    ("configs/aiuc1_mapping.yaml put titles on AIUC-1 IDs that were not AIUC-1's (0 of 24 "
+     "matched the published standard; e.g. B003 'Protocol Downgrade Prevention'), marked every "
+     "row COVERED, and README/SKILL/TEST-INVENTORY/aiuc1-prep claimed '19 of 20 (95%)'",
+     "GB review 2026-10-26", GUARDED,
+     "tests/test_aiuc1_mapping_matches_standard.py: test_every_mapping_title_is_the_published_title"),
+    ("docs/AIUC1-CROSSWALK.md was checked against the Q1/Q2 standard and went stale on the "
+     "2026-10-15 release (B001, C010, D004, E006 renamed; C011 retired)",
+     "GB review 2026-10-26", GUARDED,
+     "tests/test_aiuc1_mapping_matches_standard.py: test_every_crosswalk_row_is_titled_as_published"),
+    ("scripts/aiuc1_prep.py carried its own copy of the invented AIUC-1 titles",
+     "GB review 2026-10-26", GUARDED,
+     "tests/test_aiuc1_mapping_matches_standard.py: test_the_prep_tool_reads_the_same_mapping"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.
