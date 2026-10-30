@@ -234,7 +234,7 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 | **Human oversight (T10/T15)** | - | - | - | **8 tests: reviewer exposure + agent→human manipulation** |
 | **APT simulation** | - | - | - | **GTG-1002 (17 tests)** |
 | **Jailbreak/over-refusal** | - | - | Yes | **50 tests (25 + 25 FPR)** |
-| **AIUC-1 certification** | - | - | - | **Maps to 19 of 20 testable requirements** (2026-Q1/Q2 set; [Q3 delta](docs/AIUC1-CROSSWALK.md)) |
+| **AIUC-1 certification** | - | - | - | **E1 mapping: 23 of 50 active requirements listed, 19 with named tests** (release 2026-10-15; [crosswalk](docs/AIUC1-CROSSWALK.md)) |
 | **OWASP Agentic v1.1** | - | - | - | **T1–T17 commit-pinned: 13 direct, 4 partial, 0 not evidenced** |
 | **Research backing** | - | Cisco blog | Papers | **7 DOIs + 3 NIST submissions** (self-authored; see [Research](#research)) |
 | **MCP server mode** | - | - | - | **Yes - invoke from any AI agent** |
@@ -248,8 +248,8 @@ what each tool does by design; a dash means the capability is outside its stated
 **What the table does not measure.** Every row above is coverage: what gets tested, and how much.
 Coverage says nothing about what a result licenses you to claim. That is what the
 [E1-E5 Evidence Class Taxonomy](docs/EVIDENCE-CLASS-TAXONOMY.md) is for, and it is applied to this
-project's own output first: the AIUC-1 crosswalk is E1 material regardless of covering 19 of 20
-requirements, and this harness holds **no I2 evidence** at all, because it reads protocol responses
+project's own output first: the AIUC-1 crosswalk is E1 material however many of its
+requirements it lists, and this harness holds **no I2 evidence** at all, because it reads protocol responses
 the target itself emits. No claim here is deliberately made about how other projects handle this.
 
 **Outside checks.** The `Research backing` row says self-authored because it is. The exceptions

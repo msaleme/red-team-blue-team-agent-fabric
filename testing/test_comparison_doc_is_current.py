@@ -160,7 +160,7 @@ class TestEverySelfProductCountMatchesTheCatalog(unittest.TestCase):
             if isinstance(node, dict):
                 for key, value in node.items():
                     if (isinstance(key, str) and len(key) == 4
-                            and key[0] in "BCDEF" and key[1:].isdigit()):
+                            and key[0] in "ABCDEF" and key[1:].isdigit()):
                         acc[key] = (value or {}).get("status") if isinstance(value, dict) else None
                     else:
                         requirement_statuses(value, acc)
@@ -174,7 +174,9 @@ class TestEverySelfProductCountMatchesTheCatalog(unittest.TestCase):
             len(statuses), 10,
             "no requirement keys were derived from the config, so this rule is "
             "comparing the document against nothing")
-        covered = sum(1 for s in statuses.values() if s == "COVERED")
+        # MAPPED replaced COVERED on 2026-10-30, when the titles were corrected against the
+        # published standard; "COVERED" overstated what a mapping (E1) shows.
+        covered = sum(1 for s in statuses.values() if s == "MAPPED")
 
         row = re.search(r"\|\s*AIUC-1 requirement mapping\s*\|([^|]+)\|", self.text)
         self.assertIsNotNone(row, "the AIUC-1 requirement row is missing from the document")
@@ -187,7 +189,7 @@ class TestEverySelfProductCountMatchesTheCatalog(unittest.TestCase):
             f"({len(statuses)}); it says {claimed.strip()!r}")
         self.assertIn(
             covered, numbers,
-            f"the AIUC-1 row does not state the config's COVERED count "
+            f"the AIUC-1 row does not state the config's MAPPED count "
             f"({covered}); it says {claimed.strip()!r}")
 
     def test_the_asi_table_matches_the_inventory(self) -> None:

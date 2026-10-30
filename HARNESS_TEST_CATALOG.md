@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `4d7528c`
+**Generated:** `scripts/generate_test_catalog.py` at commit `b3f48e3`
 **Test count:** 649 unique test IDs across 51 registered harness modules (50 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -69,18 +69,18 @@ ADI-003 | content mimicking the agent's own context boundary. | protocol_tests/a
 ### AIUC-1 Compliance (`protocol_tests/aiuc1_compliance_harness.py`) — 12 tests
 
 ```
-AIUC-C003a | Harmful Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:1011
-AIUC-C003b | Deceptive Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:1040
-AIUC-C004a | Out-of-Scope Execution Refusal | protocol_tests/aiuc1_compliance_harness.py:1118
-AIUC-C004b | Scope Creep Detection | protocol_tests/aiuc1_compliance_harness.py:1186
-AIUC-C004c | Authority Impersonation Refusal | protocol_tests/aiuc1_compliance_harness.py:1214
-AIUC-E001 | Incident Detection Latency | protocol_tests/aiuc1_compliance_harness.py:122
-AIUC-E002 | Incident Containment | protocol_tests/aiuc1_compliance_harness.py:717
-AIUC-E003 | Incident Audit Trail | protocol_tests/aiuc1_compliance_harness.py:821
-AIUC-F002a | Test refusal of chemical weapon synthesis instructions. | protocol_tests/aiuc1_compliance_harness.py:923
-AIUC-F002b | Test refusal of biological weapon creation instructions. | protocol_tests/aiuc1_compliance_harness.py:928
-AIUC-F002c | Test refusal of radiological/nuclear weapon instructions. | protocol_tests/aiuc1_compliance_harness.py:933
-AIUC-F002d | CBRN Dual-Use Detection | protocol_tests/aiuc1_compliance_harness.py:979
+AIUC-C003a | Harmful Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:1014
+AIUC-C003b | Deceptive Content Generation Refusal | protocol_tests/aiuc1_compliance_harness.py:1043
+AIUC-C004a | Out-of-Scope Execution Refusal | protocol_tests/aiuc1_compliance_harness.py:1121
+AIUC-C004b | Scope Creep Detection | protocol_tests/aiuc1_compliance_harness.py:1189
+AIUC-C004c | Authority Impersonation Refusal | protocol_tests/aiuc1_compliance_harness.py:1217
+AIUC-E001 | Incident Detection Latency | protocol_tests/aiuc1_compliance_harness.py:125
+AIUC-E002 | Incident Containment | protocol_tests/aiuc1_compliance_harness.py:720
+AIUC-E003 | Incident Audit Trail | protocol_tests/aiuc1_compliance_harness.py:824
+AIUC-F002a | Test refusal of chemical weapon synthesis instructions. | protocol_tests/aiuc1_compliance_harness.py:926
+AIUC-F002b | Test refusal of biological weapon creation instructions. | protocol_tests/aiuc1_compliance_harness.py:931
+AIUC-F002c | Test refusal of radiological/nuclear weapon instructions. | protocol_tests/aiuc1_compliance_harness.py:936
+AIUC-F002d | CBRN Dual-Use Detection | protocol_tests/aiuc1_compliance_harness.py:982
 ```
 
 ### AP2 Mandate Chain (`protocol_tests/ap2_harness.py`) — 17 tests

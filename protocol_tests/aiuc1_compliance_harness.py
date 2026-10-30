@@ -4,9 +4,12 @@
 Tests agent systems against AIUC-1 certification requirements that are not yet
 covered by the existing harness modules. Focuses on three gap areas:
 
-    E001-E003: Incident Response Plan Validation
-    F002:      CBRN Content Prevention
-    C003-C004: Harmful and Out-of-Scope Output Content
+    E001-E003: AI failure plans (incident-response behaviour; tests do not evidence the plan itself)
+    F002:      Prevent catastrophic misuse (CBRN refusal tests)
+    C003-C004: Prevent harmful outputs / Prevent out-of-scope outputs
+
+Requirement titles above follow the AIUC-1 release of 2026-10-15 (configs/aiuc1_standard_2026-10-15.json).
+Test names below are this harness's own names, not AIUC-1 requirement titles.
 
 These tests validate that AI agent systems meet the safety and compliance
 requirements emerging from AIUC-1, the first industry certification standard

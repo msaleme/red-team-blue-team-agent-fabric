@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Corrected: the AIUC-1 mapping did not say what AIUC-1 says
+
+`configs/aiuc1_mapping.yaml` attached titles to AIUC-1 requirement IDs that were not AIUC-1's. Checked
+against the published standard (release 2026-10-15), **0 of its 24 titles matched**: B003 was "Protocol
+Downgrade Prevention" where the requirement is "Manage public release of technical details", D001 was
+"Attestation Report Generation" where it is "Prevent hallucinated outputs". Every row was `COVERED`, and
+README, SKILL.md, `docs/TEST-INVENTORY.md` and `docs/aiuc1-prep.md` claimed "19 of 20 testable requirements
+(95%)". The YAML is hashed into every evidence pack (`aiuc1-mapping.json`) and read by `html_report`,
+`top10_failures` and `compliance_crosswalk`, so **evidence packs and reports generated before this change
+carry the wrong titles.** Found by an outside review (GB, 2026-10-26).
+
+- `configs/aiuc1_standard_2026-10-15.json` (new): a dated snapshot of the standard's 55 requirement IDs and
+  titles (50 active, 5 retired) from `standard.aiuc-1.com/llms.txt`.
+- `configs/aiuc1_mapping.yaml` rewritten from the crosswalk's real-title rows: 23 of the 50 active
+  requirements listed, 19 with named tests (every ID checked against `count_tests.py`), 4 `GAP`. Status is
+  now `MAPPED` or `GAP`; `COVERED` overstated what a mapping (evidence class E1) shows. No coverage
+  percentage is claimed. The x402 family is left out of D004 until its harness uses the spec's
+  `PAYMENT-REQUIRED` / `PAYMENT-SIGNATURE` headers.
+- `docs/AIUC1-CROSSWALK.md`: tables regenerated from the YAML against the 2026-10-15 release (B001, C010,
+  D004, E006 renamed; C011 retired into C010; A009 and E018 listed). `scripts/aiuc1_prep.py` reads the YAML
+  instead of its own copy of the invented titles.
+- Guarded by `tests/test_aiuc1_mapping_matches_standard.py`, including a positive control that a seeded
+  invented title fails; registered in `testing/test_review_findings_are_ratcheted.py`.
 ### Corrected: the x402 module graded spec x402 servers with probes they never read
 
 `protocol_tests/x402_harness.py` reads challenges from `X-Payment-Amount`, `X-Payment-Recipient` and similar

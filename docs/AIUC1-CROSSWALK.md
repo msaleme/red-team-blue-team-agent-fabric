@@ -14,72 +14,81 @@ material no matter how many requirements it covers. Executed evidence requires a
 stated target and a pinned revision; independent review requires a qualified
 outside party.
 
-> **Standard currency:** this mapping was built against **v2026-Q1** (reviewed March 2026). AIUC-1 now revises quarterly — **Q2 (April 2026)** added MCP/A2A protocol-security and agent-identity controls; **Q3 (released 2026-07-15)** modified 8 requirements / 41 controls. Requirement-level rows below remain valid (renumbering happened at sub-control level), but see the **Q3-2026 Currency Note** near the end of this document before citing this crosswalk against the current standard. Last currency review: 2026-07-16. **The author compared requirement titles against the published pillar pages on 2026-09-05** (`/security`, `/safety`, `/reliability`, `/data-and-privacy`, `/accountability`, `/society`); four had drifted from the standard's wording and were corrected, most consequentially A003, which this document called *data collection* where the standard says *data access*. **Next review due on the Q4-2026 release, 2026-10-15**; AIUC-1 ships on a fixed quarterly cadence (Jan/Apr/Jul/Oct 15), so the review date is knowable in advance rather than event-driven.
+> **Standard currency:** this crosswalk is checked against the **AIUC-1 release of 2026-10-15** (Q4), using the pinned
+> snapshot `configs/aiuc1_standard_2026-10-15.json` (requirement IDs and titles from `standard.aiuc-1.com/llms.txt`).
+> `tests/test_aiuc1_mapping_matches_standard.py` fails if a title here or in `configs/aiuc1_mapping.yaml` differs from
+> the snapshot. AIUC-1 ships quarterly (Jan/Apr/Jul/Oct 15); the next review is due with the 2027-01-15 release.
+
+> **Correction (2026-10-30):** `configs/aiuc1_mapping.yaml` previously attached titles to AIUC-1 IDs that were not
+> AIUC-1's (for example B003 "Protocol Downgrade Prevention"; the requirement is "Manage public release of technical
+> details"), marked every row COVERED, and the repository claimed "19 of 20 testable requirements (95%)". Those were
+> wrong. This document and the YAML now carry the published titles, and no coverage percentage is claimed.
 
 ---
 
-## Requirement mapping (19 of 20 testable requirements in the 2026-Q1/Q2 set)
+## Requirement mapping (23 of 50 active requirements listed; 19 with named tests)
 
-### B. Security (all listed requirements mapped)
+Generated from `configs/aiuc1_mapping.yaml`. **MAPPED** means harness tests are named as potentially relevant to
+evidence collection; **GAP** means no harness test evidences the requirement. Neither is a claim about any target.
 
-| AIUC-1 Req | Requirement | Our Coverage |
-|---|---|---|
-| **B001** | Third-party testing of adversarial robustness | Harness test vectors may support evidence collection for prompt injection, jailbreaks, polymorphic attacks, multi-step chains, and CVE reproduction. See the [test inventory](TEST-INVENTORY.md) and run the count script for the current test-ID total. |
-| **B002** | Detect adversarial input | MCP tool injection (MCP-001-010), A2A message spoofing (A2A-001-012), prompt injection via operational data (ADI-001, ADI-002, ADI-003) |
-| **B005** | Implement real-time input filtering | Payload-variation probes mapped as potentially relevant: per-attempt payload mutation and encoding variation (POLY-001, POLY-002), nested schema injection (CVE-001), tool-description context displacement (MCP-011, graded as denial-of-service rather than filtering). These observe a target's *responses*; they do not measure a filtering implementation or its latency. |
-| **B009** | Limit output over-exposure | Information leakage detection, output exfiltration tests, API key regex scanning |
+### A. Data & Privacy
 
-### D. Reliability (all listed requirements mapped)
+| AIUC-1 Req | Requirement | Status | Named tests | Limit |
+|---|---|---|---|---|
+| **A003** | Limit AI agent data access | MAPPED | MCP-003, A2A-012, MS-003, SAP-003, SF-001, WD-003, AT-001, OC-002 | Data-access boundary tests across MCP, A2A and enterprise adapters. |
+| **A004** | Protect IP & trade secrets | MAPPED | MCP-007, MCP-011, WXO-003 | Context exfiltration, context displacement and credential leakage tests. |
+| **A009** | Third-party testing for data & privacy risk | MAPPED | DATA-001, DATA-002, DATA-003, A2A-012, WD-001, ZD-001 | Data-sensitivity, cross-context leakage and PII exfiltration tests. A mapping, not a third-party evaluation report. |
 
-| AIUC-1 Req | Requirement | Our Coverage |
-|---|---|---|
-| **D003** | Restrict unsafe tool calls | MCP capability escalation, unauthorized tool registration, A2A task hijacking, L402/x402 unauthorized payment execution |
-| **D004** | Third-party testing of tool calls | 133 wire-protocol tests (MCP 33 + A2A 13 + L402 33 + x402 54) + 83 platform adapter tests (cloud 25 + enterprise core 31 + enterprise extended 27) across 5 cloud + 20 enterprise platform adapters |
+### B. Security
 
-### C. Safety (mapped subset)
+| AIUC-1 Req | Requirement | Status | Named tests | Limit |
+|---|---|---|---|---|
+| **B001** | Third-party testing for security risk | MAPPED | 37 tests: JB-001, JB-002, JB-003, JB-004, ... CVE-010 (full list in `configs/aiuc1_mapping.yaml`) | Adversarial vectors a third-party evaluator may use. Running them is not itself a third-party evaluation. |
+| **B002** | Detect adversarial input | MAPPED | 25 tests: MCP-001, MCP-002, MCP-003, MCP-004, ... ADI-003 (full list in `configs/aiuc1_mapping.yaml`) | Adversarial input via MCP tools, A2A messages and operational data. |
+| **B005** | Implement real-time input filtering | MAPPED | POLY-001, POLY-002, CVE-001, MCP-011 | Payload-variation probes; MCP-011 is graded as denial of service, not filtering. |
+| **B009** | Limit output over-exposure | MAPPED | DATA-003, MCP-007, WXO-003, GTG-P4-001 | Output sensitivity, context exfiltration and credential exposure tests. |
 
-| AIUC-1 Req | Requirement | Our Coverage |
-|---|---|---|
-| **C001** | Define AI risk taxonomy | Framework provides STRIDE, OWASP Agentic and NIST AI 800-2 risk categorisation across the repository's 649 tests. Not every test carries a mapping in every taxonomy: for the OWASP Agentic mapped population see the generated `docs/coverage/owasp-agentic-v1.1.json`, which is validated in CI. |
-| **C002** | Conduct pre-deployment testing | Entire framework designed for pre-deployment. `pip install agent-security-harness` and run before shipping. |
-| **C010** | Third-party testing for harmful outputs | Adversarial test vectors are mapped as potentially relevant to evidence collection about harmful outputs. An authorized, pinned run with retained results would be needed to characterise whether a target's control held. |
-| **C011** | Third-party testing for out-of-scope outputs | Protocol-level scope violation tests (MCP-003 capability escalation, A2A unauthorized access) |
+### C. Safety
 
-### A. Data & Privacy (mapped subset)
+| AIUC-1 Req | Requirement | Status | Named tests | Limit |
+|---|---|---|---|---|
+| **C001** | Define AI risk taxonomy | GAP | none | Documentation-level requirement. The harness tags tests with STRIDE / OWASP Agentic / NIST categories; no test evidences a risk taxonomy. |
+| **C002** | Conduct pre-deployment testing | GAP | none | The harness is a pre-deployment testing tool; no single test evidences that pre-deployment testing was conducted. |
+| **C003** | Prevent harmful outputs | MAPPED | AIUC-C003a, AIUC-C003b | Harmful and deceptive content refusal. |
+| **C004** | Prevent out-of-scope outputs | MAPPED | AIUC-C004a, AIUC-C004b, AIUC-C004c | Out-of-scope execution refusal, scope creep, authority impersonation. |
+| **C010** | Third-party testing for safety risk | MAPPED | AIUC-C003a, AIUC-C003b, AIUC-C004a, AIUC-C004b, AIUC-C004c, MCP-003, A2A-004, A2A-008 | Safety vectors a third-party evaluator may use (Q4 folded retired C011 into C010). Not itself a third-party evaluation. |
 
-| AIUC-1 Req | Requirement | Our Coverage |
-|---|---|---|
-| **A003** | Limit AI agent data access | MCP capability escalation, A2A cross-session leakage, enterprise platform data access boundary tests |
-| **A004** | Protect IP & trade secrets | Tool discovery poisoning (exfiltration), context displacement DoS, API key leak detection |
+### D. Reliability
 
-### E. Accountability (complementary)
+| AIUC-1 Req | Requirement | Status | Named tests | Limit |
+|---|---|---|---|---|
+| **D003** | Restrict unsafe tool calls | MAPPED | MCP-002, MCP-003, MCP-010, A2A-004, A2A-006, L4-010 | Unauthorised tool registration, capability escalation, argument injection, task hijacking, caveat escalation. |
+| **D004** | Third-party testing for reliability risk | MAPPED | 68 tests: MCP-001, MCP-002, MCP-003, MCP-004, ... L4-033 (full list in `configs/aiuc1_mapping.yaml`) | Wire-protocol reliability vectors. The x402 family is excluded until its harness uses the spec's PAYMENT-REQUIRED / PAYMENT-SIGNATURE headers. |
 
-| AIUC-1 Req | Requirement | Our Coverage |
-|---|---|---|
-| **E004** | Assign accountability | [CSG paper](https://doi.org/10.5281/zenodo.19162104) defines 3-tier governance with explicit accountability. The paper reports 12 mechanisms and 77 days of production operation; that is the cited authors' statement, not a retained operational record held here. |
-| **E006** | Conduct vendor due diligence | A bounded, authorized harness run may contribute technical evidence to a vendor-due-diligence review. It does not replace the review or establish a vendor conclusion on its own. |
-| **E015** | Log AI system activity | JSON reports retain request and response records and may serve as audit evidence. Completeness varies by path and is not guaranteed: some harnesses retain summaries or excerpt response bodies (for example `l402_harness.py` truncates a retained body to 2000 characters), so the reports are not full transcripts. |
+### E. Accountability
 
-### F. Society (mapped subset)
+| AIUC-1 Req | Requirement | Status | Named tests | Limit |
+|---|---|---|---|---|
+| **E001** | AI failure plan for security breaches | MAPPED | IR-001, IR-004, AIUC-E001 | Tests that the response behaviour occurs during an incident; they do not evidence the written failure plan itself. |
+| **E002** | AI failure plan for harmful outputs | MAPPED | IR-002, AIUC-E002 | Tests that the response behaviour occurs during an incident; they do not evidence the written failure plan itself. |
+| **E003** | AI failure plan for hallucinations | MAPPED | IR-003, HALL-001, HALL-002 | Tests that the response behaviour occurs during an incident; they do not evidence the written failure plan itself. |
+| **E004** | Assign accountability | GAP | none | Organisational requirement; no test evidences assigned accountability. |
+| **E006** | Conduct vendor and model due diligence | GAP | none | A bounded, authorised harness run may contribute technical evidence to vendor and model due diligence; it is not the review. |
+| **E015** | Log AI system activity | MAPPED | AUDIT-001, AUDIT-002, IR-006, GM-006 | Audit-trail availability, attribution, log completeness and tamper tests. |
+| **E018** | Third-party testing for accountability risk | MAPPED | AUDIT-001, AUDIT-002, GM-006, IR-006 | Accountability vectors a third-party evaluator may use. A mapping, not a third-party evaluation report. |
 
-| AIUC-1 Req | Requirement | Our Coverage |
-|---|---|---|
-| **F001** | Prevent AI cyber misuse | GTG-1002 APT simulation: 17 tests modeling AI-orchestrated cyber espionage (lateral movement, exfiltration, persistence) |
+### F. Society
 
----
+| AIUC-1 Req | Requirement | Status | Named tests | Limit |
+|---|---|---|---|---|
+| **F001** | Prevent AI cyber misuse | MAPPED | 15 tests: GTG-P1-001, GTG-P1-002, GTG-P2-001, GTG-P2-002, ... GTG-P6-002 (full list in `configs/aiuc1_mapping.yaml`) | GTG-1002 AI-orchestrated intrusion simulation. |
+| **F002** | Prevent catastrophic misuse | MAPPED | 11 tests: CBRN-001, CBRN-002, CBRN-003, CBRN-004, ... AIUC-F002c (full list in `configs/aiuc1_mapping.yaml`) | CBRN refusal tests. |
 
-## AIUC-1 Mapping Summary
+## Not listed
 
-| Principle | Reqs | Mapped | Evidence boundary |
-|---|---|---|---|
-| B. Security | 4 | **4** | Mapping identifies potentially relevant adversarial-testing vectors; it is not evidence of target performance. |
-| D. Reliability | 2 | **2** | Mapping identifies potentially relevant tool-call testing; target configuration and execution evidence remain necessary. |
-| C. Safety | 6 | **6** | Mapping identifies relevant CBRN, harmful-output, pre-deployment, and taxonomy artifacts. |
-| A. Data & Privacy | 5 | 2 | Mapping identifies agent data-access and IP-leakage artifacts. |
-| E. Accountability | 7 | **5** | Mapping identifies incident-response, diligence, and audit-evidence artifacts. |
-| F. Society | 2 | **2** | Mapping identifies GTG-1002 and CBRN-prevention artifacts. |
-
-**Not yet covered (3 requirements):** A001 (input data policy - process requirement), A002 (output data policy - process requirement), E005 (cloud vs on-prem assessment - infrastructure decision). Previously tracked gaps now closed: F002 CBRN prevention ([#34](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/34) - resolved with `cbrn` + `aiuc1` harnesses), C003/C004 harmful output ([#33](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/33) - resolved with `harmful-output` + `aiuc1` harnesses), E001-E003 incident response ([#35](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/35) - resolved with `incident-response` + `aiuc1` harnesses).
+27 active requirements are not listed in the mapping: A001, A002, A005, A006, A007, A008, B003, B004, B006, B007, B008, B010, C005, C006, C007, C008, C009, D001, E005, E008, E009, E010, E011, E012, E013, E016, E017. Most are process,
+policy or infrastructure requirements that an adversarial test harness cannot evidence. Retired in the 2026-10-15 release
+and therefore not listed: C011, C012 and D002 (folded into C010 and D004), plus E007 and E014.
 
 > **Claim boundary:** a mapped test has a documented relationship to a requirement. It does not establish that the test was executed, that a target passed, that testing was independent, or that a target conforms to AIUC-1. Retain the pinned revision, invocation, inputs, environment, timestamps, and output before making a runtime claim; obtain independent review before representing evidence as third-party reviewed.
 
@@ -87,24 +96,9 @@ outside party.
 
 ---
 
-## Q3-2026 Currency Note (standard revised 2026-07-15)
-
-The Q3-2026 quarterly refresh modified 8 requirements and 41 controls ([changelog](https://www.aiuc-1.com/changelog)). Impact on this crosswalk:
-
-| Q3 change | Impact here |
-|---|---|
-| **NEW A008** (A008.1–.5) — secrets-leakage prevention, mandatory for **code-generating agents** | Not mapped. This harness tests agent systems; it is not a code-generating product. Treat as out-of-scope pending maintainer review. |
-| **NEW B010** (B010.1–.6) — secure patterns in generated code, mandatory for **code-generating agents** | Same as A008 — out-of-scope pending maintainer review. |
-| **A003 revised** — sub-controls renumbered to A003.2–A003.3 | Requirement-level row (A003) unaffected; do not cite Q2 sub-control IDs. |
-| **B008 revised** — model-access core requirement retired; sub-controls renumbered B008.1–B008.5 | Not mapped at sub-control level here; no row change. |
-| **B006.3 extended** — sandboxing now covers agent-executed code alongside first-party MCP servers | Runtime/infrastructure control — attestation-level, not test coverage. |
-| **E009 expanded** (+E009.2 anomalous-access alerting) | E-principle rows are complementary/process; no test-coverage claim made or added. |
-
-**Claim discipline:** the "19 of 20 testable requirements" figure is denominated against the **2026-Q1/Q2 requirement set**. Q3 added two requirements scoped to code-generating agents; until the maintainer either maps or formally scopes them out, cite this document as *"evidence mapping against AIUC-1 2026-Q1/Q2; Q3-2026 delta reviewed 2026-07-16, two new codegen-scoped requirements pending scope decision."*
-
 ## Standards Alignment
 
-- **AIUC-1 (2026)** - Evidence mapping for 19 of 20 testable requirements (2026-Q1/Q2 set; Q3-2026 delta — see Currency Note above)
+- **AIUC-1 (release 2026-10-15)** - E1 evidence mapping; see the table above for the requirements listed and their stated limits
 - **OWASP Top 10 for Agentic Applications (2026)** - tests mapped to ASI01–ASI10 with per-category counts and stated limits (see docs/COMPARISON.md)
 - **OWASP LLM Top 10** - LLM01 (Prompt Injection), LLM02, LLM03, LLM04, LLM06, LLM08
 - **NIST AI RMF** - GOVERN, MAP, MEASURE, MANAGE functions covered
