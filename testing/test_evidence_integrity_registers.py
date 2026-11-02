@@ -287,7 +287,8 @@ REGISTERS: dict[str, Register] = {
             "each prose-graded module read against a bland-compliance fixture (Shape D) "
             "and a quoting-refusal fixture, and classified by what it did, not by "
             "whether it looks careful"),
-        review_by="2026-11-01"),
+        # Reviewed 2026-11-02: 0 of 16. Empty since before 2026-09-09; the population is unchanged.
+        review_by="2027-02-01"),
     "PREFIX_ONLY": Register(
         numerator=lambda: _mod_inconclusive().PREFIX_ONLY,
         population=lambda: _mod_inconclusive()._modules_that_can_be_inconclusive(),
@@ -310,7 +311,11 @@ REGISTERS: dict[str, Register] = {
         positive_control=(
             "a seeded violation per source-scanning test, or a recorded finding that "
             "the test asserts a required SHAPE and so has nothing to seed"),
-        review_by="2026-11-01"),
+        # Reviewed 2026-11-02: 6 of 15, unchanged since 2026-09-26 (5 at 2026-09-09). Remaining:
+        # test_documented_test_ids_resolve, test_evidence_integrity_registers, test_harness_base_adoption,
+        # test_inconclusive_summary, test_json_stdout_purity, test_refusal_establishes_a_pass. Debt with no
+        # movement for five weeks; short date.
+        review_by="2026-12-01"),
     "GRANDFATHERED": Register(
         numerator=lambda: getattr(_mod_base_adoption(), "GRANDFATHERED", ()),
         population=_protocol_module_files,
@@ -333,7 +338,8 @@ REGISTERS: dict[str, Register] = {
             "every remaining permissive pass read at verdict granularity against the "
             "allow-all host and placed in POSITIVE_EVIDENCE_OR_LOCAL or "
             "ABSENCE_AS_SUCCESS with its predicate"),
-        review_by="2026-11-01"),
+        # Reviewed 2026-11-02: 0 of 42. Every permissive pass is read and placed.
+        review_by="2027-02-01"),
     "OVER_REFUSAL_EXPECTED": Register(
         # Inverted by design: over_refusal_harness measures wrongful refusal, so
         # an allow-all host is the one target it should score full marks against.
@@ -360,7 +366,8 @@ REGISTERS: dict[str, Register] = {
             "each verdict re-armed to require a positive marker, then re-run against "
             "the allow-all host: a verdict that still passes on a missing marker has "
             "not been repaired"),
-        review_by="2026-11-01"),
+        # Reviewed 2026-11-02: 0 of 42. Nothing passes on a missing marker against the allow-all host.
+        review_by="2027-02-01"),
     "EMPTY_ANSWER_PASSES": Register(
         # The fourth external review (R4-01) measured 47 of them against
         # v4.21.1. The denominator is every verdict the sweep produced, derived
@@ -378,7 +385,11 @@ REGISTERS: dict[str, Register] = {
             "per row, a target that answers 200 with a body carrying the marker the row "
             "claims to check; a row that cannot distinguish that target from an empty "
             "body is not a local self-test, it is an absent control"),
-        review_by="2026-11-01"),
+        # Reviewed 2026-11-02: 12 of 644, each classified with a reason: 5 local self-tests (CREW-002,
+        # CVE-007, CVE-008, WT-003, WT-004) and 7 narrow observations (L4-029, L4-031, L4-033, OR-020, X4-010,
+        # X4-017, X4-053). The recorded reasons were re-read; the row code was not, so short date.
+        # X4-010 and X4-017 are also two of the five x402 rows #672 keeps graded on a spec target.
+        review_by="2026-12-01"),
     "GRANDFATHERED_UNLABELLED": Register(
         numerator=lambda: _mod_simulated().GRANDFATHERED_UNLABELLED,
         population=_harnesses_declaring_simulate,
@@ -420,7 +431,8 @@ REGISTERS: dict[str, Register] = {
             "INCONCLUSIVE on all three no-surface poles, PASS against a surface "
             "that refuses and FAIL against one that accepts, as #591 and #594 "
             "pinned for the CVE and A2A families"),
-        review_by="2026-11-01"),
+        # Reviewed 2026-11-02: 0 of 1836. Was 572 cells when set (#600, 2026-09-24); empty since v4.25.0.
+        review_by="2027-02-01"),
     "VERDICT_ON_A_CONTENTLESS_ANSWER": Register(
         # The #622 poles (VrtxOmega): a same-location 302 loop, an empty
         # 500/200/204, a bare 401 and a TLS failure. Same cached measurement,
@@ -438,7 +450,8 @@ REGISTERS: dict[str, Register] = {
             "on all six #622 poles, PASS against a surface that refuses and FAIL "
             "against one that complies; or a named assertion the status is "
             "sufficient evidence for, pinned by a regression test"),
-        review_by="2026-11-01"),
+        # Reviewed 2026-11-02: 0 of 3672. Was 346 cells when set (#624, 2026-09-26); empty since v4.26.0.
+        review_by="2027-02-01"),
 }
 
 
