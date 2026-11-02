@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.28.2] - 2026-11-02
+
+A patch release with two corrections, both found by an outside review (GB, 2026-10-26). The AIUC-1
+mapping now carries the published standard's titles (2026-10-15 release) and claims no coverage
+percentage; evidence packs built on earlier versions carry the wrong titles. The x402 module now
+recognises a spec x402 server and reports INCONCLUSIVE on the 49 tests whose probes such a server does
+not read, instead of 43 PASS and 11 FAIL that were not evidence; x402 results against a spec server from
+earlier versions should be discounted. No test IDs added or removed: 649 tests across 50 test-bearing
+modules.
+
 ### Corrected: the AIUC-1 mapping did not say what AIUC-1 says
 
 `configs/aiuc1_mapping.yaml` attached titles to AIUC-1 requirement IDs that were not AIUC-1's. Checked
