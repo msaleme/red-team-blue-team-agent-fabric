@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added: x402 probes that speak the published spec (X4-058..X4-066)
+
+v4.28.2 stopped the x402 module grading spec x402 servers with pre-spec probes, which left a spec
+target with 49 INCONCLUSIVE rows and no way to be tested. Nine new tests send what a spec server
+reads: an `exact` / `eip3009` payment, EIP-712 `TransferWithAuthorization` signed by a testnet key,
+in `PAYMENT-SIGNATURE` (v2) or `X-PAYMENT` (v1) (x402-foundation/x402 @ 58e667f,
+`specs/schemes/exact/scheme_exact_evm.md`). 649 -> 658 tests; modules unchanged at 50.
+
+- **X4-058 is the positive control.** A correctly signed payment for the advertised requirement
+  must be accepted. Until it is, X4-059..066 report INCONCLUSIVE: a server that accepts no payment
+  rejects everything, so a rejection shows nothing (the 2026-10-30 shape).
+- **X4-059..066 each change one property of a valid payment** and must be rejected: replay of the
+  accepted payment, a recipient other than `payTo`, one unit underpaid, an expired `validBefore`, a
+  corrupted signature, `value` edited after signing, a signature over another chain's domain, and
+  one payment sent five times in parallel (at most one acceptance). A 5xx, timeout or no answer is
+  INCONCLUSIVE, never a rejection.
+- **Guards that fail closed:** testnet chain IDs only, a per-run cap on the value of payments that
+  could settle (`--x402-max-spend`, default 0.05 USDC), and no key means nothing is signed. The key
+  comes from `--x402-payer-key-file` or `X402_PAYER_KEY_FILE` and is never printed. Signing needs
+  the new extra: `pip install 'agent-security-harness[x402-pay]'`.
+- **Controls:** `testing/test_x402_spec_probes.py` runs every probe against an in-process server
+  that really verifies signatures, then against one broken variant per probe, each of which fails
+  exactly the probe built for it; plus a server that accepts nothing, one that crashes on bad
+  payments, an unfunded payer, a mainnet requirement and a spend cap.
+- **Live run:** `scripts/x402_spec_live/run.sh` starts a server built with the official `x402`
+  Python package (2.26.0) against the public x402.org facilitator on Base Sepolia and runs the
+  family. A first run with an unfunded key was rejected for
+  `invalid_exact_evm_insufficient_balance` rather than for its format or signature. It also showed
+  the harness grading that rejection as a server failure; it is now INCONCLUSIVE. A funded run has not been recorded yet, and until it is this release claims no
+  x402 spec conformance result.
+
 ## [4.28.2] - 2026-11-02
 
 A patch release with two corrections, both found by an outside review (GB, 2026-10-26). The AIUC-1

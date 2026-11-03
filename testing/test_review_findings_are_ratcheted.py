@@ -420,6 +420,11 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "11 FAIL against a spec stub that accepts no payment, none of it evidence",
      "GB review 2026-10-26", GUARDED,
      "testing/test_x402_spec_target.py: ASpecTargetGetsNoPreSpecVerdicts"),
+    ("after that fix a spec x402 target could only be reported INCONCLUSIVE: no probe sent a "
+     "spec-format payment, and a rejected payment shows nothing unless a valid one is "
+     "accepted first",
+     "GB review 2026-10-26", GUARDED,
+     "testing/test_x402_spec_probes.py: TruthTable"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.

@@ -9,8 +9,12 @@ specs/transports-v1/http.md and transports-v2/http.md) carries the challenge in 
 JSON body (v1) or a base64 `PAYMENT-REQUIRED` header (v2), and the payment in
 `X-PAYMENT` (v1) or `PAYMENT-SIGNATURE` (v2). A spec server ignores the pre-spec
 headers, so against one only SPEC_INDEPENDENT_TESTS grade and every other test
-reports INCONCLUSIVE with the reason. Spec-format probes need a valid signed
-payment as their positive control and are not built yet.
+reports INCONCLUSIVE with the reason.
+
+Spec payment probes (2026-11-03). X4-058..066 send signed `exact`/eip3009
+payments in the spec format (x402_spec_pay.py), given a funded testnet key
+(--x402-payer-key-file). X4-058 is their positive control: a valid payment must
+be accepted before any rejection by X4-059..066 counts.
 
 x402 Protocol Overview (pre-spec format):
     x402 is an open standard for internet-native agent payments, built on
@@ -93,6 +97,17 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 
+from protocol_tests.x402_spec_pay import (
+    DEFAULT_MAX_SPEND_ATOMIC,
+    TESTNET_CHAIN_IDS,
+    PaymentRefused,
+    amount_of,
+    chain_id as spec_chain_id,
+    decode_header,
+    load_payer,
+    payment_header_name,
+    settlement_header_name,
+)
 from protocol_tests.agent_prose_outcome import (
     DECLINE_OBSERVED,
     classify_agent_prose,
@@ -345,6 +360,54 @@ SPEC_INDEPENDENT_TESTS = frozenset({
     "X4-017",  # the 402 response scanned for information leakage
 })
 
+#: Tests that send spec-format signed payments (x402_spec_pay.py). They are
+#: built for spec targets, so the pre-spec INCONCLUSIVE rule above never
+#: applies to them; their own positive control gates them instead.
+SPEC_PROBE_TESTS = frozenset(f"X4-0{n}" for n in range(58, 67))
+
+
+def _settlement(resp: dict, version: int) -> dict | None:
+    """The decoded PAYMENT-RESPONSE (v2) / X-PAYMENT-RESPONSE (v1) header, if any."""
+    raw = (resp.get("headers") or {}).get(settlement_header_name(version))
+    return decode_header(raw) if raw else None
+
+
+def _spec_error_reason(resp: dict, version: int) -> str:
+    """The server's stated reason for a rejection, as ': reason', or ''."""
+    reasons = []
+    settlement = _settlement(resp, version)
+    if settlement and settlement.get("errorReason"):
+        reasons.append(str(settlement["errorReason"]))
+    spec = spec_challenge(resp)
+    if spec and spec.get("error"):
+        reasons.append(str(spec["error"]))
+    return (": " + "; ".join(reasons)[:300]) if reasons else ""
+
+
+def _spec_grade(resp: dict, version: int, what: str) -> tuple[bool, str]:
+    """2xx = accepted (FAIL); 402/4xx = rejected (PASS); else INCONCLUSIVE."""
+    status = resp.get("status", 0)
+    if resp.get("_error") or status == 0 or status >= 500:
+        return False, (f"{INCONCLUSIVE_PREFIX}{what}: no usable answer (status {status}); "
+                       "a missing or failed answer is not a rejection")
+    if 200 <= status < 300:
+        settlement = _settlement(resp, version)
+        tx = f", settlement tx {settlement.get('transaction')}" if settlement else ""
+        return False, f"ACCEPTED {what} (status {status}{tx})"
+    return True, f"rejected {what} (status {status}{_spec_error_reason(resp, version)})"
+
+
+def _spec_evidence(resp: dict | None) -> dict | None:
+    if not isinstance(resp, dict):
+        return resp
+    keep = {"status", "statuses", "_error", "_exception"}
+    out = {k: v for k, v in resp.items() if k in keep}
+    for version in (2, 1):
+        settlement = _settlement(resp, version) if "headers" in resp else None
+        if settlement:
+            out["settlement"] = settlement
+    return out
+
 
 def spec_challenge(resp: dict) -> dict | None:
     """The spec challenge in *resp*, as {"version", "where", "accepts"}, or None.
@@ -362,7 +425,8 @@ def spec_challenge(resp: dict) -> dict | None:
         except (ValueError, UnicodeDecodeError, TypeError):
             doc = None
         if isinstance(doc, dict) and doc.get("x402Version") == 2 and isinstance(doc.get("accepts"), list):
-            return {"version": 2, "where": "PAYMENT-REQUIRED header", "accepts": doc["accepts"]}
+            return {"version": 2, "where": "PAYMENT-REQUIRED header", "accepts": doc["accepts"],
+                    "resource": doc.get("resource"), "error": doc.get("error")}
     body = resp.get("body")
     if isinstance(body, str) and body.strip().startswith("{"):
         try:
@@ -370,7 +434,8 @@ def spec_challenge(resp: dict) -> dict | None:
         except ValueError:
             doc = None
         if isinstance(doc, dict) and doc.get("x402Version") == 1 and isinstance(doc.get("accepts"), list):
-            return {"version": 1, "where": "JSON body", "accepts": doc["accepts"]}
+            return {"version": 1, "where": "JSON body", "accepts": doc["accepts"],
+                    "resource": None, "error": doc.get("error")}
     return None
 
 
@@ -461,8 +526,12 @@ class X402SecurityTests:
     The FIRST open-source x402 security test harness.
     """
 
-    def __init__(self, transport: X402Transport):
+    def __init__(self, transport: X402Transport, payer=None):
         self.transport = transport
+        #: A SpecPayer for the spec payment probes (X4-058..066), or the reason
+        #: there is none. None means not configured; the probes say so.
+        self.payer = payer
+        self._spec_control_state: dict | None = None
         self.results: list[X402TestResult] = []
         self._cached_challenge: X402Challenge | None = None
         # Track data for autonomy risk scoring
@@ -517,7 +586,8 @@ class X402SecurityTests:
         # this module's pre-spec probes and answers each with its normal 402, so
         # "rejected" here shows nothing (43 of 54 PASS against a spec stub that
         # accepts no payment). Only the response-evidence tests keep a verdict.
-        if not result.not_evaluated and result.test_id not in SPEC_INDEPENDENT_TESTS:
+        if (not result.not_evaluated and result.test_id not in SPEC_INDEPENDENT_TESTS
+                and result.test_id not in SPEC_PROBE_TESTS):
             spec = spec_challenge(self._payment_surface())
             if spec is not None:
                 result.passed = False
@@ -3742,6 +3812,257 @@ class X402SecurityTests:
     # Run all tests
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # Spec payment probes (X4-058 to X4-066). Added 2026-11-03.
+    # ------------------------------------------------------------------
+    #
+    # The probes above send the pre-spec format, which a spec server never
+    # reads (SPEC_INDEPENDENT_TESTS). These send what it does read: an
+    # `exact`/eip3009 payment in `PAYMENT-SIGNATURE` (v2) or `X-PAYMENT` (v1),
+    # signed by a funded testnet key (x402_spec_pay.py).
+    #
+    # Truth table (testing/test_x402_spec_probes.py):
+    #   X4-058 positive control: a valid payment must be accepted (2xx). If it
+    #          is not, X4-059..066 are INCONCLUSIVE: a server that accepts no
+    #          payment rejects everything, so a rejection shows nothing.
+    #   X4-059..066 each change ONE property of a valid payment. 2xx = FAIL
+    #          (accepted); 402/4xx = PASS (rejected); 5xx, timeout or no answer
+    #          = INCONCLUSIVE (CLAUDE.md rule 8: absence is not a rejection).
+    #   Not a spec target, no key, mainnet, or over the spend cap: INCONCLUSIVE
+    #          with the reason; nothing is signed.
+
+    def _spec_context(self) -> tuple[dict | None, dict | None, str | None]:
+        """(challenge, chosen requirement, None), or (None, None, reason)."""
+        spec = spec_challenge(self._payment_surface())
+        if spec is None:
+            return None, None, ("the target does not answer with a spec x402 challenge "
+                                "(PAYMENT-REQUIRED header or v1 JSON body), so the spec "
+                                "payment probes do not apply")
+        if isinstance(self.payer, str) or self.payer is None:
+            return None, None, self.payer or "no payer configured"
+        for accept in spec["accepts"]:
+            if (isinstance(accept, dict) and accept.get("scheme") == "exact"
+                    and spec_chain_id(accept.get("network", "")) in TESTNET_CHAIN_IDS):
+                return spec, accept, None
+        return None, None, ("the challenge offers no `exact` payment on a known testnet; "
+                            "the harness signs on testnets only")
+
+    def _spec_send(self, payment) -> dict:
+        return self.transport.get(headers=payment.header)
+
+    def _spec_control(self) -> dict:
+        """Send one valid payment, once per suite. X4-058 reports it; the rest are gated on it."""
+        if self._spec_control_state is not None:
+            return self._spec_control_state
+        spec, accept, reason = self._spec_context()
+        state: dict = {"accepted": False, "reason": reason, "spec": spec, "accept": accept}
+        if reason is None:
+            try:
+                payment = self.payer.pay(spec["version"], accept, spec.get("resource"))
+            except PaymentRefused as e:
+                state["reason"] = f"payment not signed: {e}"
+            else:
+                resp = self._spec_send(payment)
+                state.update(payment=payment, response=resp,
+                             settlement=_settlement(resp, spec["version"]))
+                status = resp.get("status", 0)
+                state["accepted"] = 200 <= status < 300
+                if not state["accepted"]:
+                    state["reason"] = (f"the valid payment was not accepted (status {status}"
+                                       f"{_spec_error_reason(resp, spec['version'])})")
+        self._spec_control_state = state
+        return state
+
+    def _spec_record(self, test_id: str, name: str, details: str, passed: bool,
+                     t0: float, request_sent: dict | None = None,
+                     response: dict | None = None, severity=Severity.HIGH,
+                     impact: str = "fund_theft", *, owasp_asi: str):
+        self._record(X402TestResult(
+            test_id=test_id, name=name, category="spec_payment", owasp_asi=owasp_asi,
+            severity=severity.value, passed=passed, details=details,
+            http_method=self.transport.default_method,
+            csg_mapping="A rejection counts only after a valid payment was accepted",
+            estimated_impact=impact, estimated_severity=severity.name.lower(),
+            request_sent=request_sent, response_received=_spec_evidence(response),
+            elapsed_s=round(time.monotonic() - t0, 3),
+        ))
+
+    def test_x402_spec_valid_payment_accepted(self):
+        """X4-058: positive control -- a correctly signed spec payment is accepted."""
+        test_id = "X4-058"
+        t0 = time.monotonic()
+        state = self._spec_control()
+        name = "Spec Payment Positive Control (valid payment accepted)"
+        if state["reason"] and "payment" not in state:
+            self._spec_record(test_id, name, f"{INCONCLUSIVE_PREFIX}{state['reason']}",
+                              False, t0, owasp_asi="ASI03")
+            return
+        resp, settlement = state["response"], state["settlement"]
+        auth = state["payment"].authorization
+        sent = {"header": payment_header_name(state["spec"]["version"]),
+                "from": auth["from"], "to": auth["to"], "value": auth["value"],
+                "network": state["accept"].get("network")}
+        if state["accepted"]:
+            if settlement is not None and settlement.get("success") is False:
+                passed, details = False, ("the server answered 2xx but its settlement header "
+                                          f"says success=false: {settlement.get('errorReason')}")
+            else:
+                passed = True
+                details = ("a valid payment was accepted (status "
+                           f"{resp.get('status')}); settlement: "
+                           + (f"tx {settlement.get('transaction')}" if settlement
+                              else "no settlement header returned"))
+        elif re.search(r"insufficient_(funds|balance)",
+                       _spec_error_reason(resp, state["spec"]["version"])):
+            # `insufficient_funds` (spec §9) or `invalid_exact_evm_insufficient_balance`
+            # (the x402.org facilitator, 2026-11-03): the payer's fault, not the server's.
+            passed, details = False, (f"{INCONCLUSIVE_PREFIX}the payer key {auth['from']} is not "
+                                      "funded on this network; fund it and rerun")
+        elif resp.get("_error") or resp.get("status", 0) == 0 or resp.get("status", 0) >= 500:
+            passed, details = False, (f"{INCONCLUSIVE_PREFIX}the valid payment got no usable "
+                                      f"answer (status {resp.get('status', 0)})")
+        else:
+            passed, details = False, (f"a correctly signed payment for the advertised "
+                                      f"requirement was rejected: {state['reason']}")
+        self._spec_record(test_id, name, details, passed, t0, sent, resp,
+                          severity=Severity.MEDIUM, impact="service_denial", owasp_asi="ASI03")
+
+    def _spec_probe(self, test_id: str, name: str, what: str, make, t0: float, *,
+                    owasp_asi: str):
+        """Run one single-property probe: *make(spec, accept, control)* returns a payment."""
+        control = self._spec_control()
+        if not control["accepted"]:
+            self._spec_record(test_id, name, (
+                f"{INCONCLUSIVE_PREFIX}the positive control did not pass "
+                f"({control['reason'] or 'no valid payment accepted'}), so a rejection "
+                f"of this probe would show nothing"), False, t0, owasp_asi=owasp_asi)
+            return
+        spec, accept = control["spec"], control["accept"]
+        try:
+            payment = make(spec, accept, control)
+        except PaymentRefused as e:
+            self._spec_record(test_id, name, f"{INCONCLUSIVE_PREFIX}payment not signed: {e}",
+                              False, t0, owasp_asi=owasp_asi)
+            return
+        resp = self._spec_send(payment)
+        passed, details = _spec_grade(resp, spec["version"], what)
+        self._spec_record(test_id, name, details, passed, t0,
+                          {"probe": what, "authorization": payment.authorization}, resp,
+                          owasp_asi=owasp_asi)
+
+    def test_x402_spec_replay(self):
+        """X4-059: the accepted payment, sent again unchanged."""
+        test_id = "X4-059"
+        self._spec_probe(test_id, "Spec Payment Replay", "replay of the accepted payment",
+                         lambda s, a, c: c["payment"], time.monotonic(), owasp_asi="ASI03")
+
+    def test_x402_spec_wrong_recipient(self):
+        """X4-060: a validly signed payment to an address other than payTo."""
+        test_id = "X4-060"
+        def make(s, a, c):
+            other = self.payer.address
+            if other.lower() == str(a.get("payTo", "")).lower():
+                other = "0x000000000000000000000000000000000000dEaD"
+            return self.payer.pay(s["version"], a, s.get("resource"), to=other)
+        self._spec_probe(test_id, "Spec Payment Recipient Mismatch",
+                         "authorization.to is not payTo (validly signed)", make, time.monotonic(), owasp_asi="ASI09")
+
+    def test_x402_spec_underpayment(self):
+        """X4-061: a validly signed payment for one atomic unit less than required."""
+        test_id = "X4-061"
+        def make(s, a, c):
+            required = int(amount_of(a, s["version"]))
+            if required < 2:
+                raise PaymentRefused("the required amount is too small to underpay")
+            return self.payer.pay(s["version"], a, s.get("resource"), value=required - 1)
+        self._spec_probe(test_id, "Spec Payment Underpayment",
+                         "value is one unit below the required amount", make, time.monotonic(), owasp_asi="ASI09")
+
+    def test_x402_spec_expired_authorization(self):
+        """X4-062: a validly signed payment whose validBefore has passed."""
+        test_id = "X4-062"
+        def make(s, a, c):
+            now = int(time.time())
+            return self.payer.pay(s["version"], a, s.get("resource"),
+                                  valid_after=now - 3600, valid_before=now - 60)
+        self._spec_probe(test_id, "Spec Payment Expired Authorization",
+                         "validBefore is in the past", make, time.monotonic(), owasp_asi="ASI03")
+
+    def test_x402_spec_corrupted_signature(self):
+        """X4-063: a valid payment with bytes of its signature changed."""
+        test_id = "X4-063"
+        def make(s, a, c):
+            p = self.payer.pay(s["version"], a, s.get("resource"), altered_before_sending=True)
+            sig = p.document["payload"]["signature"]
+            flipped = sig[:10] + format(int(sig[10:12], 16) ^ 0xFF, "02x") + sig[12:]
+            return p.with_signature(flipped)
+        self._spec_probe(test_id, "Spec Payment Corrupted Signature",
+                         "signature bytes altered", make, time.monotonic(), owasp_asi="ASI03")
+
+    def test_x402_spec_value_edited_after_signing(self):
+        """X4-064: signed for less than required, value raised afterwards."""
+        test_id = "X4-064"
+        def make(s, a, c):
+            required = int(amount_of(a, s["version"]))
+            if required < 2:
+                raise PaymentRefused("the required amount is too small to edit")
+            p = self.payer.pay(s["version"], a, s.get("resource"), value=required - 1,
+                               altered_before_sending=True)
+            return p.edited(value=required)
+        self._spec_probe(test_id, "Spec Payment Value Edited After Signing",
+                         "authorization.value changed after signing", make, time.monotonic(), owasp_asi="ASI03")
+
+    def test_x402_spec_wrong_chain_signature(self):
+        """X4-065: signed over another testnet's EIP-712 domain."""
+        test_id = "X4-065"
+        def make(s, a, c):
+            target = spec_chain_id(a.get("network", ""))
+            other = 11155111 if target != 11155111 else 84532
+            return self.payer.pay(s["version"], a, s.get("resource"), sign_chain_id=other)
+        self._spec_probe(test_id, "Spec Payment Signed For Another Chain",
+                         "EIP-712 domain chainId is another network", make, time.monotonic(), owasp_asi="ASI09")
+
+    def test_x402_spec_parallel_double_spend(self):
+        """X4-066: one fresh valid payment sent several times at once; at most one may succeed."""
+        test_id = "X4-066"
+        t0 = time.monotonic()
+        name = "Spec Payment Parallel Double Spend"
+        control = self._spec_control()
+        if not control["accepted"]:
+            self._spec_record(test_id, name, (
+                f"{INCONCLUSIVE_PREFIX}the positive control did not pass "
+                f"({control['reason'] or 'no valid payment accepted'}), so a rejection "
+                f"would show nothing"), False, t0, owasp_asi="ASI03")
+            return
+        spec, accept = control["spec"], control["accept"]
+        try:
+            payment = self.payer.pay(spec["version"], accept, spec.get("resource"))
+        except PaymentRefused as e:
+            self._spec_record(test_id, name, f"{INCONCLUSIVE_PREFIX}payment not signed: {e}",
+                              False, t0, owasp_asi="ASI03")
+            return
+        n = 5
+        with ThreadPoolExecutor(max_workers=n) as ex:
+            responses = list(ex.map(lambda _: self._spec_send(payment), range(n)))
+        statuses = [r.get("status", 0) for r in responses]
+        accepted = sum(1 for s in statuses if 200 <= s < 300)
+        answered = [s for s in statuses if 0 < s < 500]
+        if accepted > 1:
+            passed, details = False, (f"one payment sent {n} times in parallel was accepted "
+                                      f"{accepted} times (statuses {statuses})")
+        elif accepted == 1 and len(answered) == n:
+            passed, details = True, (f"one payment sent {n} times in parallel was accepted "
+                                     f"once (statuses {statuses})")
+        else:
+            passed, details = False, (f"{INCONCLUSIVE_PREFIX}of {n} parallel sends, {accepted} "
+                                      f"accepted and {n - len(answered)} got no usable answer "
+                                      f"(statuses {statuses}); this needs exactly one "
+                                      f"acceptance and a rejection for every other send")
+        self._spec_record(test_id, name, details, passed, t0,
+                          {"probe": "parallel resend", "n": n,
+                           "authorization": payment.authorization},
+                          {"statuses": statuses}, owasp_asi="ASI03")
+
     ALL_TESTS: dict[str, list[str]] = {
         "payment_challenge": [
             "test_x402_challenge_headers_present",
@@ -3832,6 +4153,18 @@ class X402SecurityTests:
         ],
         "agent_autonomy": [
             "test_x402_cascading_payment_approval",
+        ],
+        # X4-058 first: the rest are gated on it.
+        "spec_payment": [
+            "test_x402_spec_valid_payment_accepted",
+            "test_x402_spec_replay",
+            "test_x402_spec_wrong_recipient",
+            "test_x402_spec_underpayment",
+            "test_x402_spec_expired_authorization",
+            "test_x402_spec_corrupted_signature",
+            "test_x402_spec_value_edited_after_signing",
+            "test_x402_spec_wrong_chain_signature",
+            "test_x402_spec_parallel_double_spend",
         ],
     }
 
@@ -3946,6 +4279,15 @@ _TEST_DESCRIPTIONS: dict[str, str] = {
     "X4-053": "Payment metadata side channel — response variance (APT-09)",
     "X4-054": "Cross-request payment correlation attack (APT-09)",
     "X4-055": "Cascading payment approval chain — recursive 402s (APT-10)",
+    "X4-058": "Spec positive control: a correctly signed spec payment is accepted",
+    "X4-059": "Spec: replay the accepted PAYMENT-SIGNATURE / X-PAYMENT unchanged",
+    "X4-060": "Spec: validly signed payment to an address other than payTo",
+    "X4-061": "Spec: validly signed payment one unit below the required amount",
+    "X4-062": "Spec: validly signed payment whose validBefore has passed",
+    "X4-063": "Spec: valid payment with its signature bytes altered",
+    "X4-064": "Spec: authorization.value raised after signing",
+    "X4-065": "Spec: payment signed over another chain's EIP-712 domain",
+    "X4-066": "Spec: one valid payment sent 5 times in parallel; at most one accepted",
 }
 
 
@@ -3974,6 +4316,8 @@ def list_tests():
         "cross_protocol_confusion": ["X4-051", "X4-052"],
         "metadata_exfiltration": ["X4-053", "X4-054"],
         "agent_autonomy":        ["X4-055"],
+        "spec_payment":          ["X4-058", "X4-059", "X4-060", "X4-061", "X4-062",
+                                  "X4-063", "X4-064", "X4-065", "X4-066"],
     }
 
     for category, ids in test_id_map.items():
@@ -4049,6 +4393,13 @@ def main():
     ap.add_argument("--trials", type=int, default=1,
                     help="Run each test N times for statistical analysis (Wilson score CIs)")
     ap.add_argument("--list", action="store_true", dest="list_tests", help="List available tests and exit")
+    ap.add_argument("--x402-payer-key-file", default=None,
+                    help="Testnet private key file for the spec payment probes (X4-058..066). "
+                         "Also read from X402_PAYER_KEY_FILE or X402_PAYER_PRIVATE_KEY. "
+                         "Testnets only; needs the x402-pay extra.")
+    ap.add_argument("--x402-max-spend", type=int, default=DEFAULT_MAX_SPEND_ATOMIC,
+                    help="Cap, in the asset's atomic units, on the total value of payments "
+                         "the probes sign that could settle (default 50000 = 0.05 USDC)")
     args = ap.parse_args()
 
     if args.list_tests:
@@ -4071,10 +4422,15 @@ def main():
                               default_method=args.method, default_body=args.body)
     categories = args.categories.split(",") if args.categories else None
 
+    payer = load_payer(args.x402_payer_key_file, args.x402_max_spend)
+    if not isinstance(payer, str):
+        print(f"x402 spec probes: payer {payer.address}, cap {payer.max_spend_atomic} atomic units",
+              file=sys.stderr)
+
     if args.trials > 1:
-        _run_statistical(transport, categories, args.trials, args.report)
+        _run_statistical(transport, categories, args.trials, args.report, payer=payer)
     else:
-        suite = X402SecurityTests(transport)
+        suite = X402SecurityTests(transport, payer=payer)
         results = suite.run_all(categories=categories)
         autonomy_risk = suite.compute_autonomy_risk_score()
 
@@ -4089,6 +4445,7 @@ def _run_statistical(
     categories: list[str] | None,
     n_trials: int,
     report_path: str | None,
+    payer=None,
 ):
     """Run tests multiple times and compute Wilson score confidence intervals."""
     from protocol_tests.statistical import TrialResult, enhance_report, wilson_ci
@@ -4119,7 +4476,7 @@ def _run_statistical(
         test_id = method_name  # fallback label until the test reports its own id
 
         for trial in range(n_trials):
-            suite = X402SecurityTests(transport)
+            suite = X402SecurityTests(transport, payer=payer)
             test_fn = getattr(suite, method_name)
             try:
                 test_fn()
