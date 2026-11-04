@@ -26,6 +26,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import secrets
 import threading
 import time
@@ -123,6 +124,11 @@ def decode_header(value: str) -> dict | None:
     return doc if isinstance(doc, dict) else None
 
 
+def _is_address(value) -> bool:
+    """True for a 0x-prefixed 20-byte hex address; anything else would crash the signer."""
+    return isinstance(value, str) and re.fullmatch(r"0x[0-9a-fA-F]{40}", value) is not None
+
+
 def payment_header_name(version: int) -> str:
     return "PAYMENT-SIGNATURE" if version == 2 else "X-PAYMENT"
 
@@ -209,6 +215,10 @@ class SpecPayer:
         required = amount_of(accept, version)
         if required is None:
             raise PaymentRefused("the requirement has no integer amount")
+        for field in ("payTo", "asset"):
+            if not _is_address(accept.get(field)):
+                raise PaymentRefused(f"the requirement has no valid {field} address "
+                                     f"(got {accept.get(field)!r})")
 
         now = int(time.time())
         message = {

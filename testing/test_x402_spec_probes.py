@@ -261,6 +261,20 @@ class NothingIsSignedWithoutTheGuards(unittest.TestCase):
         # control 10000 + wrong recipient 10000 + underpay 9999 + parallel 10000
         self.assertEqual(payer.committed_atomic, 39999)
 
+    def test_requirement_missing_an_address(self):
+        # Bugbot on #677: a challenge without payTo or asset crashed the signer with a
+        # KeyError instead of grading INCONCLUSIVE.
+        for field in ("payTo", "asset"):
+            with self.subTest(field=field):
+                server = SpecServer()
+                del server.accept[field]
+                self._all_inconclusive(*_run(server), f"no valid {field} address")
+
+    def test_requirement_with_a_malformed_address(self):
+        server = SpecServer()
+        server.accept["payTo"] = "not-an-address"
+        self._all_inconclusive(*_run(server), "no valid payTo address")
+
     def test_pre_spec_target(self):
         pre_spec = lambda p, h: {"status": 402, "headers": {
             "x-payment-required": "true", "x-payment-amount": "10000",
