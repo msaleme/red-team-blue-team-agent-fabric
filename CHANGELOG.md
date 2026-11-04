@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.29.0] - 2026-11-04
+
 ### Added: x402 probes that speak the published spec (X4-058..X4-066)
 
 v4.28.2 stopped the x402 module grading spec x402 servers with pre-spec probes, which left a spec
