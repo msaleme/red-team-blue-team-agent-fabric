@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """x402 Payment Protocol Security Test Harness (v1.0)
 
-The FIRST open-source security test harness for Coinbase's x402 payment protocol.
+Security test harness for the x402 payment protocol.
 
 Format caveat (2026-10-30). The flow below is the pre-spec header format these
 probes were written against. The published HTTP transport (x402-foundation/x402,
@@ -520,10 +520,18 @@ class X402TestResult:
 # x402 Security Test Suite
 # ---------------------------------------------------------------------------
 
+#: Signals that feed compute_autonomy_risk_score, each set by one pre-spec test.
+AUTONOMY_SIGNALS = frozenset({
+    "challenge_valid", "consistent_recipient", "rejects_invalid_addresses",
+    "rejects_fake_sessions", "no_info_leak", "validates_facilitator",
+    "rejects_underpayment", "rejects_forged_attestation", "has_operator_attestation",
+})
+
+
 class X402SecurityTests:
     """Protocol-level security tests for x402-gated APIs.
 
-    The FIRST open-source x402 security test harness.
+    Protocol-level security tests for the x402 payment protocol.
     """
 
     def __init__(self, transport: X402Transport, payer=None):
@@ -3770,6 +3778,18 @@ class X402SecurityTests:
         0   = safe for autonomous operation
         """
         signals = self._autonomy_signals
+        if not signals:
+            # Nothing that feeds this score ran (e.g. a spec_payment-only run). A score
+            # built entirely from defaults is absence reported as risk (CLAUDE.md rule 8).
+            return {
+                "score": None,
+                "risk_level": "NOT MEASURED",
+                "recommendation": ("no autonomy signals were measured: the categories "
+                                   "that set them did not run"),
+                "components": {},
+                "signals": {},
+                "unmeasured": sorted(AUTONOMY_SIGNALS),
+            }
         # Default all untested signals to False (assume risky).
         # This ensures the risk score is conservative: untested = risky.
         risk_components = {
@@ -3806,6 +3826,7 @@ class X402SecurityTests:
             ),
             "components": risk_components,
             "signals": {k: v for k, v in signals.items()},
+            "unmeasured": sorted(k for k in AUTONOMY_SIGNALS if k not in signals),
         }
 
     # ------------------------------------------------------------------
@@ -4046,13 +4067,17 @@ class X402SecurityTests:
             responses = list(ex.map(lambda _: self._spec_send(payment), range(n)))
         statuses = [r.get("status", 0) for r in responses]
         accepted = sum(1 for s in statuses if 200 <= s < 300)
+        settlements = [_settlement(r, spec["version"]) for r in responses
+                       if 200 <= r.get("status", 0) < 300]
+        txs = [st.get("transaction") for st in settlements if st and st.get("transaction")]
+        tx_note = f"; settlement tx {', '.join(txs)}" if txs else ""
         answered = [s for s in statuses if 0 < s < 500]
         if accepted > 1:
             passed, details = False, (f"one payment sent {n} times in parallel was accepted "
-                                      f"{accepted} times (statuses {statuses})")
+                                      f"{accepted} times (statuses {statuses}){tx_note}")
         elif accepted == 1 and len(answered) == n:
             passed, details = True, (f"one payment sent {n} times in parallel was accepted "
-                                     f"once (statuses {statuses})")
+                                     f"once (statuses {statuses}){tx_note}")
         else:
             passed, details = False, (f"{INCONCLUSIVE_PREFIX}of {n} parallel sends, {accepted} "
                                       f"accepted and {n - len(answered)} got no usable answer "
@@ -4061,7 +4086,8 @@ class X402SecurityTests:
         self._spec_record(test_id, name, details, passed, t0,
                           {"probe": "parallel resend", "n": n,
                            "authorization": payment.authorization},
-                          {"statuses": statuses}, owasp_asi="ASI03")
+                          {"statuses": statuses, "settlements": settlements},
+                          owasp_asi="ASI03")
 
     ALL_TESTS: dict[str, list[str]] = {
         "payment_challenge": [
@@ -4181,7 +4207,6 @@ class X402SecurityTests:
         print("x402 PAYMENT PROTOCOL SECURITY TEST SUITE v1.0")
         print(f"{'='*60}")
         print(f"Target: {self.transport.base_url}")
-        print("The FIRST open-source x402 security test harness")
 
         for category, test_names in test_map.items():
             print(f"\n[{category.upper().replace('_', ' ')}]")
@@ -4213,7 +4238,10 @@ class X402SecurityTests:
         passed = sum(1 for r in self.results if r.passed)
         print(f"\n{'='*60}")
         print(f"RESULTS: {passed}/{total} passed ({passed/total*100:.0f}%)" if total else "No tests run")
-        print(f"\nAGENT AUTONOMY RISK SCORE: {autonomy_risk['score']}/100 ({autonomy_risk['risk_level']})")
+        if autonomy_risk["score"] is None:
+            print(f"\nAGENT AUTONOMY RISK SCORE: {autonomy_risk['risk_level']}")
+        else:
+            print(f"\nAGENT AUTONOMY RISK SCORE: {autonomy_risk['score']}/100 ({autonomy_risk['risk_level']})")
         print(f"Recommendation: {autonomy_risk['recommendation']}")
         print(f"{'='*60}\n")
 
@@ -4363,7 +4391,7 @@ def generate_report(results: list[X402TestResult], output_path: str,
 def main():
     ap = argparse.ArgumentParser(
         description="x402 Payment Protocol Security Test Harness — "
-                    "the FIRST open-source x402 security harness",
+                    "security tests for the x402 payment protocol",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"

@@ -49,7 +49,7 @@ except ImportError:  # pragma: no cover
         raise
     Account = None
 
-from protocol_tests.x402_harness import X402SecurityTests, X402Transport
+from protocol_tests.x402_harness import AUTONOMY_SIGNALS, X402SecurityTests, X402Transport
 from protocol_tests.x402_spec_pay import SpecPayer, load_payer
 
 PROBES = [f"X4-0{n}" for n in range(58, 67)]
@@ -199,6 +199,9 @@ class TruthTable(unittest.TestCase):
         """Positive control for every probe."""
         results = self.check(SpecServer(), _expect())
         self.assertIn("tx 0x", results["X4-058"].details)
+        # Live run 2026-11-04: X4-066's accepted copy settled on chain but the report
+        # carried no hash; it had to be recovered from the token's Transfer logs.
+        self.assertIn("settlement tx 0x", results["X4-066"].details)
 
     def test_replay_accepted(self):
         self.check(SpecServer(replay=True), _expect(fail={"X4-059", "X4-066"}))
@@ -302,6 +305,47 @@ class TheSignatureIsTheSpecs(unittest.TestCase):
         self.assertEqual({k for k in p.document}, {"x402Version", "scheme", "network", "payload"})
         self.assertEqual(_recover(p.authorization, p.document["payload"]["signature"], 84532),
                          p.authorization["from"])
+
+
+class TheRiskScoreIsNotBuiltFromAbsence(unittest.TestCase):
+    """Live run 2026-11-04: 9/9 PASS printed beside `100/100 CRITICAL, DO NOT automate`,
+    because every unmeasured signal defaulted to risky and a spec-only run measures none."""
+
+    def _suite(self):
+        return X402SecurityTests(_Fake(SpecServer()), payer=None)
+
+    def test_no_signals_is_not_measured(self):
+        risk = self._suite().compute_autonomy_risk_score()
+        self.assertIsNone(risk["score"])
+        self.assertEqual(risk["risk_level"], "NOT MEASURED")
+        self.assertEqual(risk["unmeasured"], sorted(AUTONOMY_SIGNALS))
+
+    @unittest.skipIf(Account is None, "eth-account not installed (x402-pay extra)")
+    def test_a_spec_only_run_measures_nothing(self):
+        suite = X402SecurityTests(_Fake(SpecServer()), payer=SpecPayer(TEST_KEY, 10**9))
+        with contextlib.redirect_stdout(io.StringIO()):
+            suite.run_all(categories=["spec_payment"])
+        self.assertEqual(suite.compute_autonomy_risk_score()["risk_level"], "NOT MEASURED")
+
+    def test_measured_signals_still_score(self):
+        suite = self._suite()
+        suite._autonomy_signals.update({k: True for k in AUTONOMY_SIGNALS})
+        risk = suite.compute_autonomy_risk_score()
+        self.assertEqual((risk["score"], risk["risk_level"], risk["unmeasured"]), (0, "LOW", []))
+
+    def test_partial_run_names_what_defaulted(self):
+        suite = self._suite()
+        suite._autonomy_signals["challenge_valid"] = True
+        risk = suite.compute_autonomy_risk_score()
+        self.assertEqual(risk["score"], 95)   # all nine components sum to 115; minus challenge_invalid (20)
+        self.assertNotIn("challenge_valid", risk["unmeasured"])
+        self.assertEqual(len(risk["unmeasured"]), len(AUTONOMY_SIGNALS) - 1)
+
+    def test_every_signal_the_tests_set_is_declared(self):
+        import re
+        src = (Path(__file__).resolve().parents[1] / "protocol_tests" / "x402_harness.py").read_text()
+        set_here = set(re.findall(r'_autonomy_signals\["([a-z_]+)"\]\s*=', src))
+        self.assertEqual(set_here, set(AUTONOMY_SIGNALS))
 
 
 if __name__ == "__main__":

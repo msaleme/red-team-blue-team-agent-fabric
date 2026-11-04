@@ -431,6 +431,15 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "INCONCLUSIVE like every other guard failure",
      "Cursor Bugbot, PR #677, 2026-11-04", GUARDED,
      "testing/test_x402_spec_probes.py: NothingIsSignedWithoutTheGuards"),
+    # --- 2026-11-04, first funded x402 spec live run (reports/x402-spec-live-2026-11-04) ---
+    ("the x402 autonomy risk score defaulted every unmeasured signal to risky, so a "
+     "spec_payment-only run printed 100/100 CRITICAL, DO NOT automate, beside 9/9 PASS",
+     "live run 2026-11-04", GUARDED,
+     "testing/test_x402_spec_probes.py: TheRiskScoreIsNotBuiltFromAbsence"),
+    ("X4-066 recorded only the statuses of its parallel sends, so the settlement tx of the "
+     "one accepted copy was missing from the report",
+     "live run 2026-11-04", GUARDED,
+     "testing/test_x402_spec_probes.py: TruthTable"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.
