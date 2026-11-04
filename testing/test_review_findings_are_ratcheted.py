@@ -420,6 +420,17 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "11 FAIL against a spec stub that accepts no payment, none of it evidence",
      "GB review 2026-10-26", GUARDED,
      "testing/test_x402_spec_target.py: ASpecTargetGetsNoPreSpecVerdicts"),
+    ("after that fix a spec x402 target could only be reported INCONCLUSIVE: no probe sent a "
+     "spec-format payment, and a rejected payment shows nothing unless a valid one is "
+     "accepted first",
+     "GB review 2026-10-26", GUARDED,
+     "testing/test_x402_spec_probes.py: TruthTable"),
+    # --- 2026-11-04, Cursor Bugbot on PR #677 ------------------------------------------
+    ("a spec challenge whose exact/testnet accept lacked payTo or asset raised KeyError "
+     "inside the signer, so the spec probes aborted as harness errors instead of grading "
+     "INCONCLUSIVE like every other guard failure",
+     "Cursor Bugbot, PR #677, 2026-11-04", GUARDED,
+     "testing/test_x402_spec_probes.py: NothingIsSignedWithoutTheGuards"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.
