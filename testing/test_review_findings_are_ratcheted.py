@@ -440,6 +440,14 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "one accepted copy was missing from the report",
      "live run 2026-11-04", GUARDED,
      "testing/test_x402_spec_probes.py: TruthTable"),
+    # --- 2026-11-04, Cursor Bugbot on PR #679 ------------------------------------------
+    ("_run_statistical printed an unmeasured autonomy risk score as `None/100 (NOT MEASURED)`",
+     "Cursor Bugbot, PR #679, 2026-11-04", GUARDED,
+     "testing/test_x402_spec_probes.py: TheRiskScoreIsNotBuiltFromAbsence"),
+    ("X4-066 settlements were filtered out of response_received by _spec_evidence, so the "
+     "tx hash reached report.json only inside the details string",
+     "Cursor Bugbot, PR #679, 2026-11-04", GUARDED,
+     "testing/test_x402_spec_probes.py: TruthTable"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.

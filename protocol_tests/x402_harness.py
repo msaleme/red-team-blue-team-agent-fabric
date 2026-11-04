@@ -397,10 +397,17 @@ def _spec_grade(resp: dict, version: int, what: str) -> tuple[bool, str]:
     return True, f"rejected {what} (status {status}{_spec_error_reason(resp, version)})"
 
 
+def format_risk_score(risk: dict) -> str:
+    """'NN/100 (LEVEL)', or just the level when nothing was measured (score None)."""
+    if risk.get("score") is None:
+        return str(risk.get("risk_level", "NOT MEASURED"))
+    return f"{risk['score']}/100 ({risk['risk_level']})"
+
+
 def _spec_evidence(resp: dict | None) -> dict | None:
     if not isinstance(resp, dict):
         return resp
-    keep = {"status", "statuses", "_error", "_exception"}
+    keep = {"status", "statuses", "settlements", "_error", "_exception"}
     out = {k: v for k, v in resp.items() if k in keep}
     for version in (2, 1):
         settlement = _settlement(resp, version) if "headers" in resp else None
@@ -4238,10 +4245,7 @@ class X402SecurityTests:
         passed = sum(1 for r in self.results if r.passed)
         print(f"\n{'='*60}")
         print(f"RESULTS: {passed}/{total} passed ({passed/total*100:.0f}%)" if total else "No tests run")
-        if autonomy_risk["score"] is None:
-            print(f"\nAGENT AUTONOMY RISK SCORE: {autonomy_risk['risk_level']}")
-        else:
-            print(f"\nAGENT AUTONOMY RISK SCORE: {autonomy_risk['score']}/100 ({autonomy_risk['risk_level']})")
+        print(f"\nAGENT AUTONOMY RISK SCORE: {format_risk_score(autonomy_risk)}")
         print(f"Recommendation: {autonomy_risk['recommendation']}")
         print(f"{'='*60}\n")
 
@@ -4550,7 +4554,7 @@ def _run_statistical(
     total_pass = sum(tr.n_passed for tr in trial_results)
     total_trials = sum(tr.n_trials for tr in trial_results)
     print(f"AGGREGATE: {total_pass}/{total_trials} trial-passes")
-    print(f"AGENT AUTONOMY RISK SCORE: {autonomy_risk['score']}/100 ({autonomy_risk['risk_level']})")
+    print(f"AGENT AUTONOMY RISK SCORE: {format_risk_score(autonomy_risk)}")
     print(f"{'='*60}\n")
 
     if report_path:

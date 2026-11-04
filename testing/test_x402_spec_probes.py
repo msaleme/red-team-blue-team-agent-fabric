@@ -202,6 +202,8 @@ class TruthTable(unittest.TestCase):
         # Live run 2026-11-04: X4-066's accepted copy settled on chain but the report
         # carried no hash; it had to be recovered from the token's Transfer logs.
         self.assertIn("settlement tx 0x", results["X4-066"].details)
+        settled = results["X4-066"].response_received["settlements"]   # Bugbot on #679
+        self.assertEqual([st["transaction"] for st in settled], ["0x" + "ab" * 32])
 
     def test_replay_accepted(self):
         self.check(SpecServer(replay=True), _expect(fail={"X4-059", "X4-066"}))
@@ -326,6 +328,15 @@ class TheRiskScoreIsNotBuiltFromAbsence(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             suite.run_all(categories=["spec_payment"])
         self.assertEqual(suite.compute_autonomy_risk_score()["risk_level"], "NOT MEASURED")
+
+    def test_both_print_paths_format_an_unmeasured_score(self):
+        # Bugbot on #679: _run_statistical printed `None/100 (NOT MEASURED)`.
+        from protocol_tests.x402_harness import format_risk_score
+        self.assertEqual(format_risk_score(self._suite().compute_autonomy_risk_score()),
+                         "NOT MEASURED")
+        self.assertEqual(format_risk_score({"score": 40, "risk_level": "MEDIUM"}), "40/100 (MEDIUM)")
+        src = (Path(__file__).resolve().parents[1] / "protocol_tests" / "x402_harness.py").read_text()
+        self.assertNotIn("['score']}/100", src.replace("{risk['score']}/100", ""))
 
     def test_measured_signals_still_score(self):
         suite = self._suite()
