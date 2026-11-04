@@ -25,8 +25,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install package with MCP server extra
-        run: pip install -e '.[mcp-server]' pyyaml pytest
+      - name: Install package with MCP server and x402-pay extras
+        run: pip install -e '.[mcp-server,x402-pay]' pyyaml pytest
 
       - name: Verify packaged MCP server installation
         run: |
@@ -34,7 +34,7 @@ jobs:
           python -m build --wheel
           pip uninstall -y agent-security-harness
           wheel=$(find dist -name '*.whl' -print -quit)
-          pip install "${wheel}[mcp-server]"
+          pip install "${wheel}[mcp-server,x402-pay]"
           python -c "from mcp_server.server import create_server; assert create_server().name == 'Agent Security Harness'"
 
       - name: Verify CLI
@@ -115,7 +115,8 @@ jobs:
       - name: Run self-tests
         if: hashFiles('testing/') != ''
         run: |
-          pip install pytest cryptography jsonschema
+          # eth-account: without it the x402 spec probe truth table would skip.
+          pip install pytest cryptography jsonschema eth-account
           python -m pytest testing/ -v --tb=short
 
   # Fourth external review (2026-09-08, R4-16): the pinned reference-server
