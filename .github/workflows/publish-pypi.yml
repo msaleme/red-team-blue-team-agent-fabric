@@ -325,7 +325,7 @@ jobs:
           fi
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@v1.13.0 # Docker-based action requires tag ref, not SHA
+        uses: pypa/gh-action-pypi-publish@v1.14.3 # Docker-based action requires tag ref, not SHA
         # Uses trusted publishing (OIDC) - no API token needed
         # Configure at: https://pypi.org/manage/project/agent-security-harness/settings/publishing/
         with:
