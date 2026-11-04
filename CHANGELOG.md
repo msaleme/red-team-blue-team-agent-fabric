@@ -35,8 +35,22 @@ in `PAYMENT-SIGNATURE` (v2) or `X-PAYMENT` (v1) (x402-foundation/x402 @ 58e667f,
   Python package (2.26.0) against the public x402.org facilitator on Base Sepolia and runs the
   family. A first run with an unfunded key was rejected for
   `invalid_exact_evm_insufficient_balance` rather than for its format or signature. It also showed
-  the harness grading that rejection as a server failure; it is now INCONCLUSIVE. A funded run has not been recorded yet, and until it is this release claims no
-  x402 spec conformance result.
+  the harness grading that rejection as a server failure; it is now INCONCLUSIVE.
+- **First funded run (2026-11-04), `reports/x402-spec-live-2026-11-04/`:** 9 of 9 PASS against
+  that server and facilitator on Base Sepolia. Each rejection carried the facilitator's own reason
+  code; the two accepted payments (X4-058 and the one X4-066 copy) settled, and both hashes were
+  read back on chain. The run covers one implementation, v2 `exact`/eip3009 on a testnet only.
+  It is not a conformance result for x402 servers in general.
+
+### Fixed
+- **The x402 autonomy risk score no longer reports absence as risk.** Each signal it had not
+  measured defaulted to risky. A `spec_payment`-only run measures none of them, so the first live
+  run printed `100/100 (CRITICAL), DO NOT automate` beside 9/9 PASS. With no signals it is now
+  `NOT MEASURED`, and a partial run lists the signals that defaulted under `unmeasured`.
+- **X4-066 records the settlement of its accepted copy.** Before this it kept only the statuses, so
+  the transaction hash had to be recovered from the token's transfer logs.
+- **The x402 module no longer calls itself "the FIRST open-source x402 security test harness"**
+  in its banner, docstrings or `--help`. That was a claim nobody had checked.
 
 ## [4.28.2] - 2026-11-02
 
