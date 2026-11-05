@@ -1,14 +1,15 @@
-"""The x402 spec payment probes (X4-058..066) can pass, can fail, and say when they cannot tell.
+"""The x402 spec payment probes (X4-058..068) can pass, can fail, and say when they cannot tell.
 
 CLAUDE.md rule 9: a new test family needs a positive control, a negative control and a truth
 table. The server below is an in-process x402 v2 resource server that really verifies: it
 recovers the EIP-712 signer of the `TransferWithAuthorization` with its own domain code, and
-checks recipient, amount, validity window and nonce. Each flag turns one check off, which is
-the bug the matching probe exists to catch.
+checks recipient, amount, validity window and nonce. Like the official SDKs' resource servers,
+it first matches the client's `accepted` against its own `accepts[]`. Each flag turns one
+check off, which is the bug the matching probe exists to catch.
 
 Truth table (server shape -> verdicts):
 
-    correct                     X4-058..066 all PASS
+    correct                     X4-058..068 all PASS
     accepts replays             X4-059 FAIL, X4-066 FAIL (same payload resent)
     racy nonce check            X4-066 FAIL only
     ignores recipient           X4-060 FAIL only
@@ -16,9 +17,14 @@ Truth table (server shape -> verdicts):
     ignores validity window     X4-062 FAIL only
     skips signature check       X4-063, X4-064, X4-065 FAIL
     accepts any of two chains   X4-065 FAIL only
-    accepts nothing (10-30)     X4-058 FAIL, X4-059..066 INCONCLUSIVE
-    payer not funded            X4-058..066 INCONCLUSIVE (the payer's fault, not the server's)
-    500 on any bad payment      X4-058 PASS, X4-059..066 INCONCLUSIVE (not a rejection)
+    trusts the client's         X4-067, X4-068 FAIL only (it checks the payment against
+      `accepted`                the terms the client sent, not the ones it offered)
+    ... and settling the        X4-067, X4-068 still FAIL: a 402 carrying a failed
+      client's terms fails
+                                settlement is the chain refusing, not the server
+    accepts nothing (10-30)     X4-058 FAIL, X4-059..068 INCONCLUSIVE
+    payer not funded            X4-058..068 INCONCLUSIVE (the payer's fault, not the server's)
+    500 on any bad payment      X4-058 PASS, X4-059..068 INCONCLUSIVE (not a rejection)
     no key / mainnet / over cap nothing signed, all INCONCLUSIVE with the reason
     pre-spec target             all INCONCLUSIVE ("do not apply")
 
@@ -52,7 +58,7 @@ except ImportError:  # pragma: no cover
 from protocol_tests.x402_harness import AUTONOMY_SIGNALS, X402SecurityTests, X402Transport
 from protocol_tests.x402_spec_pay import SpecPayer, load_payer
 
-PROBES = [f"X4-0{n}" for n in range(58, 67)]
+PROBES = [f"X4-0{n}" for n in range(58, 69)]
 TEST_KEY = "0x" + "11" * 32          # throwaway; never funded
 PAY_TO = "0x209693Bc6afc0C5328bA36FaF03C514EF312287C"
 USDC = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
@@ -97,12 +103,15 @@ class SpecServer:
 
     def __init__(self, *, replay=False, racy=False, recipient=False, amount=False,
                  window=False, signature=False, any_chain=False, accept_nothing=False,
-                 crash_on_bad=False, unfunded=False, network="eip155:84532"):
+                 crash_on_bad=False, unfunded=False, trusts_accepted=False,
+                 settle_fails=False, network="eip155:84532"):
         self.flags = {"replay": replay, "racy": racy, "recipient": recipient, "amount": amount,
                       "window": window, "signature": signature, "any_chain": any_chain}
         self.accept_nothing = accept_nothing
         self.crash_on_bad = crash_on_bad
         self.unfunded = unfunded
+        self.trusts_accepted = trusts_accepted
+        self.settle_fails = settle_fails
         self.accept = _accept(network)
         self.seen_nonces: set[str] = set()
         self.lock = threading.Lock()
@@ -120,13 +129,21 @@ class SpecServer:
             return "invalid_exact_evm_insufficient_balance"
         auth, sig = doc["payload"]["authorization"], doc["payload"]["signature"]
         f = self.flags
+        if self.trusts_accepted:   # the bug X4-067/068 exist to catch
+            terms = doc.get("accepted") or {}
+        else:
+            terms = self.accept
+            sent = doc.get("accepted") or {}
+            if any(sent.get(k) != self.accept[k]
+                   for k in ("scheme", "network", "amount", "asset", "payTo")):
+                return "No matching payment requirements"
         if not f["signature"]:
             chains = [84532, 11155111] if f["any_chain"] else [84532]
             if not any(_recover(auth, sig, c) == auth["from"] for c in chains):
                 return "invalid_exact_evm_payload_signature"
-        if not f["recipient"] and auth["to"].lower() != PAY_TO.lower():
+        if not f["recipient"] and auth["to"].lower() != str(terms.get("payTo")).lower():
             return "invalid_exact_evm_payload_recipient_mismatch"
-        if not f["amount"] and auth["value"] != self.accept["amount"]:
+        if not f["amount"] and auth["value"] != terms.get("amount"):
             return "invalid_exact_evm_payload_authorization_value_mismatch"
         if not f["window"] and int(auth["validBefore"]) <= int(time.time()):
             return "invalid_exact_evm_payload_authorization_valid_before"
@@ -153,6 +170,13 @@ class SpecServer:
                     if nonce in self.seen_nonces:
                         return self._required("nonce already used")
                     self.seen_nonces.add(nonce)
+        if self.settle_fails and doc.get("accepted") != self.accept:
+            # client-set terms verified, the handler ran, then the transfer failed on chain
+            failed = {"success": False, "errorReason": "invalid_exact_evm_transaction_failed",
+                      "transaction": "", "network": self.accept["network"]}
+            resp = self._required("settlement failed")
+            resp["headers"]["payment-response"] = _b64(failed)
+            return resp
         settle = {"success": True, "transaction": "0x" + "ab" * 32, "network": self.accept["network"],
                   "payer": doc["payload"]["authorization"]["from"]}
         return {"status": 200, "headers": {"payment-response": _b64(settle)}, "body": "{\"ok\":true}"}
@@ -226,6 +250,33 @@ class TruthTable(unittest.TestCase):
     def test_any_chain_accepted(self):
         self.check(SpecServer(any_chain=True), _expect(fail={"X4-065"}))
 
+    def test_client_accepted_trusted(self):
+        """Negative control for X4-067/068: payload and terms agree, so only the match catches it."""
+        results = self.check(SpecServer(trusts_accepted=True),
+                             _expect(fail={"X4-067", "X4-068"}))
+        self.assertIn("ACCEPTED", results["X4-067"].details)
+        # X4-060/061 still pass against it: they leave `accepted` alone, and the payment
+        # disagrees with the terms the client sent. That is why they cannot see this bug.
+        self.assertIn("recipient_mismatch", results["X4-060"].details)
+        self.assertIn("value_mismatch", results["X4-061"].details)
+
+    def test_a_failed_settlement_is_not_a_refusal(self):
+        """Live 2026-11-05: X4-068 graded PASS on a 402 that the RPC, not the server, caused."""
+        results = self.check(SpecServer(trusts_accepted=True, settle_fails=True),
+                             _expect(fail={"X4-067", "X4-068"}))
+        self.assertIn("sent to settlement on the client's terms", results["X4-068"].details)
+
+    def test_client_set_recipient_is_neither_payto_nor_payer(self):
+        payer = SpecPayer(TEST_KEY, max_spend_atomic=10**9)
+        _, results = _run(SpecServer(), payer=payer)
+        to = results["X4-068"].request_sent["authorization"]["to"].lower()
+        self.assertNotIn(to, (PAY_TO.lower(), payer.address.lower()))
+
+    def test_correct_server_refuses_client_terms_by_matching(self):
+        results = self.check(SpecServer(), _expect())
+        for t in ("X4-067", "X4-068"):
+            self.assertIn("No matching payment requirements", results[t].details, t)
+
     def test_server_that_accepts_nothing(self):
         """The 2026-10-30 shape: every rejection would have been a PASS."""
         results = self.check(SpecServer(accept_nothing=True),
@@ -264,7 +315,8 @@ class NothingIsSignedWithoutTheGuards(unittest.TestCase):
         payer = SpecPayer(TEST_KEY, max_spend_atomic=10**9)
         _run(SpecServer(), payer=payer)
         # control 10000 + wrong recipient 10000 + underpay 9999 + parallel 10000
-        self.assertEqual(payer.committed_atomic, 39999)
+        # + client-set price 9999 + client-set recipient 10000
+        self.assertEqual(payer.committed_atomic, 59998)
 
     def test_requirement_missing_an_address(self):
         # Bugbot on #677: a challenge without payTo or asset crashed the signer with a
@@ -279,6 +331,12 @@ class NothingIsSignedWithoutTheGuards(unittest.TestCase):
         server = SpecServer()
         server.accept["payTo"] = "not-an-address"
         self._all_inconclusive(*_run(server), "no valid payTo address")
+
+    def test_v1_has_no_accepted_to_rewrite(self):
+        from protocol_tests.x402_spec_pay import PaymentRefused
+        suite = X402SecurityTests(_Fake(SpecServer()), payer=SpecPayer(TEST_KEY, 10**9))
+        with self.assertRaisesRegex(PaymentRefused, "v1 payment carries no `accepted`"):
+            suite._spec_client_terms({"version": 1}, _accept(), amount="9999")
 
     def test_pre_spec_target(self):
         pre_spec = lambda p, h: {"status": 402, "headers": {

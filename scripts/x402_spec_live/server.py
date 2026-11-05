@@ -5,6 +5,11 @@ Adapted from x402-foundation/x402 @ 58e667f, examples/python/servers/flask/main.
 It is an independent implementation of the spec; the harness's own code is not used here.
 
     PAY_TO=0x... python server.py          # serves GET /premium/content on 127.0.0.1:4021
+
+TRUST_CLIENT_ACCEPTED=1 makes it a deliberately broken server: the negative control for
+X4-067/068. The official server matches the client's `accepted` against its own `accepts[]`
+and verifies against the match. This one verifies and settles against whatever `accepted`
+the client sent, so the client sets the price and the recipient. Testnet only; never deploy.
 """
 import os
 
@@ -24,6 +29,10 @@ PORT = int(os.getenv("PORT", "4021"))
 app = Flask(__name__)
 server = x402ResourceServerSync(HTTPFacilitatorClientSync(FacilitatorConfig(url=FACILITATOR_URL)))
 server.register(NETWORK, ExactEvmServerScheme())
+if os.getenv("TRUST_CLIENT_ACCEPTED") == "1":
+    print("NEGATIVE CONTROL: this server trusts the client's `accepted` (X4-067/068 must FAIL)",
+          flush=True)
+    server.find_matching_requirements = lambda available, payload: payload.accepted
 payment_middleware(app, server=server, routes={
     "GET /premium/*": RouteConfig(
         accepts=[PaymentOption(
