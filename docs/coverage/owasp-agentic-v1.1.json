@@ -136,9 +136,16 @@
         "harness": "4.28.2",
         "date": "2026-11-03",
         "change": "Repository test total 649 -> 658 on the addition of X4-058..X4-066, the x402 spec payment probes (signed exact/eip3009 payments in PAYMENT-SIGNATURE or X-PAYMENT, gated on X4-058, a valid payment the target must accept). Test-bearing modules unchanged at 50. X4-058, -059, -062, -063, -064 and -066 carry an ASI03 primary and X4-060, -061 and -065 an ASI09 primary on their own results, all attributable, so the corpus ASI03 count moves 141 -> 147 and ASI09 59 -> 62. This mapping does NOT adjudicate them; no scenario here enumerates them, so unique_mapped_tests is unchanged and this mapping claims none of them. Recorded because r15_total compares the stated total against a live count."
+      },
+      {
+        "report": "1.14",
+        "commit": "HEAD",
+        "harness": "4.29.0",
+        "date": "2026-11-05",
+        "change": "Repository test total 658 -> 660 on the addition of X4-067 and X4-068, the x402 client-set-terms probes (`accepted` rewritten to the client's own price or recipient and the payment signed to match, so only the resource server's own match against its accepts[] can refuse it). Test-bearing modules unchanged at 50. Both carry an ASI09 primary on their own results, attributable, so the corpus ASI09 count moves 62 -> 64. This mapping does NOT adjudicate them; no scenario here enumerates them, so unique_mapped_tests is unchanged and this mapping claims none of them. Recorded because r15_total compares the stated total against a live count."
       }
     ],
-    "total_repository_tests": 658,
+    "total_repository_tests": 660,
     "total_tests_command": "python scripts/count_tests.py",
     "unique_mapped_tests": 96,
     "adjudicated_by": "corpus author - NOT independent review"

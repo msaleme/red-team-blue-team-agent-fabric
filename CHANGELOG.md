@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added: x402 client-set terms (X4-067, X4-068)
+
+X4-060 and X4-061 change the signed payload and send the server's own requirement back in
+`accepted`, so the facilitator always compares a wrong payment with the right terms. Two new
+probes rewrite `accepted` to the client's own terms and sign the payment to match: one unit under
+the price (X4-067) and another recipient (X4-068). Payload and `accepted` then agree, and only the
+resource server's own match of `accepted` against its `accepts[]` can refuse them. Raised by a
+reader (bloqarl) on the dev.to post about the spec probes. 658 -> 660 tests; modules unchanged at 50.
+
+- **Live, 2026-11-05, Base Sepolia, x402.org facilitator** (`reports/x402-spec-live-2026-11-05/`):
+  against the official `x402` Python server 2.26.0, 11 of 11 PASS, and both new probes are refused
+  with `No matching payment requirements`. Against the negative control, the same server with
+  `find_matching_requirements` replaced by one that returns the client's `accepted`
+  (`TRUST_CLIENT_ACCEPTED=1`), X4-067 and X4-068 FAIL: the facilitator settled 9999 of 10000 to
+  `payTo` and 10000 to `0x…dEaD`, both checked on chain. No official SDK has the defect; reading
+  x402-foundation/x402 @ 6a773db, the Python, TypeScript and Go servers all match, and the Java
+  (v1) server builds its own requirements.
+- **A 402 with a failed settlement is a FAIL for these two.** The first negative-control run graded
+  X4-068 PASS on a 402 caused by the RPC rejecting the broadcast after the facilitator had verified
+  the client's terms. A matching server refuses before verify; a failed settlement means the server
+  took the client's terms and, in the default flow, ran its handler. Guarded by
+  `test_a_failed_settlement_is_not_a_refusal`, and X4-068's recipient is now neither `payTo` nor the
+  payer.
+- **`run.sh` passes `--x402-max-spend 60000`.** The cap counts every payment that could settle,
+  refused or not; eleven probes sign 59998 atomic units, so the default 50000 stopped X4-068 before
+  it was signed. A v1 target gives X4-067/068 INCONCLUSIVE: a v1 payment has no `accepted`.
+
 ## [4.29.0] - 2026-11-04
 
 ### Added: x402 probes that speak the published spec (X4-058..X4-066)

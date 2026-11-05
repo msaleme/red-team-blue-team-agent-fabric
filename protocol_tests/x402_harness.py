@@ -11,10 +11,10 @@ JSON body (v1) or a base64 `PAYMENT-REQUIRED` header (v2), and the payment in
 headers, so against one only SPEC_INDEPENDENT_TESTS grade and every other test
 reports INCONCLUSIVE with the reason.
 
-Spec payment probes (2026-11-03). X4-058..066 send signed `exact`/eip3009
+Spec payment probes (2026-11-03). X4-058..068 send signed `exact`/eip3009
 payments in the spec format (x402_spec_pay.py), given a funded testnet key
 (--x402-payer-key-file). X4-058 is their positive control: a valid payment must
-be accepted before any rejection by X4-059..066 counts.
+be accepted before any rejection by X4-059..068 counts.
 
 x402 Protocol Overview (pre-spec format):
     x402 is an open standard for internet-native agent payments, built on
@@ -363,7 +363,7 @@ SPEC_INDEPENDENT_TESTS = frozenset({
 #: Tests that send spec-format signed payments (x402_spec_pay.py). They are
 #: built for spec targets, so the pre-spec INCONCLUSIVE rule above never
 #: applies to them; their own positive control gates them instead.
-SPEC_PROBE_TESTS = frozenset(f"X4-0{n}" for n in range(58, 67))
+SPEC_PROBE_TESTS = frozenset(f"X4-0{n}" for n in range(58, 69))
 
 
 def _settlement(resp: dict, version: int) -> dict | None:
@@ -395,6 +395,27 @@ def _spec_grade(resp: dict, version: int, what: str) -> tuple[bool, str]:
         tx = f", settlement tx {settlement.get('transaction')}" if settlement else ""
         return False, f"ACCEPTED {what} (status {status}{tx})"
     return True, f"rejected {what} (status {status}{_spec_error_reason(resp, version)})"
+
+
+#: X4-068's recipient: testnet only, so a payment that settles there is 0.01 test USDC lost.
+CLIENT_SET_RECIPIENT = "0x000000000000000000000000000000000000dEaD"
+
+
+def _spec_grade_client_terms(resp: dict, version: int, what: str) -> tuple[bool, str]:
+    """X4-067/068: as _spec_grade, but a refusal that carries a failed settlement is FAIL.
+
+    A server that matches `accepted` against its own `accepts[]` refuses before verify,
+    so it never settles. A failed settlement means the server took the client's terms,
+    ran its handler (in the default verify -> resource -> settle flow) and the transfer
+    then failed on chain. The 402 came from the chain, not from a check.
+    """
+    status = resp.get("status", 0)
+    settlement = _settlement(resp, version) if 400 <= status < 500 else None
+    if settlement and settlement.get("success") is False:
+        return False, (f"ACCEPTED {what}: sent to settlement on the client's terms (status "
+                       f"{status}; settlement failed: {settlement.get('errorReason')}). A "
+                       "server that matched `accepted` would have refused before verify")
+    return _spec_grade(resp, version, what)
 
 
 def format_risk_score(risk: dict) -> str:
@@ -543,7 +564,7 @@ class X402SecurityTests:
 
     def __init__(self, transport: X402Transport, payer=None):
         self.transport = transport
-        #: A SpecPayer for the spec payment probes (X4-058..066), or the reason
+        #: A SpecPayer for the spec payment probes (X4-058..068), or the reason
         #: there is none. None means not configured; the probes say so.
         self.payer = payer
         self._spec_control_state: dict | None = None
@@ -3841,7 +3862,7 @@ class X402SecurityTests:
     # ------------------------------------------------------------------
 
     # ------------------------------------------------------------------
-    # Spec payment probes (X4-058 to X4-066). Added 2026-11-03.
+    # Spec payment probes (X4-058 to X4-068). Added 2026-11-03.
     # ------------------------------------------------------------------
     #
     # The probes above send the pre-spec format, which a spec server never
@@ -3851,9 +3872,10 @@ class X402SecurityTests:
     #
     # Truth table (testing/test_x402_spec_probes.py):
     #   X4-058 positive control: a valid payment must be accepted (2xx). If it
-    #          is not, X4-059..066 are INCONCLUSIVE: a server that accepts no
+    #          is not, X4-059..068 are INCONCLUSIVE: a server that accepts no
     #          payment rejects everything, so a rejection shows nothing.
-    #   X4-059..066 each change ONE property of a valid payment. 2xx = FAIL
+    #   X4-059..066 each change ONE property of a valid payment; X4-067/068 change
+    #          a term in both the payload and `accepted` (see above them). 2xx = FAIL
     #          (accepted); 402/4xx = PASS (rejected); 5xx, timeout or no answer
     #          = INCONCLUSIVE (CLAUDE.md rule 8: absence is not a rejection).
     #   Not a spec target, no key, mainnet, or over the spend cap: INCONCLUSIVE
@@ -3956,7 +3978,7 @@ class X402SecurityTests:
                           severity=Severity.MEDIUM, impact="service_denial", owasp_asi="ASI03")
 
     def _spec_probe(self, test_id: str, name: str, what: str, make, t0: float, *,
-                    owasp_asi: str):
+                    owasp_asi: str, grade=None):
         """Run one single-property probe: *make(spec, accept, control)* returns a payment."""
         control = self._spec_control()
         if not control["accepted"]:
@@ -3973,7 +3995,7 @@ class X402SecurityTests:
                               False, t0, owasp_asi=owasp_asi)
             return
         resp = self._spec_send(payment)
-        passed, details = _spec_grade(resp, spec["version"], what)
+        passed, details = (grade or _spec_grade)(resp, spec["version"], what)
         self._spec_record(test_id, name, details, passed, t0,
                           {"probe": what, "authorization": payment.authorization}, resp,
                           owasp_asi=owasp_asi)
@@ -4096,6 +4118,59 @@ class X402SecurityTests:
                           {"statuses": statuses, "settlements": settlements},
                           owasp_asi="ASI03")
 
+    # X4-067 and X4-068: the client rewrites `accepted` and signs to match it.
+    #
+    # X4-060 and X4-061 change the signed payload and echo the server's own requirement
+    # in `accepted`, so the facilitator always compares a wrong payment with the right
+    # terms. Here payload and `accepted` agree with each other and both disagree with
+    # what the server offered. A facilitator only checks a payment against the terms it
+    # is handed, so only the server's own comparison of `accepted` with its `accepts[]`
+    # can refuse it (raised by a reader, bloqarl, on the x402 dev.to post, 2026-11-03).
+    #
+    #   PASS          the server refuses (402/4xx) without attempting settlement
+    #   FAIL          the server accepts the client's terms (2xx), or answers 4xx
+    #                 with a failed settlement: it sent the client's terms to settle,
+    #                 after its handler had run (live 2026-11-05: X4-068's transfer
+    #                 was broadcast and the RPC rejected it; that graded PASS)
+    #   INCONCLUSIVE  no positive control, a v1 target (no `accepted` field), or no
+    #                 usable answer
+    # Truth table: testing/test_x402_spec_probes.py (`trusts_accepted` must FAIL both).
+
+    def _spec_client_terms(self, spec: dict, accept: dict, **change):
+        """A payment signed for *accept* with *change* applied, echoed as `accepted`."""
+        if spec["version"] != 2:
+            raise PaymentRefused("an x402 v1 payment carries no `accepted` requirement, so "
+                                 "there is nothing for the client to rewrite")
+        return self.payer.pay(2, {**accept, **change}, spec.get("resource"))
+
+    def test_x402_spec_client_set_price(self):
+        """X4-067: `accepted` rewritten one unit below the price, payment signed to match."""
+        test_id = "X4-067"
+        def make(s, a, c):
+            required = int(amount_of(a, s["version"]))
+            if required < 2:
+                raise PaymentRefused("the required amount is too small to underpay")
+            return self._spec_client_terms(s, a, amount=str(required - 1))
+        self._spec_probe(test_id, "Spec Payment Client-Set Price",
+                         "`accepted.amount` and the signed value both one unit below the price",
+                         make, time.monotonic(), owasp_asi="ASI09",
+                         grade=_spec_grade_client_terms)
+
+    def test_x402_spec_client_set_recipient(self):
+        """X4-068: `accepted.payTo` rewritten to another address, payment signed to match."""
+        test_id = "X4-068"
+        def make(s, a, c):
+            # Neither payTo nor the payer: a self-transfer can fail at settlement for
+            # reasons of its own, which would hide the verdict (live run 2026-11-05).
+            other = CLIENT_SET_RECIPIENT
+            if other.lower() in (str(a.get("payTo", "")).lower(), self.payer.address.lower()):
+                other = "0x000000000000000000000000000000000000bEEF"
+            return self._spec_client_terms(s, a, payTo=other)
+        self._spec_probe(test_id, "Spec Payment Client-Set Recipient",
+                         "`accepted.payTo` and the signed `to` both another address",
+                         make, time.monotonic(), owasp_asi="ASI09",
+                         grade=_spec_grade_client_terms)
+
     ALL_TESTS: dict[str, list[str]] = {
         "payment_challenge": [
             "test_x402_challenge_headers_present",
@@ -4198,6 +4273,8 @@ class X402SecurityTests:
             "test_x402_spec_value_edited_after_signing",
             "test_x402_spec_wrong_chain_signature",
             "test_x402_spec_parallel_double_spend",
+            "test_x402_spec_client_set_price",
+            "test_x402_spec_client_set_recipient",
         ],
     }
 
@@ -4320,6 +4397,8 @@ _TEST_DESCRIPTIONS: dict[str, str] = {
     "X4-064": "Spec: authorization.value raised after signing",
     "X4-065": "Spec: payment signed over another chain's EIP-712 domain",
     "X4-066": "Spec: one valid payment sent 5 times in parallel; at most one accepted",
+    "X4-067": "Spec: `accepted` and payment both one unit below the price (client-set terms)",
+    "X4-068": "Spec: `accepted.payTo` and payment both another address (client-set terms)",
 }
 
 
@@ -4349,7 +4428,8 @@ def list_tests():
         "metadata_exfiltration": ["X4-053", "X4-054"],
         "agent_autonomy":        ["X4-055"],
         "spec_payment":          ["X4-058", "X4-059", "X4-060", "X4-061", "X4-062",
-                                  "X4-063", "X4-064", "X4-065", "X4-066"],
+                                  "X4-063", "X4-064", "X4-065", "X4-066",
+                                  "X4-067", "X4-068"],
     }
 
     for category, ids in test_id_map.items():
@@ -4426,7 +4506,7 @@ def main():
                     help="Run each test N times for statistical analysis (Wilson score CIs)")
     ap.add_argument("--list", action="store_true", dest="list_tests", help="List available tests and exit")
     ap.add_argument("--x402-payer-key-file", default=None,
-                    help="Testnet private key file for the spec payment probes (X4-058..066). "
+                    help="Testnet private key file for the spec payment probes (X4-058..068). "
                          "Also read from X402_PAYER_KEY_FILE or X402_PAYER_PRIVATE_KEY. "
                          "Testnets only; needs the x402-pay extra.")
     ap.add_argument("--x402-max-spend", type=int, default=DEFAULT_MAX_SPEND_ATOMIC,
