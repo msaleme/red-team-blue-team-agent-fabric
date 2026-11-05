@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.29.1] - 2026-11-05
+
+v4.29.0 was tagged on 2026-11-04 but never published as a GitHub Release, so it never reached
+PyPI (latest there: 4.28.2). v4.29.1 is the first published release carrying the x402 spec
+payment probes: X4-058..X4-066 from v4.29.0 and X4-067/068 below.
+
 ### Added: x402 client-set terms (X4-067, X4-068)
 
 X4-060 and X4-061 change the signed payload and send the server's own requirement back in
