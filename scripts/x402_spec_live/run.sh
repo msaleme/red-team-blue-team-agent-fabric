@@ -13,7 +13,8 @@
 #
 # TRUST_CLIENT_ACCEPTED=1 runs the negative control instead (see server.py): X4-067 and X4-068
 # must FAIL, and each settles one payment on the client's terms, so the run spends up to
-# 0.0399 USDC (0.0001 less than four full payments; X4-068's goes back to the payer).
+# 0.0399 USDC (0.0001 less than four full payments; X4-068's goes to 0x...dEaD, an address
+# the server never offered, so it is spent, not returned).
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
