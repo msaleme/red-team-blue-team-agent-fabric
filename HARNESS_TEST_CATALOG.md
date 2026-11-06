@@ -1,8 +1,8 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `f11cb6c`
-**Test count:** 660 unique test IDs across 51 registered harness modules (50 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
+**Generated:** `scripts/generate_test_catalog.py` at commit `67dbb94`
+**Test count:** 661 unique test IDs across 51 registered harness modules (50 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
 ## Rules for Citation
@@ -855,74 +855,75 @@ FB-016 | Expired Voucher Rejection | protocol_tests/x402_fireblocks_harness.py:1
 FB-017 | Escrow Over-Redemption | protocol_tests/x402_fireblocks_harness.py:1031
 ```
 
-### x402 Payment (`protocol_tests/x402_harness.py`) — 65 tests
+### x402 Payment (`protocol_tests/x402_harness.py`) — 66 tests
 
 ```
-X4-001 | 402 Payment Challenge Headers Present | protocol_tests/x402_harness.py:356
-X4-002 | Malformed Payment Authorization Rejection | protocol_tests/x402_harness.py:804
-X4-003 | Unsupported Currency Rejection | protocol_tests/x402_harness.py:841
-X4-004 | Recipient Address Consistency (Dynamic Routing) | protocol_tests/x402_harness.py:357
-X4-005 | Payment to Wrong Recipient Address | protocol_tests/x402_harness.py:931
-X4-006 | Invalid Recipient Address Rejection | protocol_tests/x402_harness.py:968
-X4-007 | Session Token Security Check | protocol_tests/x402_harness.py:1038
-X4-008 | Fabricated Session Token Rejection | protocol_tests/x402_harness.py:1084
-X4-009 | Expired Session Token Rejection | protocol_tests/x402_harness.py:1125
-X4-010 | Session / Response Data Leakage Check | protocol_tests/x402_harness.py:358
-X4-011 | Rapid Payment Request Rate Limiting | protocol_tests/x402_harness.py:1301
-X4-012 | Underpayment Attempt Rejection | protocol_tests/x402_harness.py:1352
-X4-013 | Budget Exhaustion Burst Test | protocol_tests/x402_harness.py:359
-X4-014 | Fake Facilitator Header Injection | protocol_tests/x402_harness.py:1618
-X4-015 | Non-Existent Facilitator Verification Claim | protocol_tests/x402_harness.py:1655
-X4-016 | Facilitator Timeout / Unreachable Handling | protocol_tests/x402_harness.py:1695
-X4-017 | 402 Response Information Leakage | protocol_tests/x402_harness.py:360
-X4-018 | Error Message Information Disclosure | protocol_tests/x402_harness.py:1826
-X4-019 | Wrong Network Payment Rejection | protocol_tests/x402_harness.py:1870
-X4-020 | Wrong Token Type Payment Rejection | protocol_tests/x402_harness.py:1910
-X4-021 | Operator Attestation Presence (OATR) | protocol_tests/x402_harness.py:2018
-X4-022 | Attestation-Domain Binding (OATR) | protocol_tests/x402_harness.py:2071
-X4-023 | Attestation Revocation Check (OATR) | protocol_tests/x402_harness.py:2146
-X4-024 | Stale Manifest Acceptance (OATR) | protocol_tests/x402_harness.py:2203
-X4-025 | Forged Attestation Injection (OATR) | protocol_tests/x402_harness.py:2272
-X4-026 | Payment Amount Rounding Attack (IEEE 754) | protocol_tests/x402_harness.py:2323
-X4-027 | Stale Payment Session Replay | protocol_tests/x402_harness.py:2372
-X4-031 | Multi-Hop Redirect Chain Attack | protocol_tests/x402_harness.py:2421
-X4-032 | Currency Type Confusion | protocol_tests/x402_harness.py:2472
-X4-033 | Payment Deadline Bypass | protocol_tests/x402_harness.py:2516
-X4-034 | Zero-Amount Payment Acceptance | protocol_tests/x402_harness.py:2553
-X4-035 | Negative Amount Payment | protocol_tests/x402_harness.py:2591
-X4-036 | Max uint256 Overflow Attack | protocol_tests/x402_harness.py:2637
-X4-037 | Facilitator Impersonation | protocol_tests/x402_harness.py:2693
-X4-038 | Double-Spend Detection | protocol_tests/x402_harness.py:2747
-X4-039 | Payment Proof Format Injection | protocol_tests/x402_harness.py:2795
-X4-040 | Cross-Chain Payment Confusion | protocol_tests/x402_harness.py:2848
-X4-041 | Settlement Callback URL SSRF | protocol_tests/x402_harness.py:2903
-X4-042 | Payment Metadata Exfiltration | protocol_tests/x402_harness.py:2974
-X4-043 | Concurrent Payment Race Condition | protocol_tests/x402_harness.py:3035
-X4-044 | Payment Replay Against Different Endpoint | protocol_tests/x402_harness.py:3084
-X4-045 | Replay Same Payment Hash | protocol_tests/x402_harness.py:3144
-X4-046 | Duplicate Settlement Claim | protocol_tests/x402_harness.py:3195
-X4-047 | Expired Auth Token Reuse | protocol_tests/x402_harness.py:3253
-X4-048 | Scope Escalation in Payment Context | protocol_tests/x402_harness.py:3303
-X4-049 | Premature Finality Claim | protocol_tests/x402_harness.py:3359
-X4-050 | Settlement Race Condition | protocol_tests/x402_harness.py:3415
-X4-051 | L402-to-x402 Protocol Confusion | protocol_tests/x402_harness.py:3465
-X4-052 | Mixed Settlement Protocol Confusion | protocol_tests/x402_harness.py:3519
-X4-053 | Payment Metadata Side Channel | protocol_tests/x402_harness.py:3627
-X4-054 | Payment Correlation Attack | protocol_tests/x402_harness.py:3702
-X4-055 | Cascading Payment Approval Chain | protocol_tests/x402_harness.py:3777
-X4-056 | Payment Credential Accepted in URL (CWE-598) | protocol_tests/x402_harness.py:1485
-X4-057 | Delegated Allowance Overdraft via Verify/Settle Race | protocol_tests/x402_harness.py:1569
-X4-058 | positive control -- a correctly signed spec payment is accepted. | protocol_tests/x402_harness.py:3942
-X4-059 | the accepted payment, sent again unchanged. | protocol_tests/x402_harness.py:4005
-X4-060 | a validly signed payment to an address other than payTo. | protocol_tests/x402_harness.py:4011
-X4-061 | a validly signed payment for one atomic unit less than required. | protocol_tests/x402_harness.py:4022
-X4-062 | a validly signed payment whose validBefore has passed. | protocol_tests/x402_harness.py:4033
-X4-063 | a valid payment with bytes of its signature changed. | protocol_tests/x402_harness.py:4043
-X4-064 | signed for less than required, value raised afterwards. | protocol_tests/x402_harness.py:4054
-X4-065 | signed over another testnet's EIP-712 domain. | protocol_tests/x402_harness.py:4067
-X4-066 | one fresh valid payment sent several times at once; at most one may succeed. | protocol_tests/x402_harness.py:4077
-X4-067 | `accepted` rewritten one unit below the price, payment signed to match. | protocol_tests/x402_harness.py:4148
-X4-068 | `accepted.payTo` rewritten to another address, payment signed to match. | protocol_tests/x402_harness.py:4161
+X4-001 | 402 Payment Challenge Headers Present | protocol_tests/x402_harness.py:357
+X4-002 | Malformed Payment Authorization Rejection | protocol_tests/x402_harness.py:844
+X4-003 | Unsupported Currency Rejection | protocol_tests/x402_harness.py:881
+X4-004 | Recipient Address Consistency (Dynamic Routing) | protocol_tests/x402_harness.py:358
+X4-005 | Payment to Wrong Recipient Address | protocol_tests/x402_harness.py:971
+X4-006 | Invalid Recipient Address Rejection | protocol_tests/x402_harness.py:1008
+X4-007 | Session Token Security Check | protocol_tests/x402_harness.py:1078
+X4-008 | Fabricated Session Token Rejection | protocol_tests/x402_harness.py:1124
+X4-009 | Expired Session Token Rejection | protocol_tests/x402_harness.py:1165
+X4-010 | Session / Response Data Leakage Check | protocol_tests/x402_harness.py:359
+X4-011 | Rapid Payment Request Rate Limiting | protocol_tests/x402_harness.py:1341
+X4-012 | Underpayment Attempt Rejection | protocol_tests/x402_harness.py:1392
+X4-013 | Budget Exhaustion Burst Test | protocol_tests/x402_harness.py:360
+X4-014 | Fake Facilitator Header Injection | protocol_tests/x402_harness.py:1658
+X4-015 | Non-Existent Facilitator Verification Claim | protocol_tests/x402_harness.py:1695
+X4-016 | Facilitator Timeout / Unreachable Handling | protocol_tests/x402_harness.py:1735
+X4-017 | 402 Response Information Leakage | protocol_tests/x402_harness.py:361
+X4-018 | Error Message Information Disclosure | protocol_tests/x402_harness.py:1866
+X4-019 | Wrong Network Payment Rejection | protocol_tests/x402_harness.py:1910
+X4-020 | Wrong Token Type Payment Rejection | protocol_tests/x402_harness.py:1950
+X4-021 | Operator Attestation Presence (OATR) | protocol_tests/x402_harness.py:2058
+X4-022 | Attestation-Domain Binding (OATR) | protocol_tests/x402_harness.py:2111
+X4-023 | Attestation Revocation Check (OATR) | protocol_tests/x402_harness.py:2186
+X4-024 | Stale Manifest Acceptance (OATR) | protocol_tests/x402_harness.py:2243
+X4-025 | Forged Attestation Injection (OATR) | protocol_tests/x402_harness.py:2312
+X4-026 | Payment Amount Rounding Attack (IEEE 754) | protocol_tests/x402_harness.py:2363
+X4-027 | Stale Payment Session Replay | protocol_tests/x402_harness.py:2412
+X4-031 | Multi-Hop Redirect Chain Attack | protocol_tests/x402_harness.py:2461
+X4-032 | Currency Type Confusion | protocol_tests/x402_harness.py:2512
+X4-033 | Payment Deadline Bypass | protocol_tests/x402_harness.py:2556
+X4-034 | Zero-Amount Payment Acceptance | protocol_tests/x402_harness.py:2593
+X4-035 | Negative Amount Payment | protocol_tests/x402_harness.py:2631
+X4-036 | Max uint256 Overflow Attack | protocol_tests/x402_harness.py:2677
+X4-037 | Facilitator Impersonation | protocol_tests/x402_harness.py:2733
+X4-038 | Double-Spend Detection | protocol_tests/x402_harness.py:2787
+X4-039 | Payment Proof Format Injection | protocol_tests/x402_harness.py:2835
+X4-040 | Cross-Chain Payment Confusion | protocol_tests/x402_harness.py:2888
+X4-041 | Settlement Callback URL SSRF | protocol_tests/x402_harness.py:2943
+X4-042 | Payment Metadata Exfiltration | protocol_tests/x402_harness.py:3014
+X4-043 | Concurrent Payment Race Condition | protocol_tests/x402_harness.py:3075
+X4-044 | Payment Replay Against Different Endpoint | protocol_tests/x402_harness.py:3124
+X4-045 | Replay Same Payment Hash | protocol_tests/x402_harness.py:3184
+X4-046 | Duplicate Settlement Claim | protocol_tests/x402_harness.py:3235
+X4-047 | Expired Auth Token Reuse | protocol_tests/x402_harness.py:3293
+X4-048 | Scope Escalation in Payment Context | protocol_tests/x402_harness.py:3343
+X4-049 | Premature Finality Claim | protocol_tests/x402_harness.py:3399
+X4-050 | Settlement Race Condition | protocol_tests/x402_harness.py:3455
+X4-051 | L402-to-x402 Protocol Confusion | protocol_tests/x402_harness.py:3505
+X4-052 | Mixed Settlement Protocol Confusion | protocol_tests/x402_harness.py:3559
+X4-053 | Payment Metadata Side Channel | protocol_tests/x402_harness.py:3667
+X4-054 | Payment Correlation Attack | protocol_tests/x402_harness.py:3742
+X4-055 | Cascading Payment Approval Chain | protocol_tests/x402_harness.py:3817
+X4-056 | Payment Credential Accepted in URL (CWE-598) | protocol_tests/x402_harness.py:1525
+X4-057 | Delegated Allowance Overdraft via Verify/Settle Race | protocol_tests/x402_harness.py:1609
+X4-058 | positive control -- a correctly signed spec payment is accepted. | protocol_tests/x402_harness.py:3982
+X4-059 | the accepted payment, sent again unchanged. | protocol_tests/x402_harness.py:4045
+X4-060 | a validly signed payment to an address other than payTo. | protocol_tests/x402_harness.py:4051
+X4-061 | a validly signed payment for one atomic unit less than required. | protocol_tests/x402_harness.py:4062
+X4-062 | a validly signed payment whose validBefore has passed. | protocol_tests/x402_harness.py:4073
+X4-063 | a valid payment with bytes of its signature changed. | protocol_tests/x402_harness.py:4083
+X4-064 | signed for less than required, value raised afterwards. | protocol_tests/x402_harness.py:4094
+X4-065 | signed over another testnet's EIP-712 domain. | protocol_tests/x402_harness.py:4107
+X4-066 | one fresh valid payment sent several times at once; at most one may succeed. | protocol_tests/x402_harness.py:4117
+X4-067 | `accepted` rewritten one unit below the price, payment signed to match. | protocol_tests/x402_harness.py:4188
+X4-068 | `accepted.payTo` rewritten to another address, payment signed to match. | protocol_tests/x402_harness.py:4201
+X4-069 | `accepted.asset` rewritten to a client-controlled token, payment signed over it. | protocol_tests/x402_harness.py:4237
 ```
 
 ## Decision Behavior Benchmark corpus (`benchmarks/decision_behavior_corpus.py`) — 52 scenarios

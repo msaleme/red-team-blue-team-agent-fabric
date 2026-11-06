@@ -245,7 +245,21 @@ assessment:
       none of them. Recorded because r15_total compares the stated total against a live
       count.
 
-  total_repository_tests: 660
+  - report: '1.15'
+    commit: HEAD
+    harness: 4.29.1
+    date: '2026-11-06'
+    change: Repository test total 660 -> 661 on the addition of X4-069, the x402
+      client-set asset probe (`accepted.asset` rewritten to a client-controlled EIP-3009
+      token and the payment signed over that token's domain, so only the resource
+      server's own match against its accepts[], or a facilitator that keeps an asset
+      list, can refuse it). Test-bearing modules unchanged at 50. It carries an ASI09
+      primary on its own result, attributable, so the corpus ASI09 count moves 64 -> 65.
+      This mapping does NOT adjudicate it; no scenario here enumerates it, so
+      unique_mapped_tests is unchanged and this mapping claims none of it. Recorded
+      because r15_total compares the stated total against a live count.
+
+  total_repository_tests: 661
   total_tests_command: python scripts/count_tests.py
   unique_mapped_tests: 96
   adjudicated_by: corpus author - NOT independent review

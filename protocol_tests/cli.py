@@ -355,7 +355,7 @@ HARNESSES = {
     },
     "x402": {
         "module": "protocol_tests.x402_harness",
-        "description": "x402 payment protocol security tests (65 tests, Coinbase/Stripe agent payments)",
+        "description": "x402 payment protocol security tests (66 tests, Coinbase/Stripe agent payments)",
     },
     "x402-fireblocks": {
         "module": "protocol_tests.x402_fireblocks_harness",
