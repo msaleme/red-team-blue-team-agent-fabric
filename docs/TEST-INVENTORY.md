@@ -5,7 +5,7 @@
 See also: **[OWASP Agentic AI v1.1 Threat Coverage Report](OWASP-AGENTIC-V1.1-COVERAGE.md)** — per-threat T1–T17 evidence mapping with scenario coverage, mitigation-control validation and evidence classes, generated from `coverage/owasp-agentic-v1.1.yaml`. ([T1–T15 submission view](OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md))
 
 > **Canonical figures (verified 2026-11-06).** `main` carries 661 test IDs (the
-> v4.29.1 release carries 660) across 50 test-bearing modules in
+> v4.30.0 release carries 661) across 50 test-bearing modules in
 > `protocol_tests/` (files with no `test_id` — CLI, helpers, telemetry, registry —
 > are not counted as modules; see `CHANGELOG.md`). Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: E1 mapping,
 > 23 of 50 active requirements listed (release 2026-10-15; see docs/AIUC1-CROSSWALK.md). Research: 7 public Zenodo preprints (not

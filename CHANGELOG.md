@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.30.0] - 2026-11-06
+
+X4-069, the x402 client-set asset probe, and its live run. 660 -> 661 tests; modules unchanged
+at 50.
+
 ### Added: x402 client-set asset (X4-069)
 
 The third client-set term after price and recipient (X4-067/068). `accepted.asset` is rewritten
