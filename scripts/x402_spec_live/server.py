@@ -7,9 +7,10 @@ It is an independent implementation of the spec; the harness's own code is not u
     PAY_TO=0x... python server.py          # serves GET /premium/content on 127.0.0.1:4021
 
 TRUST_CLIENT_ACCEPTED=1 makes it a deliberately broken server: the negative control for
-X4-067/068. The official server matches the client's `accepted` against its own `accepts[]`
+X4-067..069. The official server matches the client's `accepted` against its own `accepts[]`
 and verifies against the match. This one verifies and settles against whatever `accepted`
-the client sent, so the client sets the price and the recipient. Testnet only; never deploy.
+the client sent, so the client sets the price, the recipient and the token. Testnet only;
+never deploy.
 """
 import os
 
@@ -30,7 +31,7 @@ app = Flask(__name__)
 server = x402ResourceServerSync(HTTPFacilitatorClientSync(FacilitatorConfig(url=FACILITATOR_URL)))
 server.register(NETWORK, ExactEvmServerScheme())
 if os.getenv("TRUST_CLIENT_ACCEPTED") == "1":
-    print("NEGATIVE CONTROL: this server trusts the client's `accepted` (X4-067/068 must FAIL)",
+    print("NEGATIVE CONTROL: this server trusts the client's `accepted` (X4-067..069 must FAIL)",
           flush=True)
     server.find_matching_requirements = lambda available, payload: payload.accepted
 payment_middleware(app, server=server, routes={

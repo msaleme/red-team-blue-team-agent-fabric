@@ -8,7 +8,7 @@ which is which is the whole point of the split below.
   current assessment of Cisco, Snyk or NVIDIA, and any of those projects may
   have shipped in either direction since. Read that section as an archive with
   a date on it.
-- **This suite's own numbers are derived, regenerated 2026-11-05** from
+- **This suite's own numbers are derived, regenerated 2026-11-06** from
   `scripts/count_tests.py` and `protocol_tests/asi_inventory.py`.
   `testing/test_comparison_doc_is_current.py` recomputes the counts in the
   three-column tables below and fails if the document drifts from the catalog. It
@@ -58,7 +58,7 @@ product.
 | **CI/CD integration** | — | Snyk platform | — |
 | **License** | Apache 2.0 | Proprietary | Apache 2.0 |
 
-## This suite -- DERIVED, regenerated 2026-11-05
+## This suite -- DERIVED, regenerated 2026-11-06
 
 Every count **in this section** is recomputed from source by
 `testing/test_comparison_doc_is_current.py`; the scope limit stated at the top
@@ -70,9 +70,9 @@ anything.
 |---|---|---|
 | MCP: wire protocol, supply chain, tool poisoning | 48 | `mcp_harness.py`, `mcp_supplychain.py`, `mcp_tool_poisoning_harness.py` |
 | A2A | 13 | `a2a_harness.py` |
-| Payment protocols and settlement | 164 | `l402_harness.py`, `x402_harness.py`, `x402_fireblocks_harness.py`, `ap2_harness.py`, `ucp_acp_harness.py`, `card_token_harness.py`, `settlement_finality_harness.py` |
+| Payment protocols and settlement | 165 | `l402_harness.py`, `x402_harness.py`, `x402_fireblocks_harness.py`, `ap2_harness.py`, `ucp_acp_harness.py`, `card_token_harness.py`, `settlement_finality_harness.py` |
 | Platform and framework adapters | 98 | `cloud_agent_harness.py`, `enterprise_adapters.py`, `extended_enterprise_adapters.py`, `framework_adapters.py` |
-| **All modules, unique test IDs** | **660** | `scripts/count_tests.py` |
+| **All modules, unique test IDs** | **661** | `scripts/count_tests.py` |
 
 The four rows above overlap nothing and cover part of the suite; the remaining
 tests live in the identity, jailbreak, over-refusal, provenance, memory,
@@ -110,11 +110,11 @@ counting them as coverage was the overclaim an external review corrected on
 | ASI06 | Memory & Context Poisoning | 37 |
 | ASI07 | Insecure Inter-Agent Communication | 33 |
 | ASI08 | Cascading Failures | 19 |
-| ASI09 | Human-Agent Trust Exploitation | 64 |
+| ASI09 | Human-Agent Trust Exploitation | 65 |
 | ASI10 | Rogue Agents | 13 |
 | — | No ASI primary (positive controls, content safety, robustness) | 52 |
 
-The table's rows sum to 650, not to the 660 unique test IDs above. The 10
+The table's rows sum to 651, not to the 661 unique test IDs above. The 10
 missing IDs are `RCL-001`..`RCL-007` and `RCL-009`..`RCL-011`, and they **do**
 carry a tag: `receipt_claim_harness.py` constructs their results with
 `owasp_asi="ASI09"`. The extractor attributes a tag only when the test ID and the

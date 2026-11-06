@@ -11,10 +11,11 @@ JSON body (v1) or a base64 `PAYMENT-REQUIRED` header (v2), and the payment in
 headers, so against one only SPEC_INDEPENDENT_TESTS grade and every other test
 reports INCONCLUSIVE with the reason.
 
-Spec payment probes (2026-11-03). X4-058..068 send signed `exact`/eip3009
+Spec payment probes (2026-11-03). X4-058..069 send signed `exact`/eip3009
 payments in the spec format (x402_spec_pay.py), given a funded testnet key
 (--x402-payer-key-file). X4-058 is their positive control: a valid payment must
-be accepted before any rejection by X4-059..068 counts.
+be accepted before any rejection by X4-059..069 counts. X4-069 also needs a
+client-controlled EIP-3009 token (--x402-client-asset).
 
 x402 Protocol Overview (pre-spec format):
     x402 is an open standard for internet-native agent payments, built on
@@ -363,7 +364,7 @@ SPEC_INDEPENDENT_TESTS = frozenset({
 #: Tests that send spec-format signed payments (x402_spec_pay.py). They are
 #: built for spec targets, so the pre-spec INCONCLUSIVE rule above never
 #: applies to them; their own positive control gates them instead.
-SPEC_PROBE_TESTS = frozenset(f"X4-0{n}" for n in range(58, 69))
+SPEC_PROBE_TESTS = frozenset(f"X4-0{n}" for n in range(58, 70))
 
 
 def _settlement(resp: dict, version: int) -> dict | None:
@@ -416,6 +417,42 @@ def _spec_grade_client_terms(resp: dict, version: int, what: str) -> tuple[bool,
                        f"{status}; settlement failed: {settlement.get('errorReason')}). A "
                        "server that matched `accepted` would have refused before verify")
     return _spec_grade(resp, version, what)
+
+
+#: Facilitator verify reasons that describe the client's token itself. A server that matched
+#: `accepted` against its own `accepts[]` refuses before verify, so it never produces one.
+#: Seeing one on X4-069 means the client's asset reached the facilitator, and only that
+#: token's state (unfunded, not deployed) stopped the payment.
+_CLIENT_ASSET_REACHED_VERIFY = re.compile(
+    r"insufficient_(funds|balance)|asset_not_deployed_contract")
+
+
+def _spec_grade_client_asset(resp: dict, version: int, what: str) -> tuple[bool, str]:
+    """Grade for X4-069: as _spec_grade_client_terms, and a verify reason about the client's token is FAIL.
+
+    The verdict covers the deployment, server plus its facilitator: PASS means the payment
+    was not taken in the client's token. A facilitator that keeps its own asset list and
+    refuses the token gives PASS, and the reason string names who refused.
+    """
+    status = resp.get("status", 0)
+    reason = _spec_error_reason(resp, version)
+    if 400 <= status < 500 and _CLIENT_ASSET_REACHED_VERIFY.search(reason):
+        return False, (f"ACCEPTED {what}: the client's token reached the facilitator's verify "
+                       f"(status {status}{reason}). A server that matched `accepted` would "
+                       "have refused before verify; only the token's own state stopped it")
+    return _spec_grade_client_terms(resp, version, what)
+
+
+def parse_client_asset(value: str | None) -> dict | str | None:
+    """`ADDRESS,NAME,VERSION` -> {"asset", "name", "version"}; a str is the reason it is unusable."""
+    if not value:
+        return None
+    parts = [p.strip() for p in value.split(",")]
+    if len(parts) != 3 or not all(parts):
+        return f"--x402-client-asset needs ADDRESS,NAME,VERSION (got {value!r})"
+    if not re.fullmatch(r"0x[0-9a-fA-F]{40}", parts[0]):
+        return f"--x402-client-asset address {parts[0]!r} is not a 20-byte hex address"
+    return {"asset": parts[0], "name": parts[1], "version": parts[2]}
 
 
 def format_risk_score(risk: dict) -> str:
@@ -562,11 +599,14 @@ class X402SecurityTests:
     Protocol-level security tests for the x402 payment protocol.
     """
 
-    def __init__(self, transport: X402Transport, payer=None):
+    def __init__(self, transport: X402Transport, payer=None, client_asset=None):
         self.transport = transport
-        #: A SpecPayer for the spec payment probes (X4-058..068), or the reason
+        #: A SpecPayer for the spec payment probes (X4-058..069), or the reason
         #: there is none. None means not configured; the probes say so.
         self.payer = payer
+        #: X4-069's client-controlled EIP-3009 token: {"asset", "name", "version"},
+        #: or the reason it is unusable. None means not configured.
+        self.client_asset = client_asset
         self._spec_control_state: dict | None = None
         self.results: list[X402TestResult] = []
         self._cached_challenge: X402Challenge | None = None
@@ -3862,7 +3902,7 @@ class X402SecurityTests:
     # ------------------------------------------------------------------
 
     # ------------------------------------------------------------------
-    # Spec payment probes (X4-058 to X4-068). Added 2026-11-03.
+    # Spec payment probes (X4-058 to X4-069). Added 2026-11-03.
     # ------------------------------------------------------------------
     #
     # The probes above send the pre-spec format, which a spec server never
@@ -3872,9 +3912,9 @@ class X402SecurityTests:
     #
     # Truth table (testing/test_x402_spec_probes.py):
     #   X4-058 positive control: a valid payment must be accepted (2xx). If it
-    #          is not, X4-059..068 are INCONCLUSIVE: a server that accepts no
+    #          is not, X4-059..069 are INCONCLUSIVE: a server that accepts no
     #          payment rejects everything, so a rejection shows nothing.
-    #   X4-059..066 each change ONE property of a valid payment; X4-067/068 change
+    #   X4-059..066 each change ONE property of a valid payment; X4-067..069 change
     #          a term in both the payload and `accepted` (see above them). 2xx = FAIL
     #          (accepted); 402/4xx = PASS (rejected); 5xx, timeout or no answer
     #          = INCONCLUSIVE (CLAUDE.md rule 8: absence is not a rejection).
@@ -4171,6 +4211,49 @@ class X402SecurityTests:
                          make, time.monotonic(), owasp_asi="ASI09",
                          grade=_spec_grade_client_terms)
 
+    # X4-069: the client names its own token in `accepted` and signs over that token.
+    #
+    # Same shape as X4-067/068, third term. `accepted.asset` becomes a token the client
+    # controls, with `extra.name`/`extra.version` set to its EIP-712 domain, and the
+    # authorization is signed over that domain. Amount and payTo are the server's own, so
+    # the logs read as a correct payment, in a token worth nothing. The stock eip3009
+    # facilitator (TS eip3009.ts, Python asset_cache.py, x402 2.26.0) checks only that the
+    # asset address holds bytecode, so it also calls a contract the client picked. Raised by
+    # bloqarl on the x402 dev.to post, 2026-11-06.
+    #
+    #   PASS          refused without the payment being taken in the client's token
+    #                 (the server's match, or a facilitator that keeps an asset list;
+    #                 the reason string says which)
+    #   FAIL          2xx; a failed settlement; or a verify reason about the client's
+    #                 token (unfunded, not deployed): it reached verify, and only its
+    #                 own state stopped it
+    #   INCONCLUSIVE  no client token configured, or it is the server's own asset; plus
+    #                 X4-067/068's cases
+    # The token has to be one the payer holds, or a forwarding server cannot be caught.
+    # Truth table: testing/test_x402_spec_probes.py.
+
+    def test_x402_spec_client_set_asset(self):
+        """X4-069: `accepted.asset` rewritten to a client-controlled token, payment signed over it."""
+        test_id = "X4-069"
+        def make(s, a, c):
+            token = self.client_asset
+            if isinstance(token, str):
+                raise PaymentRefused(token)
+            if token is None:
+                raise PaymentRefused(
+                    "no client-controlled token configured (--x402-client-asset "
+                    "ADDRESS,NAME,VERSION: an EIP-3009 token on this testnet that the "
+                    "payer holds)")
+            if token["asset"].lower() == str(a.get("asset", "")).lower():
+                raise PaymentRefused("the configured client token is the server's own asset")
+            extra = {**(a.get("extra") or {}), "name": token["name"],
+                     "version": token["version"]}
+            return self._spec_client_terms(s, a, asset=token["asset"], extra=extra)
+        self._spec_probe(test_id, "Spec Payment Client-Set Asset",
+                         "`accepted.asset` and the signed EIP-712 domain both a "
+                         "client-controlled token", make, time.monotonic(), owasp_asi="ASI09",
+                         grade=_spec_grade_client_asset)
+
     ALL_TESTS: dict[str, list[str]] = {
         "payment_challenge": [
             "test_x402_challenge_headers_present",
@@ -4275,6 +4358,7 @@ class X402SecurityTests:
             "test_x402_spec_parallel_double_spend",
             "test_x402_spec_client_set_price",
             "test_x402_spec_client_set_recipient",
+            "test_x402_spec_client_set_asset",
         ],
     }
 
@@ -4399,6 +4483,7 @@ _TEST_DESCRIPTIONS: dict[str, str] = {
     "X4-066": "Spec: one valid payment sent 5 times in parallel; at most one accepted",
     "X4-067": "Spec: `accepted` and payment both one unit below the price (client-set terms)",
     "X4-068": "Spec: `accepted.payTo` and payment both another address (client-set terms)",
+    "X4-069": "Spec: `accepted.asset` and signed domain both a client-controlled token (client-set terms)",
 }
 
 
@@ -4429,7 +4514,7 @@ def list_tests():
         "agent_autonomy":        ["X4-055"],
         "spec_payment":          ["X4-058", "X4-059", "X4-060", "X4-061", "X4-062",
                                   "X4-063", "X4-064", "X4-065", "X4-066",
-                                  "X4-067", "X4-068"],
+                                  "X4-067", "X4-068", "X4-069"],
     }
 
     for category, ids in test_id_map.items():
@@ -4506,12 +4591,18 @@ def main():
                     help="Run each test N times for statistical analysis (Wilson score CIs)")
     ap.add_argument("--list", action="store_true", dest="list_tests", help="List available tests and exit")
     ap.add_argument("--x402-payer-key-file", default=None,
-                    help="Testnet private key file for the spec payment probes (X4-058..068). "
+                    help="Testnet private key file for the spec payment probes (X4-058..069). "
                          "Also read from X402_PAYER_KEY_FILE or X402_PAYER_PRIVATE_KEY. "
                          "Testnets only; needs the x402-pay extra.")
     ap.add_argument("--x402-max-spend", type=int, default=DEFAULT_MAX_SPEND_ATOMIC,
                     help="Cap, in the asset's atomic units, on the total value of payments "
                          "the probes sign that could settle (default 50000 = 0.05 USDC)")
+    ap.add_argument("--x402-client-asset", default=os.environ.get("X402_CLIENT_ASSET"),
+                    metavar="ADDRESS,NAME,VERSION",
+                    help="X4-069's client-controlled EIP-3009 token on the target's testnet, "
+                         "which the payer holds: its address and EIP-712 domain name and "
+                         "version. Also read from X402_CLIENT_ASSET. Without it X4-069 is "
+                         "INCONCLUSIVE.")
     args = ap.parse_args()
 
     if args.list_tests:
@@ -4539,10 +4630,13 @@ def main():
         print(f"x402 spec probes: payer {payer.address}, cap {payer.max_spend_atomic} atomic units",
               file=sys.stderr)
 
+    client_asset = parse_client_asset(args.x402_client_asset)
+
     if args.trials > 1:
-        _run_statistical(transport, categories, args.trials, args.report, payer=payer)
+        _run_statistical(transport, categories, args.trials, args.report, payer=payer,
+                         client_asset=client_asset)
     else:
-        suite = X402SecurityTests(transport, payer=payer)
+        suite = X402SecurityTests(transport, payer=payer, client_asset=client_asset)
         results = suite.run_all(categories=categories)
         autonomy_risk = suite.compute_autonomy_risk_score()
 
@@ -4558,6 +4652,7 @@ def _run_statistical(
     n_trials: int,
     report_path: str | None,
     payer=None,
+    client_asset=None,
 ):
     """Run tests multiple times and compute Wilson score confidence intervals."""
     from protocol_tests.statistical import TrialResult, enhance_report, wilson_ci
@@ -4588,7 +4683,7 @@ def _run_statistical(
         test_id = method_name  # fallback label until the test reports its own id
 
         for trial in range(n_trials):
-            suite = X402SecurityTests(transport, payer=payer)
+            suite = X402SecurityTests(transport, payer=payer, client_asset=client_asset)
             test_fn = getattr(suite, method_name)
             try:
                 test_fn()

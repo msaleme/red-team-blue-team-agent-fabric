@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added: x402 client-set asset (X4-069)
+
+The third client-set term after price and recipient (X4-067/068). `accepted.asset` is rewritten
+to a token the client controls, `extra.name`/`extra.version` to that token's EIP-712 domain, and
+the payment is signed over it. Amount and `payTo` are the server's own, so the logs read as a
+correct payment in a token worth nothing. Raised by a reader (bloqarl) on the dev.to x402 post,
+2026-11-06. 660 -> 661 tests; modules unchanged at 50.
+
+- **Who can refuse it.** The official Python server 2.26.0 matches `asset` and `extra` in
+  `find_matching_requirements`, so it refuses before verify. Its eip3009 facilitator checks only
+  that the asset address holds bytecode (`asset_cache.py`), which is what bloqarl read in
+  `eip3009.ts`: past a server that does not match, nothing in the stock code refuses the token,
+  and the facilitator's wallet calls a contract the client picked.
+- **The verdict covers the deployment.** PASS: the payment is not taken in the client's token,
+  whether the server's match or a facilitator asset list refused it (the reason string says
+  which). FAIL: 2xx, a failed settlement, or a verify reason about the client's token
+  (`insufficient_balance`, `asset_not_deployed_contract`): the token reached verify and only its
+  own state stopped it. INCONCLUSIVE: no client token configured (`--x402-client-asset
+  ADDRESS,NAME,VERSION` or `X402_CLIENT_ASSET`), or the configured token is the server's own.
+- **Truth table** (`testing/test_x402_spec_probes.py`): a server whose match skips `asset` FAILs
+  X4-069 only, while X4-067/068 pass against it; the trusting server FAILs all three; an unfunded
+  client token still FAILs; a facilitator asset list gives PASS. Verified by breaking the grader:
+  the unfunded-token row catches it.
+- **Not yet run live.** The live run needs an EIP-3009 token on Base Sepolia that the payer holds.
+
 ## [4.29.1] - 2026-11-05
 
 v4.29.0 was tagged on 2026-11-04 but never published as a GitHub Release, so it never reached

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Live run of the x402 spec payment probes (X4-058..068) on Base Sepolia. Manual, never CI.
+# Live run of the x402 spec payment probes (X4-058..069) on Base Sepolia. Manual, never CI.
 #
 #   PAY_TO=0x...  X402_PAYER_KEY_FILE=~/path/to/testnet.key  scripts/x402_spec_live/run.sh [out_dir]
 #
@@ -10,6 +10,11 @@
 # COULD settle, refused or not: six of the eleven probes sign one, 59998 atomic units in all,
 # so this script sets X402_MAX_SPEND=60000 (0.06 USDC) rather than the harness default of
 # 50000, which stops X4-068 before it is signed (seen live 2026-11-05).
+#
+# X402_CLIENT_ASSET=ADDRESS,NAME,VERSION names X4-069's client-controlled EIP-3009 token on Base
+# Sepolia, one the payer holds. Without it X4-069 is INCONCLUSIVE and nothing more is signed. With
+# it, X4-069 signs one more 10000-unit payment in that token, so the cap rises to 70000; the
+# harness counts it in the same units although it is not USDC.
 #
 # TRUST_CLIENT_ACCEPTED=1 runs the negative control instead (see server.py): X4-067 and X4-068
 # must FAIL, and each settles one payment on the client's terms, so the run spends up to
@@ -39,9 +44,12 @@ done
 curl -sf "http://127.0.0.1:$PORT/health" >/dev/null || { echo "server did not start; see $OUT/server.log" >&2; exit 2; }
 
 cd "$REPO"
+DEFAULT_CAP=60000
+[ -n "${X402_CLIENT_ASSET:-}" ] && DEFAULT_CAP=70000
+export X402_CLIENT_ASSET="${X402_CLIENT_ASSET:-}"
 set +e
 "$PY" -m protocol_tests.x402_harness --url "http://127.0.0.1:$PORT" --paid-path /premium/content \
-  --categories spec_payment --x402-max-spend "${X402_MAX_SPEND:-60000}" \
+  --categories spec_payment --x402-max-spend "${X402_MAX_SPEND:-$DEFAULT_CAP}" \
   --report "$OUT/report.json" 2>&1 | tee "$OUT/run.log"
 rc=${PIPESTATUS[0]}
 set -e
