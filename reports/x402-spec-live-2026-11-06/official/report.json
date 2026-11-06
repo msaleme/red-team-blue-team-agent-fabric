@@ -1,0 +1,409 @@
+{
+  "suite": "x402 Payment Protocol Security Tests v1.0",
+  "timestamp": "2026-11-06T20:23:59.491900+00:00",
+  "spec_reference": "https://www.x402.org/x402-whitepaper.pdf",
+  "security_analysis_reference": "https://www.halborn.com/blog/post/x402-explained-security-risks-and-controls-for-http-402-micropayments",
+  "summary": {
+    "total": 12,
+    "passed": 12,
+    "failed": 0,
+    "not_evaluated": 0
+  },
+  "autonomy_risk_score": {
+    "score": null,
+    "risk_level": "NOT MEASURED",
+    "recommendation": "no autonomy signals were measured: the categories that set them did not run",
+    "components": {},
+    "signals": {},
+    "unmeasured": [
+      "challenge_valid",
+      "consistent_recipient",
+      "has_operator_attestation",
+      "no_info_leak",
+      "rejects_fake_sessions",
+      "rejects_forged_attestation",
+      "rejects_invalid_addresses",
+      "rejects_underpayment",
+      "validates_facilitator"
+    ]
+  },
+  "results": [
+    {
+      "test_id": "X4-058",
+      "name": "Spec Payment Positive Control (valid payment accepted)",
+      "category": "spec_payment",
+      "owasp_asi": "ASI03",
+      "severity": "P2-Medium",
+      "passed": true,
+      "details": "a valid payment was accepted (status 200); settlement: tx 0x86f6053ca29f65926979366ba55eb3cbff431ea7763b8222ac367fb655b464fc",
+      "http_method": "GET",
+      "csg_mapping": "A rejection counts only after a valid payment was accepted",
+      "estimated_impact": "service_denial",
+      "estimated_severity": "medium",
+      "request_sent": {
+        "header": "PAYMENT-SIGNATURE",
+        "from": "0x88c76C0e49eE06BF5C7802a365d0C40b92918009",
+        "to": "0x7889454DF1EB44B2fA0878179A1845F5b4649286",
+        "value": "10000",
+        "network": "eip155:84532"
+      },
+      "response_received": {
+        "status": 200,
+        "settlement": {
+          "success": true,
+          "payer": "0x88c76C0e49eE06BF5C7802a365d0C40b92918009",
+          "transaction": "0x86f6053ca29f65926979366ba55eb3cbff431ea7763b8222ac367fb655b464fc",
+          "network": "eip155:84532"
+        }
+      },
+      "elapsed_s": 0.822,
+      "timestamp": "2026-11-06T20:23:57.258432+00:00",
+      "not_evaluated": false
+    },
+    {
+      "test_id": "X4-059",
+      "name": "Spec Payment Replay",
+      "category": "spec_payment",
+      "owasp_asi": "ASI03",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "rejected replay of the accepted payment (status 402: invalid_exact_evm_nonce_already_used)",
+      "http_method": "GET",
+      "csg_mapping": "A rejection counts only after a valid payment was accepted",
+      "estimated_impact": "fund_theft",
+      "estimated_severity": "high",
+      "request_sent": {
+        "probe": "replay of the accepted payment",
+        "authorization": {
+          "from": "0x88c76C0e49eE06BF5C7802a365d0C40b92918009",
+          "to": "0x7889454DF1EB44B2fA0878179A1845F5b4649286",
+          "value": "10000",
+          "validAfter": "1793996036",
+          "validBefore": "1793996936",
+          "nonce": "0xd2235f3d815bd96ecfb52acf7afeeeeeea80c16ff61b1daf013ebe43d9093b7c"
+        }
+      },
+      "response_received": {
+        "status": 402
+      },
+      "elapsed_s": 0.314,
+      "timestamp": "2026-11-06T20:23:57.572287+00:00",
+      "not_evaluated": false
+    },
+    {
+      "test_id": "X4-060",
+      "name": "Spec Payment Recipient Mismatch",
+      "category": "spec_payment",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "rejected authorization.to is not payTo (validly signed) (status 402: invalid_exact_evm_recipient_mismatch)",
+      "http_method": "GET",
+      "csg_mapping": "A rejection counts only after a valid payment was accepted",
+      "estimated_impact": "fund_theft",
+      "estimated_severity": "high",
+      "request_sent": {
+        "probe": "authorization.to is not payTo (validly signed)",
+        "authorization": {
+          "from": "0x88c76C0e49eE06BF5C7802a365d0C40b92918009",
+          "to": "0x88c76C0e49eE06BF5C7802a365d0C40b92918009",
+          "value": "10000",
+          "validAfter": "1793996037",
+          "validBefore": "1793996937",
+          "nonce": "0xe438debc4e7f71f3ad1b2b1a9a15c7fc0d0b03b1533abc2fe1673c0f7bdb5737"
+        }
+      },
+      "response_received": {
+        "status": 402
+      },
+      "elapsed_s": 0.157,
+      "timestamp": "2026-11-06T20:23:57.729038+00:00",
+      "not_evaluated": false
+    },
+    {
+      "test_id": "X4-061",
+      "name": "Spec Payment Underpayment",
+      "category": "spec_payment",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "rejected value is one unit below the required amount (status 402: invalid_exact_evm_payload_authorization_value_mismatch)",
+      "http_method": "GET",
+      "csg_mapping": "A rejection counts only after a valid payment was accepted",
+      "estimated_impact": "fund_theft",
+      "estimated_severity": "high",
+      "request_sent": {
+        "probe": "value is one unit below the required amount",
+        "authorization": {
+          "from": "0x88c76C0e49eE06BF5C7802a365d0C40b92918009",
+          "to": "0x7889454DF1EB44B2fA0878179A1845F5b4649286",
+          "value": "9999",
+          "validAfter": "1793996037",
+          "validBefore": "1793996937",
+          "nonce": "0xfcb6665aa01d327827c33d863b601fafdb46344098cef454a0586e4ae80b2ef6"
+        }
+      },
+      "response_received": {
+        "status": 402
+      },
+      "elapsed_s": 0.174,
+      "timestamp": "2026-11-06T20:23:57.903567+00:00",
+      "not_evaluated": false
+    },
+    {
+      "test_id": "X4-062",
+      "name": "Spec Payment Expired Authorization",
+      "category": "spec_payment",
+      "owasp_asi": "ASI03",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "rejected validBefore is in the past (status 402: invalid_exact_evm_payload_authorization_valid_before)",
+      "http_method": "GET",
+      "csg_mapping": "A rejection counts only after a valid payment was accepted",
+      "estimated_impact": "fund_theft",
+      "estimated_severity": "high",
+      "request_sent": {
+        "probe": "validBefore is in the past",
+        "authorization": {
+          "from": "0x88c76C0e49eE06BF5C7802a365d0C40b92918009",
+          "to": "0x7889454DF1EB44B2fA0878179A1845F5b4649286",
+          "value": "10000",
+          "validAfter": "1793993037",
+          "validBefore": "1793996577",
+          "nonce": "0x2bbca74c98a72dd9b8e999b91628b1af2d078011fa6f5f01d3aa259087a71a6d"
+        }
+      },
+      "response_received": {
+        "status": 402
+      },
+      "elapsed_s": 0.156,
+      "timestamp": "2026-11-06T20:23:58.059925+00:00",
+      "not_evaluated": false
+    },
+    {
+      "test_id": "X4-063",
+      "name": "Spec Payment Corrupted Signature",
+      "category": "spec_payment",
+      "owasp_asi": "ASI03",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "rejected signature bytes altered (status 402: invalid_exact_evm_signature)",
+      "http_method": "GET",
+      "csg_mapping": "A rejection counts only after a valid payment was accepted",
+      "estimated_impact": "fund_theft",
+      "estimated_severity": "high",
+      "request_sent": {
+        "probe": "signature bytes altered",
+        "authorization": {
+          "from": "0x88c76C0e49eE06BF5C7802a365d0C40b92918009",
+          "to": "0x7889454DF1EB44B2fA0878179A1845F5b4649286",
+          "value": "10000",
+          "validAfter": "1793996038",
+          "validBefore": "1793996938",
+          "nonce": "0x3582ffa79c217e2d5eb4dc9bedce8b829496373a4dbd7f35ef3995a6353d9d3f"
+        }
+      },
+      "response_received": {
+        "status": 402
+      },
+      "elapsed_s": 0.162,
+      "timestamp": "2026-11-06T20:23:58.222106+00:00",
+      "not_evaluated": false
+    },
+    {
+      "test_id": "X4-064",
+      "name": "Spec Payment Value Edited After Signing",
+      "category": "spec_payment",
+      "owasp_asi": "ASI03",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "rejected authorization.value changed after signing (status 402: invalid_exact_evm_signature)",
+      "http_method": "GET",
+      "csg_mapping": "A rejection counts only after a valid payment was accepted",
+      "estimated_impact": "fund_theft",
+      "estimated_severity": "high",
+      "request_sent": {
+        "probe": "authorization.value changed after signing",
+        "authorization": {
+          "from": "0x88c76C0e49eE06BF5C7802a365d0C40b92918009",
+          "to": "0x7889454DF1EB44B2fA0878179A1845F5b4649286",
+          "value": "10000",
+          "validAfter": "1793996038",
+          "validBefore": "1793996938",
+          "nonce": "0xf57517fd25a0e36e024df1b7312995a39ed8cfed53c3c8b3783ef768a855e579"
+        }
+      },
+      "response_received": {
+        "status": 402
+      },
+      "elapsed_s": 0.173,
+      "timestamp": "2026-11-06T20:23:58.395619+00:00",
+      "not_evaluated": false
+    },
+    {
+      "test_id": "X4-065",
+      "name": "Spec Payment Signed For Another Chain",
+      "category": "spec_payment",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "rejected EIP-712 domain chainId is another network (status 402: invalid_exact_evm_signature)",
+      "http_method": "GET",
+      "csg_mapping": "A rejection counts only after a valid payment was accepted",
+      "estimated_impact": "fund_theft",
+      "estimated_severity": "high",
+      "request_sent": {
+        "probe": "EIP-712 domain chainId is another network",
+        "authorization": {
+          "from": "0x88c76C0e49eE06BF5C7802a365d0C40b92918009",
+          "to": "0x7889454DF1EB44B2fA0878179A1845F5b4649286",
+          "value": "10000",
+          "validAfter": "1793996038",
+          "validBefore": "1793996938",
+          "nonce": "0xa1a5651e4e8a70d40f12c26f5f620369ca75bac307c21f2f660cfe43fe4b36ac"
+        }
+      },
+      "response_received": {
+        "status": 402
+      },
+      "elapsed_s": 0.158,
+      "timestamp": "2026-11-06T20:23:58.553255+00:00",
+      "not_evaluated": false
+    },
+    {
+      "test_id": "X4-066",
+      "name": "Spec Payment Parallel Double Spend",
+      "category": "spec_payment",
+      "owasp_asi": "ASI03",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "one payment sent 5 times in parallel was accepted once (statuses [402, 402, 200, 402, 402]); settlement tx 0xe5d94f67832e7cb40c0178ea579750fa4241bbd6d1f3fddf60d0825cd10a439c",
+      "http_method": "GET",
+      "csg_mapping": "A rejection counts only after a valid payment was accepted",
+      "estimated_impact": "fund_theft",
+      "estimated_severity": "high",
+      "request_sent": {
+        "probe": "parallel resend",
+        "n": 5,
+        "authorization": {
+          "from": "0x88c76C0e49eE06BF5C7802a365d0C40b92918009",
+          "to": "0x7889454DF1EB44B2fA0878179A1845F5b4649286",
+          "value": "10000",
+          "validAfter": "1793996038",
+          "validBefore": "1793996938",
+          "nonce": "0x679602730ec9c60934123a38ab8980a64ab4c209872925556b9e11d97db205e8"
+        }
+      },
+      "response_received": {
+        "statuses": [
+          402,
+          402,
+          200,
+          402,
+          402
+        ],
+        "settlements": [
+          {
+            "success": true,
+            "payer": "0x88c76C0e49eE06BF5C7802a365d0C40b92918009",
+            "transaction": "0xe5d94f67832e7cb40c0178ea579750fa4241bbd6d1f3fddf60d0825cd10a439c",
+            "network": "eip155:84532"
+          }
+        ]
+      },
+      "elapsed_s": 0.923,
+      "timestamp": "2026-11-06T20:23:59.476782+00:00",
+      "not_evaluated": false
+    },
+    {
+      "test_id": "X4-067",
+      "name": "Spec Payment Client-Set Price",
+      "category": "spec_payment",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "rejected `accepted.amount` and the signed value both one unit below the price (status 402: No matching payment requirements)",
+      "http_method": "GET",
+      "csg_mapping": "A rejection counts only after a valid payment was accepted",
+      "estimated_impact": "fund_theft",
+      "estimated_severity": "high",
+      "request_sent": {
+        "probe": "`accepted.amount` and the signed value both one unit below the price",
+        "authorization": {
+          "from": "0x88c76C0e49eE06BF5C7802a365d0C40b92918009",
+          "to": "0x7889454DF1EB44B2fA0878179A1845F5b4649286",
+          "value": "9999",
+          "validAfter": "1793996039",
+          "validBefore": "1793996939",
+          "nonce": "0x6f9cc22d0c8d5ade6809ebe6701a339a97f55bbeac281514650f53d80b40e9c6"
+        }
+      },
+      "response_received": {
+        "status": 402
+      },
+      "elapsed_s": 0.006,
+      "timestamp": "2026-11-06T20:23:59.482496+00:00",
+      "not_evaluated": false
+    },
+    {
+      "test_id": "X4-068",
+      "name": "Spec Payment Client-Set Recipient",
+      "category": "spec_payment",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "rejected `accepted.payTo` and the signed `to` both another address (status 402: No matching payment requirements)",
+      "http_method": "GET",
+      "csg_mapping": "A rejection counts only after a valid payment was accepted",
+      "estimated_impact": "fund_theft",
+      "estimated_severity": "high",
+      "request_sent": {
+        "probe": "`accepted.payTo` and the signed `to` both another address",
+        "authorization": {
+          "from": "0x88c76C0e49eE06BF5C7802a365d0C40b92918009",
+          "to": "0x000000000000000000000000000000000000dEaD",
+          "value": "10000",
+          "validAfter": "1793996039",
+          "validBefore": "1793996939",
+          "nonce": "0x2e887eb9d18255ecddcf33d95ebbc1182cff7d5f48c137fff8a15eba7d18d542"
+        }
+      },
+      "response_received": {
+        "status": 402
+      },
+      "elapsed_s": 0.005,
+      "timestamp": "2026-11-06T20:23:59.487420+00:00",
+      "not_evaluated": false
+    },
+    {
+      "test_id": "X4-069",
+      "name": "Spec Payment Client-Set Asset",
+      "category": "spec_payment",
+      "owasp_asi": "ASI09",
+      "severity": "P1-High",
+      "passed": true,
+      "details": "rejected `accepted.asset` and the signed EIP-712 domain both a client-controlled token (status 402: No matching payment requirements)",
+      "http_method": "GET",
+      "csg_mapping": "A rejection counts only after a valid payment was accepted",
+      "estimated_impact": "fund_theft",
+      "estimated_severity": "high",
+      "request_sent": {
+        "probe": "`accepted.asset` and the signed EIP-712 domain both a client-controlled token",
+        "authorization": {
+          "from": "0x88c76C0e49eE06BF5C7802a365d0C40b92918009",
+          "to": "0x7889454DF1EB44B2fA0878179A1845F5b4649286",
+          "value": "10000",
+          "validAfter": "1793996039",
+          "validBefore": "1793996939",
+          "nonce": "0x3e7c84e98dac13b488a97ba8d4608558e0b43b4fbc778691259cbee32fbcbedb"
+        }
+      },
+      "response_received": {
+        "status": 402
+      },
+      "elapsed_s": 0.004,
+      "timestamp": "2026-11-06T20:23:59.491872+00:00",
+      "not_evaluated": false
+    }
+  ]
+}

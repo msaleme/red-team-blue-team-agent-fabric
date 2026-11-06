@@ -1,0 +1,29 @@
+x402 spec probes: payer 0x88c76C0e49eE06BF5C7802a365d0C40b92918009, cap 70000 atomic units
+Report written to reports/x402-spec-live-2026-11-06/official/report.json
+
+============================================================
+x402 PAYMENT PROTOCOL SECURITY TEST SUITE v1.0
+============================================================
+Target: http://127.0.0.1:4021
+
+[SPEC PAYMENT]
+  PASS ✅ X4-058: Spec Payment Positive Control (valid payment accepted) (0.82s)
+  PASS ✅ X4-059: Spec Payment Replay (0.31s)
+  PASS ✅ X4-060: Spec Payment Recipient Mismatch (0.16s)
+  PASS ✅ X4-061: Spec Payment Underpayment (0.17s)
+  PASS ✅ X4-062: Spec Payment Expired Authorization (0.16s)
+  PASS ✅ X4-063: Spec Payment Corrupted Signature (0.16s)
+  PASS ✅ X4-064: Spec Payment Value Edited After Signing (0.17s)
+  PASS ✅ X4-065: Spec Payment Signed For Another Chain (0.16s)
+  PASS ✅ X4-066: Spec Payment Parallel Double Spend (0.92s)
+  PASS ✅ X4-067: Spec Payment Client-Set Price (0.01s)
+  PASS ✅ X4-068: Spec Payment Client-Set Recipient (0.01s)
+  PASS ✅ X4-069: Spec Payment Client-Set Asset (0.00s)
+
+============================================================
+RESULTS: 12/12 passed (100%)
+
+AGENT AUTONOMY RISK SCORE: NOT MEASURED
+Recommendation: no autonomy signals were measured: the categories that set them did not run
+============================================================
+
