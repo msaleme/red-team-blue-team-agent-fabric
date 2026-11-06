@@ -1,0 +1,24 @@
+ * Serving Flask app 'server'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:4021
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [06/Nov/2026 14:23:56] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [06/Nov/2026 14:23:56] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [06/Nov/2026 14:23:56] "[31m[1mGET /premium/content HTTP/1.1[0m" 402 -
+127.0.0.1 - - [06/Nov/2026 14:23:57] "GET /premium/content HTTP/1.1" 200 -
+127.0.0.1 - - [06/Nov/2026 14:23:57] "[31m[1mGET /premium/content HTTP/1.1[0m" 402 -
+127.0.0.1 - - [06/Nov/2026 14:23:57] "[31m[1mGET /premium/content HTTP/1.1[0m" 402 -
+127.0.0.1 - - [06/Nov/2026 14:23:57] "[31m[1mGET /premium/content HTTP/1.1[0m" 402 -
+127.0.0.1 - - [06/Nov/2026 14:23:58] "[31m[1mGET /premium/content HTTP/1.1[0m" 402 -
+127.0.0.1 - - [06/Nov/2026 14:23:58] "[31m[1mGET /premium/content HTTP/1.1[0m" 402 -
+127.0.0.1 - - [06/Nov/2026 14:23:58] "[31m[1mGET /premium/content HTTP/1.1[0m" 402 -
+127.0.0.1 - - [06/Nov/2026 14:23:58] "[31m[1mGET /premium/content HTTP/1.1[0m" 402 -
+127.0.0.1 - - [06/Nov/2026 14:23:59] "[31m[1mGET /premium/content HTTP/1.1[0m" 402 -
+127.0.0.1 - - [06/Nov/2026 14:23:59] "[31m[1mGET /premium/content HTTP/1.1[0m" 402 -
+127.0.0.1 - - [06/Nov/2026 14:23:59] "GET /premium/content HTTP/1.1" 200 -
+127.0.0.1 - - [06/Nov/2026 14:23:59] "[31m[1mGET /premium/content HTTP/1.1[0m" 402 -
+127.0.0.1 - - [06/Nov/2026 14:23:59] "[31m[1mGET /premium/content HTTP/1.1[0m" 402 -
+127.0.0.1 - - [06/Nov/2026 14:23:59] "[31m[1mGET /premium/content HTTP/1.1[0m" 402 -
+127.0.0.1 - - [06/Nov/2026 14:23:59] "[31m[1mGET /premium/content HTTP/1.1[0m" 402 -
+127.0.0.1 - - [06/Nov/2026 14:23:59] "[31m[1mGET /premium/content HTTP/1.1[0m" 402 -

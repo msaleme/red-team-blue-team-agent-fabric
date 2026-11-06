@@ -30,7 +30,13 @@ correct payment in a token worth nothing. Raised by a reader (bloqarl) on the de
   X4-069 only, while X4-067/068 pass against it; the trusting server FAILs all three; an unfunded
   client token still FAILs; a facilitator asset list gives PASS. Verified by breaking the grader:
   the unfunded-token row catches it.
-- **Not yet run live.** The live run needs an EIP-3009 token on Base Sepolia that the payer holds.
+- **Live, 2026-11-06, Base Sepolia, x402.org facilitator** (`reports/x402-spec-live-2026-11-06/`):
+  the official server refuses X4-069 with `No matching payment requirements` (12 of 12 PASS).
+  Against the negative control (`TRUST_CLIENT_ACCEPTED=1`) X4-069 FAILs: the facilitator settled
+  10000 of a client-deployed token (`ClientTestToken`, `0x391D…2F79`, source in
+  `scripts/x402_spec_live/`) to `payTo`, its wallet calling the contract the client named. On that
+  testnet facilitator, that day, no asset list stood behind a server that forwards the client's
+  `accepted`. No mainnet facilitator was tested. `run.sh` takes the token as `X402_CLIENT_ASSET`.
 
 ## [4.29.1] - 2026-11-05
 
