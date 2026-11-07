@@ -82,7 +82,7 @@ Additionally, the framework aligns with:
 - **NIST AI 800-2** evaluation methodology (statistical analysis, three-stage evaluation structure)
 - **NIST AI Agent Standards Initiative** (February 2026) secure agent deployment direction
 - **OWASP Top 10 for Agentic Applications** (tests mapped to ASI01–ASI10 with per-category counts and stated limits (see docs/COMPARISON.md))
-- **OWASP MCP Top 10** (protocol-level risk coverage)
+- **OWASP MCP Top 10** (2025): 6 of 10 entries covered, 1 adjacent, 3 not covered; per-entry tests and limits in docs/OWASP-MCP-TOP10-MAPPING.md
 
 ---
 
@@ -94,7 +94,7 @@ Additionally, the framework aligns with:
 | **NIST AI RMF / IR 8596** | Full alignment on evaluation methodology |
 | **NIST SP 800-53** | Identity harness maps to 6 NCCoE focus areas |
 | **OWASP Agentic Top 10** | Tests mapped to ASI01–ASI10; per-category counts and limits stated |
-| **OWASP MCP Top 10** | Protocol-level risk coverage |
+| **OWASP MCP Top 10** | 6 of 10 entries covered, 1 adjacent, 3 not covered (docs/OWASP-MCP-TOP10-MAPPING.md) |
 | **EU AI Act (high-risk)** | Pre-deployment validation, transparency, documented governance |
 | **STRIDE** | 27 threat scenarios across all 6 categories |
 
