@@ -30,6 +30,12 @@ future probe must reproduce:
 
 Redaction is allowed: showing the last four characters ("****wxyz") is PASS. The
 boundary is MIN_RUN contiguous characters.
+
+The sink must never put the canary in its own responses. Servers routinely relay the
+upstream body in their errors (github-mcp-server, mcp-grafana and mcp-atlassian all do,
+checked 2026-11-08), so a sink that echoed the Authorization header would make the
+server look like it leaked a secret the harness put on the wire. That result is the
+harness's defect, and the grader returns INCONCLUSIVE for it, never FAIL.
 """
 
 from __future__ import annotations
@@ -70,8 +76,11 @@ def grade(observed: dict) -> tuple[str, str]:
       "sink_saw_canary": bool,      # upstream sink received the canary from the server
       "benign_call_served": bool,   # a harmless tools/call returned a result
       "messages": [dict, ...],      # every JSON-RPC message the server sent, in order
+      "sink_echoed_canary": bool,   # optional: the sink's own responses contained it
     }
     """
+    if observed.get("sink_echoed_canary"):
+        return INCONCLUSIVE, "harness sink echoed the canary; a relayed body would be our leak, not the server's"
     if not observed["messages"]:
         return INCONCLUSIVE, "server sent nothing"
     for msg in observed["messages"]:
@@ -152,6 +161,24 @@ def never_uses_secret():
     return _obs([OK], sink=False, served=True)
 
 
+UPSTREAM_502 = {"message": "Bad Gateway", "documentation_url": "https://example.invalid/docs"}
+
+
+def body_relay_server():
+    """Relays the upstream error body verbatim. The sink's body is clean, so this is PASS."""
+    return _obs([OK, {"jsonrpc": "2.0", "id": 2, "result": {"isError": True, "content": [
+        {"type": "text", "text": f"upstream returned 502: {json.dumps(UPSTREAM_502)}"}]}}])
+
+
+def body_relay_with_echoing_sink():
+    """Same server, but the sink reflected the Authorization header into its body."""
+    body = dict(UPSTREAM_502, received_auth=AUTH)
+    obs = _obs([OK, {"jsonrpc": "2.0", "id": 2, "result": {"isError": True, "content": [
+        {"type": "text", "text": f"upstream returned 502: {json.dumps(body)}"}]}}])
+    obs["sink_echoed_canary"] = True
+    return obs
+
+
 def silent_server():
     return _obs([], sink=False, served=False)
 
@@ -167,6 +194,8 @@ TABLE = [
     ("refuses everything", refuses_everything, INCONCLUSIVE),
     ("never uses the secret", never_uses_secret, INCONCLUSIVE),
     ("sends nothing", silent_server, INCONCLUSIVE),
+    ("relays a clean upstream error body", body_relay_server, PASS),
+    ("relays a body the harness sink polluted", body_relay_with_echoing_sink, INCONCLUSIVE),
 ]
 
 
@@ -193,6 +222,12 @@ class MCP01TruthTable(unittest.TestCase):
         """Rule 9's skipped control: the X4-057 shape (no capability, so 'the control held')."""
         self.assertNotEqual(grade(never_uses_secret())[0], PASS)
         self.assertNotEqual(grade(refuses_everything())[0], PASS)
+
+    def test_a_leak_the_harness_caused_is_never_charged_to_the_server(self):
+        """Self-caught-bug attribution: the polluted relay contains the canary, and still is not FAIL."""
+        obs = body_relay_with_echoing_sink()
+        self.assertIsNotNone(leaks(json.dumps(obs["messages"])))
+        self.assertEqual(grade(obs)[0], INCONCLUSIVE)
 
     def test_the_grader_is_not_vacuous(self):
         """Mutation: a grader that ignores the messages must fail the table."""
