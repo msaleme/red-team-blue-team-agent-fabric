@@ -101,7 +101,7 @@ and therefore not listed: C011, C012 and D002 (folded into C010 and D004), plus 
 - **AIUC-1 (release 2026-10-15)** - E1 evidence mapping; see the table above for the requirements listed and their stated limits
 - **OWASP Top 10 for Agentic Applications (2026)** - tests mapped to ASI01–ASI10 with per-category counts and stated limits (see docs/COMPARISON.md)
 - **OWASP LLM Top 10** - LLM01 (Prompt Injection), LLM02, LLM03, LLM04, LLM06, LLM08
-- **NIST AI RMF** - GOVERN, MAP, MEASURE, MANAGE functions covered
+- **NIST AI RMF** - tests tagged to GOVERN 1.1, GOVERN 6.1 and MANAGE 2.2; MAP and MEASURE are not tagged
 - **NIST AI 800-2: Benchmark Evaluation Practices (Jan 2026)** - Statistical evaluation protocol follows all 9 practices
 - **NIST NCCoE: AI Agent Identity & Authorization (Feb 2026)** - Dedicated test harness covering all 6 focus areas
 - **NIST AI Agent Standards Initiative (Feb 2026)** - Aligned with agent security, identity, and interoperability pillars
