@@ -108,7 +108,7 @@ install has no `scripts/` directory in the working directory to point at.
 python -m scripts.aiuc1_prep --url http://your-agent --simulate
 ```
 
-Maps results to all 24 AIUC-1 requirements with gap analysis.
+Maps results to the 23 AIUC-1 requirements listed in `configs/aiuc1_mapping.yaml` (of 50 active in release 2026-10-15), with gap analysis.
 
 ---
 

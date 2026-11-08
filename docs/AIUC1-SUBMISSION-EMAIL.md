@@ -23,7 +23,7 @@ I am writing to introduce the Agent Security Harness, an open-source adversarial
 
 The Agent Security Harness (Apache 2.0, pip install agent-security-harness) contains 661 executable security tests across 50 test-bearing modules. Unlike static scanners that analyze configurations, this framework sends real adversarial payloads across live agent protocols (MCP, A2A, L402, x402) and measures whether agents make safe, policy-compliant decisions when already authorized to act.
 
-We currently map to 23 of 24 AIUC-1 requirements, with 19 having production-ready tests. The mapping is maintained in a machine-readable YAML configuration and the framework produces structured JSON evidence artifacts.
+Against AIUC-1 release 2026-10-15, the mapping lists 23 of 50 active requirements, 19 with named tests and 4 recorded as gaps. It is an evidence mapping, not a conformance result. The mapping is maintained in a machine-readable YAML configuration and the framework produces structured JSON evidence artifacts.
 
 **What I am requesting**
 
@@ -50,7 +50,7 @@ The framework also aligns with NIST AI 800-2 evaluation methodology, the OWASP T
 - AIUC-1 requirement mapping: https://github.com/msaleme/red-team-blue-team-agent-fabric/blob/main/configs/aiuc1_mapping.yaml
 - Detailed submission outline: https://github.com/msaleme/red-team-blue-team-agent-fabric/blob/main/docs/AIUC1-SUBMISSION-OUTLINE.md
 
-I have attached a detailed submission outline with full requirement coverage tables, gap analysis, and our closure plan for the remaining gaps (targeting July 2026).
+I have attached a submission outline with the per-category mapping, the four requirements we record as gaps, and why a test harness does not evidence them.
 
 I welcome any feedback on the mapping or the approach. Happy to discuss further or present to the working group if that would be useful.
 
