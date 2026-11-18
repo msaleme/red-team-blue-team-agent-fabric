@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.30.1] - 2026-11-18
+
+A correctness release. A2A and MCP verdicts against servers on newer protocol versions could
+PASS on requests the server never evaluated; both harnesses now speak the version the target
+negotiates or report INCONCLUSIVE. Results from earlier versions against an A2A v1.0-only server,
+or an MCP 2025-06-18 / 2025-11-25 server that enforces `MCP-Protocol-Version`, should be
+discounted for the tests named below. Also: CLI fixes from a clean-install dry run, and README
+counts derived and guarded. 661 tests across 50 test-bearing modules, unchanged.
+
 ### Fixed: MCP verdicts against 2025-06-18 and 2025-11-25 servers (correctness disclosure)
 
 In legacy mode the harness requested `2025-03-26`, ignored the version the server answered
