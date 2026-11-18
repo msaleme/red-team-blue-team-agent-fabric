@@ -6,7 +6,7 @@ Usage:
     agent-security test a2a --url https://agent.example.com
     agent-security test l402 --url https://dispatches.mystere.me
     agent-security test mcp --transport stdio --command "node my-server.js"
-    agent-security test mcp --url http://localhost:8080 --categories tool_poisoning,capability_escalation
+    agent-security test mcp --url http://localhost:8080 --categories tool_discovery,capability_negotiation
     agent-security test mcp --url http://localhost:8080 --trials 5
     agent-security test mcp --url http://localhost:8080 --delay 1000
 
@@ -105,9 +105,41 @@ def _report_path_from(args: list[str]) -> str | None:
     return None
 
 
+#: Concept DOIs resolve to the latest version, so they do not go stale on release.
+#: Until 2026-11-18 the CLI printed 10.5281/zenodo.19162104 as "Research", which is
+#: version 1.2.1 of the governance preprint (not the latest, and not this software).
+#: Found by a v4.30.0 dry run on a clean install.
+SOFTWARE_CONCEPT_DOI = "10.5281/zenodo.20366512"   # Agent Security Harness
+RESEARCH_CONCEPT_DOI = "10.5281/zenodo.19162103"   # Constitutional Self-Governance preprint
+
+
+def _categories_from(args: list[str]) -> list[str] | None:
+    """`--categories a,b` or `--categories=a,b` from the harness-bound argv, else None."""
+    for i, a in enumerate(args):
+        if a == "--categories" and i + 1 < len(args):
+            return [c for c in args[i + 1].split(",") if c]
+        if a.startswith("--categories="):
+            return [c for c in a.partition("=")[2].split(",") if c]
+    return None
+
+
+def _mcp_simulated_ids(categories: list[str]) -> set[str]:
+    """Test IDs the live MCP run would select for ``categories``: its own registry."""
+    from protocol_tests.mcp_harness import MCPSecurityTests, _test_identity, category_keys
+    unknown = [c for c in categories if c not in category_keys()]
+    if unknown:
+        print(f"error: unknown MCP categor{'y' if len(unknown) == 1 else 'ies'}: "
+              f"{', '.join(unknown)}", file=sys.stderr)
+        print(f"valid: {', '.join(category_keys())}", file=sys.stderr)
+        sys.exit(2)
+    suite = MCPSecurityTests.__new__(MCPSecurityTests)
+    return {_test_identity(fn)[0] for fns in suite.test_registry(categories).values() for fn in fns}
+
+
 def _simulate_harness(harness_name: str, info: dict,
                       json_output: bool, html_output: str | None,
-                      report_path: str | None = None) -> int:
+                      report_path: str | None = None,
+                      categories: list[str] | None = None) -> int:
     """Generate synthetic results for a harness without a live target.
 
     Every row is INCONCLUSIVE, not passed. Returns the process exit status for
@@ -139,6 +171,17 @@ def _simulate_harness(harness_name: str, info: dict,
     if not catalog:
         print(f"Warning: no test IDs found in {info['module']}", file=sys.stderr)
         sys.exit(1)
+
+    # --categories: MCP filters by the registry its live run uses. Other harnesses
+    # keep their categories inside run_all, and the source catalog's category field
+    # does not always match those keys (two MCP tests read "general"), so filtering
+    # on it would reject valid keys. Say so rather than silently list everything.
+    if categories and harness_name == "mcp":
+        wanted = _mcp_simulated_ids(categories)
+        catalog = [e for e in catalog if e["test_id"] in wanted]
+    elif categories:
+        print(f"note: --simulate lists the full {harness_name} catalog; --categories "
+              "is applied only to live runs of this harness", file=sys.stderr)
 
     timestamp = datetime.now(timezone.utc).isoformat()
     results = []
@@ -628,7 +671,8 @@ def print_usage():
     print("     also exit 2 and write no report)")
     print("  Nonzero always means \"not clean\". Read the report to tell 1 from 2.")
     print()
-    print("Research: https://doi.org/10.5281/zenodo.19162104")
+    print(f"Cite:     https://doi.org/{SOFTWARE_CONCEPT_DOI} (this software, all versions)")
+    print(f"Research: https://doi.org/{RESEARCH_CONCEPT_DOI} (governance preprint, all versions)")
     print("Repo:     https://github.com/msaleme/red-team-blue-team-agent-fabric")
 
 
@@ -650,7 +694,8 @@ def main():
         print("Protocols: MCP (JSON-RPC 2.0), A2A, L402, x402")
         print("Platforms: 25 cloud + 20 enterprise adapters")
         print("Standards: OWASP Agentic Top 10, NIST AI 800-2, NIST AI RMF, AIUC-1")
-        print("Research:  https://doi.org/10.5281/zenodo.19162104")
+        print(f"Cite:      https://doi.org/{SOFTWARE_CONCEPT_DOI} (this software, all versions)")
+        print(f"Research:  https://doi.org/{RESEARCH_CONCEPT_DOI} (governance preprint, all versions)")
         sys.exit(0)
 
     if args[0] == "list":
@@ -846,7 +891,8 @@ def main():
         # For all other harnesses, intercept here and produce synthetic JSON.
         if simulate and harness_name != "aiuc1":
             sys.exit(_simulate_harness(harness_name, info, json_output, html_output,
-                                       report_path=_report_path_from(filtered_args)))
+                                       report_path=_report_path_from(filtered_args),
+                                       categories=_categories_from(filtered_args)))
 
         # For aiuc1 with --simulate, pass the flag through to the module
         if simulate and harness_name == "aiuc1":
