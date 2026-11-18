@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed: MCP verdicts against 2025-06-18 and 2025-11-25 servers (correctness disclosure)
+
+In legacy mode the harness requested `2025-03-26`, ignored the version the server answered
+`initialize` with, and sent no `MCP-Protocol-Version` header afterwards. Both 2025-06-18 and
+2025-11-25 require that header on every later HTTP request and a `400` when it is missing or
+unsupported. Against a server that enforces this, MCP-002, 005, 008, 009, 011, 016 and 018
+reported PASS on 400 answers to requests the server never read. Results from earlier versions
+against such a server should be discounted for those seven tests. Common SDKs still accept
+`2025-03-26` without the header, and those results are unaffected.
+
+- **The negotiated version is adopted.** If the server answers `2025-06-18` or `2025-11-25`,
+  every later request carries it as `MCP-Protocol-Version`. `2025-03-26` still sends none.
+- **A version the harness does not implement disconnects**, as the lifecycle section directs
+  (`2024-11-05`, which predates the header, is still accepted):
+  every test is NOT_EXECUTED and the report says which version was negotiated.
+- **A test in which the server refused a request for its protocol version is INCONCLUSIVE**,
+  whatever it would have reported: `-32022` / `-32004`, or a `400` naming the protocol version.
+  MCP-003 and MCP-004 grade the handshake itself and are exempt.
+- **Controls** (`testing/test_mcp_negotiated_version_truth_table.py`): a server that refuses
+  every post-handshake request gives no request-graded PASS; a strict server receives the
+  header on every request and MCP-002/005/008/018 get real verdicts; an unknown version sends
+  nothing after `initialize`; `2025-03-26` receives no header. Against the unrepaired harness
+  three of these fail; with the header fix but no gate, the refusing server still gives 7 PASS.
+
 ### Fixed: A2A verdicts against v1.0 servers (correctness disclosure)
 
 Every A2A test speaks the 0.3 wire format and sends no `A2A-Version` header, which A2A

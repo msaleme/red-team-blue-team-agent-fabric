@@ -471,6 +471,11 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "Harness Tester coverage-gap review, 2026-11-18", UNGUARDABLE,
      "a prose citation in a docstring; which revision is the right one to cite is judgement, "
      "and a test pinning it to MODERN_PROTOCOL_VERSION would fail on a correct legacy note"),
+    ("repairing the header alone left the gate open: against a server that negotiates "
+     "2025-06-18 and then refuses every request for its version, 7 request-graded tests "
+     "still PASS unless _record discounts version refusals",
+     "self-review of the MCP negotiated-version repair, 2026-11-18", GUARDED,
+     "testing/test_mcp_negotiated_version_truth_table.py: VersionRejectionDetector"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.

@@ -148,6 +148,17 @@ def _mcp_rejected_text(text: str) -> bool:
 LEGACY_PROTOCOL_VERSION = "2025-03-26"
 MODERN_PROTOCOL_VERSION = "2026-07-28"
 AUTO_PROTOCOL_VERSION = "auto"
+#: initialize-era revisions that define `MCP-Protocol-Version` and that the harness's
+#: messages are valid in unchanged. If a server answers `initialize` with one of these,
+#: the client MUST send it as that header on every later HTTP request (2025-06-18 and
+#: 2025-11-25, basic/transports). Any other answer the harness does not implement, and
+#: the spec says the client SHOULD disconnect (basic/lifecycle).
+HEADER_DEFINING_LEGACY_VERSIONS = ("2025-06-18", "2025-11-25")
+#: initialize-era revisions that predate the header. Older SDKs still answer 2024-11-05.
+HEADERLESS_LEGACY_VERSIONS = ("2024-11-05", LEGACY_PROTOCOL_VERSION)
+#: Tests that grade the version handshake itself. A version rejection is their subject,
+#: so the version gate in `_record` must not touch them.
+HANDSHAKE_GRADED = frozenset({"MCP-003", "MCP-004"})
 DIFFERENTIAL_PROTOCOL_VERSION = "differential"
 # Derived from pyproject.toml (issue #5 pattern) rather than hardcoded, so
 # this can't drift out of sync with the package version the way a literal
@@ -220,6 +231,28 @@ def _is_unsupported_protocol_version_error(response: object) -> bool:
         UNSUPPORTED_PROTOCOL_VERSION_CODE,
         UNSUPPORTED_PROTOCOL_VERSION_CODE_RC,
     )
+
+
+def _is_version_rejection(status: int | None, body: object) -> bool:
+    """Whether an HTTP answer refused the request for its protocol version.
+
+    The 2026-07-28 codes are recognised as in `_is_unsupported_protocol_version_error`.
+    2025-06-18 and 2025-11-25 require `400 Bad Request` for an unsupported
+    `MCP-Protocol-Version` and specify no code, so a 400 whose body names the
+    protocol version counts too.
+    testing/test_mcp_negotiated_version_truth_table.py holds the table this follows.
+    """
+    if status != 400:
+        return False
+    if isinstance(body, dict):
+        error = body.get("error")
+        if isinstance(error, dict) and error.get("code") in (
+                UNSUPPORTED_PROTOCOL_VERSION_CODE, UNSUPPORTED_PROTOCOL_VERSION_CODE_RC):
+            return True
+        body = json.dumps(body)
+    if isinstance(body, bytes):
+        body = body.decode("utf-8", "replace")
+    return isinstance(body, str) and "protocol version" in body.lower()
 
 
 def _json_path(value: object, path: str) -> object | None:
@@ -461,6 +494,12 @@ class StreamableHTTPTransport(MCPTransport):
         self.client_info = client_info or HARNESS_CLIENT_INFO.copy()
         self.client_capabilities = client_capabilities or {}
         self.session_id: str | None = None
+        #: The version an initialize-era server answered with, when it defines the
+        #: header. Set by `MCPSecurityTests.initialize`; None means 2025-03-26 rules.
+        self.negotiated_version: str | None = None
+        #: HTTP answers that refused a request for its protocol version. Read as a
+        #: delta by `MCPSecurityTests._record`.
+        self.version_rejections = 0
 
     @property
     def is_modern(self) -> bool:
@@ -497,8 +536,11 @@ class StreamableHTTPTransport(MCPTransport):
                 name = params.get("name", params.get("uri"))
                 if name is not None:
                     headers["Mcp-Name"] = _header_value(name)
-        elif self.session_id:
-            headers["Mcp-Session-Id"] = self.session_id
+        else:
+            if self.session_id:
+                headers["Mcp-Session-Id"] = self.session_id
+            if self.negotiated_version:
+                headers["MCP-Protocol-Version"] = self.negotiated_version
         return headers
 
     def send(self, message: dict, *, header_overrides: dict | None = None) -> dict | None:
@@ -562,6 +604,8 @@ class StreamableHTTPTransport(MCPTransport):
                 parsed = {}
             if not isinstance(parsed, dict):
                 parsed = {}
+            if _is_version_rejection(e.code, parsed or body):
+                self.version_rejections += 1
             return {**parsed, "_error": True, "_status": e.code, "_body": body[:500]}
         except Exception as e:
             return {"_error": True, "_exception": str(e)}
@@ -586,17 +630,23 @@ class StreamableHTTPTransport(MCPTransport):
                 headers["Mcp-Method"] = _header_value(mcp_method)
             if mcp_name is not None:
                 headers["Mcp-Name"] = _header_value(mcp_name)
-        elif self.session_id:
-            headers["Mcp-Session-Id"] = self.session_id
+        else:
+            if self.session_id:
+                headers["Mcp-Session-Id"] = self.session_id
+            if self.negotiated_version:
+                headers["MCP-Protocol-Version"] = self.negotiated_version
         req = urllib.request.Request(self.url, data=raw_bytes, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
                 return resp.read()
         except urllib.error.HTTPError as e:
             try:
-                return e.read()
+                body = e.read()
             except Exception:
                 return str(e).encode()
+            if _is_version_rejection(e.code, body):
+                self.version_rejections += 1
+            return body
         except Exception as e:
             return str(e).encode()
 
@@ -795,10 +845,29 @@ class MCPSecurityTests:
         self.bootstrap_error: str | None = None
 
     def _record(self, result: MCPTestResult):
+        reason = self._version_gate(result)
+        if reason:
+            result.passed = False
+            result.not_evaluated = True
+            result.details = f"{INCONCLUSIVE_PREFIX}{reason}. Original detail: {result.details}"
         self.results.append(result)
         if not self.json_output:
             status = console_status(result)
             print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
+
+    def _version_gate(self, result: MCPTestResult) -> str | None:
+        """Why a verdict cannot stand on version-shaped answers, or None.
+
+        Counts version rejections since the previous record; tests run in sequence,
+        so the delta belongs to this test. testing/test_mcp_negotiated_version_truth_table.py
+        holds the table this follows.
+        """
+        total = getattr(self.transport, "version_rejections", 0)
+        seen, self._version_rejections_seen = total - getattr(self, "_version_rejections_seen", 0), total
+        if self.simulate or seen <= 0 or result.not_evaluated or result.test_id in HANDSHAKE_GRADED:
+            return None
+        return (f"the server refused {seen} request(s) in this test for their protocol version "
+                f"(400 naming the version), so the attack was never evaluated")
 
     # ------------------------------------------------------------------
     # Setup: Initialize connection (required before testing)
@@ -878,6 +947,19 @@ class MCPSecurityTests:
             return False
 
         if resp and "result" in resp:
+            negotiated = resp["result"].get("protocolVersion")
+            if negotiated not in (None, *HEADERLESS_LEGACY_VERSIONS, *HEADER_DEFINING_LEGACY_VERSIONS):
+                # basic/lifecycle: "If the client does not support the version in the
+                # server's response, it SHOULD disconnect." Grading after that would
+                # read answers under semantics the two sides do not share.
+                err_msg = (f"Server negotiated MCP {negotiated!r}, which this harness does not "
+                           f"implement; disconnecting as the spec directs")
+                if not self.json_output:
+                    print(f"  ⚠️  {err_msg}")
+                self._connection_error = err_msg
+                return False
+            if negotiated in HEADER_DEFINING_LEGACY_VERSIONS and hasattr(self.transport, "negotiated_version"):
+                self.transport.negotiated_version = negotiated
             self.server_info = resp["result"].get("serverInfo", {})
             self.server_capabilities = resp["result"].get("capabilities", {})
             if not self.json_output:
@@ -886,7 +968,8 @@ class MCPSecurityTests:
                 print(f"  Capabilities: {list(self.server_capabilities.keys())}")
 
             self.transport.send(jsonrpc_notification("notifications/initialized"))
-            self.selected_protocol_version = LEGACY_PROTOCOL_VERSION
+            self.selected_protocol_version = (
+                negotiated if negotiated in HEADER_DEFINING_LEGACY_VERSIONS else LEGACY_PROTOCOL_VERSION)
             # Auto-mode discovery failure is expected when falling back to a
             # legacy server. Do not leak it into a successful legacy report.
             self._connection_error = None
@@ -3838,6 +3921,8 @@ class MCPSecurityTests:
             self.bootstrap_error = err
             self._not_executed(test_map, err)
             return self.results
+        # Rejections during bootstrap (e.g. an auto-mode discovery probe) belong to no test.
+        self._version_rejections_seen = getattr(self.transport, "version_rejections", 0)
 
         for category, tests in test_map.items():
             if not self.json_output:
