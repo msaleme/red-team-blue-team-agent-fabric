@@ -463,6 +463,14 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "PASS on 400 'Unsupported protocol version' answers",
      "class sweep after the 2026-11-18 coverage-gap review", GUARDED,
      "testing/test_mcp_negotiated_version_truth_table.py: VersionBlindRegisterIsShrinkOnly"),
+    ("the #697 repair derived TEST-INVENTORY but not the README comparison table, which "
+     "still said MCP protocol (32) / 46 and x402 52 / 85 against count_tests 34 / 48 and 66 / 99",
+     "Harness Tester coverage-gap review, 2026-11-18 (caveat, second surface)", GUARDED,
+     "testing/test_inventory_counts_are_current.py: test_readme_comparison_table_matches_count_tests"),
+    ("mcp_harness.py header cited specification/2025-11-25 while the code targets 2026-07-28",
+     "Harness Tester coverage-gap review, 2026-11-18", UNGUARDABLE,
+     "a prose citation in a docstring; which revision is the right one to cite is judgement, "
+     "and a test pinning it to MODERN_PROTOCOL_VERSION would fail on a correct legacy note"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.

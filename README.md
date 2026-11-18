@@ -223,9 +223,9 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 |---|---|---|---|---|
 | **What it does** | Scans agent/MCP configs for tool poisoning and skill security | YARA + LLM-as-judge for malicious tools | LLM model vulnerability testing | Active protocol exploitation + decision governance |
 | **Approach** | Static analysis | Static + LLM classification | Model-layer probing | **Wire-protocol adversarial testing** |
-| **MCP coverage** | Tool descriptions, config files | Tool descriptions, YARA rules | - | **46 tests: protocol (32) + supply-chain (4) + tool-poisoning repro (10), real JSON-RPC 2.0 attacks** |
+| **MCP coverage** | Tool descriptions, config files | Tool descriptions, YARA rules | - | **48 tests: protocol (34) + supply-chain (4) + tool-poisoning repro (10), real JSON-RPC 2.0 attacks** |
 | **A2A coverage** | - | - | - | **13 tests** |
-| **L402/x402 coverage** | - | - | - | **85 tests** (L402 33 + x402 52); x402 probes use a pre-spec header format, so against a spec x402 v1/v2 server 5 tests grade and the rest are INCONCLUSIVE |
+| **L402/x402 coverage** | - | - | - | **99 tests** (L402 33 + x402 66); X4-058..X4-069 send spec payments (`PAYMENT-SIGNATURE` / `X-PAYMENT`) and need a testnet payer key; the older x402 probes use a pre-spec header format, so against a spec x402 v1/v2 server 5 of them grade and the rest are INCONCLUSIVE |
 | **Merchant journey (UCP/ACP)** | - | - | - | **12 tests: agent-profile + cross-merchant cart + delegated checkout** |
 | **Funding instrument (Visa TAP / MC Agentic Tokens)** | - | - | - | **12 tests: holder/merchant/amount/velocity scope + dynamic cryptogram + revocation** |
 | **Settlement finality (denial-of-settlement)** | - | - | - | **8 tests: release-before-finality, reorg revocation, withheld-settlement liveness** |

@@ -7,7 +7,9 @@ messages over supported transports (stdio, SSE, Streamable HTTP).
 This is NOT application-layer HTTP testing. This sends real MCP messages and
 validates that servers handle adversarial inputs correctly at the protocol level.
 
-MCP Specification Reference: https://modelcontextprotocol.io/specification/2025-11-25
+MCP Specification Reference: https://modelcontextprotocol.io/specification/2026-07-28
+(the modern revision, MODERN_PROTOCOL_VERSION; servers on 2025-03-26 are reached through
+LEGACY_PROTOCOL_VERSION negotiation)
 
 Usage:
     # Test against an MCP server via Streamable HTTP

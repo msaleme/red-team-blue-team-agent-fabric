@@ -27,6 +27,7 @@ import unittest
 REPO = pathlib.Path(__file__).resolve().parents[1]
 INVENTORY = REPO / "docs" / "TEST-INVENTORY.md"
 DOCS_README = REPO / "docs" / "README.md"
+ROOT_README = REPO / "README.md"
 sys.path.insert(0, str(REPO / "scripts"))
 
 #: Rows that report the sum of several count_tests modules.
@@ -84,6 +85,57 @@ def row_problems(table: str, catalog: dict[str, int]) -> list[str]:
     return problems
 
 
+#: README "How This Differs" table: {row label: [(pattern with one number group, count_tests labels summed)]}.
+#: Found 2026-11-18 after #697: that PR derived TEST-INVENTORY but this table still said MCP
+#: protocol (32) and x402 52. Every number in a row listed here is checked; a listed row or
+#: pattern that is not found FAILS, so a reworded row cannot go quietly unchecked.
+_MCP = ("MCP Protocol", "MCP Supply-Chain", "MCP Tool Poisoning Reproduction")
+README_ROWS = {
+    "MCP coverage": [(r"\*\*(\d+) tests:", _MCP),
+                     (r"protocol \((\d+)\)", ("MCP Protocol",)),
+                     (r"supply-chain \((\d+)\)", ("MCP Supply-Chain",)),
+                     (r"tool-poisoning repro \((\d+)\)", ("MCP Tool Poisoning Reproduction",))],
+    "A2A coverage": [(r"\*\*(\d+) tests\*\*", ("A2A Protocol",))],
+    "L402/x402 coverage": [(r"\*\*(\d+) tests\*\*", ("L402 Payment", "x402 Payment")),
+                           (r"L402 (\d+)", ("L402 Payment",)),
+                           (r"x402 (\d+)\)", ("x402 Payment",))],
+    "Merchant journey (UCP/ACP)": [(r"\*\*(\d+) tests:", ("UCP/ACP Merchant Journey",))],
+    "Funding instrument (Visa TAP / MC Agentic Tokens)": [(r"\*\*(\d+) tests:", ("Card-Network Agentic Tokens",))],
+    "Settlement finality (denial-of-settlement)": [(r"\*\*(\d+) tests:", ("Denial-of-Settlement / Finality",))],
+    "Payment authz/hardening": [(r"AP2 mandate \((\d+)\)", ("AP2 Mandate Chain",)),
+                                (r"Fireblocks x402 \((\d+)\)", ("x402 Fireblocks Extension",))],
+    "Enterprise platforms": [(r"\*\*(\d+) cloud", ("Cloud Agent Platforms",)),
+                             (r"\+ (\d+) enterprise", ("Enterprise Platforms (core)", "Enterprise Platforms (extended)")),
+                             (r"core (\d+)", ("Enterprise Platforms (core)",)),
+                             (r"extended (\d+)", ("Enterprise Platforms (extended)",))],
+    "Human oversight (T10/T15)": [(r"\*\*(\d+) tests:", ("hitl_harness.py",))],
+    "APT simulation": [(r"GTG-1002 \((\d+) tests\)", ("GTG-1002 APT Simulation",))],
+    "Jailbreak/over-refusal": [(r"\*\*(\d+) tests", ("Jailbreak", "Over-Refusal")),
+                               (r"\((\d+) \+", ("Jailbreak",)),
+                               (r"\+ (\d+) FPR", ("Over-Refusal",))],
+}
+
+
+def readme_problems(text: str, catalog: dict[str, int]) -> list[str]:
+    """Every listed README row whose numbers disagree with the catalog, or that is missing."""
+    problems = []
+    for label, checks in README_ROWS.items():
+        row = re.search(r"^\|\s*\*\*" + re.escape(label) + r"\*\*\s*\|(?P<cells>.*)$", text, re.M)
+        if not row:
+            problems.append(f"{label!r}: row not found")
+            continue
+        ours = row.group("cells").rstrip().rstrip("|").rsplit("|", 1)[-1]
+        for pattern, parts in checks:
+            m = re.search(pattern, ours)
+            if not m:
+                problems.append(f"{label!r}: pattern {pattern!r} not found")
+                continue
+            expected = sum(catalog[p] for p in parts)
+            if int(m.group(1)) != expected:
+                problems.append(f"{label!r}: README says {m.group(1)} for {'+'.join(parts)}, count_tests says {expected}")
+    return problems
+
+
 class InventoryCountsAreCurrent(unittest.TestCase):
     def setUp(self):
         self.text = INVENTORY.read_text(encoding="utf-8")
@@ -102,6 +154,10 @@ class InventoryCountsAreCurrent(unittest.TestCase):
         tree = DOCS_README.read_text(encoding="utf-8")
         self.assertEqual(_TREE_COUNT.findall(tree), [],
                          "docs/README.md tree comments must not carry per-module counts")
+
+    def test_readme_comparison_table_matches_count_tests(self):
+        text = ROOT_README.read_text(encoding="utf-8")
+        self.assertEqual(readme_problems(text, self.catalog), [])
 
 
 class TheGuardCanFire(unittest.TestCase):
@@ -129,6 +185,18 @@ class TheGuardCanFire(unittest.TestCase):
     def test_heading_and_tree_patterns_fire(self):
         self.assertTrue(_HEADING_COUNT.findall("### A2A (Agent-to-Agent) - 13 tests\n"))
         self.assertTrue(_TREE_COUNT.findall("│   ├── mcp_harness.py       # MCP (JSON-RPC 2.0) - 32 tests\n"))
+
+    def test_readme_guard_fires_on_the_2026_11_18_text(self):
+        """The row as it stood after #697 must fail; the repaired row must pass."""
+        cat = catalog_by_label()
+        live = ROOT_README.read_text(encoding="utf-8")
+        stale = live.replace("protocol (%d)" % cat["MCP Protocol"], "protocol (32)", 1)
+        self.assertNotEqual(stale, live, "control could not seed the defect")
+        self.assertTrue(any("MCP Protocol" in p for p in readme_problems(stale, cat)))
+        self.assertEqual(readme_problems(live, cat), [])
+
+    def test_readme_guard_fails_on_a_missing_row(self):
+        self.assertTrue(any("row not found" in p for p in readme_problems("no table\n", catalog_by_label())))
 
 
 if __name__ == "__main__":
