@@ -453,6 +453,10 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "counts (54, 52) against count_tests 34 and 66; docs/README.md restated nine more",
      "Harness Tester coverage-gap review, 2026-11-18", GUARDED,
      "testing/test_inventory_counts_are_current.py: InventoryCountsAreCurrent"),
+    ("all 13 A2A tests speak 0.3 with no A2A-Version header; against a v1.0-only target "
+     "that answers -32009 to everything, 7 PASS and A2A-001 FAILs on a served card",
+     "Harness Tester coverage-gap review, 2026-11-18", GUARDED,
+     "testing/test_a2a_v1_version_truth_table.py: VersionBlindRegisterIsShrinkOnly"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.
