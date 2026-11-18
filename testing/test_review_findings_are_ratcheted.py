@@ -448,6 +448,11 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "tx hash reached report.json only inside the details string",
      "Cursor Bugbot, PR #679, 2026-11-04", GUARDED,
      "testing/test_x402_spec_probes.py: TruthTable"),
+    # --- 2026-11-18, Harness Tester coverage-gap review at aac4c026 ------------------
+    ("docs/TEST-INVENTORY.md carried three MCP Protocol counts (32, 31, 18) and two x402 "
+     "counts (54, 52) against count_tests 34 and 66; docs/README.md restated nine more",
+     "Harness Tester coverage-gap review, 2026-11-18", GUARDED,
+     "testing/test_inventory_counts_are_current.py: InventoryCountsAreCurrent"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.

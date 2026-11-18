@@ -12,16 +12,17 @@ See also: **[OWASP Agentic AI v1.1 Threat Coverage Report](OWASP-AGENTIC-V1.1-CO
 > peer-reviewed) + 3 NIST submissions. Regenerate with `python
 > scripts/count_tests.py`.
 >
-> **Per-module counts, reconciled 2026-08-30** against that run, because an
+> **Per-module counts, reconciled 2026-11-18** against that run (checked by
+> `testing/test_inventory_counts_are_current.py`), because an
 > independent review of the v4.17.0 tag found this file carrying two different
 > MCP figures and stale x402/enterprise ones:
 >
 > | Module | Tests |
 > |---|---|
-> | MCP Protocol | 32 |
+> | MCP Protocol | 34 |
 > | MCP Supply-Chain | 4 |
 > | MCP Tool Poisoning Reproduction | 10 |
-> | x402 Payment | 54 |
+> | x402 Payment | 66 |
 > | x402 Fireblocks Extension | 17 |
 > | Enterprise Platforms (core) | 31 |
 > | Enterprise Platforms (extended) | 27 |
@@ -92,7 +93,7 @@ This framework provides **complete mapping** to all 10 categories of the OWASP A
 
 ## Protocol-Level Test Harnesses
 
-### MCP (Model Context Protocol) - 18 tests
+### MCP (Model Context Protocol)
 ```bash
 agent-security test mcp --url http://localhost:8080/mcp
 ```
@@ -115,7 +116,7 @@ Representative test IDs (full count of 18 via `scripts/count_tests.py`):
 | MCP-012 | Tool Description Oversized Check | ASI08 | Detects tool descriptions exceeding 10KB threshold for context displacement |
 | MCP-013 | Tool Description Padding / Repetition Detection | ASI08 | Detects repeated phrases, whitespace padding, and low-entropy descriptions |
 
-### MCP Supply-Chain / Framework-Layer (MCP-F) - 4 tests
+### MCP Supply-Chain / Framework-Layer (MCP-F)
 ```bash
 agent-security test mcp-supplychain --command "npx -y some-mcp-server" --project-root .
 ```
@@ -129,17 +130,17 @@ Static pre-flight checks on the binary-resolution and package-install path that 
 | MCP-F-003 | Dependency-Confusion Resolvability | ASI06 | Checks public-registry resolvability of internal-looking package names (network-gated: `--allow-network`) |
 | MCP-F-004 | Launcher Version Pinning | ASI06 | Flags unpinned launchers (`npx -y pkg` / `uvx pkg` without `@version`/`==version`/SHA) |
 
-### A2A (Agent-to-Agent) - 13 tests  
+### A2A (Agent-to-Agent)
 ```bash
 agent-security test a2a --url https://agent.example.com
 ```
 
-### L402 Payment Protocol - 33 tests
+### L402 Payment Protocol
 ```bash
 agent-security test l402 --url https://l402.example.com
 ```
 
-### x402 Payment Protocol - 52 tests (First Open-Source x402 Harness)
+### x402 Payment Protocol
 ```bash
 agent-security test x402 --url https://your-x402-endpoint.com
 ```
@@ -163,7 +164,7 @@ Tests the Coinbase/Stripe/Cloudflare agent payment standard ($600M+ payment volu
 
 ---
 
-## Delegated-Authority Attenuation - 11 tests
+## Delegated-Authority Attenuation
 
 `protocol_tests/delegation_chain_harness.py`. Multi-hop delegation: a child's
 authority must be provably no broader than its parent's, enforced at the tool
@@ -202,7 +203,7 @@ target allowed the legitimate chain — and reports everything else INCONCLUSIVE
 
 Pre-configured tests for 20+ enterprise platforms where AI agents are being deployed:
 
-### Tier 1 Platforms (9 platforms, 30 tests)
+### Tier 1 Platforms (9 platforms)
 - **SAP Joule** - ERP/SCADA security boundaries
 - **Salesforce Agentforce** - CRM data isolation  
 - **Workday** - HR/Payroll PII protection
@@ -213,7 +214,7 @@ Pre-configured tests for 20+ enterprise platforms where AI agents are being depl
 - **ServiceNow Now Assist** - ITSM workflow security
 - **OpenClaw** - Session and tool isolation
 
-### Tier 2 Platforms (11 platforms, 27 tests)  
+### Tier 2 Platforms (11 platforms)
 - IBM Maximo, Snowflake Cortex, Databricks Mosaic AI
 - Pega GenAI, UiPath, Atlassian Rovo
 - Zendesk AI, IFS Cloud, Infor AI
@@ -237,10 +238,10 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|
-| **MCP Protocol** | 31 | JSON-RPC 2.0 | MCP wire-protocol testing, including stateless routing, MRTR, cache, task-isolation, and trace-context probes |
+| **MCP Protocol** | 34 | JSON-RPC 2.0 | MCP wire-protocol testing, including stateless routing, MRTR, cache, task-isolation, and trace-context probes |
 | **A2A Protocol** | 13 | JSON-RPC/HTTP | Google Agent-to-Agent communication |
 | **L402 Payment** | 33 | HTTP/Lightning | Bitcoin/Lightning payment flow security (macaroons, preimages, caveats) |
-| **x402 Payment** | 52 | HTTP/USDC | Coinbase/Stripe agent payment protocol (recipient manipulation, session theft, facilitator trust, cross-chain confusion) |
+| **x402 Payment** | 66 | HTTP/USDC | Coinbase/Stripe agent payment protocol (recipient manipulation, session theft, facilitator trust, cross-chain confusion) |
 | **Framework Adapters** | 15 | Various APIs | LangChain, CrewAI, AutoGen, OpenAI, Bedrock |
 | **Enterprise Platforms** | 58 | Platform APIs | SAP, Salesforce, Workday, Oracle, ServiceNow, +15 more |
 | **GTG-1002 APT Simulation** | 17 | Full Campaign | First documented AI-orchestrated cyber espionage |
