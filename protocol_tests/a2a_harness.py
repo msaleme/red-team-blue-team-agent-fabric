@@ -273,6 +273,74 @@ def _served_agent_card(resp) -> bool:
     return any(k != "_status" for k in resp)
 
 
+#: Agent Card well-known paths, newest first. A2A 0.3 and v1.0 use
+#: `agent-card.json`; `agent.json` predates 0.3 and is still tried, second.
+AGENT_CARD_PATHS = ("/.well-known/agent-card.json", "/.well-known/agent.json")
+
+#: A2A v1.0.1 section 5.4: `VersionNotSupportedError`.
+VERSION_NOT_SUPPORTED = -32009
+
+#: Every request in this module is A2A 0.3 wire format with no `A2A-Version`
+#: header, which v1.0.1 section 3.6 says an agent MUST read as 0.3.
+SPOKEN_VERSION = "0.3"
+
+#: Tests graded on the Agent Card alone, not on a JSON-RPC request.
+CARD_GRADED = frozenset({"A2A-001", "A2A-003", "A2A-013"})
+
+
+def _rpc_error_code(resp) -> int | None:
+    """The JSON-RPC error code in *resp*, whether parsed or inside an HTTP error body."""
+    if not isinstance(resp, dict):
+        return None
+    err = resp.get("error")
+    if not isinstance(err, dict) and isinstance(resp.get("_body"), str):
+        try:
+            err = (json.loads(resp["_body"]) or {}).get("error")
+        except (ValueError, AttributeError):
+            err = None
+    code = err.get("code") if isinstance(err, dict) else None
+    return code if isinstance(code, int) else None
+
+
+def _declared_versions(card) -> set[str]:
+    """`Major.Minor` versions an Agent Card declares; empty when it declares none.
+
+    v1.0: `supportedInterfaces[].protocolVersion`. 0.3: top-level `protocolVersion`.
+    """
+    if not isinstance(card, dict):
+        return set()
+    raw = [card.get("protocolVersion")]
+    for iface in card.get("supportedInterfaces") or []:
+        if isinstance(iface, dict):
+            raw.append(iface.get("protocolVersion"))
+    out = set()
+    for v in raw:
+        m = re.match(r"^\s*(\d+)\.(\d+)", v) if isinstance(v, str) else None
+        if m:
+            out.add(f"{int(m.group(1))}.{int(m.group(2))}")
+    return out
+
+
+def _missing_card_fields(card: dict) -> list[str]:
+    """Required Agent Card fields absent from *card*, for the card's own version.
+
+    A v1.0 card (it has `supportedInterfaces`) moved `url` into each interface
+    (a2a.proto v1.0.1: AgentInterface.url, protocol_binding, protocol_version are
+    REQUIRED), so requiring a top-level `url` FAILed every v1.0 card.
+    """
+    if "supportedInterfaces" in card:
+        missing = [f for f in ("name", "version", "capabilities") if f not in card]
+        ifaces = card.get("supportedInterfaces")
+        if not isinstance(ifaces, list) or not ifaces:
+            return missing + ["supportedInterfaces"]
+        for i, iface in enumerate(ifaces):
+            for f in ("url", "protocolBinding", "protocolVersion"):
+                if not isinstance(iface, dict) or f not in iface:
+                    missing.append(f"supportedInterfaces[{i}].{f}")
+        return missing
+    return [f for f in ("name", "url", "version", "capabilities") if f not in card]
+
+
 def _no_card_to_judge(resp) -> str | None:
     """Why *resp* to the Agent Card GET carries no card to judge, or None.
 
@@ -457,9 +525,12 @@ def _delivered(resp: dict, blob: str, markers) -> bool:
 class A2ASecurityTests:
     """Protocol-level security tests for A2A servers."""
 
-    def __init__(self, transport: A2ATransport, agent_card_path: str = "/.well-known/agent.json", simulate: bool = False):
+    def __init__(self, transport: A2ATransport, agent_card_path: str | None = None, simulate: bool = False):
         self.transport = transport
-        self.agent_card_path = agent_card_path
+        #: An explicit path is used as given. Otherwise AGENT_CARD_PATHS are tried
+        #: in order on first use, and the first that serves a card wins.
+        self._card_path = agent_card_path
+        self._card_for_versions: dict | None = None
         self.simulate = simulate
         self.results: list[A2ATestResult] = []
         self.agent_card: dict = {}
@@ -552,6 +623,12 @@ class A2ASecurityTests:
                 f"{INCONCLUSIVE_PREFIX}none of {len(seen)} requests were "
                 f"answered. Original finding: {result.details}")
             result.response_received = silence_evidence(seen, _rr)
+        if not self.simulate and not is_inconclusive(result):
+            gate = self._version_gate(result.test_id, seen)
+            if gate:
+                result.passed = False
+                result.details = (f"{INCONCLUSIVE_PREFIX}{gate}. "
+                                  f"Original finding: {result.details}")
         self.results.append(result)
         status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
@@ -616,6 +693,61 @@ class A2ASecurityTests:
             f"JSON-RPC envelope, 2xx or served card among them. A route-level "
             f"404/405, a bare 401/403 to everything, or no answer is not the "
             f"target rejecting this request")
+
+    @property
+    def agent_card_path(self) -> str:
+        if self._card_path is None:
+            if self.simulate:
+                self._card_path = AGENT_CARD_PATHS[0]
+            else:
+                for path in AGENT_CARD_PATHS:
+                    resp = self._quiet_get(path)
+                    if _served_agent_card(resp):
+                        self._card_path, self._card_for_versions = path, resp
+                        break
+                else:
+                    # Neither served: keep the pre-0.3 path, so A2A-001's #594
+                    # contract (a 404 FAILs) reports the path it always has.
+                    self._card_path = AGENT_CARD_PATHS[-1]
+        return self._card_path
+
+    @agent_card_path.setter
+    def agent_card_path(self, value: str) -> None:
+        self._card_path, self._card_for_versions = value, None
+
+    def _quiet_get(self, path: str) -> dict:
+        """GET outside the current test's request log.
+
+        Card-path resolution and the version gate are the harness reading the
+        target, not the test's attack; logging them would let an answered card
+        mask a test whose own requests were never answered (the _record guard).
+        """
+        resp = self.transport.get(path)
+        self._seen[:] = [r for r in self._seen if r is not resp]
+        return resp
+
+    def _version_gate(self, test_id: str, seen: list) -> str | None:
+        """Why a verdict cannot stand on a version-shaped answer, or None.
+
+        testing/test_a2a_v1_version_truth_table.py holds the table this follows.
+        """
+        if any(_rpc_error_code(r) == VERSION_NOT_SUPPORTED for r in seen):
+            return ("the target answered VersionNotSupportedError (-32009): it did not "
+                    f"read this request in the version it was sent in (A2A {SPOKEN_VERSION}, "
+                    "no A2A-Version header), so the attack was never evaluated")
+        if test_id in CARD_GRADED:
+            return None
+        if self._card_for_versions is None:
+            path = self.agent_card_path
+            if self._card_for_versions is None:
+                resp = self._quiet_get(path)
+                self._card_for_versions = resp if _served_agent_card(resp) else {}
+        declared = _declared_versions(self._card_for_versions)
+        if declared and SPOKEN_VERSION not in declared:
+            return (f"the Agent Card declares A2A {', '.join(sorted(declared))} only, and this "
+                    f"test speaks {SPOKEN_VERSION}; a request in a version the target does not "
+                    "serve is not evaluated under its semantics")
+        return None
 
     def _record_simulate(self, test_id: str, method_name: str) -> None:
         """Record a passing simulate-mode result for *test_id*."""
@@ -711,8 +843,7 @@ class A2ASecurityTests:
         self.agent_card = resp
 
         # Validate required fields per A2A spec
-        required_fields = ["name", "url", "version", "capabilities"]
-        missing = [f for f in required_fields if f not in resp]
+        missing = _missing_card_fields(resp)
 
         # Check for suspicious content in card
         card_str = json.dumps(resp).lower()
@@ -1888,7 +2019,8 @@ def generate_report(results: list[A2ATestResult], output_path: str):
 def main():
     ap = argparse.ArgumentParser(description="A2A Protocol Security Test Harness")
     ap.add_argument("--url", help="A2A server base URL")
-    ap.add_argument("--agent-card", default="/.well-known/agent.json", help="Agent Card path")
+    ap.add_argument("--agent-card", default=None,
+                    help="Agent Card path (default: try /.well-known/agent-card.json, then /.well-known/agent.json)")
     ap.add_argument("--categories", help="Comma-separated test categories")
     ap.add_argument("--report", help="Output JSON report path")
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")

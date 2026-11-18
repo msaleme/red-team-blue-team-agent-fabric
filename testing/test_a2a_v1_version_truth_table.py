@@ -33,6 +33,13 @@ The target refused to read any request, so no attack was evaluated, and seven
 tests reported that the control held. A stub answering -32601 to every 0.3
 method name gave the identical thirteen verdicts.
 
+REPAIRED (fix/a2a-version-gate): `A2ASecurityTests._version_gate` applies the
+table below in `_record`, the card is looked up at `agent-card.json` before
+`agent.json`, and A2A-001 checks a v1.0 card against v1.0's required fields.
+Against the same stub: A2A-001 PASS on the served v1.0 card, the other twelve
+INCONCLUSIVE. VERSION_BLIND is empty, and the controls below keep the repair
+from being "make everything INCONCLUSIVE".
+
 Nothing here adds a test ID or changes a harness. The table fixes what any
 A2A test must conclude from a version-shaped answer; `version_gate` is the
 reference grader the repair must reproduce; `VERSION_BLIND` pins the measured
@@ -140,11 +147,10 @@ CARD_DISCOVERY = [
 
 #: Measured 2026-11-18 at aac4c026 against _V1OnlyStub. Shrink-only: a repaired
 #: test leaves this set, and the guard below fails until it is removed here.
-VERSION_BLIND = {
-    "A2A-001": FAIL,
-    "A2A-004": PASS, "A2A-005": PASS, "A2A-007": PASS, "A2A-008": PASS,
-    "A2A-009": PASS, "A2A-010": PASS, "A2A-011": PASS,
-}
+#: Was {A2A-001: FAIL, A2A-004/005/007/008/009/010/011: PASS} at aac4c026.
+VERSION_BLIND: dict[str, str] = {}
+#: Correct verdicts against the v1.0-only stub: the served card is gradable.
+GRADED_ON_V1_ONLY = {"A2A-001": PASS}
 
 _METHODS = {
     "A2A-001": "test_a2a_agent_card_discovery", "A2A-002": "test_a2a_agent_card_spoofing",
@@ -166,7 +172,11 @@ _V1_CARD = {
 
 
 class _V1OnlyHandler(BaseHTTPRequestHandler):
-    """Card only at agent-card.json; -32009 to any request not marked 1.0."""
+    """Card only at agent-card.json; -32009 to any request not marked 1.0.
+
+    `server.card` and `server.rpc_error` override the card and the error code
+    for the control shapes.
+    """
 
     protocol_version = "HTTP/1.0"
 
@@ -183,7 +193,7 @@ class _V1OnlyHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path.split("?")[0] == "/.well-known/agent-card.json":
-            return self._send(200, _V1_CARD)
+            return self._send(200, getattr(self.server, "card", _V1_CARD))
         return self._send(404, {"error": "not found"})
 
     def do_POST(self):
@@ -194,24 +204,32 @@ class _V1OnlyHandler(BaseHTTPRequestHandler):
         except ValueError:
             rpc = {}
         rid = rpc.get("id") if isinstance(rpc, dict) else None
-        if (self.headers.get("A2A-Version") or "0.3") != "1.0":
+        code = getattr(self.server, "rpc_error", VERSION_NOT_SUPPORTED)
+        if code != VERSION_NOT_SUPPORTED or (self.headers.get("A2A-Version") or "0.3") != "1.0":
             return self._send(200, {"jsonrpc": "2.0", "id": rid, "error": {
-                "code": VERSION_NOT_SUPPORTED, "message": "VersionNotSupportedError"}})
+                "code": code, "message": "stub error"}})
         return self._send(200, {"jsonrpc": "2.0", "id": rid, "result": {}})
 
 
-def _verdicts_against_v1_only_stub() -> dict[str, str]:
+def _verdicts_against_v1_only_stub(card: dict | None = None,
+                                   rpc_error: int = VERSION_NOT_SUPPORTED,
+                                   ids: tuple[str, ...] | None = None) -> dict[str, str]:
     from protocol_tests.a2a_harness import A2ASecurityTests, A2ATransport
     from protocol_tests.http_helpers import is_inconclusive
 
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), _V1OnlyHandler)
+    if card is not None:
+        httpd.card = card  # type: ignore[attr-defined]
+    httpd.rpc_error = rpc_error  # type: ignore[attr-defined]
     thread = threading.Thread(target=httpd.serve_forever,
                               kwargs={"poll_interval": 0.01}, daemon=True)
     thread.start()
     try:
         suite = A2ASecurityTests(A2ATransport(f"http://127.0.0.1:{httpd.server_address[1]}"))
         with contextlib.redirect_stdout(io.StringIO()):
-            for name in _METHODS.values():
+            for tid, name in _METHODS.items():
+                if ids is not None and tid not in ids:
+                    continue
                 suite._seen.clear()
                 getattr(suite, name)()
     finally:
@@ -249,12 +267,52 @@ class VersionBlindRegisterIsShrinkOnly(unittest.TestCase):
 
     def test_no_new_version_blind_verdict(self):
         new = {t: v for t, v in self.measured.items()
-               if v != INCONCLUSIVE and t not in VERSION_BLIND}
+               if v != INCONCLUSIVE and t not in VERSION_BLIND
+               and GRADED_ON_V1_ONLY.get(t) != v}
         self.assertEqual(new, {}, "a test now draws a verdict from a target that read nothing")
 
     def test_register_names_only_what_still_happens(self):
         stale = {t: v for t, v in VERSION_BLIND.items() if self.measured.get(t) != v}
         self.assertEqual(stale, {}, "repaired: remove these from VERSION_BLIND")
+
+    def test_served_v1_card_is_graded(self):
+        for t, v in GRADED_ON_V1_ONLY.items():
+            with self.subTest(test_id=t):
+                self.assertEqual(self.measured.get(t), v)
+
+
+class TheRepairDidNotBlankTheSuite(unittest.TestCase):
+    """Controls: the gate fires on version-shaped answers only."""
+
+    def test_dual_version_card_with_evaluated_rejection_still_grades(self):
+        # Card declares 0.3 and 1.0; every request gets TaskNotFoundError (-32001),
+        # an evaluated rejection. A2A-004's own grading must stand: PASS.
+        card = {**_V1_CARD, "supportedInterfaces": [
+            {"url": "http://127.0.0.1/", "protocolBinding": "JSONRPC", "protocolVersion": "1.0"},
+            {"url": "http://127.0.0.1/", "protocolBinding": "JSONRPC", "protocolVersion": "0.3"}]}
+        got = _verdicts_against_v1_only_stub(card=card, rpc_error=-32001, ids=("A2A-004",))
+        self.assertEqual(got["A2A-004"], PASS)
+
+    def test_v1_only_card_without_version_error_is_still_inconclusive(self):
+        # No -32009 at all, but the card says 1.0 only: a 0.3 request is not
+        # evaluated under the target's semantics.
+        got = _verdicts_against_v1_only_stub(rpc_error=-32001, ids=("A2A-004",))
+        self.assertEqual(got["A2A-004"], INCONCLUSIVE)
+
+    def test_malformed_v1_card_fails_a2a_001(self):
+        card = {**_V1_CARD, "supportedInterfaces": [{"protocolBinding": "JSONRPC",
+                                                     "protocolVersion": "1.0"}]}
+        got = _verdicts_against_v1_only_stub(card=card, ids=("A2A-001",))
+        self.assertEqual(got["A2A-001"], FAIL)
+
+    def test_helpers(self):
+        from protocol_tests.a2a_harness import _declared_versions, _rpc_error_code
+        self.assertEqual(_rpc_error_code({"_error": True, "_status": 400,
+                                          "_body": '{"error": {"code": -32009}}'}), -32009)
+        self.assertIsNone(_rpc_error_code({"_raw": "x"}))
+        self.assertEqual(_declared_versions({"protocolVersion": "0.3.0"}), {"0.3"})
+        self.assertEqual(_declared_versions(_V1_CARD), {"1.0"})
+        self.assertEqual(_declared_versions({"name": "x"}), set())
 
 
 if __name__ == "__main__":
