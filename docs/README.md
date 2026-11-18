@@ -75,15 +75,15 @@ complete per-module breakdown:
 ```
 agent-security-harness/
 ├── protocol_tests/           # Core test harnesses
-│   ├── mcp_harness.py       # MCP (JSON-RPC 2.0) - 32 tests
-│   ├── a2a_harness.py       # A2A (Agent-to-Agent) - 13 tests  
-│   ├── l402_harness.py      # L402 (Payment protocol) - 33 tests
-│   ├── x402_harness.py      # x402 (Payment protocol) - 52 tests
-│   ├── framework_adapters.py # LangChain, CrewAI, AutoGen - 15 tests
-│   ├── enterprise_adapters.py # SAP, Salesforce, etc. - 31 tests
-│   ├── gtg1002_simulation.py # GTG-1002 APT campaign - 17 tests
-│   ├── advanced_attacks.py  # Multi-step attack patterns - 10 tests
-│   └── identity_harness.py  # NIST NCCoE identity/auth - 18 tests
+│   ├── mcp_harness.py       # MCP (JSON-RPC 2.0)
+│   ├── a2a_harness.py       # A2A (Agent-to-Agent)
+│   ├── l402_harness.py      # L402 (Payment protocol)
+│   ├── x402_harness.py      # x402 (Payment protocol)
+│   ├── framework_adapters.py # LangChain, CrewAI, AutoGen
+│   ├── enterprise_adapters.py # SAP, Salesforce, etc.
+│   ├── gtg1002_simulation.py # GTG-1002 APT campaign
+│   ├── advanced_attacks.py  # Multi-step attack patterns
+│   └── identity_harness.py  # NIST NCCoE identity/auth
 └── docs/                    # Documentation (this directory)
 ```
 
