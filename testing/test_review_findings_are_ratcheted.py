@@ -457,6 +457,12 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "that answers -32009 to everything, 7 PASS and A2A-001 FAILs on a served card",
      "Harness Tester coverage-gap review, 2026-11-18", GUARDED,
      "testing/test_a2a_v1_version_truth_table.py: VersionBlindRegisterIsShrinkOnly"),
+    # --- 2026-11-18, follow-up to the A2A version finding --------------------------
+    ("mcp_harness ignores the version negotiated in initialize and sends no "
+     "MCP-Protocol-Version; against a 2025-06-18-only server, 7 request-graded tests "
+     "PASS on 400 'Unsupported protocol version' answers",
+     "class sweep after the 2026-11-18 coverage-gap review", GUARDED,
+     "testing/test_mcp_negotiated_version_truth_table.py: VersionBlindRegisterIsShrinkOnly"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.
