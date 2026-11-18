@@ -476,6 +476,30 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "still PASS unless _record discounts version refusals",
      "self-review of the MCP negotiated-version repair, 2026-11-18", GUARDED,
      "testing/test_mcp_negotiated_version_truth_table.py: VersionRejectionDetector"),
+    # --- 2026-11-18, v4.30.0 clean-install dry run -----------------------------------
+    ("the CLI help example --categories tool_poisoning,capability_escalation names no MCP "
+     "category; an unknown key selected nothing and exited 2 with only 'No tests run'",
+     "v4.30.0 clean-install dry run (training draft), 2026-11-18", GUARDED,
+     "testing/test_cli_dryrun_findings.py: UnknownCategoriesAreRefused"),
+    ("test mcp --simulate ignored --categories and listed all 34 tests",
+     "v4.30.0 clean-install dry run (training draft), 2026-11-18", GUARDED,
+     "testing/test_cli_dryrun_findings.py: SimulateHonoursCategories"),
+    ("version printed 10.5281/zenodo.19162104 as Research: v1.2.1 of the governance "
+     "preprint, not its latest and not this software",
+     "v4.30.0 clean-install dry run (training draft), 2026-11-18", GUARDED,
+     "testing/test_cli_dryrun_findings.py: CitationLinesAreCurrent"),
+    ("'51 registered harnesses' beside '50 test-bearing modules' could read as inconsistent "
+     "with public '661 tests across 50 modules'",
+     "v4.30.0 clean-install dry run (training draft), 2026-11-18", UNGUARDABLE,
+     "no defect: both figures are true and the CLI explains the 51st (community_runner); "
+     "consistency of wording in public posts is editorial judgement outside the repo"),
+    ("the wheel bundles no A2A mock target, so A2A labs need an external server",
+     "v4.30.0 clean-install dry run (training draft), 2026-11-18", UNGUARDABLE,
+     "a missing feature, not an incorrect behaviour; no test can assert a target that does "
+     "not exist yet. Tracked as follow-up work with the A2A v1.0 method calls"),
+    ("a shared box's checkout was still at 4.28.1",
+     "v4.30.0 clean-install dry run (training draft), 2026-11-18", UNGUARDABLE,
+     "the state of a machine outside this repository; nothing in the repo can observe it"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.

@@ -766,6 +766,11 @@ class MCPTestResult:
             self.timestamp = datetime.now(timezone.utc).isoformat()
 
 
+def category_keys() -> list[str]:
+    """The keys `--categories` accepts: the live registry's, so they cannot drift."""
+    return list(MCPSecurityTests.__new__(MCPSecurityTests).test_registry())
+
+
 def _test_identity(test_fn) -> tuple[str, str]:
     """(test_id, name) from a test method's docstring, ``"MCP-RC-001: Name."``.
 
@@ -4183,7 +4188,19 @@ def main():
             "be faithfully exercised over stdio"
         )
 
-    categories = args.categories.split(",") if args.categories else None
+    categories = [c for c in args.categories.split(",") if c] if args.categories else None
+    # An unknown key used to select nothing, print "No tests run" and exit 2, which
+    # is how the CLI's own help example (tool_poisoning,capability_escalation)
+    # failed silently. Found by a v4.30.0 dry run, 2026-11-18.
+    unknown = [c for c in (categories or []) if c not in category_keys()]
+    if unknown:
+        msg = (f"unknown MCP categor{'y' if len(unknown) == 1 else 'ies'}: {', '.join(unknown)}; "
+               f"valid: {', '.join(category_keys())}")
+        if args.json_output:
+            print(json.dumps({"error": msg}))
+        else:
+            print(f"ERROR: {msg}", file=sys.stderr)
+        sys.exit(2)
     mrtr_probe = None
     mrtr_input_responses = None
     mrtr_attacker_headers = {}

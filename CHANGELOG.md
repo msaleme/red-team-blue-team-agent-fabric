@@ -31,6 +31,19 @@ against such a server should be discounted for those seven tests. Common SDKs st
   nothing after `initialize`; `2025-03-26` receives no header. Against the unrepaired harness
   three of these fail; with the header fix but no gate, the refusing server still gives 7 PASS.
 
+### Fixed: CLI help, category selection and citation lines (v4.30.0 dry run)
+
+- **The help example now names real MCP categories** (`tool_discovery,capability_negotiation`).
+  The v4.30.0 example selected nothing.
+- **An unknown `--categories` key is refused** with exit 2 and the list of valid keys, before any
+  connection, both live and under `--simulate`. It used to select nothing silently. The valid keys
+  are the live registry's (`mcp_harness.category_keys()`).
+- **`test mcp --simulate --categories` lists only the selected tests.** Other harnesses keep
+  their category maps inside `run_all`, so their simulate mode still lists the full catalog and
+  now says so on stderr.
+- **`version` and `--help` print concept DOIs:** the software (`10.5281/zenodo.20366512`) and the
+  governance preprint (`10.5281/zenodo.19162103`). The old line pointed at preprint v1.2.1.
+
 ### Fixed: A2A verdicts against v1.0 servers (correctness disclosure)
 
 Every A2A test speaks the 0.3 wire format and sends no `A2A-Version` header, which A2A
