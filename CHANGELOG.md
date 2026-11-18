@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed: A2A verdicts against v1.0 servers (correctness disclosure)
+
+Every A2A test speaks the 0.3 wire format and sends no `A2A-Version` header, which A2A
+v1.0.1 section 3.6 says an agent MUST read as 0.3. Through v4.30.0, against a v1.0-only
+target that answers `VersionNotSupportedError` (-32009) to every such request, A2A-004,
+005, 007, 008, 009, 010 and 011 reported PASS on requests the target never evaluated, and
+A2A-001 reported FAIL ("could not fetch Agent Card") on a card served at
+`/.well-known/agent-card.json`.
+
+- A verdict is INCONCLUSIVE when the target answered -32009, or when its Agent Card declares
+  only versions other than 0.3 (`A2ASecurityTests._version_gate`).
+- The Agent Card is looked up at `/.well-known/agent-card.json`, then
+  `/.well-known/agent.json`. `--agent-card` still sets an explicit path.
+- A2A-001 checks a v1.0 card against v1.0's required fields (`url`, `protocolBinding` and
+  `protocolVersion` on each `supportedInterfaces` entry) instead of a top-level `url`.
+- `testing/test_a2a_v1_version_truth_table.py` holds the truth table, the measured register
+  (now empty) and controls: a dual-version card with an evaluated rejection still PASSes
+  A2A-004, and a malformed v1.0 card FAILs A2A-001.
+
+No test IDs added; 661 tests, modules unchanged at 50. v1.0 wire-format variants are not in
+this release.
+
 ## [4.30.0] - 2026-11-06
 
 X4-069, the x402 client-set asset probe, and its live run. 660 -> 661 tests; modules unchanged
