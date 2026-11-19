@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added: truth table for read-only tool annotations, before any probe (#716)
+
+`testing/test_mcp_readonly_annotation_truth_table.py` defines what "a tool annotated
+`readOnlyHint=true` must not write" means before a probe exists (rule 9), from CVE-2026-126816:
+a read-only-annotated tool that wrote `output_file` anywhere, so auto-approving clients ran it
+unconfirmed. The oracle is a canary directory the harness owns (absolute and `..` traversal
+paths), observable only over stdio; HTTP is INCONCLUSIVE. A stdio fixture
+(`testing/annotation_fixture_server.py`) supplies every row: truthful (PASS), mislabelled and
+traversal-only (FAIL), and three INCONCLUSIVE shapes. It writes only inside canary directories.
+Measured: the full MCP suite gives identical verdicts against the truthful and mislabelled
+fixtures, so no current test can tell them apart (`SUITE_CANNOT_TELL`).
+
 ## [4.31.0] - 2026-11-18
 
 The A2A tests speak A2A 1.0 to a 1.0 target, choosing the version from the Agent Card, and a
