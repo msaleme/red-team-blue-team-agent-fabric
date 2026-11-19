@@ -36,9 +36,9 @@ Default port: 8402
 FAIL). A target that can only be passed cannot show a test works, so both modes ship.
 
 ```bash
-python -m protocol_tests.mock_a2a_server                         # 0.3 and 1.0, hardened, port 8403
+python -m protocol_tests.mock_a2a_server                         # 0.3 and 1.0, hardened, port 8404
 python -m protocol_tests.mock_a2a_server --versions 1.0 --vulnerable
-agent-security test a2a --url http://localhost:8403
+agent-security test a2a --url http://localhost:8404
 ```
 
 Through v4.30.1 the A2A tests speak 0.3 only, so against `--versions 1.0` they report
