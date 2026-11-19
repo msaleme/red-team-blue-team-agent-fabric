@@ -500,6 +500,11 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
     ("a shared box's checkout was still at 4.28.1",
      "v4.30.0 clean-install dry run (training draft), 2026-11-18", UNGUARDABLE,
      "the state of a machine outside this repository; nothing in the repo can observe it"),
+    # --- 2026-11-18, coverage-gap item 1 (A2A 1.0 wire surface) ---------------------
+    ("all A2A tests speak 0.3 only, so a server's 1.0 handlers are never exercised: against "
+     "a 1.0-only target A2A-004..011 are INCONCLUSIVE, and a vulnerable 1.0 server is invisible",
+     "Harness Tester coverage-gap review, 2026-11-18 (gap 1)", GUARDED,
+     "testing/test_a2a_v1_wire_truth_table.py: MeasuredAgainstTheMock"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.

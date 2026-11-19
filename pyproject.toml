@@ -69,6 +69,8 @@ ash = "protocol_tests.cli:main"
 # The quickstart's mock target, shipped (R3-12). Same module as
 # `python -m protocol_tests.mock_mcp_server`.
 agent-security-mock-mcp = "protocol_tests.mock_mcp_server:main"
+# A2A 0.3 / 1.0 target with a hardened and a vulnerable mode (both poles, rule 9).
+agent-security-mock-a2a = "protocol_tests.mock_a2a_server:main"
 
 [tool.setuptools.packages.find]
 include = ["protocol_tests*", "scripts*", "mcp_server*"]
