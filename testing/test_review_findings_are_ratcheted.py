@@ -526,6 +526,11 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "Harness Tester run against v4.30.1 and main a34321d, 2026-11-18", UNGUARDABLE,
      "a default-port choice against third-party lab layouts no test can enumerate; fixed in "
      "#708 by moving to 8404"),
+    # --- 2026-11-18, issue #716 (CVE-2026-126816) -----------------------------------
+    ("no test checks that a tool annotated readOnlyHint=true does not write: the full MCP "
+     "suite gives identical verdicts against a truthful and a mislabelled read-only tool",
+     "gap issue #716 (CVE-2026-126816, GHSA-mqm3-w68j-75mw), 2026-11-18", GUARDED,
+     "testing/test_mcp_readonly_annotation_truth_table.py: TheSuiteCannotTellToday"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.
