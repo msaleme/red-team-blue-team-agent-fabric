@@ -505,6 +505,10 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "a 1.0-only target A2A-004..011 are INCONCLUSIVE, and a vulnerable 1.0 server is invisible",
      "Harness Tester coverage-gap review, 2026-11-18 (gap 1)", GUARDED,
      "testing/test_a2a_v1_wire_truth_table.py: MeasuredAgainstTheMock"),
+    ("a strict 1.0 server answers a badly translated request with -32602, which every "
+     "counting test reads as the attack being rejected, so a wrong translation would PASS",
+     "self-review of the A2A 1.0 wire repair, 2026-11-18", GUARDED,
+     "testing/test_a2a_v1_wire_truth_table.py: test_no_translated_request_was_refused_for_its_shape"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.
