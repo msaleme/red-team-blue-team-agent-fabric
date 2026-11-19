@@ -41,8 +41,9 @@ python -m protocol_tests.mock_a2a_server --versions 1.0 --vulnerable
 agent-security test a2a --url http://localhost:8404
 ```
 
-Through v4.30.1 the A2A tests speak 0.3 only, so against `--versions 1.0` they report
-INCONCLUSIVE (`testing/test_a2a_v1_wire_truth_table.py`, `V1_UNGRADED`).
+Since v4.31.0 the A2A tests speak 1.0 to a target whose Agent Card declares it, so the 1.0
+mock gives the same verdicts as the 0.3 one (`testing/test_a2a_v1_wire_truth_table.py`).
+`agent-security test a2a --a2a-version 0.3` forces 0.3.
 
 ### Endpoints
 

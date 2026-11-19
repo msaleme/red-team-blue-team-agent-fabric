@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.31.0] - 2026-11-18
+
+The A2A tests speak A2A 1.0 to a 1.0 target, choosing the version from the Agent Card, and a
+bundled A2A mock target ships with hardened and vulnerable modes. Also a correctness
+disclosure: A2A and ten other harness report summaries counted INCONCLUSIVE results as failed,
+and the A2A console printed them as FAIL; read `details`, not `summary.failed`, on earlier
+reports. A dual 0.3/1.0 A2A server is now tested over 1.0 (`--a2a-version 0.3` keeps the old
+path). 661 tests across 50 test-bearing modules, unchanged.
+
 ### Fixed: INCONCLUSIVE results counted and printed as FAIL (correctness disclosure)
 
 Found by an outside test run on 2026-11-18 (Harness Tester), against v4.30.1 and `main`.
