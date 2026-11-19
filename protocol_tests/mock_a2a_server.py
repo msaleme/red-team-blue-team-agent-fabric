@@ -30,8 +30,8 @@ A hardened 1.0 interface rejects a 0.3-shaped part (one carrying `kind`) with
 header must not be graded as if the server read its request.
 
 Usage:
-    python -m protocol_tests.mock_a2a_server [--port 8403] [--versions 0.3,1.0] [--vulnerable]
-    agent-security test a2a --url http://localhost:8403
+    python -m protocol_tests.mock_a2a_server [--port 8404] [--versions 0.3,1.0] [--vulnerable]
+    agent-security test a2a --url http://localhost:8404
 
 Not a reference implementation: no streaming, no persistence beyond the process,
 no authentication. Never expose it beyond localhost.
@@ -43,7 +43,9 @@ import json
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-DEFAULT_PORT = 8403
+#: 8402 is the MCP mock. 8403 was the first choice and collided with a lab layout
+#: that runs its own MCP target there, so the two could not run side by side.
+DEFAULT_PORT = 8404
 CARD_PATH = "/.well-known/agent-card.json"
 
 #: JSON-RPC codes (JSON-RPC 2.0; A2A §5.4).
