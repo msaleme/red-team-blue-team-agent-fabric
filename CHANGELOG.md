@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed: A2A-002 no longer passes on a rejection it cannot attribute to the card (#720)
+
+A2A-002 graded any decline of its spoofed-`sender_agent_card` probe as PASS. Against an A2A
+endpoint that required a credential the harness was not given, the probe drew "Missing identity
+is rejected.", `looks_like_refusal` matched "rejected", and the run reported "Server did not
+grant elevated permissions from spoofed card" about a card the server never read. A2A-002 now
+sends a matched control, the same message without the card (the HI-001..004 position). A
+decline counts only when the control was served and not declined; otherwise the row is
+INCONCLUSIVE and says a missing credential is a common cause. Against a target that declines
+everything, A2A-002 is now INCONCLUSIVE rather than PASS.
+
+### Fixed: A2A `request_sent` is the request on the wire (#721)
+
+`A2ATransport` keeps the envelope its last `rpc()` call sent (`last_request`, after 1.0
+translation). A2A-002 recorded a separately built copy with a different JSON-RPC id; A2A-006
+recorded the server's response as `request_sent` and no `response_received`. Both now record
+the wire request and the response. Guarded by `testing/test_a2a002_matched_pair_controls.py`
+against a loopback server's own log of what it received.
+
 ### Added: truth table for read-only tool annotations, before any probe (#716)
 
 `testing/test_mcp_readonly_annotation_truth_table.py` defines what "a tool annotated
