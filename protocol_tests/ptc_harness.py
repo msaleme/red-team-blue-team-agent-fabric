@@ -48,8 +48,11 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 
-from protocol_tests._utils import Severity, http_post_json, jsonrpc_request, wilson_ci
+from protocol_tests._utils import Severity, http_post_json, jsonrpc_request
 from protocol_tests.http_helpers import (
+    summary_lines,
+    row_outcome,
+    run_summary,
     bare_auth_refusal,
     exit_code,
     console_status,
@@ -960,16 +963,9 @@ class PTCTests:
                         details=str(exc), payload_summary="error",
                     ))
 
-        total = len(self.results)
-        passed_count = sum(1 for r in self.results if r.passed)
-        ci = wilson_ci(passed_count, total)
-
         print(f"\n{'=' * 60}")
-        if total:
-            print(f"RESULTS: {passed_count}/{total} passed ({passed_count / total * 100:.0f}%)")
-            print(f"WILSON 95% CI for pass rate: [{ci[0]:.4f}, {ci[1]:.4f}]")
-        else:
-            print("No tests run.")
+        for line in summary_lines(run_summary(self.results)):
+            print(line)
         print(f"{'=' * 60}\n")
 
         return self.results
@@ -982,27 +978,23 @@ class PTCTests:
 
 def generate_report(results: list[PTCResult], output_path: str) -> None:
     """Write a JSON report of PTC test results."""
-    total = len(results)
-    passed_count = sum(1 for r in results if r.passed)
-    ci = wilson_ci(passed_count, total)
-
+    # run_summary and row_outcome, not `failed = total - passed`: an INCONCLUSIVE
+    # row is not a failure, and no interval is drawn over unserviced rows (#404;
+    # this module escaped that ratchet's scope until 2026-11-18).
     by_severity: dict[str, dict[str, int]] = {}
     for r in results:
-        sev = r.severity
-        by_severity.setdefault(sev, {"total": 0, "passed": 0, "failed": 0})
-        by_severity[sev]["total"] += 1
-        by_severity[sev]["passed" if r.passed else "failed"] += 1
+        bucket = {"PASS": "passed", "FAIL": "failed"}.get(row_outcome(r), "inconclusive")
+        sev = by_severity.setdefault(
+            r.severity, {"total": 0, "passed": 0, "failed": 0, "inconclusive": 0})
+        sev["total"] += 1
+        sev[bucket] += 1
 
     report = {
         "suite": "Programmatic Tool Calling (PTC) Harness v1.0",
         "reference": "Claude Cookbook: tool-use-programmatic-tool-calling-ptc (Nov 2025)",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "summary": {
-            "total": total,
-            "passed": passed_count,
-            "failed": total - passed_count,
-            "pass_rate": round(passed_count / total, 4) if total else 0,
-            "wilson_95_ci": {"lower": ci[0], "upper": ci[1]},
+            **run_summary(results),
             "by_severity": by_severity,
         },
         "results": [asdict(r) for r in results],

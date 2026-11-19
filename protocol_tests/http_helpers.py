@@ -1239,7 +1239,10 @@ def console_status(result) -> str:
     expression. This is the single implementation, so the next repair does not
     have to find thirty homes (see CLAUDE.md item 7).
     """
-    if getattr(result, "not_evaluated", False):
+    # `is_inconclusive`, not the field alone: a result whose details were
+    # rewritten to INCONCLUSIVE after construction kept not_evaluated=False and
+    # printed FAIL (a2a_harness, 2026-11-18). The prefix is the state too.
+    if is_inconclusive(result):
         return "INCONCLUSIVE ➖"
     return "PASS ✅" if result.passed else "FAIL ❌"
 

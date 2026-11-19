@@ -274,7 +274,11 @@ def measure(versions: tuple[str, ...], vulnerable: bool, *extra: str) -> dict:
         httpd.server_close()
 
     def verdict(r):
-        if r.get("not_evaluated") or str(r.get("details", "")).startswith("INCONCLUSIVE"):
+        # The structural field only. Reading `not_evaluated or <prefix>` here hid a
+        # defect for a day: _record rewrote details to INCONCLUSIVE and left the
+        # field False, so the console said FAIL and the summary counted a failure
+        # while this helper reported INCONCLUSIVE (Harness Tester, 2026-11-18).
+        if r.get("not_evaluated"):
             return INCONCLUSIVE
         return PASS if r.get("passed") else FAIL
 
@@ -393,6 +397,59 @@ class MeasuredAgainstTheMock(unittest.TestCase):
             for t in (DISCRIMINATED | NOT_DISCRIMINATED) - V1_UNGRADED:
                 with self.subTest(test_id=t, vulnerable=vul):
                     self.assertEqual(self.m[(("1.0",), vul)][t], self.m[(("0.3",), vul)][t])
+
+
+def _report(versions, vulnerable, *extra) -> tuple[dict, str]:
+    httpd = serve(0, versions, vulnerable)
+    threading.Thread(target=httpd.serve_forever, kwargs={"poll_interval": 0.01},
+                     daemon=True).start()
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.json"
+            proc = subprocess.run(
+                [sys.executable, "-m", "protocol_tests.a2a_harness", "--url",
+                 f"http://127.0.0.1:{httpd.server_address[1]}", "--report", str(path), *extra],
+                cwd=REPO, capture_output=True, text=True, timeout=240, check=False)
+            return json.loads(path.read_text()), proc.stdout
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+class TheReportAgreesWithItself(unittest.TestCase):
+    """Field, details, console and summary must give one verdict per row.
+
+    The Harness Tester repro: a 1.0-only vulnerable target, forced to 0.3. Every
+    request is refused for its version, so A2A-004..011 are INCONCLUSIVE; v4.30.1
+    reported them as `failed` with not_evaluated=false and printed FAIL.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.report, cls.stdout = _report(("1.0",), True, "--a2a-version", "0.3")
+
+    def test_field_and_details_agree_on_every_row(self):
+        for r in self.report["results"]:
+            with self.subTest(test_id=r["test_id"]):
+                self.assertEqual(bool(r["not_evaluated"]),
+                                 str(r["details"]).startswith("INCONCLUSIVE"))
+
+    def test_summary_counts_no_failure_where_nothing_was_evaluated(self):
+        s = self.report["summary"]
+        self.assertEqual(s["failed"], 0)
+        self.assertGreaterEqual(s["inconclusive"], len(V1_GRADED_SET))
+        self.assertEqual(s["passed"] + s["failed"] + s["inconclusive"], s["total"])
+
+    def test_console_prints_no_fail(self):
+        self.assertNotIn("FAIL", self.stdout)
+
+    def test_control_a_real_failure_is_still_counted(self):
+        # The opposite pole: the vulnerable target over 1.0 must keep its failures.
+        report, _ = _report(("1.0",), True)
+        self.assertGreaterEqual(report["summary"]["failed"], len(DISCRIMINATED))
+
+
+V1_GRADED_SET = DISCRIMINATED | NOT_DISCRIMINATED
 
 
 class HarnessFollowsTheTable(unittest.TestCase):

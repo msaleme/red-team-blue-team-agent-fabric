@@ -509,6 +509,23 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "counting test reads as the attack being rejected, so a wrong translation would PASS",
      "self-review of the A2A 1.0 wire repair, 2026-11-18", GUARDED,
      "testing/test_a2a_v1_wire_truth_table.py: test_no_translated_request_was_refused_for_its_shape"),
+    # --- 2026-11-18, Harness Tester run against v4.30.1 / a34321d -----------------------
+    ("A2A _record rewrites details to INCONCLUSIVE without setting not_evaluated, so the "
+     "console printed FAIL and the summary counted failed=11 on rows that were INCONCLUSIVE",
+     "Harness Tester run against v4.30.1 and main a34321d, 2026-11-18", GUARDED,
+     "testing/test_a2a_v1_wire_truth_table.py: TheReportAgreesWithItself"),
+    ("eleven report summaries computed failed as 'not passed'; the #404 ratchet missed them "
+     "because it matched only 'total - passed' and only modules calling inconclusive_detail",
+     "Harness Tester run against v4.30.1 and main a34321d, 2026-11-18", GUARDED,
+     "testing/test_inconclusive_summary.py: test_both_residual_idioms_are_detected"),
+    ("a live run with an unknown --categories key printed the wrapper's INCONCLUSIVE gloss "
+     "after the module's refusal",
+     "Harness Tester run against v4.30.1 and main a34321d, 2026-11-18", GUARDED,
+     "testing/test_cli_dryrun_findings.py: test_cli_live_path_refuses_without_the_wrapper_line"),
+    ("the bundled A2A mock defaulted to a port a lab layout already used",
+     "Harness Tester run against v4.30.1 and main a34321d, 2026-11-18", UNGUARDABLE,
+     "a default-port choice against third-party lab layouts no test can enumerate; fixed in "
+     "#708 by moving to 8404"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.

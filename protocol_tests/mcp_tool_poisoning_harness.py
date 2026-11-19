@@ -89,6 +89,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from protocol_tests.http_helpers import (
+    run_summary,
     INCONCLUSIVE_PREFIX,
     console_status,
     exit_code,
@@ -2025,8 +2026,7 @@ def main():
             "results": [asdict(r) for r in all_results],
             "summary": {
                 "total": len(all_results),
-                "passed": sum(1 for r in all_results if r.passed),
-                "failed": sum(1 for r in all_results if not r.passed),
+                **run_summary(all_results),
             },
         }
         with open(args.report, "w") as f:

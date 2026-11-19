@@ -48,6 +48,7 @@ from protocol_tests.agent_prose_outcome import (
     classify_agent_prose,
 )
 from protocol_tests.http_helpers import (
+    run_summary,
     console_status,
     looks_like_refusal,
     agent_prose,
@@ -759,6 +760,13 @@ class A2ASecurityTests:
                 result.passed = False
                 result.details = (f"{INCONCLUSIVE_PREFIX}{gate}. "
                                   f"Original finding: {result.details}")
+        # Every branch above rewrites `details` after construction, and
+        # __post_init__ derives `not_evaluated` only at construction. Without
+        # this the JSON field said False, the console printed FAIL and the
+        # summary counted a failure on a row whose details said INCONCLUSIVE
+        # (Harness Tester, 2026-11-18; present since the gate landed in #700).
+        if result.details.startswith(INCONCLUSIVE_PREFIX):
+            result.not_evaluated = True
         self.results.append(result)
         status = console_status(result)
         print(f"  {status} {result.test_id}: {result.name} ({result.elapsed_s:.2f}s)")
@@ -2149,8 +2157,7 @@ def generate_report(results: list[A2ATestResult], output_path: str):
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "total": len(results),
-            "passed": sum(1 for r in results if r.passed),
-            "failed": sum(1 for r in results if not r.passed),
+            **run_summary(results),
         },
         "results": [asdict(r) for r in results],
     }

@@ -325,3 +325,15 @@ def _check_one(name, result_cls, failures):
         failures.append(f"{label}: prefix in details but the field is False")
     elif not is_inconclusive(record):
         failures.append(f"{label}: field set but the predicate disagrees")
+
+
+def test_console_status_reads_a_rewritten_details_prefix():
+    """A result whose details were rewritten to INCONCLUSIVE after construction
+    keeps not_evaluated=False. The console must still say INCONCLUSIVE (2026-11-18)."""
+    from types import SimpleNamespace
+    from protocol_tests.http_helpers import INCONCLUSIVE_PREFIX, console_status
+    rewritten = SimpleNamespace(passed=False, not_evaluated=False,
+                                details=INCONCLUSIVE_PREFIX + "refused for its version")
+    assert console_status(rewritten).startswith("INCONCLUSIVE")
+    real_fail = SimpleNamespace(passed=False, not_evaluated=False, details="served")
+    assert console_status(real_fail).startswith("FAIL")
