@@ -24,6 +24,14 @@ MEASURED 2026-11-18 at 70588b4 against protocol_tests/mock_a2a_server.py:
     1.0 vulnerable   A2A-004..011 INCONCLUSIVE                (the gap: an attack that
                                                                would succeed is invisible)
 
+REPAIRED (fix/a2a-v1-wire). The transport speaks the version `select_wire` picks
+from the Agent Card, translating each request with `request_to_v1` and each result
+with `response_from_v1`; A2A-010 writes its raw bytes in that version. Against the
+1.0-only mock the eight tests now give the 0.3 verdicts in both modes, the dual
+mock is spoken to in 1.0, and the strict mock refused no translated request for
+its shape (a wrong translation would otherwise read as a hardened rejection).
+`--a2a-version 0.3` against a 1.0-only target is still INCONCLUSIVE.
+
 A2A-010 does not discriminate: the vulnerable mock still parses JSON-RPC strictly.
 That is a limit of the mock, recorded in NOT_DISCRIMINATED rather than hidden.
 
@@ -48,6 +56,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
+from protocol_tests import a2a_harness as harness
 from protocol_tests.mock_a2a_server import (
     INVALID_PARAMS,
     VERSION_NOT_SUPPORTED,
@@ -241,22 +250,25 @@ RESPONSE_ROWS = [
 DISCRIMINATED = {"A2A-004", "A2A-005", "A2A-006", "A2A-007", "A2A-008", "A2A-009", "A2A-011"}
 #: PASS against both modes: the vulnerable mock still parses JSON-RPC strictly.
 NOT_DISCRIMINATED = {"A2A-010"}
-#: Tests that cannot grade a 1.0-only target today. Shrink-only: the repair empties it,
-#: and then the 1.0 verdicts must equal the 0.3 ones in both modes.
-V1_UNGRADED = DISCRIMINATED | NOT_DISCRIMINATED
+#: Tests that cannot grade a 1.0-only target. Measured {A2A-004..011} at 70588b4;
+#: emptied by the repair. Shrink-only, checked in both directions.
+V1_UNGRADED: set[str] = set()
 
 
-def measure(versions: tuple[str, ...], vulnerable: bool) -> dict[str, str]:
+def measure(versions: tuple[str, ...], vulnerable: bool, *extra: str) -> dict:
+    """Verdicts by test ID, plus '_shape' (the mock's shape refusals) and '_stdout'."""
     httpd = serve(0, versions, vulnerable)
     threading.Thread(target=httpd.serve_forever, kwargs={"poll_interval": 0.01},
                      daemon=True).start()
     try:
         with tempfile.TemporaryDirectory() as tmp:
             report = Path(tmp) / "report.json"
-            subprocess.run([sys.executable, "-m", "protocol_tests.a2a_harness", "--url",
-                            f"http://127.0.0.1:{httpd.server_address[1]}", "--report", str(report)],
-                           cwd=REPO, capture_output=True, timeout=240, check=False)
+            proc = subprocess.run(
+                [sys.executable, "-m", "protocol_tests.a2a_harness", "--url",
+                 f"http://127.0.0.1:{httpd.server_address[1]}", "--report", str(report), *extra],
+                cwd=REPO, capture_output=True, text=True, timeout=240, check=False)
             results = json.loads(report.read_text())["results"]
+            shape = list(httpd.state.shape_rejections)
     finally:
         httpd.shutdown()
         httpd.server_close()
@@ -266,7 +278,9 @@ def measure(versions: tuple[str, ...], vulnerable: bool) -> dict[str, str]:
             return INCONCLUSIVE
         return PASS if r.get("passed") else FAIL
 
-    return {r["test_id"]: verdict(r) for r in results}
+    out = {r["test_id"]: verdict(r) for r in results}
+    out["_shape"], out["_stdout"] = shape, proc.stdout
+    return out
 
 
 class TruthTable(unittest.TestCase):
@@ -337,7 +351,18 @@ class MeasuredAgainstTheMock(unittest.TestCase):
     def test_the_runs_produced_rows(self):
         for key, verdicts in self.m.items():
             with self.subTest(target=key):
-                self.assertEqual(len(verdicts), 13)
+                self.assertEqual(len([k for k in verdicts if not k.startswith("_")]), 13)
+
+    def test_no_translated_request_was_refused_for_its_shape(self):
+        # Positive control for the 1.0 PASSes: the hardened mock refuses a badly
+        # translated request with -32602, which the tests would read as a rejection.
+        for key, verdicts in self.m.items():
+            with self.subTest(target=key):
+                self.assertEqual(verdicts["_shape"], [])
+
+    def test_a_1_0_target_is_spoken_to_in_1_0(self):
+        self.assertIn("A2A wire version: 1.0", self.m[(("1.0",), False)]["_stdout"])
+        self.assertIn("A2A wire version: 0.3", self.m[(("0.3",), False)]["_stdout"])
 
     def test_positive_control_hardened_0_3_passes(self):
         for t in DISCRIMINATED | NOT_DISCRIMINATED:
@@ -368,6 +393,49 @@ class MeasuredAgainstTheMock(unittest.TestCase):
             for t in (DISCRIMINATED | NOT_DISCRIMINATED) - V1_UNGRADED:
                 with self.subTest(test_id=t, vulnerable=vul):
                     self.assertEqual(self.m[(("1.0",), vul)][t], self.m[(("0.3",), vul)][t])
+
+
+class HarnessFollowsTheTable(unittest.TestCase):
+    """The harness's own functions against the rows above, not the reference copies."""
+
+    def test_select_wire(self):
+        for case, card, forced, expected in WIRE_SELECTION:
+            with self.subTest(case=case):
+                self.assertEqual(harness.select_wire(card, forced), expected)
+
+    def test_request_to_v1(self):
+        for case, (m, p), expected in REQUEST_ROWS:
+            with self.subTest(case=case):
+                self.assertEqual(harness.request_to_v1(m, p, message_id="ash-<generated>"), expected)
+
+    def test_response_from_v1(self):
+        for case, given, expected in RESPONSE_ROWS:
+            with self.subTest(case=case):
+                self.assertEqual(harness.response_from_v1(given), expected)
+
+    def test_shape_counter_fires_on_a_0_3_part_under_1_0(self):
+        # Control for test_no_translated_request_was_refused_for_its_shape.
+        state = MockA2AState(("1.0",), vulnerable=False, port=0)
+        body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "SendMessage", "params": {
+            "message": {"role": "ROLE_USER", "messageId": "m",
+                        "parts": [{"kind": "text", "text": "x"}]}}}).encode()
+        handle_rpc(state, body, "1.0")
+        self.assertEqual(len(state.shape_rejections), 1)
+
+
+class OtherWireChoices(unittest.TestCase):
+    def test_dual_server_is_spoken_to_in_1_0_with_the_same_verdicts(self):
+        dual, v03 = measure(("0.3", "1.0"), True), measure(("0.3",), True)
+        self.assertIn("A2A wire version: 1.0", dual["_stdout"])
+        for t in DISCRIMINATED | NOT_DISCRIMINATED:
+            with self.subTest(test_id=t):
+                self.assertEqual(dual[t], v03[t])
+
+    def test_forcing_0_3_on_a_1_0_only_target_stays_inconclusive(self):
+        forced = measure(("1.0",), True, "--a2a-version", "0.3")
+        for t in DISCRIMINATED | NOT_DISCRIMINATED:
+            with self.subTest(test_id=t):
+                self.assertEqual(forced[t], INCONCLUSIVE)
 
 
 if __name__ == "__main__":

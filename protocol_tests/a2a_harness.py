@@ -80,6 +80,12 @@ class A2ATransport:
     def __init__(self, base_url: str, headers: dict | None = None):
         self.base_url = base_url.rstrip("/")
         self.headers = headers or {}
+        #: The version on the wire. "0.3" sends requests as written, with no
+        #: A2A-Version header (section 3.6.1 exempts 0.3 clients). "1.0" translates.
+        self.wire = "0.3"
+
+    def _wire_headers(self) -> dict:
+        return {"A2A-Version": self.wire} if self.wire != "0.3" else {}
 
     def get(self, path: str) -> dict:
         """HTTP GET (for Agent Card discovery)."""
@@ -112,12 +118,16 @@ class A2ATransport:
             return {"_error": True, "_exception": str(e)}
 
     def rpc(self, method: str, params: dict | None = None) -> dict:
-        """Send JSON-RPC 2.0 request to A2A endpoint."""
+        """Send JSON-RPC 2.0 request to A2A endpoint, in the transport's wire version."""
+        v1 = self.wire == "1.0"
+        if v1:
+            method, params = request_to_v1(method, params)
         msg = jsonrpc_request(method, params)
         data = json.dumps(msg).encode("utf-8")
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
+            **self._wire_headers(),
             **self.headers,
         }
         req = urllib.request.Request(self.base_url, data=data, headers=headers, method="POST")
@@ -130,7 +140,10 @@ class A2ATransport:
                     # http_helpers.empty_2xx can see it (#622).
                     return {"_status": resp.status}
                 if "application/json" in content_type:
-                    return json.loads(body)
+                    parsed = json.loads(body)
+                    if v1 and isinstance(parsed, dict) and "result" in parsed:
+                        parsed["result"] = response_from_v1(parsed["result"])
+                    return parsed
                 elif "text/event-stream" in content_type:
                     # Parse SSE events
                     events = []
@@ -153,8 +166,9 @@ class A2ATransport:
             return {"_error": True, "_exception": str(e)}
 
     def rpc_raw(self, raw_body: bytes) -> dict:
-        """Send raw bytes as POST body."""
-        headers = {"Content-Type": "application/json", **self.headers}
+        """Send raw bytes as POST body. Carries the wire version's header; the
+        bytes are the caller's, so a test must write them in that version."""
+        headers = {"Content-Type": "application/json", **self._wire_headers(), **self.headers}
         req = urllib.request.Request(self.base_url, data=raw_body, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
@@ -280,9 +294,12 @@ AGENT_CARD_PATHS = ("/.well-known/agent-card.json", "/.well-known/agent.json")
 #: A2A v1.0.1 section 5.4: `VersionNotSupportedError`.
 VERSION_NOT_SUPPORTED = -32009
 
-#: Every request in this module is A2A 0.3 wire format with no `A2A-Version`
-#: header, which v1.0.1 section 3.6 says an agent MUST read as 0.3.
+#: The version every test is written in. On a 1.0 target the transport translates
+#: each request to 1.0 and each response back (`request_to_v1`, `response_from_v1`).
+#: Until v4.30.1 nothing was translated, so a 1.0 target was never graded.
 SPOKEN_VERSION = "0.3"
+#: Versions the transport can put on the wire.
+WIRE_VERSIONS = ("0.3", "1.0")
 
 #: Tests graded on the Agent Card alone, not on a JSON-RPC request.
 CARD_GRADED = frozenset({"A2A-001", "A2A-003", "A2A-013"})
@@ -318,6 +335,116 @@ def _declared_versions(card) -> set[str]:
         m = re.match(r"^\s*(\d+)\.(\d+)", v) if isinstance(v, str) else None
         if m:
             out.add(f"{int(m.group(1))}.{int(m.group(2))}")
+    return out
+
+
+# ---------------------------------------------------------------------------
+# A2A 1.0 wire format (a2aproject/A2A @ v1.0.1). The rules, and the measured
+# verdicts against protocol_tests/mock_a2a_server.py, are in
+# testing/test_a2a_v1_wire_truth_table.py.
+# ---------------------------------------------------------------------------
+
+def select_wire(card, forced: str | None = None) -> str | None:
+    """The version to speak to a target whose Agent Card is *card*.
+
+    An undeclared version is 0.3 (section 3.6.2). Any declared 1.0 wins (App. A.2,
+    "prefer new names"): on a dual server the 1.0 path is the one that was never
+    tested. A card declaring only versions the harness cannot speak gives None,
+    and the version gate then reports INCONCLUSIVE rather than falling back.
+    """
+    if forced:
+        return forced
+    versions = _declared_versions(card)
+    if not versions:
+        return "0.3"
+    if "1.0" in versions:
+        return "1.0"
+    if "0.3" in versions:
+        return "0.3"
+    return None
+
+
+#: Section 5.3. Methods not listed (A2A-011's undocumented probes) are sent as written.
+METHOD_1_0 = {"message/send": "SendMessage", "message/stream": "SendStreamingMessage",
+              "tasks/get": "GetTask", "tasks/cancel": "CancelTask", "tasks/list": "ListTasks",
+              "tasks/resubscribe": "SubscribeToTask",
+              "agent/getAuthenticatedExtendedCard": "GetExtendedAgentCard"}
+
+#: a2a.proto TaskState -> the 0.3 strings the oracles in this module compare against.
+STATE_0_3 = {"TASK_STATE_SUBMITTED": "submitted", "TASK_STATE_WORKING": "working",
+             "TASK_STATE_COMPLETED": "completed", "TASK_STATE_FAILED": "failed",
+             "TASK_STATE_CANCELED": "canceled", "TASK_STATE_INPUT_REQUIRED": "input-required",
+             "TASK_STATE_REJECTED": "rejected", "TASK_STATE_AUTH_REQUIRED": "auth-required"}
+
+
+def part_to_v1(part: dict) -> dict:
+    """A 0.3 Part as a 1.0 Part (App. A.2.1: no `kind`; the member name discriminates)."""
+    kind = part.get("kind")
+    if kind == "text":
+        return {"text": part.get("text", "")}
+    if kind == "data":
+        return {"data": part.get("data"), "mediaType": "application/json"}
+    if kind == "file":
+        f = part.get("file") or {}
+        out = {"url": f["uri"]} if "uri" in f else {"raw": f.get("bytes", "")}
+        if f.get("mimeType"):
+            out["mediaType"] = f["mimeType"]
+        if f.get("name"):
+            out["filename"] = f["name"]
+        return out
+    return dict(part)  # not a 0.3 part: an attack payload, sent as written
+
+
+def request_to_v1(method: str, params, message_id: str | None = None) -> tuple[str, object]:
+    """A 0.3 request as the same request in 1.0. Attack-only fields are kept."""
+    new_method = METHOD_1_0.get(method, method)
+    if not isinstance(params, dict):
+        return new_method, params
+    params = json.loads(json.dumps(params))
+    msg = params.get("message")
+    if isinstance(msg, dict):
+        if msg.get("role") == "user":
+            msg["role"] = "ROLE_USER"
+        msg.setdefault("messageId", message_id or f"ash-{uuid.uuid4().hex[:12]}")
+        if isinstance(msg.get("parts"), list):
+            msg["parts"] = [part_to_v1(p) if isinstance(p, dict) else p for p in msg["parts"]]
+    config = params.get("configuration")
+    if isinstance(config, dict) and "pushNotificationConfig" in config:
+        config["taskPushNotificationConfig"] = config.pop("pushNotificationConfig")
+    if isinstance(config, dict) and "blocking" in config:
+        config["returnImmediately"] = not config.pop("blocking")
+    return new_method, params
+
+
+def part_from_v1(part):
+    if not isinstance(part, dict) or "kind" in part:
+        return part
+    if "text" in part:
+        return {**part, "kind": "text"}
+    if "data" in part:
+        return {**part, "kind": "data"}
+    if "url" in part or "raw" in part:
+        return {**part, "kind": "file"}
+    return part
+
+
+def response_from_v1(result):
+    """A 1.0 result in the 0.3 shape this module's oracles read. Errors are untouched."""
+    if not isinstance(result, dict):
+        return result
+    if set(result) == {"task"} or set(result) == {"message"}:
+        result = next(iter(result.values()))
+    out = json.loads(json.dumps(result))
+    status = out.get("status") if isinstance(out, dict) else None
+    if isinstance(status, dict) and status.get("state") in STATE_0_3:
+        status["state"] = STATE_0_3[status["state"]]
+    if not isinstance(out, dict):
+        return out
+    if out.get("role") == "ROLE_AGENT":
+        out["role"] = "agent"
+    for holder in [out] + list(out.get("artifacts") or []) + list(out.get("history") or []):
+        if isinstance(holder, dict) and isinstance(holder.get("parts"), list):
+            holder["parts"] = [part_from_v1(p) for p in holder["parts"]]
     return out
 
 
@@ -525,8 +652,11 @@ def _delivered(resp: dict, blob: str, markers) -> bool:
 class A2ASecurityTests:
     """Protocol-level security tests for A2A servers."""
 
-    def __init__(self, transport: A2ATransport, agent_card_path: str | None = None, simulate: bool = False):
+    def __init__(self, transport: A2ATransport, agent_card_path: str | None = None,
+                 simulate: bool = False, a2a_version: str | None = None):
         self.transport = transport
+        #: None or "auto" selects from the Agent Card (select_wire); "0.3"/"1.0" force.
+        self.forced_wire = None if a2a_version in (None, "auto") else a2a_version
         #: An explicit path is used as given. Otherwise AGENT_CARD_PATHS are tried
         #: in order on first use, and the first that serves a card wins.
         self._card_path = agent_card_path
@@ -732,9 +862,12 @@ class A2ASecurityTests:
         testing/test_a2a_v1_version_truth_table.py holds the table this follows.
         """
         if any(_rpc_error_code(r) == VERSION_NOT_SUPPORTED for r in seen):
+            wire = getattr(self.transport, "wire", SPOKEN_VERSION)
+            sent = (f"A2A {wire}, no A2A-Version header" if wire == "0.3"
+                    else f"A2A {wire}, A2A-Version: {wire}")
             return ("the target answered VersionNotSupportedError (-32009): it did not "
-                    f"read this request in the version it was sent in (A2A {SPOKEN_VERSION}, "
-                    "no A2A-Version header), so the attack was never evaluated")
+                    f"read this request in the version it was sent in ({sent}), so the "
+                    "attack was never evaluated")
         if test_id in CARD_GRADED:
             return None
         if self._card_for_versions is None:
@@ -743,9 +876,10 @@ class A2ASecurityTests:
                 resp = self._quiet_get(path)
                 self._card_for_versions = resp if _served_agent_card(resp) else {}
         declared = _declared_versions(self._card_for_versions)
-        if declared and SPOKEN_VERSION not in declared:
+        wire = getattr(self.transport, "wire", SPOKEN_VERSION)
+        if declared and wire not in declared:
             return (f"the Agent Card declares A2A {', '.join(sorted(declared))} only, and this "
-                    f"test speaks {SPOKEN_VERSION}; a request in a version the target does not "
+                    f"test spoke {wire}; a request in a version the target does not "
                     "serve is not evaluated under its semantics")
         return None
 
@@ -1562,14 +1696,20 @@ class A2ASecurityTests:
             return
         t0 = time.monotonic()
 
+        # Raw bytes bypass the transport's translation, so they are written in the
+        # wire version here: on a 1.0 target a 0.3 method name is a wrong-version
+        # request, not the malformation each row is meant to be.
+        wire = getattr(self.transport, "wire", SPOKEN_VERSION)
+        send = "SendMessage" if wire == "1.0" else "message/send"
+        big = ({"role": "ROLE_USER", "messageId": f"ash-{uuid.uuid4().hex[:12]}",
+                "parts": [{"text": "A" * 500000}]} if wire == "1.0"
+               else {"role": "user", "parts": [{"kind": "text", "text": "A" * 500000}]})
         malformed = [
             b'not json',
-            b'{"jsonrpc": "1.0", "method": "message/send"}',  # Wrong version
+            json.dumps({"jsonrpc": "1.0", "method": send}).encode(),  # Wrong JSON-RPC version
             b'{"jsonrpc": "2.0"}',  # Missing method
-            b'{"jsonrpc": "2.0", "method": "message/send", "params": "string_not_object"}',
-            json.dumps(jsonrpc_request("message/send", {
-                "message": {"role": "user", "parts": [{"kind": "text", "text": "A" * 500000}]}  # 500K chars
-            })).encode(),
+            json.dumps({"jsonrpc": "2.0", "method": send, "params": "string_not_object"}).encode(),
+            json.dumps(jsonrpc_request(send, {"message": big})).encode(),  # 500K chars
             json.dumps(jsonrpc_request("../../admin/delete", {})).encode(),  # Path in method
         ]
 
@@ -1960,6 +2100,13 @@ class A2ASecurityTests:
         print(f"{'='*60}")
         mode = "SIMULATION" if self.simulate else f"LIVE ({self.transport.base_url})"
         print(f"Mode: {mode}")
+        if not self.simulate and hasattr(self.transport, "wire"):
+            _ = self.agent_card_path  # resolves the card the version is read from
+            chosen = select_wire(self._card_for_versions, self.forced_wire)
+            self.transport.wire = chosen or SPOKEN_VERSION
+            print(f"A2A wire version: {self.transport.wire}"
+                  + ("" if chosen else " (the card declares no version this harness speaks; "
+                     "card-independent verdicts will be INCONCLUSIVE)"))
 
         for category, tests in test_map.items():
             print(f"\n[{category.upper().replace('_', ' ')}]")
@@ -2026,6 +2173,9 @@ def main():
     ap.add_argument("--header", action="append", default=[], help="Extra HTTP headers (key:value)")
     ap.add_argument("--trials", type=int, default=1, help="Run each test N times for statistical analysis (NIST AI 800-2)")
     ap.add_argument("--simulate", action="store_true", help="Run in simulate mode (no live endpoint needed)")
+    ap.add_argument("--a2a-version", choices=("auto",) + WIRE_VERSIONS, default="auto",
+                    help="A2A version to speak. auto (default) reads the Agent Card: 1.0 if "
+                         "declared, else 0.3")
     args = ap.parse_args()
 
     if not args.url and not args.simulate:
@@ -2047,7 +2197,7 @@ def main():
 
         def _single_run():
             suite = A2ASecurityTests(transport, agent_card_path=args.agent_card,
-                                     simulate=args.simulate)
+                                     simulate=args.simulate, a2a_version=args.a2a_version)
             return {"results": suite.run_all(categories=categories)}
 
         merged = _run_trials(_single_run, trials=args.trials,
@@ -2059,7 +2209,7 @@ def main():
         results = merged.get("results", [])
     else:
         suite = A2ASecurityTests(transport, agent_card_path=args.agent_card,
-                                 simulate=args.simulate)
+                                 simulate=args.simulate, a2a_version=args.a2a_version)
         results = suite.run_all(categories=categories)
         if args.report:
             generate_report(results, args.report)

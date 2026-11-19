@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed: the A2A tests speak A2A 1.0 to a 1.0 target (coverage gap 1)
+
+Through v4.30.1 every A2A request was 0.3 (`message/send`, `kind` parts, no `A2A-Version`),
+so a server's 1.0 handlers were never exercised: since v4.30.1 a 1.0-only target got
+INCONCLUSIVE on A2A-004..011, and a vulnerable one was invisible.
+
+- **The version comes from the Agent Card** (`select_wire`): 1.0 when declared, 0.3 when
+  nothing is declared, and on a card declaring only versions the harness cannot speak, the
+  tests stay INCONCLUSIVE rather than falling back. `--a2a-version {auto,0.3,1.0}` overrides.
+  **A dual 0.3/1.0 server is now tested over 1.0**, so its results come from its 1.0 path.
+- **The transport translates** each request to 1.0 (PascalCase methods, `kind`-less parts,
+  `ROLE_USER`, `messageId`, `taskPushNotificationConfig`, `A2A-Version: 1.0`) and each result
+  back to the shape the existing oracles read. Attack-only fields and undocumented methods are
+  sent as written. A2A-010 writes its raw bytes in the wire version.
+- **Measured against the bundled mock:** on a 1.0-only target A2A-004..011 now give the 0.3
+  verdicts in both modes (hardened: PASS; vulnerable: A2A-004..009/011 FAIL), the strict mock
+  refused no translated request for its shape, and `--a2a-version 0.3` against it is still
+  INCONCLUSIVE. `V1_UNGRADED` is empty.
+
 ### Added: a bundled A2A mock target, and the truth table for speaking A2A 1.0
 
 - **`protocol_tests/mock_a2a_server.py`** (`agent-security-mock-a2a`, or

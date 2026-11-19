@@ -74,6 +74,10 @@ class MockA2AState:
         self.vulnerable = vulnerable
         self.port = port
         self.tasks: dict[str, dict] = {}
+        #: Requests refused for their SHAPE (a part, role or messageId wrong for the
+        #: wire version), not for their attack. A client whose translation is wrong
+        #: is refused here, which a hardened run would otherwise read as a rejection.
+        self.shape_rejections: list[str] = []
 
     def card(self) -> dict:
         base = {
@@ -212,14 +216,16 @@ def handle_rpc(state: MockA2AState, body: bytes, version_header: str | None) -> 
     msg = params.get("message")
     if not isinstance(msg, dict) or not isinstance(msg.get("parts"), list) or not msg["parts"]:
         return _err(rid, INVALID_PARAMS, "Invalid params: message.parts is required")
+    shape = None
     if wire == "1.0" and not msg.get("messageId"):
-        return _err(rid, INVALID_PARAMS, "Invalid params: message.messageId is required")
-    if msg.get("role") != ROLE_USER[wire]:
-        return _err(rid, INVALID_PARAMS, f"Invalid params: role must be {ROLE_USER[wire]}")
-    for part in msg["parts"]:
-        why = _part_problem(part, wire)
-        if why:
-            return _err(rid, INVALID_PARAMS, f"Invalid params: {why}")
+        shape = "message.messageId is required"
+    elif msg.get("role") != ROLE_USER[wire]:
+        shape = f"role must be {ROLE_USER[wire]}"
+    else:
+        shape = next((w for w in (_part_problem(p, wire) for p in msg["parts"]) if w), None)
+    if shape:
+        state.shape_rejections.append(f"{method}: {shape}")
+        return _err(rid, INVALID_PARAMS, f"Invalid params: {shape}")
     texts = [_part_text(p) for p in msg["parts"]]
     if sum(len(t) for t in texts) > MAX_TEXT:
         return _err(rid, INVALID_PARAMS, "Invalid params: message too large")
@@ -286,6 +292,7 @@ def serve(port: int, versions: tuple[str, ...], vulnerable: bool) -> ThreadingHT
     state = MockA2AState(versions, vulnerable, port)
     httpd = ThreadingHTTPServer(("127.0.0.1", port), make_handler(state))
     state.port = httpd.server_address[1]
+    httpd.state = state  # type: ignore[attr-defined]  # read by the harness's own controls
     return httpd
 
 
