@@ -61,6 +61,24 @@ agent-security test mcp --transport http --url http://localhost:8402/mcp
 
 The mock server includes a poisoned tool description (exfil URL) that the `tool_discovery_poisoning` test should catch.
 
+## Try It Without a Server (Mock A2A Target)
+
+The A2A mock serves A2A 0.3, 1.0 or both, in a **hardened** mode that rejects what
+A2A-004..011 send and a **vulnerable** mode that accepts it, so you can see the same tests
+PASS and FAIL. Labs and CI only; it binds to 127.0.0.1.
+
+```bash
+# Terminal 1: hardened, both versions, port 8404
+agent-security-mock-a2a
+# or a vulnerable 1.0-only target:  agent-security-mock-a2a --versions 1.0 --vulnerable
+
+# Terminal 2
+agent-security test a2a --url http://localhost:8404 --report a2a.json
+```
+
+The harness reads the Agent Card and speaks 1.0 when it is declared, else 0.3;
+`--a2a-version 0.3` or `1.0` forces one. A2A uses `--report`, not `--json`.
+
 ---
 
 ## Rate Limiting

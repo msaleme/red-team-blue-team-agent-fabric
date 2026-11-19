@@ -166,11 +166,19 @@ agent-security --version
 # See it work immediately — no server needed:
 agent-security test mcp --simulate
 
-# Then test your real MCP server:
+# Watch a verdict move: both bundled mocks ship in the package (MCP on 8402, A2A on 8404)
+agent-security-mock-a2a --vulnerable &          # or without --vulnerable: the hardened target
+agent-security test a2a --url http://localhost:8404
+
+# Then test your real MCP server (2024-11-05 through 2026-07-28; the negotiated version is used):
 agent-security test mcp --url http://localhost:8080/mcp
 
-# Test an x402 payment endpoint. Its probes predate the published x402 transport: against a
-# spec v1/v2 server only 5 tests grade, the rest report INCONCLUSIVE and say why (see CHANGELOG).
+# A2A: 0.3 or 1.0, chosen from the Agent Card (--a2a-version 0.3|1.0 to force one)
+agent-security test a2a --url https://agent.example.com
+
+# x402: X4-058..X4-069 send signed spec payments and need a testnet payer key; without one
+# they report INCONCLUSIVE. The older pre-spec probes grade only 5 tests against a spec v1/v2
+# server and say why for the rest (see CHANGELOG).
 agent-security test x402 --url https://your-x402-endpoint.com
 
 # Human-oversight surface: reviewer exposure (T10) and agent-to-human
@@ -223,8 +231,8 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for mock server setup, rate limitin
 |---|---|---|---|---|
 | **What it does** | Scans agent/MCP configs for tool poisoning and skill security | YARA + LLM-as-judge for malicious tools | LLM model vulnerability testing | Active protocol exploitation + decision governance |
 | **Approach** | Static analysis | Static + LLM classification | Model-layer probing | **Wire-protocol adversarial testing** |
-| **MCP coverage** | Tool descriptions, config files | Tool descriptions, YARA rules | - | **48 tests: protocol (34) + supply-chain (4) + tool-poisoning repro (10), real JSON-RPC 2.0 attacks** |
-| **A2A coverage** | - | - | - | **13 tests** |
+| **MCP coverage** | Tool descriptions, config files | Tool descriptions, YARA rules | - | **48 tests: protocol (34) + supply-chain (4) + tool-poisoning repro (10), real JSON-RPC 2.0 attacks, MCP 2024-11-05 through 2026-07-28** |
+| **A2A coverage** | - | - | - | **13 tests** over A2A 0.3 or 1.0, chosen from the Agent Card; bundled hardened and vulnerable mock target |
 | **L402/x402 coverage** | - | - | - | **99 tests** (L402 33 + x402 66); X4-058..X4-069 send spec payments (`PAYMENT-SIGNATURE` / `X-PAYMENT`) and need a testnet payer key; the older x402 probes use a pre-spec header format, so against a spec x402 v1/v2 server 5 of them grade and the rest are INCONCLUSIVE |
 | **Merchant journey (UCP/ACP)** | - | - | - | **12 tests: agent-profile + cross-merchant cart + delegated checkout** |
 | **Funding instrument (Visa TAP / MC Agentic Tokens)** | - | - | - | **12 tests: holder/merchant/amount/velocity scope + dynamic cryptogram + revocation** |
