@@ -29,6 +29,21 @@ python -m protocol_tests.mock_mcp_server --port 9000
 
 Default port: 8402
 
+### Mock A2A server
+
+`protocol_tests/mock_a2a_server.py` is an A2A JSON-RPC target for labs and CI. It serves A2A
+0.3, 1.0 or both, in a hardened mode (A2A-004..011 can PASS) or a vulnerable mode (they can
+FAIL). A target that can only be passed cannot show a test works, so both modes ship.
+
+```bash
+python -m protocol_tests.mock_a2a_server                         # 0.3 and 1.0, hardened, port 8403
+python -m protocol_tests.mock_a2a_server --versions 1.0 --vulnerable
+agent-security test a2a --url http://localhost:8403
+```
+
+Through v4.30.1 the A2A tests speak 0.3 only, so against `--versions 1.0` they report
+INCONCLUSIVE (`testing/test_a2a_v1_wire_truth_table.py`, `V1_UNGRADED`).
+
 ### Endpoints
 
 - `GET /` - Server status and info

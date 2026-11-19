@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added: a bundled A2A mock target, and the truth table for speaking A2A 1.0
+
+- **`protocol_tests/mock_a2a_server.py`** (`agent-security-mock-a2a`, or
+  `python -m protocol_tests.mock_a2a_server`): an A2A JSON-RPC target serving 0.3, 1.0 or both,
+  in a **hardened** mode that rejects what A2A-004..011 send and a **vulnerable** mode that
+  accepts it. A strict 1.0 interface refuses 0.3-shaped parts. Requested by a v4.30.0
+  clean-install dry run, which found no A2A target in the wheel. Labs and CI only.
+- **`testing/test_a2a_v1_wire_truth_table.py`** (rule 9, before any harness change): which
+  version to speak from the Agent Card, the 0.3 -> 1.0 request translation (methods, `kind`-less
+  parts, roles, `messageId`, push-config key) and the 1.0 -> 0.3 response normalisation the
+  existing oracles need, each cited to A2A v1.0.1. Measured: against the 0.3 mock, A2A-004..011
+  PASS hardened and A2A-004..009/011 FAIL vulnerable; against the 1.0-only mock all eight are
+  INCONCLUSIVE in both modes. That is coverage-gap item 1, now a shrink-only register
+  (`V1_UNGRADED`) for the repair to empty.
+
 ## [4.30.1] - 2026-11-18
 
 A correctness release. A2A and MCP verdicts against servers on newer protocol versions could
