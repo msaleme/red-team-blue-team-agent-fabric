@@ -531,6 +531,21 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "suite gives identical verdicts against a truthful and a mislabelled read-only tool",
      "gap issue #716 (CVE-2026-126816, GHSA-mqm3-w68j-75mw), 2026-11-18", GUARDED,
      "testing/test_mcp_readonly_annotation_truth_table.py: TheSuiteCannotTellToday"),
+    # --- 2026-11-19, issues #720 / #721 (logging-proxy run against a credentialed lab) ---
+    ("A2A-002 graded an authentication rejection as PASS: with no credential, 'Missing "
+     "identity is rejected.' matched looks_like_refusal and the spoofed card was never read",
+     "wire capture against a credential-gated A2A lab, 2026-11-19 (#720)", GUARDED,
+     "testing/test_a2a002_matched_pair_controls.py: A2A002MatchedPair"),
+    ("A2A-002 recorded a separately built request copy as request_sent (different JSON-RPC "
+     "id from the wire), and A2A-006 recorded the response as request_sent",
+     "wire capture against a credential-gated A2A lab, 2026-11-19 (#721)", GUARDED,
+     "testing/test_a2a002_matched_pair_controls.py: RequestSentIsTheWireRequest"),
+    ("looks_like_refusal is called from fourteen files in protocol_tests; whether an authentication rejection can "
+     "reach PASS through the other 13 is unmeasured",
+     "author, scoping #720, 2026-11-19", UNGUARDABLE,
+     "an open measurement, not a property a test can hold yet: some modules (identity, x402) "
+     "correctly grade a credential rejection as the control working, so the remedy differs "
+     "per module and must not be a bulk guard. Tracked as #722"),
 ]
 
 #: Documents that pin themselves to a revision and publish source hashes.
