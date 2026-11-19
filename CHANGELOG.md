@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed: INCONCLUSIVE results counted and printed as FAIL (correctness disclosure)
+
+Found by an outside test run on 2026-11-18 (Harness Tester), against v4.30.1 and `main`.
+
+- **A2A.** `_record` rewrites a result to INCONCLUSIVE in three places (the two silence rules
+  and the version gate from #700) after it is built, and never set `not_evaluated`. The JSON
+  field said `false`, the console printed `FAIL` and the summary counted a failure on rows whose
+  details said INCONCLUSIVE. Against a 1.0-only target with `--a2a-version 0.3`, eleven rows were
+  reported as failed and none was. Every v4.30.0 and v4.30.1 A2A report is affected: read a row's
+  `details`, not its `not_evaluated` or the summary's `failed`.
+- **Eleven report summaries counted INCONCLUSIVE as failed.** a2a, advanced_attacks,
+  cloud_agent, crewai_cve, enterprise and extended_enterprise adapters, framework_adapters,
+  gtg1002, mcp_tool_poisoning, ptc and extended_thinking wrote `"failed"` as everything that
+  did not pass; ptc and extended_thinking also drew a Wilson interval over unserviced rows. All
+  now use the shared `run_summary` (separate `inconclusive` count, rate over serviced rows only).
+  The #404 ratchet missed them: it recognised only `total - passed` and only modules that call
+  `inconclusive_detail`. It now recognises both idioms and every way a module can produce
+  INCONCLUSIVE, with seeded controls.
+- **The console line** (`console_status`) uses the shared `is_inconclusive`, so it agrees with
+  the summary and the CI report gate on every harness.
+- **`agent-security test mcp --categories <unknown>`** on a live run is refused before dispatch,
+  as under `--simulate`; the wrapper no longer adds an "INCONCLUSIVE" gloss to a run that never
+  started.
+- `testing/test_a2a_v1_wire_truth_table.py` read `not_evaluated or <prefix>`, which is how it
+  missed the A2A defect; it now reads the field only, and `TheReportAgreesWithItself` requires
+  field, details, console and summary to give one verdict per row.
+
 ### Changed: the A2A tests speak A2A 1.0 to a 1.0 target (coverage gap 1)
 
 Through v4.30.1 every A2A request was 0.3 (`message/send`, `kind` parts, no `A2A-Version`),

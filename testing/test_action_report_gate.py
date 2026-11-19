@@ -282,9 +282,11 @@ class OtherHarnessShapes(unittest.TestCase):
         counts = gate_counts(report)
         self.assertEqual((counts["failed"], counts["critical_failures"], counts["inconclusive"]),
                          (1, 1, 1))
-        # A2A's own written summary is two-bucket (failed == 2). The gate
-        # recomputes from rows rather than trusting it.
-        self.assertEqual(report["summary"]["failed"], 2)
+        # A2A's written summary was two-bucket (failed == 2) until 2026-11-18,
+        # which is why the gate recomputes from rows. It now uses run_summary,
+        # so the written summary and the gate agree.
+        self.assertEqual((report["summary"]["failed"], report["summary"]["inconclusive"]),
+                         (counts["failed"], counts["inconclusive"]))
 
     def test_identity_informational_row_is_not_a_failure(self):
         from protocol_tests.identity_harness import IdentityTestResult

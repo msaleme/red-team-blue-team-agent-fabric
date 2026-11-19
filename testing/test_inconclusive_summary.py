@@ -46,8 +46,19 @@ from protocol_tests.http_helpers import (
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 PROTOCOL_TESTS = REPO_ROOT / "protocol_tests"
 
-# The defect shape: a residual-bucket failed count.
-RESIDUAL_FAILED = re.compile(r'"failed":\s*total\s*-\s*passed')
+# The defect shape: a residual-bucket failed count, in either idiom. The second,
+# `sum(1 for r in results if not r.passed)`, is the same bucket and was missed
+# until 2026-11-18: nine modules wrote it, a2a_harness among them, whose
+# INCONCLUSIVE rows were reported as failures (Harness Tester).
+RESIDUAL_FAILED = re.compile(
+    r'"failed":\s*(?:total\s*-\s*passed'
+    r'|sum\(\s*1\s+for\s+(\w+)\s+in\s+\w+\s+if\s+not\s+\1\.passed\s*\))')
+# "Can produce INCONCLUSIVE", in any of the ways a module does. `inconclusive_detail`
+# alone missed every module with a narrow local rule (a2a_harness, by design).
+CAN_BE_INCONCLUSIVE = re.compile(
+    r"inconclusive_detail|silence_detail|INCONCLUSIVE_PREFIX|not_evaluated\s*=\s*True")
+# A JSON summary block that states a failed count, whatever else it emits.
+STATES_FAILED = re.compile(r'"failed":')
 
 # "Emits a run summary", in EITHER idiom. Matching only the old one -- the
 # WILSON/wilson_95_ci literals -- was the first version of this file, and it was
@@ -152,7 +163,8 @@ class TestNoModuleKeepsTheResidualBucket(unittest.TestCase):
             src = path.read_text(encoding="utf-8")
             if path.stem in NOT_A_HARNESS:
                 continue
-            if "inconclusive_detail" in src and EMITS_SUMMARY.search(src):
+            if CAN_BE_INCONCLUSIVE.search(src) and (
+                    EMITS_SUMMARY.search(src) or STATES_FAILED.search(src)):
                 out.add(path.stem)
         return out
 
@@ -178,6 +190,17 @@ class TestNoModuleKeepsTheResidualBucket(unittest.TestCase):
                     f'"failed": total - passed, so an inconclusive result is '
                     f"reported as a target failure. Use run_summary() from "
                     f"protocol_tests.http_helpers.")
+
+    def test_both_residual_idioms_are_detected(self):
+        """Seeded controls: the two shapes this ratchet exists to reject."""
+        self.assertIsNotNone(RESIDUAL_FAILED.search('"failed": total - passed,'))
+        self.assertIsNotNone(RESIDUAL_FAILED.search(
+            '"failed": sum(1 for r in results if not r.passed),'))
+        self.assertIsNone(RESIDUAL_FAILED.search('**run_summary(results),'))
+
+    def test_a2a_is_in_scope(self):
+        """The module that escaped the first scope must be inside this one."""
+        self.assertIn("a2a_harness", self._affected())
 
     def test_grandfather_list_is_empty_and_may_only_shrink(self):
         self.assertEqual(

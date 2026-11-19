@@ -67,6 +67,15 @@ class UnknownCategoriesAreRefused(unittest.TestCase):
         self.assertIn("unknown MCP category: tool_poisoning", r.stderr)
         self.assertNotIn("[SIM]", r.stdout, "nothing may be listed for an unknown key")
 
+    def test_cli_live_path_refuses_without_the_wrapper_line(self):
+        # The module's refusal used to be followed by the wrapper's exit-2 gloss,
+        # "no test failed, but ... INCONCLUSIVE", for a run that never started.
+        r = _run_cli("test", "mcp", "--transport", "http", "--url",
+                     "http://127.0.0.1:9/mcp", "--categories", "nope")
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("unknown MCP category: nope", r.stderr)
+        self.assertNotIn("no test failed", r.stdout + r.stderr)
+
     def test_live_run_refuses_before_connecting(self):
         # Port 9 (discard) on loopback: the refusal must come before any connection.
         r = subprocess.run([sys.executable, "-m", "protocol_tests.mcp_harness", "--transport",

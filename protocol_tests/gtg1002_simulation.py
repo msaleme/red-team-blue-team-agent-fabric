@@ -56,6 +56,7 @@ from protocol_tests.agent_prose_outcome import (
     classify_agent_prose,
 )
 from protocol_tests.http_helpers import (
+    run_summary,
     exit_code,
     console_status,
     declined,
@@ -1089,8 +1090,7 @@ def generate_report(results, campaign, output_path):
         "campaign": campaign,
         "summary": {
             "total": len(results),
-            "passed": sum(1 for r in results if r.passed),
-            "failed": sum(1 for r in results if not r.passed),
+            **run_summary(results),
             "total_steps": sum(r.n_steps for r in results),
             "by_phase": {},
         },

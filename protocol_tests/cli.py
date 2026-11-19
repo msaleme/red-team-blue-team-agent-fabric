@@ -898,6 +898,15 @@ def main():
         if simulate and harness_name == "aiuc1":
             filtered_args.append("--simulate")
 
+        # Unknown MCP categories are refused here, before dispatch, exactly as
+        # under --simulate. Left to the module, the refusal came back as exit 2
+        # and this wrapper then added "no test failed, but ... INCONCLUSIVE",
+        # which describes a run that never started (Harness Tester, 2026-11-18).
+        if harness_name == "mcp":
+            _cats = _categories_from(filtered_args)
+            if _cats:
+                _mcp_simulated_ids(_cats)  # exits 2 with the valid keys on an unknown one
+
         # The documented MCP example is
         #
         #     agent-security test mcp --url http://localhost:8080/mcp

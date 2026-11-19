@@ -54,6 +54,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse, urlunparse
 
 from protocol_tests.http_helpers import (
+    run_summary,
     BASELINE_PROMPT,
     exit_code,
     _no_redirect_opener,
@@ -1409,8 +1410,7 @@ def generate_report(results: list[AdapterTestResult], output_path: str):
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "total": len(results),
-            "passed": sum(1 for r in results if r.passed),
-            "failed": sum(1 for r in results if not r.passed),
+            **run_summary(results),
         },
         "results": [asdict(r) for r in results],
     }

@@ -40,6 +40,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from protocol_tests.http_helpers import (
+    run_summary,
     BASELINE_PROMPT,
     exit_code,
     console_status,
@@ -1037,8 +1038,7 @@ def generate_report(results: list[EnterpriseTestResult], output_path: str):
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "total": len(results),
-            "passed": sum(1 for r in results if r.passed),
-            "failed": sum(1 for r in results if not r.passed),
+            **run_summary(results),
         },
         "results": [asdict(r) for r in results],
     }
