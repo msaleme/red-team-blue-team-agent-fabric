@@ -47,7 +47,16 @@ from mcp_reference_calibration import REFERENCE_SERVER, calibrate, server_comman
 #: audience binding, GHSA-w4fh-qvv9-3v23). Over stdio there are no request
 #: headers to override, so no second credential can be presented and the test
 #: says the control was never exercised. Same reasoning as MCP-021 above.
-EXPECTED = {"PASS": 16, "FAIL": 2, "INCONCLUSIVE": 16}
+#:
+#: 2026-11-19: PASS 16 -> 17 on the addition of MCP-023 (read-only annotation
+#: matches behaviour, #716). The reference server annotates one tool read-only,
+#: `get-structured-content`; its `location` argument matched the path-shaped set,
+#: so the probe handed it the canary path, absolute and as `..` traversal. Both
+#: calls were answered and nothing was written. That PASS is true and modest: the
+#: tool honoured its annotation under the probe, and a weather lookup that never
+#: writes cannot be told apart from one that refused to. Read the detail line,
+#: which says exactly that, before citing it.
+EXPECTED = {"PASS": 17, "FAIL": 2, "INCONCLUSIVE": 16}
 
 #: The two FAILs are findings about this reference server in this configuration.
 #: MCP-008: it ignores malformed messages without reporting a parse error.

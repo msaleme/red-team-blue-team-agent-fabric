@@ -39,6 +39,8 @@ import argparse
 import base64
 import json
 import os
+import shutil
+import tempfile
 import re
 import subprocess
 import sys
@@ -3603,6 +3605,99 @@ class MCPSecurityTests:
     # Category 11: STDIO Pre-Handshake Command Execution (ASI04)
     # ------------------------------------------------------------------
 
+    #: Argument names treated as path-shaped by MCP-023. Broad on purpose: a miss
+    #: leaves a tool unprobed (INCONCLUSIVE), never a PASS.
+    _ANNOTATION_PATH_WORDS = ("path", "file", "dir", "dest", "output", "out", "target",
+                              "location", "save")
+
+    def test_mcp_readonly_annotation_truth(self):
+        """MCP-023: Read-Only Annotation Matches Behaviour."""
+        # Truth table, fixture and the measured gap: testing/test_mcp_readonly_annotation_truth_table.py
+        # (issue #716, CVE-2026-126816). A tool annotated readOnlyHint=true is called with
+        # each path-shaped argument pointed at a canary directory this harness owns,
+        # absolute and as a `..` traversal from the server's cwd. Any file that appears
+        # there means the annotation is false. Observable only over stdio.
+        t0 = time.monotonic()
+        meta = dict(test_id="MCP-023", name="Read-Only Annotation Matches Behaviour",
+                    category="tool_annotations", owasp_asi="ASI02",
+                    severity=Severity.HIGH.value, mcp_method="tools/list, tools/call")
+        if self.simulate:
+            self._record(MCPTestResult(
+                **meta, passed=True,
+                details="[simulate] Annotation probe compiled; no stdio transport launched",
+                elapsed_s=round(time.monotonic() - t0, 3)))
+            return
+
+        def inconclusive(why: str):
+            self._record(MCPTestResult(
+                **meta, passed=False,
+                details=(INCONCLUSIVE_PREFIX + why + ". The control was never exercised, "
+                         "which is not evidence it holds."),
+                elapsed_s=round(time.monotonic() - t0, 3)))
+
+        if not isinstance(self.transport, StdioTransport):
+            return inconclusive("Not applicable: requires stdio transport, because a write "
+                                "is only observable on a filesystem this harness can read")
+        listing = self.transport.send(jsonrpc_request("tools/list", {}))
+        tools = ((listing or {}).get("result") or {}).get("tools") or []
+        readonly = [t for t in tools if isinstance(t, dict)
+                    and ((t.get("annotations") or {}).get("readOnlyHint") is True)]
+        if not readonly:
+            return inconclusive("no tool is annotated readOnlyHint=true, so there is no "
+                                "read-only claim to check")
+
+        pid = getattr(getattr(self.transport, "proc", None), "pid", None)
+        try:
+            server_cwd = os.readlink(f"/proc/{pid}/cwd") if pid else os.getcwd()
+        except OSError:
+            server_cwd = os.getcwd()  # Popen without cwd= inherits ours
+        canary = tempfile.mkdtemp(prefix="ash-annot-")
+        probed, answered, written, calls = [], 0, [], []
+        try:
+            for tool in readonly:
+                props = (tool.get("inputSchema") or {}).get("properties") or {}
+                paths = [k for k in props
+                         if any(w in str(k).lower() for w in self._ANNOTATION_PATH_WORDS)]
+                if not paths:
+                    continue
+                probed.append(tool.get("name"))
+                for variant in ("absolute", "traversal"):
+                    target = os.path.join(canary, f"{tool.get('name')}-{variant}.txt")
+                    value = target if variant == "absolute" else os.path.relpath(target, server_cwd)
+                    args = {k: "ash-probe" for k in props}
+                    args.update({k: value for k in paths})
+                    msg = jsonrpc_request("tools/call", {"name": tool.get("name"), "arguments": args})
+                    resp = self.transport.send(msg)
+                    calls.append({"tool": tool.get("name"), "variant": variant, "value": value})
+                    if isinstance(resp, dict) and ("result" in resp or "error" in resp):
+                        answered += 1
+            time.sleep(0.2)  # let a synchronous write that raced the reply land
+            written = sorted(os.listdir(canary))
+        finally:
+            shutil.rmtree(canary, ignore_errors=True)
+
+        if written:
+            # A write is a FAIL whatever the replies said: the annotation is false.
+            self._record(MCPTestResult(
+                **meta, passed=False,
+                details=(f"Tool annotated readOnlyHint=true wrote {len(written)} file(s) into the "
+                         f"harness canary ({', '.join(written)}): the read-only annotation is false, "
+                         "and a client that auto-approves read-only tools would have run it unconfirmed"),
+                request_sent={"calls": calls},
+                elapsed_s=round(time.monotonic() - t0, 3)))
+            return
+        if not probed:
+            return inconclusive(f"{len(readonly)} tool(s) are annotated read-only but none takes a "
+                                "path-shaped argument, so no write could be attempted or observed")
+        if not answered:
+            return inconclusive(f"none of the {len(calls)} calls to read-only tools was answered")
+        self._record(MCPTestResult(
+            **meta, passed=True,
+            details=(f"{len(probed)} read-only tool(s) probed with absolute and `..` canary paths; "
+                     f"{answered}/{len(calls)} calls answered and nothing was written"),
+            request_sent={"calls": calls},
+            elapsed_s=round(time.monotonic() - t0, 3)))
+
     def test_mcp_stdio_pre_handshake_exec(self):
         """MCP-017: STDIO Pre-Handshake Command Execution — commands run before handshake validation."""
         t0 = time.monotonic()
@@ -3869,6 +3964,9 @@ class MCPSecurityTests:
             ],
             "stdio_security": [
                 self.test_mcp_stdio_pre_handshake_exec,
+            ],
+            "tool_annotations": [
+                self.test_mcp_readonly_annotation_truth,
             ],
             "dos": [
                 self.test_mcp_unbounded_request_body_dos,

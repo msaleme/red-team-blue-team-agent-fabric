@@ -28,6 +28,10 @@ MEASURED at main dccabea (v4.31.0 + docs): the full MCP suite over stdio gives t
 a read-only tool that writes from one that does not. That is the gap; the register
 `SUITE_CANNOT_TELL` records it, shrink-only, and the probe's arrival must flip it.
 
+REPAIRED: MCP-023 (`test_mcp_readonly_annotation_truth`) applies this method in the
+harness. Against every fixture it reaches FIXTURE_EXPECTATIONS, over HTTP it is
+INCONCLUSIVE, and the suite now tells truthful from mislabelled (MCP-023 PASS vs FAIL).
+
 Limitations, stated rather than hidden: a write that does not go through a path-shaped
 argument (a fixed log file, a database) is not observed, and neither is a symlink
 escape from a server-side base directory the harness cannot see.
@@ -136,22 +140,22 @@ def reference_probe(mode: str) -> tuple[str, dict]:
     return verdict(True, obs["readonly"], obs["probeable"], obs["answered"], obs["writes"]), obs
 
 
-def suite_verdicts(mode: str) -> dict[str, str]:
+def suite_verdicts(mode: str, *extra: str) -> dict[str, str]:
     """The full MCP suite over stdio against one fixture mode."""
     with tempfile.TemporaryDirectory() as tmp:
         report = Path(tmp) / "r.json"
         cmd = f"{shlex.quote(sys.executable)} {shlex.quote(str(FIXTURE))} --mode {mode}"
         subprocess.run([sys.executable, "-m", "protocol_tests.mcp_harness", "--transport", "stdio",
-                        "--command", cmd, "--json", "--report", str(report)],
+                        "--command", cmd, "--json", "--report", str(report), *extra],
                        cwd=REPO, capture_output=True, timeout=300, check=False)
         rows = json.loads(report.read_text())["results"]
     return {r["test_id"]: ("INCONCLUSIVE" if r.get("not_evaluated")
                            else "PASS" if r.get("passed") else "FAIL") for r in rows}
 
 
-#: Measured at dccabea: True means the suite gives identical verdicts against a
-#: truthful and a mislabelled read-only tool. The probe's arrival must make it False.
-SUITE_CANNOT_TELL = True
+#: Measured True at dccabea (identical verdicts against truthful and mislabelled);
+#: False since MCP-023. Checked both directions.
+SUITE_CANNOT_TELL = False
 
 
 class TruthTable(unittest.TestCase):
@@ -193,6 +197,30 @@ class TheSuiteCannotTellToday(unittest.TestCase):
         self.assertGreaterEqual(len(truthful), 30, "the suite did not run")
         self.assertEqual(truthful == mislabelled, SUITE_CANNOT_TELL,
                          "the suite now tells them apart: set SUITE_CANNOT_TELL = False")
+
+
+class HarnessFollowsTheTable(unittest.TestCase):
+    """MCP-023 itself, against every fixture, and its HTTP pole."""
+
+    def test_mcp_023_against_each_fixture(self):
+        for mode, expected in FIXTURE_EXPECTATIONS.items():
+            with self.subTest(mode=mode):
+                got = suite_verdicts(mode, "--categories", "tool_annotations")
+                self.assertEqual(got.get("MCP-023"), expected)
+
+    def test_http_is_inconclusive(self):
+        sys.path.insert(0, str(REPO))
+        from protocol_tests.mcp_harness import MCPSecurityTests, StreamableHTTPTransport
+        suite = MCPSecurityTests(StreamableHTTPTransport("http://127.0.0.1:9/mcp"), json_output=True)
+        suite.test_mcp_readonly_annotation_truth()
+        self.assertTrue(suite.results[-1].not_evaluated)
+        self.assertIn("requires stdio", suite.results[-1].details)
+
+    def test_the_harness_canary_is_cleaned_up(self):
+        before = {p.name for p in Path(tempfile.gettempdir()).glob("ash-annot-*")}
+        suite_verdicts("mislabelled", "--categories", "tool_annotations")
+        after = {p.name for p in Path(tempfile.gettempdir()).glob("ash-annot-*")}
+        self.assertEqual(after - before, set())
 
 
 if __name__ == "__main__":

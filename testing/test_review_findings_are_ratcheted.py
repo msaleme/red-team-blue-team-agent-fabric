@@ -489,7 +489,7 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "v4.30.0 clean-install dry run (training draft), 2026-11-18", GUARDED,
      "testing/test_cli_dryrun_findings.py: CitationLinesAreCurrent"),
     ("'51 registered harnesses' beside '50 test-bearing modules' could read as inconsistent "
-     "with public '661 tests across 50 modules'",
+     "with the public 'N tests across 50 modules' wording",
      "v4.30.0 clean-install dry run (training draft), 2026-11-18", UNGUARDABLE,
      "no defect: both figures are true and the CLI explains the 51st (community_runner); "
      "consistency of wording in public posts is editorial judgement outside the repo"),
