@@ -1,10 +1,10 @@
 # Test Inventory
 
-**661 security tests across 50 test-bearing modules** on `main` (verified 2026-11-06 by `scripts/count_tests.py`)
+**662 security tests across 50 test-bearing modules** on `main` (verified 2026-11-19 by `scripts/count_tests.py`)
 
 See also: **[OWASP Agentic AI v1.1 Threat Coverage Report](OWASP-AGENTIC-V1.1-COVERAGE.md)** — per-threat T1–T17 evidence mapping with scenario coverage, mitigation-control validation and evidence classes, generated from `coverage/owasp-agentic-v1.1.yaml`. ([T1–T15 submission view](OWASP-AGENTIC-T1-T15-SUBMISSION-COVERAGE.md))
 
-> **Canonical figures (verified 2026-11-06).** `main` carries 661 test IDs (the
+> **Canonical figures (verified 2026-11-20).** `main` carries 662 test IDs (the
 > v4.31.1 release carries 661) across 50 test-bearing modules in
 > `protocol_tests/` (files with no `test_id` — CLI, helpers, telemetry, registry —
 > are not counted as modules; see `CHANGELOG.md`). Wire protocols: 4 (MCP, A2A, L402, x402). AIUC-1: E1 mapping,
@@ -19,7 +19,7 @@ See also: **[OWASP Agentic AI v1.1 Threat Coverage Report](OWASP-AGENTIC-V1.1-CO
 >
 > | Module | Tests |
 > |---|---|
-> | MCP Protocol | 34 |
+> | MCP Protocol | 35 |
 > | MCP Supply-Chain | 4 |
 > | MCP Tool Poisoning Reproduction | 10 |
 > | x402 Payment | 66 |
@@ -234,11 +234,11 @@ agent-security test enterprise --platform salesforce --url https://your-org.sale
 ## Test Harness Modules (representative summary)
 
 > This table lists the largest modules; the full harness spans **50 test-bearing
-> modules / 661 tests** on `main` (verified 2026-11-06 via `scripts/count_tests.py`).
+> modules / 662 tests** on `main` (verified 2026-11-19 via `scripts/count_tests.py`).
 
 | Module | Tests | Layer | Description |
 |---|---|---|---|
-| **MCP Protocol** | 34 | JSON-RPC 2.0 | MCP wire-protocol testing, including stateless routing, MRTR, cache, task-isolation, and trace-context probes |
+| **MCP Protocol** | 35 | JSON-RPC 2.0 | MCP wire-protocol testing, including stateless routing, MRTR, cache, task-isolation, and trace-context probes |
 | **A2A Protocol** | 13 | JSON-RPC/HTTP | Google Agent-to-Agent communication |
 | **L402 Payment** | 33 | HTTP/Lightning | Bitcoin/Lightning payment flow security (macaroons, preimages, caveats) |
 | **x402 Payment** | 66 | HTTP/USDC | Coinbase/Stripe agent payment protocol (recipient manipulation, session theft, facilitator trust, cross-chain confusion) |

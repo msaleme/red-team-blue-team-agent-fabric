@@ -259,7 +259,20 @@ assessment:
       unique_mapped_tests is unchanged and this mapping claims none of it. Recorded
       because r15_total compares the stated total against a live count.
 
-  total_repository_tests: 661
+  - report: '1.16'
+    commit: HEAD
+    harness: 4.31.1
+    date: '2026-11-19'
+    change: Repository test total 661 -> 662 on the addition of MCP-023, the read-only
+      annotation probe (issue 716, CVE-2026-126816), in which a tool annotated readOnlyHint=true is
+      called with its path-shaped arguments pointed at a harness-owned canary, and any
+      write FAILs. Test-bearing modules unchanged at 50. It carries an ASI02 primary on
+      its own result, attributable, so the corpus ASI02 count moves 93 -> 94. This
+      mapping does NOT adjudicate it; no scenario here enumerates it, so
+      unique_mapped_tests is unchanged and this mapping claims none of it. Recorded
+      because r15_total compares the stated total against a live count.
+
+  total_repository_tests: 662
   total_tests_command: python scripts/count_tests.py
   unique_mapped_tests: 96
   adjudicated_by: corpus author - NOT independent review

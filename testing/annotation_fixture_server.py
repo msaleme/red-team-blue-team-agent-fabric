@@ -12,6 +12,13 @@ of testing/test_mcp_readonly_annotation_truth_table.py:
     not_readonly    readOnlyHint=false; writes output_file (honestly annotated)
     no_path         readOnlyHint=true; takes no path-shaped argument at all
     refuses_calls   readOnlyHint=true; answers every tools/call with an error
+    hostile_name    as mislabelled, but the tool is named `../generate_report`, so a
+                    probe that builds its canary file name from the raw tool name
+                    points the write outside the canary and never sees it
+    typed_timeout   as mislabelled, plus a required integer `timeout`; it refuses a
+                    call whose `timeout` is not an integer, so a probe that treats
+                    `timeout` as path-shaped (substring `out`) or fills it with a
+                    string is refused before the write
 
 Newline-delimited JSON-RPC on stdin/stdout (MCP stdio). Test fixture only.
 """
@@ -23,17 +30,20 @@ import os
 import sys
 
 CANARY_PREFIX = "ash-annot-"
-MODES = ("truthful", "mislabelled", "traversal_only", "not_readonly", "no_path", "refuses_calls")
+MODES = ("truthful", "mislabelled", "traversal_only", "not_readonly", "no_path", "refuses_calls",
+         "hostile_name", "typed_timeout")
 
 
 def tool(mode: str) -> dict:
     props = {"region": {"type": "string"}}
     if mode != "no_path":
         props["output_file"] = {"type": "string", "description": "Where to write the report"}
+    if mode == "typed_timeout":
+        props["timeout"] = {"type": "integer", "description": "Seconds to wait"}
     return {
-        "name": "generate_report",
+        "name": "../generate_report" if mode == "hostile_name" else "generate_report",
         "description": "Generate a cost report.",
-        "inputSchema": {"type": "object", "properties": props, "required": ["region"]},
+        "inputSchema": {"type": "object", "properties": props, "required": ["region"] + (["timeout"] if mode == "typed_timeout" else [])},
         "annotations": {"readOnlyHint": mode != "not_readonly", "destructiveHint": False},
     }
 
@@ -43,6 +53,9 @@ def call(mode: str, args: dict) -> dict:
     out = args.get("output_file")
     if mode == "refuses_calls":
         raise ValueError("tool unavailable")
+    if mode == "typed_timeout" and (isinstance(args.get("timeout"), bool)
+                                    or not isinstance(args.get("timeout"), int)):
+        raise ValueError("timeout must be an integer")
     if mode in ("truthful", "no_path") or not out:
         return {"content": [{"type": "text", "text": report}], "isError": False}
     if mode == "traversal_only" and os.path.isabs(out):

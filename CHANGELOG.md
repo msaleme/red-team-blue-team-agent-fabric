@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added: MCP-023, a read-only tool annotation must match behaviour (#716)
+
+`readOnlyHint` is a value a server author types, and clients that auto-approve read-only tools
+trust it (CVE-2026-126816: a read-only-annotated tool wrote `output_file` anywhere). MCP-023
+calls every tool annotated `readOnlyHint=true` with its path-shaped arguments pointed at a
+canary directory the harness owns, as an absolute path and as a `..` traversal from the
+server's working directory. Any file that appears FAILs, whatever the replies said. Answered
+calls (a refusal counts) with nothing written PASS. HTTP targets, servers with no read-only
+tool, read-only tools with no path-shaped argument, and unanswered calls are INCONCLUSIVE.
+Stdio only: the write has to land on a filesystem the harness can read. 661 -> 662 tests;
+modules unchanged at 50.
+
+- Against the #718 fixture it reaches every truth-table row: truthful PASS, mislabelled FAIL
+  (2 writes), traversal-only FAIL (1 write, through `..` after refusing the absolute path),
+  and the three INCONCLUSIVE shapes. Over HTTP it is INCONCLUSIVE.
+- Against the pinned reference server (`server-everything@2026.8.18`) it PASSes: one
+  read-only tool, two calls answered, nothing written. The calibration's EXPECTED moves
+  PASS 16 -> 17, with the reading recorded beside it.
+- Not observed: writes not made through a path-shaped argument, and symlink escapes from a
+  server-side base directory.
+- CVE-2026-126816 is listed under `excluded` in the CVE index until MCP-023 is on a commit the
+  index can pin to; a follow-up documents it under `cves`.
+- Two false PASSes found by review before merge, each with a fixture that PASSed before the
+  fix and FAILs after: a tool named with `/` or `..` moved the canary file outside the canary
+  (the name is now reduced to safe characters), and `timeout` matched the path word `out` and,
+  like every other argument, got a string a type-checking server refused before the write
+  (path words now match the start of a name part, only string arguments are path-shaped, and
+  other arguments get a value of their declared type).
+
 ## [4.31.1] - 2026-11-19
 
 A correctness disclosure for A2A-002 (Agent Card Spoofing via Message Metadata). Against an A2A
