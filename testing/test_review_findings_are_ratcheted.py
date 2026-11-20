@@ -531,6 +531,16 @@ REVIEW_FINDINGS: list[tuple[str, str, str, str]] = [
      "suite gives identical verdicts against a truthful and a mislabelled read-only tool",
      "gap issue #716 (CVE-2026-126816, GHSA-mqm3-w68j-75mw), 2026-11-18", GUARDED,
      "testing/test_mcp_readonly_annotation_truth_table.py: TheSuiteCannotTellToday"),
+    # --- 2026-11-20, Cursor Bugbot on PR #719 (MCP-023) ---------------------------------
+    ("MCP-023 built its canary file name from the server's raw tool name, so a name with "
+     "`/` or `..` moved the write outside the canary and a writing read-only tool PASSed",
+     "Cursor Bugbot on PR #719 at 10c268e, 2026-11-20", GUARDED,
+     "testing/test_mcp_readonly_annotation_truth_table.py: HarnessFollowsTheTable"),
+    ("MCP-023 matched path words as substrings (`out` in `timeout`) and filled every other "
+     "argument with a string, so a server that validates types refused the call before the "
+     "write and a writing read-only tool PASSed",
+     "Cursor Bugbot on PR #719 at 10c268e, 2026-11-20", GUARDED,
+     "testing/test_mcp_readonly_annotation_truth_table.py: HarnessFollowsTheTable"),
     # --- 2026-11-19, issues #720 / #721 (logging-proxy run against a credentialed lab) ---
     ("A2A-002 graded an authentication rejection as PASS: with no credential, 'Missing "
      "identity is rejected.' matched looks_like_refusal and the spoofed card was never read",

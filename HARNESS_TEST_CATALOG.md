@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `000a307`
+**Generated:** `scripts/generate_test_catalog.py` at commit `10c268e`
 **Test count:** 662 unique test IDs across 51 registered harness modules (50 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -570,13 +570,13 @@ MCP-013 | Tool Description Padding / Repetition Detection | protocol_tests/mcp_h
 MCP-014 | Tool Description Injection Pattern Detection | protocol_tests/mcp_harness.py:2774
 MCP-015 | SSRF via URI Parameter | protocol_tests/mcp_harness.py:3397
 MCP-016 | SSRF via Resource URI | protocol_tests/mcp_harness.py:3510
-MCP-017 | STDIO Pre-Handshake Command Execution | protocol_tests/mcp_harness.py:3720
-MCP-018 | Unbounded Request Body DoS (CVE-2026-39313) | protocol_tests/mcp_harness.py:3811
+MCP-017 | STDIO Pre-Handshake Command Execution | protocol_tests/mcp_harness.py:3753
+MCP-018 | Unbounded Request Body DoS (CVE-2026-39313) | protocol_tests/mcp_harness.py:3844
 MCP-019 | Composite Cross-Tool Description Poisoning | protocol_tests/mcp_harness.py:2854
 MCP-020 | Mid-Session Tool Identity Rebinding | protocol_tests/mcp_harness.py:3008
 MCP-021 | Authentication Fail-Open (token validation) | protocol_tests/mcp_harness.py:3151
 MCP-022 | Bearer Token Audience Binding | protocol_tests/mcp_harness.py:3283
-MCP-023 | Read-Only Annotation Matches Behaviour | protocol_tests/mcp_harness.py:3621
+MCP-023 | Read-Only Annotation Matches Behaviour | protocol_tests/mcp_harness.py:3652
 MCP-RC-001 | Stateless Header/Body Binding | protocol_tests/mcp_harness.py:1072
 MCP-RC-002 | MRTR requestState Integrity | protocol_tests/mcp_harness.py:1113
 MCP-RC-003 | MRTR requestState Replay Protection | protocol_tests/mcp_harness.py:1177

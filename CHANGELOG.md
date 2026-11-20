@@ -29,6 +29,12 @@ modules unchanged at 50.
   server-side base directory.
 - CVE-2026-126816 is listed under `excluded` in the CVE index until MCP-023 is on a commit the
   index can pin to; a follow-up documents it under `cves`.
+- Two false PASSes found by review before merge, each with a fixture that PASSed before the
+  fix and FAILs after: a tool named with `/` or `..` moved the canary file outside the canary
+  (the name is now reduced to safe characters), and `timeout` matched the path word `out` and,
+  like every other argument, got a string a type-checking server refused before the write
+  (path words now match the start of a name part, only string arguments are path-shaped, and
+  other arguments get a value of their declared type).
 
 ## [4.31.1] - 2026-11-19
 

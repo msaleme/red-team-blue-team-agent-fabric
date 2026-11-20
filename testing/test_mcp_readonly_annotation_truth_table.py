@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -51,8 +52,28 @@ REPO = Path(__file__).resolve().parents[1]
 FIXTURE = REPO / "testing" / "annotation_fixture_server.py"
 PASS, FAIL, INCONCLUSIVE = "PASS", "FAIL", "INCONCLUSIVE"
 #: Argument names treated as path-shaped. Deliberately broad: a miss is an
-#: unprobed tool (INCONCLUSIVE), never a PASS.
+#: unprobed tool (INCONCLUSIVE), never a PASS. A word matches the START of a name
+#: part (`output_file`, `savePath`), never a substring: `timeout` is not a path.
 PATH_WORDS = ("path", "file", "dir", "dest", "output", "out", "target", "location", "save")
+
+
+def path_args(props: dict) -> list:
+    """Reference rule: string-typed (or untyped) arguments whose name part starts with a path word."""
+    picked = []
+    for name, schema in props.items():
+        declared = schema.get("type") if isinstance(schema, dict) else None
+        if declared is not None and "string" not in (declared if isinstance(declared, list) else [declared]):
+            continue
+        parts = re.findall(r"[a-z]+|[A-Z][a-z]*|\d+", name)
+        if any(p.lower().startswith(w) for p in parts for w in PATH_WORDS):
+            picked.append(name)
+    return picked
+
+
+def placeholder(schema: dict):
+    """A value the declared type accepts, so a non-path argument is not why a call fails."""
+    kind = (schema or {}).get("type")
+    return {"integer": 1, "number": 1, "boolean": False, "array": [], "object": {}}.get(kind, "ash-probe")
 
 
 def verdict(stdio: bool, readonly_tools: int, probeable: int, answered: int, writes: int) -> str:
@@ -88,6 +109,9 @@ FIXTURE_EXPECTATIONS = {
     "not_readonly": INCONCLUSIVE,
     "no_path": INCONCLUSIVE,
     "refuses_calls": PASS,   # answered with an error and wrote nothing
+    # Bugbot findings on #719, 2026-11-20. Both were PASS before the fix (measured).
+    "hostile_name": FAIL,    # tool name `../generate_report` must not move the target out
+    "typed_timeout": FAIL,   # `timeout` is not path-shaped and gets an integer
 }
 
 
@@ -117,14 +141,15 @@ def reference_probe(mode: str) -> tuple[str, dict]:
                 continue
             obs["readonly"] += 1
             props = (t.get("inputSchema") or {}).get("properties") or {}
-            paths = [k for k in props if any(w in k.lower() for w in PATH_WORDS)]
+            paths = path_args(props)
             if not paths:
                 continue
             obs["probeable"] += 1
+            stem = re.sub(r"[^A-Za-z0-9_-]", "_", t["name"])
             for variant in ("absolute", "traversal"):
-                target = canary / f"{t['name']}-{variant}.txt"
+                target = canary / f"{stem}-{variant}.txt"
                 value = str(target) if variant == "absolute" else os.path.relpath(target, os.getcwd())
-                args = {k: "ash-probe" for k in props}
+                args = {k: placeholder(v) for k, v in props.items()}
                 args.update({k: value for k in paths})
                 resp = _rpc(proc, {"jsonrpc": "2.0", "id": 10 + obs["answered"], "method": "tools/call",
                                    "params": {"name": t["name"], "arguments": args}})

@@ -3606,9 +3606,40 @@ class MCPSecurityTests:
     # ------------------------------------------------------------------
 
     #: Argument names treated as path-shaped by MCP-023. Broad on purpose: a miss
-    #: leaves a tool unprobed (INCONCLUSIVE), never a PASS.
+    #: leaves a tool unprobed (INCONCLUSIVE), never a PASS. Matched as a prefix of a
+    #: name part (`output_file`, `savePath`, `destination`), never as a substring:
+    #: `timeout` or `layout` given a path can make the server refuse the call before
+    #: it reaches the real output argument, which reads as a PASS (Bugbot, #719).
     _ANNOTATION_PATH_WORDS = ("path", "file", "dir", "dest", "output", "out", "target",
                               "location", "save")
+
+    @classmethod
+    def _annotation_path_args(cls, props: dict) -> list:
+        """Names in a tool's inputSchema properties that MCP-023 points at the canary."""
+        out = []
+        for name, schema in props.items():
+            declared = (schema or {}).get("type") if isinstance(schema, dict) else None
+            types = declared if isinstance(declared, list) else [declared]
+            if declared is not None and "string" not in types:
+                continue  # an integer `outCount` cannot carry a path
+            parts = re.findall(r"[a-z]+|[A-Z][a-z]*|\d+", str(name))
+            if any(part.lower().startswith(w) for part in parts
+                   for w in cls._ANNOTATION_PATH_WORDS):
+                out.append(name)
+        return out
+
+    @staticmethod
+    def _annotation_placeholder(schema):
+        """A value the schema accepts, so a non-path argument cannot be why a call fails."""
+        schema = schema if isinstance(schema, dict) else {}
+        if schema.get("enum"):
+            return schema["enum"][0]
+        if "default" in schema:
+            return schema["default"]
+        declared = schema.get("type")
+        kind = next((t for t in declared if t != "null"), None) if isinstance(declared, list) else declared
+        return {"integer": 1, "number": 1, "boolean": False, "array": [], "object": {},
+                "null": None}.get(kind, "ash-probe")
 
     def test_mcp_readonly_annotation_truth(self):
         """MCP-023: Read-Only Annotation Matches Behaviour."""
@@ -3654,17 +3685,19 @@ class MCPSecurityTests:
         canary = tempfile.mkdtemp(prefix="ash-annot-")
         probed, answered, written, calls = [], 0, [], []
         try:
-            for tool in readonly:
+            for n, tool in enumerate(readonly):
                 props = (tool.get("inputSchema") or {}).get("properties") or {}
-                paths = [k for k in props
-                         if any(w in str(k).lower() for w in self._ANNOTATION_PATH_WORDS)]
+                paths = self._annotation_path_args(props)
                 if not paths:
                     continue
                 probed.append(tool.get("name"))
+                # The tool name is the server's string: a `/` or `..` in it would put the
+                # target outside the canary, where a write is never seen (Bugbot, #719).
+                stem = f"{n}-" + (re.sub(r"[^A-Za-z0-9_-]", "_", str(tool.get("name")))[:64] or "tool")
                 for variant in ("absolute", "traversal"):
-                    target = os.path.join(canary, f"{tool.get('name')}-{variant}.txt")
+                    target = os.path.join(canary, f"{stem}-{variant}.txt")
                     value = target if variant == "absolute" else os.path.relpath(target, server_cwd)
-                    args = {k: "ash-probe" for k in props}
+                    args = {k: self._annotation_placeholder(v) for k, v in props.items()}
                     args.update({k: value for k in paths})
                     msg = jsonrpc_request("tools/call", {"name": tool.get("name"), "arguments": args})
                     resp = self.transport.send(msg)
