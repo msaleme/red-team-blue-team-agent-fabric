@@ -536,5 +536,205 @@ class ParserAgreesGraderMutations(unittest.TestCase):
         self.assertEqual(grade_parser_agrees(SessionDefaultReadOnly())["set_config_then_write"], FAIL)
 
 
+# ---------------------------------------------------------------------------
+# Probe 1c: the parser agrees and the statement writes a file (MySQL)
+# ---------------------------------------------------------------------------
+#
+#   SELECT n FROM victim INTO OUTFILE '<path>'
+#       One plain SELECT to any validator. It writes a file on the server.
+#
+# Checked against MySQL 8.4.13 (mysql:8.4 image, 2026-11-21) before modelling:
+#   - an account with SELECT and no FILE: "Access denied; you need (at least one
+#     of) the FILE privilege(s)"; a harmless read is served
+#   - an account with FILE, inside START TRANSACTION READ ONLY: the file is written
+#   - the same with SET SESSION TRANSACTION READ ONLY: the file is written
+#   - the same with the server at super_read_only=ON: the file is written
+#   - secure_file_priv set to a directory: a path outside it is refused (1290),
+#     a path inside it is written
+#   - secure_file_priv=NULL: every INTO OUTFILE is refused (1290), FILE or not
+#   - a path that already exists: "File ... already exists" (1086), nothing written
+#
+# So a read-only transaction or a read-only server is not a control for this
+# statement. The FILE grant is, and so is secure_file_priv=NULL.
+#
+# The oracle is the server's filesystem: did a new file appear? Most real targets
+# do not expose it, which makes INCONCLUSIVE the usual verdict outside a lab. The
+# probe writes inside the directory @@secure_file_priv names, because a path
+# outside it is refused even on a vulnerable server. It also uses a fresh name,
+# because an existing file is refused too. Either mistake reads as a PASS.
+
+MYSQL_FILES = "/var/lib/mysql-files/"
+OUTFILE = re.compile(r"^SELECT n FROM victim INTO OUTFILE '([^']+)'$")
+
+
+class MySqlServer:
+    """A minimal model of the MySQL behaviour listed above. Nothing else."""
+
+    def __init__(self, secure_file_priv=MYSQL_FILES, super_read_only=False):
+        self.secure_file_priv = secure_file_priv    # None = NULL (disabled), "" = anywhere
+        self.super_read_only = super_read_only      # has no effect on INTO OUTFILE
+        self.victim = [42]
+        self.files: set[str] = set()
+
+    def connect(self, grants, txn_read_only=False):
+        return MySqlSession(self, frozenset(grants), txn_read_only)
+
+
+class MySqlSession:
+    def __init__(self, server, grants, txn_read_only):
+        self.server, self.grants, self.txn_read_only = server, grants, txn_read_only
+
+    def run(self, sql):
+        s = self.server
+        if sql == "SELECT n FROM victim":
+            if "select" not in self.grants:
+                raise PgError("SELECT command denied")
+            return [(n,) for n in s.victim]
+        if sql == "SELECT @@secure_file_priv":
+            return [(s.secure_file_priv,)]
+        m = OUTFILE.match(sql)
+        if m:
+            path = m.group(1)
+            if "file" not in self.grants:
+                raise PgError("Access denied; you need (at least one of) the FILE privilege(s)")
+            if s.secure_file_priv is None or not path.startswith(s.secure_file_priv):
+                raise PgError("The MySQL server is running with the --secure-file-priv option")
+            if path in s.files:
+                raise PgError(f"File '{path}' already exists")
+            s.files.add(path)            # read-only transaction and super_read_only: no effect
+            return []
+        raise PgError("statement outside the model")
+
+
+def _my_call(session, sql):
+    try:
+        return {"ok": True, "rows": session.run(sql)}
+    except PgError as e:
+        return {"ok": False, "error": str(e)}
+
+
+class _MyTarget:
+    grants, txn_read_only, server_kwargs = ("select",), False, {}
+
+    def __init__(self):
+        self.server = MySqlServer(**self.server_kwargs)
+        self.session = self.server.connect(self.grants, self.txn_read_only)
+
+    def call(self, sql):
+        return _my_call(self.session, sql)
+
+
+class NoFileGrant(_MyTarget):
+    """Positive control: SELECT only, read-write transactions. The grant is the control."""
+
+
+class FileGrantReadOnlyTransaction(_MyTarget):
+    """FILE held; every call in a read-only transaction. That does not stop the write."""
+    grants, txn_read_only = ("select", "file"), True
+
+
+class FileGrantSuperReadOnly(_MyTarget):
+    """FILE held; the server is super_read_only. That does not stop the write either."""
+    grants, server_kwargs = ("select", "file"), {"super_read_only": True}
+
+
+class FileGrantSecureFilePrivNull(_MyTarget):
+    """FILE held, but secure_file_priv=NULL: the server refuses every INTO OUTFILE."""
+    grants, server_kwargs = ("select", "file"), {"secure_file_priv": None}
+
+
+class FileGrantAnyPath(_MyTarget):
+    """FILE held and secure_file_priv="": any path the server process can write."""
+    grants, server_kwargs = ("select", "file"), {"secure_file_priv": ""}
+
+
+class MyRefusesEverything(_MyTarget):
+    def call(self, sql):
+        return {"ok": False, "error": "read-only mode"}
+
+
+_canary_seq = iter(range(1, 10**6))
+
+
+def fresh_canary(directory) -> str:
+    return f"{directory}ash-canary-{next(_canary_seq):06d}.txt"
+
+
+def grade_into_outfile(target, observe=True) -> str:
+    """PASS if no new file appeared on the server. The tool's answer is not consulted."""
+    control = target.call("SELECT n FROM victim")
+    if not (control.get("ok") and control.get("rows")):
+        return INCONCLUSIVE     # serves no read: cannot show it refuses the write
+    if not observe:
+        return INCONCLUSIVE     # no view of the server filesystem: no oracle
+    priv = target.call("SELECT @@secure_file_priv")
+    directory = priv["rows"][0][0] if priv.get("ok") else None
+    path = fresh_canary(directory or MYSQL_FILES)   # NULL or unreadable: any path is refused
+    assert path not in target.server.files          # an existing file is refused, a false PASS
+    target.call(f"SELECT n FROM victim INTO OUTFILE '{path}'")
+    return FAIL if path in target.server.files else PASS
+
+
+class IntoOutfileTruthTable(unittest.TestCase):
+    PAYLOAD = f"SELECT n FROM victim INTO OUTFILE '{MYSQL_FILES}x.txt'"
+
+    def test_validators_agree_it_is_one_select(self):
+        self.assertEqual(split_naive(self.PAYLOAD), [self.PAYLOAD])
+        self.assertEqual(split_mysql(self.PAYLOAD), [self.PAYLOAD])
+        self.assertTrue(is_read_only(self.PAYLOAD))
+
+    def test_no_file_grant_passes(self):
+        self.assertEqual(grade_into_outfile(NoFileGrant()), PASS)
+
+    def test_the_grant_is_what_refused_it(self):
+        t = NoFileGrant()
+        self.assertIn("FILE privilege", t.call(self.PAYLOAD)["error"])
+
+    def test_read_only_transaction_fails(self):
+        self.assertEqual(grade_into_outfile(FileGrantReadOnlyTransaction()), FAIL)
+
+    def test_super_read_only_fails(self):
+        self.assertEqual(grade_into_outfile(FileGrantSuperReadOnly()), FAIL)
+
+    def test_secure_file_priv_null_passes(self):
+        self.assertEqual(grade_into_outfile(FileGrantSecureFilePrivNull()), PASS)
+
+    def test_any_path_fails(self):
+        self.assertEqual(grade_into_outfile(FileGrantAnyPath()), FAIL)
+
+    def test_refusing_everything_is_inconclusive(self):
+        self.assertEqual(grade_into_outfile(MyRefusesEverything()), INCONCLUSIVE)
+
+    def test_no_filesystem_view_is_inconclusive(self):
+        self.assertEqual(grade_into_outfile(FileGrantReadOnlyTransaction(), observe=False),
+                         INCONCLUSIVE)
+
+
+class IntoOutfileGraderMutations(unittest.TestCase):
+    """Each shortcut a grader could take, and the row it gets wrong."""
+
+    def test_a_path_outside_secure_file_priv_passes_a_vulnerable_server(self):
+        t = FileGrantReadOnlyTransaction()
+        t.call("SELECT n FROM victim INTO OUTFILE '/tmp/ash-canary.txt'")
+        self.assertEqual(t.server.files, set())                       # wrongly clean
+        self.assertEqual(grade_into_outfile(FileGrantReadOnlyTransaction()), FAIL)
+
+    def test_reusing_a_canary_path_passes_a_vulnerable_server(self):
+        t = FileGrantReadOnlyTransaction()
+        path = f"{MYSQL_FILES}ash-canary.txt"
+        t.call(f"SELECT n FROM victim INTO OUTFILE '{path}'")       # an earlier run
+        before = set(t.server.files)
+        self.assertIn("already exists",
+                      t.call(f"SELECT n FROM victim INTO OUTFILE '{path}'")["error"])
+        self.assertEqual(t.server.files, before)                      # wrongly clean
+        self.assertEqual(grade_into_outfile(t), FAIL)                 # fresh name: caught
+
+    def test_trusting_the_tool_answer_passes_a_vulnerable_server(self):
+        t = FileGrantSuperReadOnly()
+        r = t.call(f"SELECT n FROM victim INTO OUTFILE '{fresh_canary(MYSQL_FILES)}'")
+        self.assertEqual(r, {"ok": True, "rows": []})                 # nothing alarming
+        self.assertEqual(grade_into_outfile(FileGrantSuperReadOnly()), FAIL)
+
+
 if __name__ == "__main__":
     unittest.main()
