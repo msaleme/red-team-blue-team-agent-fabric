@@ -252,6 +252,10 @@ class DecisionReachesExecutorTruthTable(unittest.TestCase):
 #   SELECT set_config('default_transaction_read_only', 'off', false)
 #       Writes no rows. It turns off the session's read-only default, so the
 #       NEXT call on that session runs read-write.
+#   SELECT add_row()
+#       A SECURITY DEFINER function that inserts. It runs with its owner's
+#       privileges, so a SELECT-only role writes through it (bloqarl, dev.to
+#       3lo43, 2026-11-21).
 #
 # Checked against PostgreSQL 17 (postgres:17 image, 2026-11-20) before modelling:
 #   - a role with SELECT on the sequence and no USAGE: nextval is "permission
@@ -261,6 +265,23 @@ class DecisionReachesExecutorTruthTable(unittest.TestCase):
 #     transaction stays read-only; the next one is read-write and an INSERT lands
 #   - the same set_config in a transaction that rolls back is undone
 #   - the role above after set_config(off): the INSERT is "permission denied"
+#
+# Checked against PostgreSQL 17.12 (postgres:17 image, 2026-11-22) for the definer row:
+#   - a new function is EXECUTE-able by PUBLIC; the SELECT-only role ran a
+#     SECURITY DEFINER function that inserts, and the row landed
+#   - inside BEGIN READ ONLY: "cannot execute INSERT in a read-only transaction"
+#   - REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC: "permission
+#     denied for function"; but a function created AFTER it is EXECUTE-able again
+#     and wrote
+#   - ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC closes
+#     that, only for functions created by the role that ran it: a function another
+#     role (a migration role) creates is EXECUTE-able by PUBLIC and wrote; the
+#     read-only transaction still refused it
+#
+# So the positive control is three things together: the role, EXECUTE revoked
+# (now and by default), and an explicit read-only transaction per call.
+# The definer row needs a writing SECURITY DEFINER function to exist. The oracle
+# lists them (pg_proc, prosecdef); with none, the row is INCONCLUSIVE, not PASS.
 #
 # The oracle is server state: table rows and sequence values. Session settings
 # are read too, as evidence, but a changed setting is not itself a FAIL. A
@@ -281,11 +302,32 @@ class PgError(Exception):
 class PgServer:
     """A minimal model of the PostgreSQL behaviour listed above. Nothing else."""
 
-    def __init__(self):
+    def __init__(self, definer=True):
         self.victim = [42]
         self.seq = 0                     # times orders_id_seq advanced
         self.log: list[tuple[int, str]] = []   # (session id, statement): the oracle's view
         self._next_sid = 0
+        self.functions: dict[str, dict] = {}   # writing SECURITY DEFINER functions
+        self._default_revoked: set[str] = set()   # owners with ALTER DEFAULT PRIVILEGES applied
+        if definer:
+            self.create_function("add_row")
+
+    def create_function(self, name, owner="postgres"):
+        """CREATE FUNCTION name() ... SECURITY DEFINER AS 'INSERT INTO victim ...'"""
+        self.functions[name] = {"owner": owner, "public_execute": owner not in self._default_revoked}
+
+    def revoke_execute_from_public(self):
+        """REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC: existing ones only."""
+        for f in self.functions.values():
+            f["public_execute"] = False
+
+    def alter_default_privileges(self, owner="postgres"):
+        """ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, run as owner."""
+        self._default_revoked.add(owner)
+
+    def writing_definers(self):
+        """The oracle's view of pg_proc: writing SECURITY DEFINER functions."""
+        return sorted(self.functions)
 
     def connect(self, role, default_read_only=False):
         self._next_sid += 1
@@ -293,7 +335,8 @@ class PgServer:
 
 
 class PgSession:
-    GRANTS = {"postgres": {"select", "usage_seq", "insert"}, "readonly_role": {"select"}}
+    GRANTS = {"postgres": {"select", "usage_seq", "insert"}, "readonly_role": {"select"},
+              "migrator": {"select", "insert"}}
 
     def __init__(self, server, sid, role, default_read_only):
         self.server, self.sid, self.role = server, sid, role
@@ -326,6 +369,17 @@ class PgSession:
             self._need("insert", "table victim")
             victim.append(7)
             rows = []
+        elif (m := re.fullmatch(r"SELECT (\w+)\(\)", sql)) and m.group(1) in self.server.functions:
+            name = m.group(1)
+            fn = self.server.functions[name]
+            if self.role != fn["owner"] and not fn["public_execute"]:
+                raise PgError(f"permission denied for function {name}")
+            if ro:
+                raise PgError("cannot execute INSERT in a read-only transaction")
+            if "insert" not in self.GRANTS[fn["owner"]]:   # the OWNER's grants, not the caller's
+                raise PgError("permission denied for table victim")
+            victim.append(7)
+            rows = [("",)]
         else:
             raise PgError("statement outside the model")
         if end == "commit":
@@ -398,6 +452,35 @@ class FreshSessionPerCall:
         return _pg_call(self.server.connect("postgres", default_read_only=True), sql)
 
 
+class RoleExecuteRevoked:
+    """The role, plus EXECUTE revoked from PUBLIC now and by default. Read-write session."""
+    def __init__(self):
+        self.server = PgServer()
+        self.server.revoke_execute_from_public()
+        self.server.alter_default_privileges("postgres")
+        self.session = self.server.connect("readonly_role")
+
+    def call(self, sql):
+        return _pg_call(self.session, sql)
+
+
+class RoleRevokeReadOnlyTransaction(RoleExecuteRevoked):
+    """Positive control for all three rows: the role, EXECUTE revoked, and every
+    call in an explicit read-only transaction (not the session default)."""
+    def call(self, sql):
+        return _pg_call(self.session, sql, txn="read only")
+
+
+class NoDefinerFunction:
+    """Privileged, read-write, and the schema has no SECURITY DEFINER function."""
+    def __init__(self):
+        self.server = PgServer(definer=False)
+        self.session = self.server.connect("postgres")
+
+    def call(self, sql):
+        return _pg_call(self.session, sql)
+
+
 class PgRefusesEverything:
     def __init__(self):
         self.server = PgServer()
@@ -415,7 +498,7 @@ def pg_state(server):
 
 def grade_parser_agrees(target, observe=True) -> dict:
     """Per input case, PASS / FAIL / INCONCLUSIVE. The tool's answers are not consulted."""
-    cases = ("nextval", "set_config_then_write")
+    cases = ("nextval", "definer_function", "set_config_then_write")
     control = target.call("SELECT n FROM victim")
     if not (control.get("ok") and control.get("rows")):
         return dict.fromkeys(cases, INCONCLUSIVE)
@@ -427,6 +510,17 @@ def grade_parser_agrees(target, observe=True) -> dict:
     before = pg_state(server)
     target.call(NEXTVAL)
     out["nextval"] = PASS if pg_state(server) == before else FAIL
+
+    # Before set_config: on a session-default target, a write after set_config
+    # would be charged to the definer row.
+    definers = server.writing_definers()
+    if not definers:
+        out["definer_function"] = INCONCLUSIVE     # nothing to write through
+    else:
+        before = pg_state(server)
+        for name in definers:
+            target.call(f"SELECT {name}()")
+        out["definer_function"] = PASS if pg_state(server) == before else FAIL
 
     before, mark = pg_state(server), len(server.log)
     target.call(SET_RW)
@@ -448,9 +542,11 @@ class ParserAgreesButWritesTruthTable(unittest.TestCase):
             self.assertEqual(split_mysql(sql), [sql])
             self.assertTrue(is_read_only(sql))
 
-    def test_role_based_control_passes_both(self):
+    def test_role_alone_fails_the_definer_function(self):
+        # The grant stops nextval and the write after set_config, not a SECURITY
+        # DEFINER function: that runs with its owner's privileges.
         self.assertEqual(grade_parser_agrees(RoleGrants()),
-                         {"nextval": PASS, "set_config_then_write": PASS})
+                         {"nextval": PASS, "definer_function": FAIL, "set_config_then_write": PASS})
 
     def test_the_role_control_is_enforced_by_the_grant(self):
         # Nothing but the grant stands between this session and a write.
@@ -461,7 +557,7 @@ class ParserAgreesButWritesTruthTable(unittest.TestCase):
 
     def test_session_default_fails_the_two_call_case(self):
         self.assertEqual(grade_parser_agrees(SessionDefaultReadOnly()),
-                         {"nextval": PASS, "set_config_then_write": FAIL})
+                         {"nextval": PASS, "definer_function": PASS, "set_config_then_write": FAIL})
 
     def test_the_first_call_looks_clean(self):
         # Why one call is not enough: set_config moves no row and no sequence.
@@ -475,7 +571,7 @@ class ParserAgreesButWritesTruthTable(unittest.TestCase):
     def test_a_changed_setting_alone_is_not_a_fail(self):
         t = ExplicitReadOnlyTransaction()
         self.assertEqual(grade_parser_agrees(t),
-                         {"nextval": PASS, "set_config_then_write": PASS})
+                         {"nextval": PASS, "definer_function": PASS, "set_config_then_write": PASS})
         self.assertFalse(t.session.default_ro)
 
     def test_select_prefix_validator_fails_nextval(self):
@@ -483,7 +579,7 @@ class ParserAgreesButWritesTruthTable(unittest.TestCase):
 
     def test_fresh_session_per_call_is_inconclusive_not_pass(self):
         self.assertEqual(grade_parser_agrees(FreshSessionPerCall()),
-                         {"nextval": PASS, "set_config_then_write": INCONCLUSIVE})
+                         {"nextval": PASS, "definer_function": PASS, "set_config_then_write": INCONCLUSIVE})
 
     def test_refusing_everything_is_inconclusive(self):
         self.assertEqual(set(grade_parser_agrees(PgRefusesEverything()).values()),
@@ -499,6 +595,62 @@ class ParserAgreesButWritesTruthTable(unittest.TestCase):
         self.assertTrue(s.default_ro)
         s.run(SET_RW, txn="read only", end="commit")
         self.assertFalse(s.default_ro)
+
+
+class SecurityDefinerTruthTable(unittest.TestCase):
+    """The definer row (bloqarl, 2026-11-21). Every shape checked on PG 17.12 first."""
+
+    ALL_PASS = {"nextval": PASS, "definer_function": PASS, "set_config_then_write": PASS}
+
+    def test_the_three_part_control_passes_every_row(self):
+        self.assertEqual(grade_parser_agrees(RoleRevokeReadOnlyTransaction()), self.ALL_PASS)
+
+    def test_revoked_execute_is_what_refuses_the_function(self):
+        # Exercised, not just present: the read-write session leaves only the revoke.
+        t = RoleExecuteRevoked()
+        self.assertFalse(t.session.default_ro)
+        self.assertEqual(t.call("SELECT add_row()")["error"], "permission denied for function add_row")
+        self.assertEqual(grade_parser_agrees(RoleExecuteRevoked()), self.ALL_PASS)
+
+    def test_the_definer_writes_with_its_owners_grants(self):
+        t = RoleGrants()
+        self.assertIn("permission denied", t.call(WRITE)["error"])   # the role cannot insert ...
+        self.assertTrue(t.call("SELECT add_row()")["ok"])           # ... the function can
+        self.assertEqual(t.server.victim, [42, 7])
+
+    def test_revoke_without_default_privileges_reopens_on_a_new_function(self):
+        t = RoleGrants()
+        t.server.revoke_execute_from_public()
+        self.assertEqual(grade_parser_agrees(t)["definer_function"], PASS)
+        t.server.create_function("add_row_v2")              # a later migration
+        self.assertEqual(grade_parser_agrees(t)["definer_function"], FAIL)
+
+    def test_default_privileges_cover_only_their_creating_role(self):
+        t = RoleExecuteRevoked()
+        t.server.create_function("add_row_v2")              # same owner: covered
+        self.assertEqual(grade_parser_agrees(t)["definer_function"], PASS)
+        t.server.create_function("mig_add", owner="migrator")   # another owner: not
+        self.assertEqual(grade_parser_agrees(t)["definer_function"], FAIL)
+
+    def test_the_read_only_transaction_holds_where_the_grants_do_not(self):
+        t = RoleRevokeReadOnlyTransaction()
+        t.server.create_function("mig_add", owner="migrator")
+        self.assertEqual(grade_parser_agrees(t), self.ALL_PASS)
+        self.assertIn("read-only transaction", t.call("SELECT mig_add()")["error"])
+
+    def test_no_definer_function_is_inconclusive_not_pass(self):
+        out = grade_parser_agrees(NoDefinerFunction())
+        self.assertEqual(out["definer_function"], INCONCLUSIVE)
+        self.assertEqual(out["nextval"], FAIL)              # the target is still graded
+
+    def test_select_prefix_validator_fails_the_definer_function(self):
+        self.assertEqual(grade_parser_agrees(SelectPrefixValidator())["definer_function"], FAIL)
+
+    def test_validators_agree_on_the_definer_call(self):
+        sql = "SELECT add_row()"
+        self.assertEqual(split_naive(sql), [sql])
+        self.assertEqual(split_mysql(sql), [sql])
+        self.assertTrue(is_read_only(sql))
 
 
 class ParserAgreesGraderMutations(unittest.TestCase):
@@ -528,6 +680,27 @@ class ParserAgreesGraderMutations(unittest.TestCase):
         self.assertEqual(pg_state(t.server), before)                            # would read PASS
         self.assertEqual(grade_parser_agrees(FreshSessionPerCall())["set_config_then_write"],
                          INCONCLUSIVE)
+
+    def test_grading_the_definer_after_set_config_misattributes_the_write(self):
+        # On a session-default target, set_config turns the default off; a
+        # definer call after it writes, and the definer row would read FAIL.
+        t = SessionDefaultReadOnly()
+        t.call(SET_RW)
+        before = pg_state(t.server)
+        t.call("SELECT add_row()")
+        self.assertNotEqual(pg_state(t.server), before)                         # wrongly FAIL
+        self.assertEqual(grade_parser_agrees(SessionDefaultReadOnly())["definer_function"], PASS)
+
+    def test_checking_only_existing_functions_passes_a_later_migration(self):
+        t = RoleGrants()
+        t.server.revoke_execute_from_public()
+        listed = list(t.server.functions)                   # listed once, at set-up
+        t.server.create_function("add_row_v2")
+        before = pg_state(t.server)
+        for name in listed:
+            t.call(f"SELECT {name}()")
+        self.assertEqual(pg_state(t.server), before)                            # wrongly clean
+        self.assertEqual(grade_parser_agrees(t)["definer_function"], FAIL)
 
     def test_trusting_the_tool_answer_misreads_the_session_default(self):
         t = SessionDefaultReadOnly()
