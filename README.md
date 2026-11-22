@@ -300,6 +300,15 @@ under [Outside checks](#outside-checks).
 > rows were removed rather than re-pointed. The surviving *Detecting Normalization of Deviance in
 > Multi-Agent Systems* record (`19195516`) is unaffected and was already listed separately.
 
+### Datasets
+
+**[MCP Tool Poisoning Fixtures](https://huggingface.co/datasets/msaleme/mcp-tool-poisoning-fixtures)** (Hugging Face,
+Apache-2.0): the fixtures behind the tool-poisoning suite (`protocol_tests/mcp_tool_poisoning_harness.py`, tests
+CVE-001, CVE-006 and CVE-007), exported at v4.31.1 so detectors can be tested without installing the harness. 23
+synthetic rows in three subsets: poisoned tool definitions next to their clean twins, encoded payloads next to benign
+look-alikes, and one tool that turns hostile across three versions. Every subset includes negative controls, and the
+card records this harness's own scanner as a baseline (it flags 5 of the 11 poisoned fields), not a ceiling.
+
 ---
 
 ## Related Projects
