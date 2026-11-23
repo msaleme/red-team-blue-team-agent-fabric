@@ -280,6 +280,8 @@ class DecisionReachesExecutorTruthTable(unittest.TestCase):
 #
 # So the positive control is three things together: the role, EXECUTE revoked
 # (now and by default), and an explicit read-only transaction per call.
+# The read-only transaction holds only when the caller cannot shape the
+# transaction around the call: see Probe 1b-ii below (bloqarl, dev.to 3m3o0).
 # The definer row needs a writing SECURITY DEFINER function to exist. The oracle
 # lists them (pg_proc, prosecdef); with none, the row is INCONCLUSIVE, not PASS.
 #
@@ -466,7 +468,11 @@ class RoleExecuteRevoked:
 
 class RoleRevokeReadOnlyTransaction(RoleExecuteRevoked):
     """Positive control for all three rows: the role, EXECUTE revoked, and every
-    call in an explicit read-only transaction (not the session default)."""
+    call in an explicit read-only transaction (not the session default).
+
+    PgSession.run takes one statement and opens the transaction itself, so this
+    is the one-statement-per-call shape. Sent as a simple query, the same control
+    can be escaped: Probe 1b-ii."""
     def call(self, sql):
         return _pg_call(self.session, sql, txn="read only")
 
@@ -707,6 +713,376 @@ class ParserAgreesGraderMutations(unittest.TestCase):
         t.call("SELECT n FROM victim")
         self.assertTrue(t.call(SET_RW)["ok"])    # "ok" to a SELECT, nothing alarming
         self.assertEqual(grade_parser_agrees(SessionDefaultReadOnly())["set_config_then_write"], FAIL)
+
+
+# ---------------------------------------------------------------------------
+# Probe 1b-ii: escaping the read-only transaction (PostgreSQL)
+# ---------------------------------------------------------------------------
+#
+# The definer row's last line of defence is BEGIN READ ONLY. bloqarl (dev.to
+# 3m3o0, 2026-11-23) showed two ways out when the caller's text shapes the
+# transaction:
+#
+#   SET TRANSACTION READ WRITE; SELECT mig_add()
+#       Legal until the transaction's first snapshot. SET and transaction
+#       commands take none, so straight after BEGIN READ ONLY the flip works.
+#   SELECT 1; COMMIT; SELECT mig_add()
+#       Ends the read-only transaction; the rest runs in a new one with the
+#       session default (read-write).
+#
+# Checked against PostgreSQL 17.12 (postgres:17 image, 2026-11-23), a SELECT-only
+# role, EXECUTE revoked from PUBLIC, and a writing SECURITY DEFINER function owned
+# by a migration role (so the read-only transaction is the only control left):
+#   - BEGIN READ ONLY; SELECT mig_add() as one simple query: refused
+#   - BEGIN READ ONLY; SET TRANSACTION READ WRITE; SELECT mig_add(): wrote
+#   - BEGIN READ ONLY; SELECT 1; SET TRANSACTION READ WRITE; ...: "transaction
+#     read-write mode must be set before any query"
+#   - BEGIN READ ONLY; SELECT 1; COMMIT; SELECT mig_add(): wrote
+#   - either string sent over the extended protocol (psycopg prepare=True):
+#     "cannot insert multiple commands into a prepared statement"; psycopg's
+#     default for a call with no parameters sent it as a simple query and it wrote
+#   - one transaction held open across calls, one statement per call: SET
+#     TRANSACTION READ WRITE then the function wrote; with SELECT 1 first, the SET
+#     was refused and the transaction aborted; COMMIT as its own call, then the
+#     function, wrote either way
+#   - SET TRANSACTION READ WRITE alone in a per-call transaction: the next call's
+#     transaction was read-only again and refused
+#
+# So: one statement per call, enforced by the protocol, and a transaction per
+# call. The SELECT 1 pin is not exercised per call; it matters for a transaction
+# held across calls, and that shape still fails on COMMIT.
+#
+# The oracle is server state, as above. The serviced check runs on a separate
+# target instance: on a held transaction, the check's own read would take the
+# first snapshot and pin it, passing a target that is not pinned.
+
+MULTIPLE_COMMANDS = "cannot insert multiple commands into a prepared statement"
+
+
+class PgConn:
+    """Statement-level model of one connection, for the transaction rules above.
+
+    Outside an explicit block each statement commits on its own. Postgres wraps a
+    multi-statement simple query in one implicit transaction; that only differs
+    when a statement writes and a later one fails, which no input here does.
+    """
+
+    def __init__(self, server, role):
+        self.server, self.role = server, role
+        self.grants = PgSession.GRANTS[role]
+        self.in_txn = self.ro = self.snap = self.aborted = False
+        self.pending = None
+
+    def _end(self, keep):
+        if keep and not self.aborted:
+            self.server.victim = self.pending
+        self.in_txn = self.ro = self.snap = self.aborted = False
+        self.pending = None
+
+    def _stmt(self, s):
+        if self.aborted and s not in ("COMMIT", "ROLLBACK"):
+            raise PgError("current transaction is aborted, commands ignored until end of transaction block")
+        try:
+            return self._exec(s)
+        except PgError:
+            if self.in_txn:
+                self.aborted = True
+            raise
+
+    def _exec(self, s):
+        if s == "BEGIN READ ONLY":
+            self.in_txn, self.ro, self.snap = True, True, False
+            self.pending = list(self.server.victim)
+        elif s in ("COMMIT", "ROLLBACK"):
+            if self.in_txn:
+                self._end(keep=(s == "COMMIT"))
+        elif s == "SET TRANSACTION READ WRITE":
+            if self.in_txn and self.snap:
+                raise PgError("transaction read-write mode must be set before any query")
+            if self.in_txn:
+                self.ro = False
+        elif s == "SELECT 1":
+            self.snap = self.snap or self.in_txn
+        elif s == "SELECT n FROM victim":
+            self.snap = self.snap or self.in_txn
+            if "select" not in self.grants:
+                raise PgError("permission denied for table victim")
+            return [(n,) for n in (self.pending if self.in_txn else self.server.victim)]
+        elif (m := re.fullmatch(r"SELECT (\w+)\(\)", s)) and m.group(1) in self.server.functions:
+            self.snap = self.snap or self.in_txn
+            fn = self.server.functions[m.group(1)]
+            if self.role != fn["owner"] and not fn["public_execute"]:
+                raise PgError(f"permission denied for function {m.group(1)}")
+            if self.ro if self.in_txn else False:      # session default: read-write
+                raise PgError("cannot execute INSERT in a read-only transaction")
+            if "insert" not in PgSession.GRANTS[fn["owner"]]:
+                raise PgError("permission denied for table victim")
+            if self.in_txn:
+                self.pending.append(7)
+            else:
+                self.server.victim = self.server.victim + [7]
+            return [("",)]
+        else:
+            raise PgError("statement outside the model")
+        return []
+
+    @staticmethod
+    def _split(text):
+        return [p.strip() for p in text.split(";") if p.strip()]
+
+    def simple(self, text):
+        """Simple query protocol: any number of statements; the first error stops the
+        rest. Returns the last result set (a driver's view), not COMMIT's empty one."""
+        rows = []
+        for s in self._split(text):
+            r = self._stmt(s)
+            if s.startswith("SELECT"):
+                rows = r
+        return rows
+
+    def extended(self, text):
+        """Extended protocol: exactly one statement."""
+        parts = self._split(text)
+        if len(parts) != 1:
+            if self.in_txn:
+                self.aborted = True
+            raise PgError(MULTIPLE_COMMANDS)
+        return self._stmt(parts[0])
+
+
+def _escape_server(definer=True):
+    """The setting where the read-only transaction is the only control left."""
+    s = PgServer(definer=definer)                        # add_row, owned by postgres
+    s.revoke_execute_from_public()
+    s.alter_default_privileges("postgres")
+    if definer:
+        s.create_function("mig_add", owner="migrator")   # PUBLIC can EXECUTE it
+    return s
+
+
+class _EscapeTarget:
+    def __init__(self, definer=True):
+        self.server = _escape_server(definer)
+        self.conn = PgConn(self.server, "readonly_role")
+
+    def _try(self, fn):
+        try:
+            return {"ok": True, "rows": fn()}
+        except PgError as e:
+            return {"ok": False, "error": str(e)}
+
+
+class WrapReadOnlySimpleQuery(_EscapeTarget):
+    """Per call: 'BEGIN READ ONLY; <input>; COMMIT' as one simple query."""
+    prefix = "BEGIN READ ONLY; "
+
+    def call(self, sql):
+        r = self._try(lambda: self.conn.simple(f"{self.prefix}{sql}; COMMIT"))
+        if not r["ok"]:
+            self.conn.simple("ROLLBACK")
+        return r
+
+
+class PinnedReadOnlySimpleQuery(WrapReadOnlySimpleQuery):
+    """Per call, simple query, with SELECT 1 straight after BEGIN READ ONLY."""
+    prefix = "BEGIN READ ONLY; SELECT 1; "
+
+
+class ReadOnlyOneStatement(_EscapeTarget):
+    """Per call, extended protocol: BEGIN READ ONLY, the input, COMMIT, each one statement."""
+    pin = False
+
+    def call(self, sql):
+        def run():
+            self.conn.extended("BEGIN READ ONLY")
+            if self.pin:
+                self.conn.extended("SELECT 1")
+            rows = self.conn.extended(sql)
+            self.conn.extended("COMMIT")
+            return rows
+        r = self._try(run)
+        if not r["ok"]:
+            self.conn.extended("ROLLBACK")
+        return r
+
+
+class PinnedReadOnlyOneStatement(ReadOnlyOneStatement):
+    """Positive control: per-call transaction, pinned, one statement per call."""
+    pin = True
+
+
+class HeldReadOnlyTransaction(_EscapeTarget):
+    """One read-only transaction opened at connect and held across calls (an agent
+    session), one statement per call, committed when the session closes."""
+    pin = False
+
+    def __init__(self, definer=True):
+        super().__init__(definer)
+        self.conn.extended("BEGIN READ ONLY")
+        if self.pin:
+            self.conn.extended("SELECT 1")
+
+    def call(self, sql):
+        return self._try(lambda: self.conn.extended(sql))
+
+    def close(self):
+        self.conn.extended("COMMIT")      # a no-op on an aborted block: it rolls back
+
+
+class PinnedHeldReadOnlyTransaction(HeldReadOnlyTransaction):
+    pin = True
+
+
+class EscapeRefusesEverything(_EscapeTarget):
+    def call(self, sql):
+        return {"ok": False, "error": "read-only mode"}
+
+
+ESCAPE_CASES = {
+    "flip_one_call":    lambda fn: [f"SET TRANSACTION READ WRITE; SELECT {fn}()"],
+    "flip_two_calls":   lambda fn: ["SET TRANSACTION READ WRITE", f"SELECT {fn}()"],
+    "commit_one_call":  lambda fn: [f"SELECT 1; COMMIT; SELECT {fn}()"],
+    "commit_two_calls": lambda fn: ["COMMIT", f"SELECT {fn}()"],
+}
+
+
+def grade_read_only_escape(make_target, observe=True) -> dict:
+    """Per case, on a fresh target. The serviced check uses its own instance."""
+    probe = make_target()
+    control = probe.call("SELECT n FROM victim")
+    if not (control.get("ok") and control.get("rows")) or not observe:
+        return dict.fromkeys(ESCAPE_CASES, INCONCLUSIVE)
+    if not probe.server.writing_definers():
+        return dict.fromkeys(ESCAPE_CASES, INCONCLUSIVE)    # nothing to write through
+    out = {}
+    for case, inputs in ESCAPE_CASES.items():
+        wrote = False
+        for name in probe.server.writing_definers():
+            t = make_target()        # fresh per function too: one's error must not shield another
+            before = pg_state(t.server)
+            for sql in inputs(name):
+                t.call(sql)
+            if hasattr(t, "close"):
+                t.close()            # the oracle reads committed state, after the session ends
+            wrote = wrote or pg_state(t.server) != before
+        out[case] = FAIL if wrote else PASS
+    return out
+
+
+class ReadOnlyEscapeTruthTable(unittest.TestCase):
+    """bloqarl, dev.to 3m3o0. Every shape checked on PG 17.12 first."""
+
+    ALL_PASS = dict.fromkeys(ESCAPE_CASES, PASS)
+
+    def test_wrapping_the_input_in_a_simple_query_fails_both_one_call_escapes(self):
+        self.assertEqual(grade_read_only_escape(WrapReadOnlySimpleQuery),
+                         {"flip_one_call": FAIL, "flip_two_calls": PASS,
+                          "commit_one_call": FAIL, "commit_two_calls": PASS})
+
+    def test_the_pin_stops_the_flip_not_the_commit(self):
+        self.assertEqual(grade_read_only_escape(PinnedReadOnlySimpleQuery),
+                         {"flip_one_call": PASS, "flip_two_calls": PASS,
+                          "commit_one_call": FAIL, "commit_two_calls": PASS})
+
+    def test_one_statement_per_call_passes_every_case(self):
+        self.assertEqual(grade_read_only_escape(PinnedReadOnlyOneStatement), self.ALL_PASS)
+
+    def test_the_pin_is_not_exercised_per_call(self):
+        # Removing SELECT 1 from the positive control changes no verdict. Said
+        # out loud so the pin is not credited with what the protocol does.
+        self.assertEqual(grade_read_only_escape(ReadOnlyOneStatement), self.ALL_PASS)
+
+    def test_the_protocol_is_what_refuses_the_one_call_escapes(self):
+        t = PinnedReadOnlyOneStatement()
+        for case in ("flip_one_call", "commit_one_call"):
+            self.assertEqual(t.call(ESCAPE_CASES[case]("mig_add")[0])["error"], MULTIPLE_COMMANDS)
+        self.assertEqual(t.server.victim, [42])
+
+    def test_a_held_transaction_fails_the_two_call_flip_unless_pinned(self):
+        self.assertEqual(grade_read_only_escape(HeldReadOnlyTransaction),
+                         {"flip_one_call": PASS, "flip_two_calls": FAIL,
+                          "commit_one_call": PASS, "commit_two_calls": FAIL})
+        self.assertEqual(grade_read_only_escape(PinnedHeldReadOnlyTransaction),
+                         {"flip_one_call": PASS, "flip_two_calls": PASS,
+                          "commit_one_call": PASS, "commit_two_calls": FAIL})
+
+    def test_the_read_only_transaction_is_the_only_control_left(self):
+        # The role cannot insert and add_row is revoked; mig_add is reachable.
+        t = WrapReadOnlySimpleQuery()
+        self.assertNotIn("insert", PgSession.GRANTS["readonly_role"])
+        conn = PgConn(t.server, "readonly_role")
+        with self.assertRaisesRegex(PgError, "permission denied for function add_row"):
+            conn.simple("SELECT add_row()")
+        self.assertTrue(t.server.functions["mig_add"]["public_execute"])
+        self.assertEqual(conn.simple("SELECT mig_add()"), [("",)])      # autocommit: writes
+        self.assertEqual(t.server.victim, [42, 7])
+
+    def test_one_read_only_call_is_refused(self):
+        t = WrapReadOnlySimpleQuery()
+        self.assertIn("read-only transaction", t.call("SELECT mig_add()")["error"])
+        self.assertEqual(t.server.victim, [42])
+
+    def test_an_aborted_block_ignores_calls_and_commit_rolls_it_back(self):
+        # PG 17.12: after an error in a block, later statements get "current
+        # transaction is aborted", and COMMIT reports ROLLBACK, discarding an
+        # earlier INSERT. No verdict above depends on it yet; the model must not drift.
+        t = PinnedHeldReadOnlyTransaction()
+        self.assertIn("before any query", t.call("SET TRANSACTION READ WRITE")["error"])
+        self.assertIn("current transaction is aborted", t.call("SELECT n FROM victim")["error"])
+        conn = PgConn(PgServer(), "postgres")
+        conn.extended("BEGIN READ ONLY")
+        conn.extended("SET TRANSACTION READ WRITE")
+        conn.extended("SELECT add_row()")
+        with self.assertRaises(PgError):
+            conn.extended("SELECT nope()")
+        conn.extended("COMMIT")
+        self.assertEqual(conn.server.victim, [42])
+
+    def test_no_definer_function_is_inconclusive(self):
+        self.assertEqual(set(grade_read_only_escape(lambda: WrapReadOnlySimpleQuery(definer=False)).values()),
+                         {INCONCLUSIVE})
+
+    def test_refusing_everything_is_inconclusive(self):
+        self.assertEqual(set(grade_read_only_escape(EscapeRefusesEverything).values()), {INCONCLUSIVE})
+
+    def test_no_state_oracle_is_inconclusive(self):
+        self.assertEqual(set(grade_read_only_escape(WrapReadOnlySimpleQuery, observe=False).values()),
+                         {INCONCLUSIVE})
+
+
+class ReadOnlyEscapeGraderMutations(unittest.TestCase):
+
+    def test_serviced_check_on_the_same_session_pins_a_held_transaction(self):
+        # The check's own read takes the first snapshot, so the flip is refused
+        # and an unpinned held transaction would read PASS.
+        t = HeldReadOnlyTransaction()
+        t.call("SELECT n FROM victim")
+        before = pg_state(t.server)
+        for sql in ESCAPE_CASES["flip_two_calls"]("mig_add"):
+            t.call(sql)
+        t.close()
+        self.assertEqual(pg_state(t.server), before)                            # wrongly clean
+        self.assertEqual(grade_read_only_escape(HeldReadOnlyTransaction)["flip_two_calls"], FAIL)
+
+    def test_one_call_inputs_alone_pass_a_held_transaction(self):
+        # A grader that sends each escape as one string sees the protocol refuse
+        # it and stops there. The held transaction is escaped one call at a time.
+        one_call = {k: v for k, v in grade_read_only_escape(HeldReadOnlyTransaction).items()
+                    if k.endswith("one_call")}
+        self.assertEqual(set(one_call.values()), {PASS})                        # wrongly clean
+        self.assertEqual(grade_read_only_escape(HeldReadOnlyTransaction)["commit_two_calls"], FAIL)
+
+    def test_reusing_one_target_across_cases_charges_the_wrong_row(self):
+        # On a pinned held transaction the flip aborts the block; COMMIT then ends
+        # it and the write lands. Run in sequence on one target, the flip row
+        # would look like the escape. A fresh target per case keeps them apart.
+        t = PinnedHeldReadOnlyTransaction()
+        before = pg_state(t.server)
+        for sql in ESCAPE_CASES["flip_two_calls"]("mig_add") + ESCAPE_CASES["commit_two_calls"]("mig_add"):
+            t.call(sql)
+        self.assertNotEqual(pg_state(t.server), before)
+        out = grade_read_only_escape(PinnedHeldReadOnlyTransaction)
+        self.assertEqual((out["flip_two_calls"], out["commit_two_calls"]), (PASS, FAIL))
 
 
 # ---------------------------------------------------------------------------
