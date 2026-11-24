@@ -33,3 +33,11 @@ in their own gateway, outside this harness:
 **Related, and in scope.** Control-plane SSRF in OAuth Dynamic Client Registration ([#714](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/714)) and an
 MCP client sending credentials to a server-chosen authorization server ([#715](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/715)) are protocol
 behaviour, not product management APIs. Both are planned with the MCP authorization-flow work.
+
+## Out of scope: containment of an already-compromised agent workload
+
+**Decided 2026-11-24** ([#642](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/642), closed: out of scope). The harness does not test whether an agent that already has code execution inside its own runtime can reach prohibited egress, discover credentials beyond its workload identity, alter the enforcement layer, or suppress the telemetry a verdict depends on.
+
+**Why.** Each of those is a property of the runtime and its control plane, not of a protocol surface. Testing it needs a deliberately compromised workload inside the target's trust boundary, plus witnesses outside it: a network observer, the live enforcement configuration, and an independent telemetry store. That is sandbox and runtime assurance, built per deployment. It is not adversarial traffic sent to an agent-facing interface, which is what the harness does.
+
+**What stays in scope.** The cases where a held credential leaves through something the harness can observe from outside: an evaluation environment surrendering credentials through its outputs ([#577](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/577)), a management API returning stored credentials ([#670](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/670)), a credential crossing the publication boundary ([#731](https://github.com/msaleme/red-team-blue-team-agent-fabric/issues/731)), and the capability-residue family (CR-001..CR-005).
