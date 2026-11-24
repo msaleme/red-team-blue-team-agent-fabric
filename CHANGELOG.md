@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.32.0] - 2026-11-24
+
+A new test, MCP-023, and the issue #688 truth-table rows. MCP-023 calls every tool annotated
+`readOnlyHint=true` with its path-shaped arguments pointed at a harness-owned canary and FAILs
+on any file written, whatever the replies said (#716, CVE-2026-126816). The #688 rows record
+statements a validator accepts as read-only that still write, and the control that holds
+for each. 661 -> 662 tests; test-bearing modules unchanged at 50. No verdict
+semantics changed for existing tests.
+
+### Added: issue #688 truth-table rows for read-only database enforcement (#725, #726, #729, #730)
+
+`testing/test_decision_enforcement_truth_tables.py` gains four tables. Each names what fails
+and what holds:
+
+- The validator and the parser agree and the statement still writes (`nextval`, and
+  `set_config('default_transaction_read_only','off',false)` turning the next call's read-only
+  default off). A SELECT-only role on a read-write session is the positive control; a
+  read-only session default fails the two-call case, and a fresh session per call is
+  INCONCLUSIVE on it (#725).
+- MySQL `SELECT ... INTO OUTFILE`: neither a read-only transaction, a read-only session nor
+  `super_read_only` stops it; the `FILE` grant is the control (#726).
+- `SECURITY DEFINER`: a SELECT-only role writes through a definer function, so the role alone
+  fails; role, revoked EXECUTE and a read-only transaction together hold (#729).
+- Read-only transaction escapes (`SET TRANSACTION READ WRITE`, or `COMMIT` and a new
+  transaction): one statement per call over the extended protocol is the control. This
+  narrows #729: the read-only transaction holds only when the caller cannot shape the
+  transaction around the call (#730).
+
+These are test-suite rows checked against PostgreSQL 17 and MySQL 8.4, not new harness test
+IDs; the count is unchanged by them.
+
+### Docs: the README links the MCP tool-poisoning fixtures dataset on Hugging Face (#728)
+
 ### Added: MCP-023, a read-only tool annotation must match behaviour (#716)
 
 `readOnlyHint` is a value a server author types, and clients that auto-approve read-only tools
@@ -27,8 +60,9 @@ modules unchanged at 50.
   PASS 16 -> 17, with the reading recorded beside it.
 - Not observed: writes not made through a path-shaped argument, and symlink escapes from a
   server-side base directory.
-- CVE-2026-126816 is listed under `excluded` in the CVE index until MCP-023 is on a commit the
-  index can pin to; a follow-up documents it under `cves`.
+- CVE-2026-126816 stays under `excluded` in the CVE index in this release. Moving it under
+  `cves` means re-pinning the index to a commit that carries MCP-023 and re-retrieving the
+  vendor facts from NVD and GHSA, which is a separate change, not part of the release.
 - Two false PASSes found by review before merge, each with a fixture that PASSed before the
   fix and FAILs after: a tool named with `/` or `..` moved the canary file outside the canary
   (the name is now reduced to safe characters), and `timeout` matched the path word `out` and,
