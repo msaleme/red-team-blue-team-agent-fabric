@@ -28,7 +28,9 @@ PLUS tests for gaps identified in the original report:
 References:
     - Anthropic GTG-1002 Report (Nov 2025):
       https://assets.anthropic.com/m/ec212e6566a0d47/original/Disrupting-the-first-reported-AI-orchestrated-cyber-espionage-campaign.pdf
-    - Mexico/Claude Breach (Feb 2026): 150GB exfiltrated, 195M records
+    - Mexico/Claude breach (Feb 2026), per Gambit Security researchers: 150GB of
+      government data, including documents related to 195 million taxpayer
+      records (the researchers' figures; Jalisco denied it was breached)
     - CrowdStrike 2026 Global Threat Report: 89% increase in AI-enabled ops
 
 Usage:
