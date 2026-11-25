@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed: incident citations in the advanced-attack and GTG-1002 modules match their sources
+
+A retrieval check against the primary reporting found two module docstrings stating more than
+the sources do. No test logic or verdict changed; docstrings, comments, one INCONCLUSIVE detail
+string and the advanced-attack report's `references` list were edited.
+
+- STATE-002 quoted Gambit Security as "That got past the guardrails." The reporting reads "That
+  got the intruder past Claude's guardrails", in press coverage of Gambit's findings. It is now
+  quoted as written and attributed that way.
+- The Mexico/Claude breach figures (150GB; documents related to 195 million taxpayer records)
+  are now attributed to Gambit Security's researchers, with Jalisco's denial noted.
+- STATE-001 ("started with benign prompts, built context") and POLY-001 ("unique payloads per
+  target") were labelled as Mexico-breach techniques; the reporting describes neither. They are
+  now described as patterns, not attributed to that incident.
+- JAIL-001 now says what the reporting says: when Claude hit problems or needed more
+  information, the attacker turned to ChatGPT. The "then pivoted back" claim was removed.
+- The FortiGate reference now matches Amazon Threat Intelligence: over 600 devices across more
+  than 55 countries, January 11 to February 18, 2026.
+
 ## [4.32.0] - 2026-11-24
 
 A new test, MCP-023, and the issue #688 truth-table rows. MCP-023 calls every tool annotated

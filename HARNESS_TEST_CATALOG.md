@@ -1,7 +1,7 @@
 # Agent Security Harness — Canonical Test Catalog
 
 **Source repo:** msaleme/red-team-blue-team-agent-fabric
-**Generated:** `scripts/generate_test_catalog.py` at commit `0f37190`
+**Generated:** `scripts/generate_test_catalog.py` at commit `a6a4270`
 **Test count:** 662 unique test IDs across 51 registered harness modules (50 contain test IDs; `community_runner.py` is a plugin runner with none of its own)
 **Purpose:** Ground-truth reference for any bot, agent, or human representing the harness in public posts, comments, or discussions. Cite only tests listed here. Do not invent IDs or statistics.
 
@@ -46,16 +46,16 @@ ACSH-005 | In-Time Decision Overrides Posture | protocol_tests/acs_honoring_harn
 ### Advanced Attacks (`protocol_tests/advanced_attacks.py`) — 10 tests
 
 ```
-CHAIN-001 | Credential → Identity → Cloud Pivot (3-Step Chain) | protocol_tests/advanced_attacks.py:504
-CHAIN-002 | SaaS Lateral Movement (Doc → Email → Finance) | protocol_tests/advanced_attacks.py:547
-JAIL-001 | Jailbreak Persistence (Same Session + Cross-Session) | protocol_tests/advanced_attacks.py:649
-JAIL-002 | Roleplay-Based Jailbreak (4 Personas) | protocol_tests/advanced_attacks.py:700
-POLY-001 | Polymorphic Injection (10 Unique Payloads) | protocol_tests/advanced_attacks.py:241
-POLY-002 | Encoding Evasion (8 Variants) | protocol_tests/advanced_attacks.py:278
-RECON-001 | Attack Surface Self-Mapping (5 Queries) | protocol_tests/advanced_attacks.py:593
-STATE-001 | Trust-Building → Escalation (8 turns) | protocol_tests/advanced_attacks.py:335
-STATE-002 | Playbook Injection Bypass (Mexico Breach Pattern) | protocol_tests/advanced_attacks.py:411
-STATE-003 | Guardrail Erosion (8-Step Progressive Escalation) | protocol_tests/advanced_attacks.py:453
+CHAIN-001 | Credential → Identity → Cloud Pivot (3-Step Chain) | protocol_tests/advanced_attacks.py:508
+CHAIN-002 | SaaS Lateral Movement (Doc → Email → Finance) | protocol_tests/advanced_attacks.py:551
+JAIL-001 | Jailbreak Persistence (Same Session + Cross-Session) | protocol_tests/advanced_attacks.py:654
+JAIL-002 | Roleplay-Based Jailbreak (4 Personas) | protocol_tests/advanced_attacks.py:705
+POLY-001 | Polymorphic Injection (10 Unique Payloads) | protocol_tests/advanced_attacks.py:244
+POLY-002 | Encoding Evasion (8 Variants) | protocol_tests/advanced_attacks.py:281
+RECON-001 | Attack Surface Self-Mapping (5 Queries) | protocol_tests/advanced_attacks.py:597
+STATE-001 | Trust-Building → Escalation (8 turns) | protocol_tests/advanced_attacks.py:338
+STATE-002 | Playbook Injection Bypass (Mexico Breach Pattern) | protocol_tests/advanced_attacks.py:415
+STATE-003 | Guardrail Erosion (8-Step Progressive Escalation) | protocol_tests/advanced_attacks.py:457
 ```
 
 ### agent_data_injection.py (`protocol_tests/agent_data_injection.py`) — 3 tests
@@ -369,23 +369,23 @@ GM-006 | Audit Log Tampering | protocol_tests/governance_modification_harness.py
 ### GTG-1002 APT Simulation (`protocol_tests/gtg1002_simulation.py`) — 17 tests
 
 ```
-GTG-P1-001 | Defensive Security Roleplay (CrowdStrike Impersonation) | protocol_tests/gtg1002_simulation.py:440
-GTG-P1-002 | Escalating Persona Social Engineering (3 Roles) | protocol_tests/gtg1002_simulation.py:487
-GTG-P2-001 | Systematic Infrastructure Enumeration (6 Queries) | protocol_tests/gtg1002_simulation.py:552
-GTG-P2-002 | MCP Tool Abuse for System Reconnaissance | protocol_tests/gtg1002_simulation.py:577
-GTG-P2-003 | Multi-Target Parallel Reconnaissance (3 Targets) | protocol_tests/gtg1002_simulation.py:626
-GTG-P3-001 | Exploit Payload Generation Request | protocol_tests/gtg1002_simulation.py:664
-GTG-P3-002 | Callback/Beacon Validation (Exfil Channel Test) | protocol_tests/gtg1002_simulation.py:687
-GTG-P4-001 | Credential Extraction from Configurations (4 Techniques) | protocol_tests/gtg1002_simulation.py:748
-GTG-P4-002 | Lateral Movement — Cross-System Credential Testing | protocol_tests/gtg1002_simulation.py:772
-GTG-P4-003 | Privilege Level Mapping Across Discovered Credentials | protocol_tests/gtg1002_simulation.py:790
-GTG-P5-001 | Autonomous Database Extraction (Full User Table) | protocol_tests/gtg1002_simulation.py:823
-GTG-P5-002 | Intelligence Categorization by Value (High/Med/Low) | protocol_tests/gtg1002_simulation.py:849
-GTG-P5-003 | Persistent Backdoor Account Creation | protocol_tests/gtg1002_simulation.py:873
-GTG-P6-001 | Attack Documentation Auto-Generation (Markdown Report) | protocol_tests/gtg1002_simulation.py:919
-GTG-P6-002 | Campaign Handoff to Second Operator | protocol_tests/gtg1002_simulation.py:944
-HALL-001 | Security Finding Hallucination (Nonexistent System) | protocol_tests/gtg1002_simulation.py:985
-HALL-002 | Credential Fabrication (No Prior Context) | protocol_tests/gtg1002_simulation.py:1008
+GTG-P1-001 | Defensive Security Roleplay (CrowdStrike Impersonation) | protocol_tests/gtg1002_simulation.py:442
+GTG-P1-002 | Escalating Persona Social Engineering (3 Roles) | protocol_tests/gtg1002_simulation.py:489
+GTG-P2-001 | Systematic Infrastructure Enumeration (6 Queries) | protocol_tests/gtg1002_simulation.py:554
+GTG-P2-002 | MCP Tool Abuse for System Reconnaissance | protocol_tests/gtg1002_simulation.py:579
+GTG-P2-003 | Multi-Target Parallel Reconnaissance (3 Targets) | protocol_tests/gtg1002_simulation.py:628
+GTG-P3-001 | Exploit Payload Generation Request | protocol_tests/gtg1002_simulation.py:666
+GTG-P3-002 | Callback/Beacon Validation (Exfil Channel Test) | protocol_tests/gtg1002_simulation.py:689
+GTG-P4-001 | Credential Extraction from Configurations (4 Techniques) | protocol_tests/gtg1002_simulation.py:750
+GTG-P4-002 | Lateral Movement — Cross-System Credential Testing | protocol_tests/gtg1002_simulation.py:774
+GTG-P4-003 | Privilege Level Mapping Across Discovered Credentials | protocol_tests/gtg1002_simulation.py:792
+GTG-P5-001 | Autonomous Database Extraction (Full User Table) | protocol_tests/gtg1002_simulation.py:825
+GTG-P5-002 | Intelligence Categorization by Value (High/Med/Low) | protocol_tests/gtg1002_simulation.py:851
+GTG-P5-003 | Persistent Backdoor Account Creation | protocol_tests/gtg1002_simulation.py:875
+GTG-P6-001 | Attack Documentation Auto-Generation (Markdown Report) | protocol_tests/gtg1002_simulation.py:921
+GTG-P6-002 | Campaign Handoff to Second Operator | protocol_tests/gtg1002_simulation.py:946
+HALL-001 | Security Finding Hallucination (Nonexistent System) | protocol_tests/gtg1002_simulation.py:987
+HALL-002 | Credential Fabrication (No Prior Context) | protocol_tests/gtg1002_simulation.py:1010
 ```
 
 ### Harmful Output (`protocol_tests/harmful_output_harness.py`) — 10 tests
