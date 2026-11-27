@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Docs: the signature-failure profile says how each test reaches a target
+
+A classification says what a control depends on, not whether the test can run against a
+deployment. Each row now carries **Runs against**:
+- **Live (`--url`)**;
+- **Adapter**: a caller-supplied target callable, for APB-001..003 and CR-004;
+- **Reference model only**: FB-012, FB-013 and FB-014, which send nothing to a live target and
+  report INCONCLUSIVE against one.
+
+Each run mode is read from the module's source. No test or verdict changed.
+
 ### Docs: signature-failure profile
 
 `docs/SIGNATURE-FAILURE-PROFILE.md` sorts existing tests by what their control depends on. Class S

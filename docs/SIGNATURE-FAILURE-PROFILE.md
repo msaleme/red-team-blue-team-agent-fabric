@@ -23,52 +23,62 @@ They break different controls, so they are kept apart.
 
 Each classification below comes from the test's own definition in its module, at `main` when this page was written. It is a reading of what the control checks, not a new measurement.
 
+## How each test reaches a target
+
+A classification says what a control depends on. It does not say the test can be run against your deployment. That is the **Runs against** column:
+
+- **Live (`--url`)**: the module sends the attack to a target URL and grades what the target did.
+- **Adapter**: the module needs a caller-supplied target callable that maps its operations onto your runtime. There is no standard protocol to send to, so this is integration work you do. Each module also runs a self-test against its own reference targets.
+- **Reference model only**: the test checks the harness's built-in reference model and sends nothing to a live target. Pointed at a deployment it reports INCONCLUSIVE, with the reference verdict kept apart. It shows what the control should do, not whether yours does.
+
+`FB-012`, `FB-013` and `FB-014` are reference-model only. To measure those controls in a deployment, the deployment needs its own test until a live mode exists.
+
 ## Class S: server-state enforced
 
-| Test | What the server checks |
-|---|---|
-| `APB-001` Approval Bound to Its Arguments | The approval record is keyed to the exact arguments; the oracle is what the runtime executed |
-| `APB-002` Single-Use Approval Executes Once | An execution record shown append-only; a second call does not execute |
-| `APB-003` Declared Deny Rule Enforced at Execution | Declared policy consulted at execution, even over an approval |
-| `AP2-011` Payment Mandate Replay (jti) | A set of seen `jti` values |
-| `AP2-013` Double-Spend on Open Mandate | Use state of one open mandate |
-| `CTK-004` Cumulative Velocity Cap | A cumulative total across transactions |
-| `CTK-008` Token Revocation / Suspension | Token status, checked even when the token is otherwise well-formed |
-| `DCA-005` Replayed Effect Request | One effect per request (the effect counter is the assertion) |
-| `DCA-007` Pass Used After Revocation Epoch | The issuer's revocation epoch, which voids passes already issued |
-| `DCA-008` Tool Acts Under Ambient Credentials | The tool refuses to act on its own authority when no chain is presented |
-| `CR-004` Capability honoured after revocation | Revocation shown to take effect, with a matched pair that proves the capability worked first |
-| `MEM-013` Revoked Policy Still Presented As In Force | A revoked record is not returned |
-| `FB-012` Velocity / Window Budget Limit | A window budget across individually legal payments |
-| `FB-014` Batch Voucher Replay / Monotonicity | A seen-nonce set and a monotonic cumulative amount |
-| `X4-045` Replay Same Payment Hash | Deduplication of a payment hash |
-| `X4-057` Delegated Allowance Overdraft via Verify/Settle Race | Allowance accounting across concurrent verify and settle |
+| Test | What the server checks | Runs against |
+|---|---|---|
+| `APB-001` Approval Bound to Its Arguments | The approval record is keyed to the exact arguments; the oracle is what the runtime executed | Adapter |
+| `APB-002` Single-Use Approval Executes Once | An execution record shown append-only; a second call does not execute | Adapter |
+| `APB-003` Declared Deny Rule Enforced at Execution | Declared policy consulted at execution, even over an approval | Adapter |
+| `AP2-011` Payment Mandate Replay (jti) | A set of seen `jti` values | Live (`--url`) |
+| `AP2-013` Double-Spend on Open Mandate | Use state of one open mandate | Live (`--url`) |
+| `CTK-004` Cumulative Velocity Cap | A cumulative total across transactions | Live (`--url`) |
+| `CTK-008` Token Revocation / Suspension | Token status, checked even when the token is otherwise well-formed | Live (`--url`) |
+| `DCA-005` Replayed Effect Request | One effect per request (the effect counter is the assertion) | Live (`--url`) |
+| `DCA-007` Pass Used After Revocation Epoch | The issuer's revocation epoch, which voids passes already issued | Live (`--url`) |
+| `DCA-008` Tool Acts Under Ambient Credentials | The tool refuses to act on its own authority when no chain is presented | Live (`--url`) |
+| `CR-004` Capability honoured after revocation | Revocation shown to take effect, with a matched pair that proves the capability worked first | Adapter |
+| `MEM-013` Revoked Policy Still Presented As In Force | A revoked record is not returned | Live (`--url`) |
+| `FB-012` Velocity / Window Budget Limit | A window budget across individually legal payments | Reference model only |
+| `FB-014` Batch Voucher Replay / Monotonicity | A seen-nonce set and a monotonic cumulative amount | Reference model only |
+| `X4-045` Replay Same Payment Hash | Deduplication of a payment hash | Live (`--url`) |
+| `X4-057` Delegated Allowance Overdraft via Verify/Settle Race | Allowance accounting across concurrent verify and settle | Live (`--url`) |
 
-`FB-013` (Approval Quorum Above Threshold) is class S for counting: distinct, eligible, bound approvers. But **who an approver is** still rests on how approvers authenticate. A forger who can mint approver credentials can mint a quorum. And no current test checks that the requester is excluded from approving its own request: that is gap #739.
+`FB-013` (Approval Quorum Above Threshold) is class S for counting, and runs against the reference model only: distinct, eligible, bound approvers. But **who an approver is** still rests on how approvers authenticate. A forger who can mint approver credentials can mint a quorum. And no current test checks that the requester is excluded from approving its own request: that is gap #739.
 
 ## Class C: credential-integrity dependent
 
-| Test | The claim that a forger controls |
-|---|---|
-| `AP2-007` Mandate Chain Link (transaction_id) | The hash link between signed mandates |
-| `AP2-008` Open-Mandate Substitution (sd_hash) | The `sd_hash` binding between signed mandates |
-| `AP2-009` Agent Key Forgery (cnf mismatch) | Which key may sign, as stated in the `cnf` claim |
-| `AP2-012` Expired Payment Mandate | The `exp` claim |
-| `CTK-001` Agent Holder-Key Binding | The holder key bound into the token |
-| `CTK-012` Cross-Network Token Substitution | The network carried by the credential |
-| `DCA-004` Valid Pass Presented to the Wrong Tool Audience | The audience named in the pass |
-| `DCA-006` Pass Used After Expiry | Expiry carried in the pass |
-| `MCP-022` Bearer Token Audience Binding | The audience carried by the bearer token |
-| `X4-025` Forged Attestation Injection (OATR) | Signature verification against a key registry, the integrity check itself |
+| Test | The claim that a forger controls | Runs against |
+|---|---|---|
+| `AP2-007` Mandate Chain Link (transaction_id) | The hash link between signed mandates | Live (`--url`) |
+| `AP2-008` Open-Mandate Substitution (sd_hash) | The `sd_hash` binding between signed mandates | Live (`--url`) |
+| `AP2-009` Agent Key Forgery (cnf mismatch) | Which key may sign, as stated in the `cnf` claim | Live (`--url`) |
+| `AP2-012` Expired Payment Mandate | The `exp` claim | Live (`--url`) |
+| `CTK-001` Agent Holder-Key Binding | The holder key bound into the token | Live (`--url`) |
+| `CTK-012` Cross-Network Token Substitution | The network carried by the credential | Live (`--url`) |
+| `DCA-004` Valid Pass Presented to the Wrong Tool Audience | The audience named in the pass | Live (`--url`) |
+| `DCA-006` Pass Used After Expiry | Expiry carried in the pass | Live (`--url`) |
+| `MCP-022` Bearer Token Audience Binding | The audience carried by the bearer token | Live (`--url`) |
+| `X4-025` Forged Attestation Injection (OATR) | Signature verification against a key registry, the integrity check itself | Live (`--url`) |
 
 These tests remain the right check against **a stolen credential used outside its scope**: the wrong audience, an expired pass, another network. They are not evidence of anything once signatures can be forged.
 
 ## Class M: mixed
 
-| Test | State half | Cryptographic half |
-|---|---|---|
-| `CTK-005` Cryptogram Freshness (counter replay) | Monotonic counter: a captured value is not reusable | The cryptogram itself |
-| `AUTH-002` Expired/Revoked Credential Rejection | Revocation status | Expiry carried in the credential |
+| Test | State half | Cryptographic half | Runs against |
+|---|---|---|---|
+| `CTK-005` Cryptogram Freshness (counter replay) | Monotonic counter: a captured value is not reusable | The cryptogram itself | Live (`--url`) |
+| `AUTH-002` Expired/Revoked Credential Rejection | Revocation status | Expiry carried in the credential | Live (`--url`) |
 
 ## Identity-assertion tests
 
@@ -76,7 +86,7 @@ These tests remain the right check against **a stolen credential used outside it
 
 ## Reading a deployment's results through this profile
 
-1. **Class S results bound a stolen credential.** A FAIL in class S means a single stolen credential can exceed its limit: more uses, more spend, or survival after revocation.
+1. **Class S results bound a stolen credential,** for the tests that ran against your target (live or adapter). A FAIL in class S means a single stolen credential can exceed its limit: more uses, more spend, or survival after revocation.
 2. **Class C results bound a stolen credential's scope.** Against forgery they establish nothing, whatever the verdict.
 3. **The question to ask a vendor:** for each class S control, does the server check against its own records (issuance, status, use), or only verify a signature? Only the first survives forgery.
 4. **Approval is the last line against a stolen credential** only if the requester cannot also approve. Until #739 has a test, no result here establishes separation of duties.
