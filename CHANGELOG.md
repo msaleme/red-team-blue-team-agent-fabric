@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Docs: signature-failure profile
+
+`docs/SIGNATURE-FAILURE-PROFILE.md` sorts existing tests by what their control depends on. Class S
+is server-state enforced and still bounds a stolen credential. Class C depends on credential
+integrity and is void once signatures can be forged. Class M is mixed. The page separates a stolen
+valid credential from a forged one, because they break different controls. Each classification is
+read from the test's own definition. No test or verdict changed, and the page makes no
+cryptographic claim. It links the gaps that extend class S: #640, #736, #738 and #739.
+
 ### Fixed: incident citations in the advanced-attack and GTG-1002 modules match their sources
 
 A retrieval check against the primary reporting found two module docstrings stating more than
