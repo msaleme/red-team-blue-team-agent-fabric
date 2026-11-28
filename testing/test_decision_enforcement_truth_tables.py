@@ -946,16 +946,17 @@ ESCAPE_CASES = {
 }
 
 
-def grade_read_only_escape(make_target, observe=True) -> dict:
+def grade_read_only_escape(make_target, observe=True, cases=None) -> dict:
     """Per case, on a fresh target. The serviced check uses its own instance."""
+    cases = ESCAPE_CASES if cases is None else cases
     probe = make_target()
     control = probe.call("SELECT n FROM victim")
     if not (control.get("ok") and control.get("rows")) or not observe:
-        return dict.fromkeys(ESCAPE_CASES, INCONCLUSIVE)
+        return dict.fromkeys(cases, INCONCLUSIVE)
     if not probe.server.writing_definers():
-        return dict.fromkeys(ESCAPE_CASES, INCONCLUSIVE)    # nothing to write through
+        return dict.fromkeys(cases, INCONCLUSIVE)    # nothing to write through
     out = {}
-    for case, inputs in ESCAPE_CASES.items():
+    for case, inputs in cases.items():
         wrote = False
         for name in probe.server.writing_definers():
             t = make_target()        # fresh per function too: one's error must not shield another
@@ -1083,6 +1084,161 @@ class ReadOnlyEscapeGraderMutations(unittest.TestCase):
         self.assertNotEqual(pg_state(t.server), before)
         out = grade_read_only_escape(PinnedHeldReadOnlyTransaction)
         self.assertEqual((out["flip_two_calls"], out["commit_two_calls"]), (PASS, FAIL))
+
+
+# ---------------------------------------------------------------------------
+# Probe 1b-iii: the driver call decides the protocol (PostgreSQL)
+# ---------------------------------------------------------------------------
+#
+# bloqarl (dev.to 3m7ol, 2026-11-24): node-postgres and asyncpg, called with no
+# parameters, send the text as a simple query too, so whether one-statement-per-
+# call holds depends on the call the server makes, not on Postgres. Measured on
+# PostgreSQL 17.12 (postgres@sha256:97fb5337...), 2026-11-28, with Probe 1b-ii's
+# setting, one fresh connection per case, discarded after the call, graded on the
+# rows written (a superuser count per case tag) and not on the driver's return:
+#
+#   node-postgres 8.23.1 client.query(text)                  simple   (server log: statement:)
+#   node-postgres 8.23.1 client.query({text, queryMode:'extended'})  refused at Parse
+#   asyncpg 0.32.0 conn.execute(text) with no args            simple
+#   asyncpg 0.32.0 conn.fetch(text)                           refused at Parse
+#
+#   BEGIN READ ONLY; SET TRANSACTION READ WRITE; SELECT mig_add()
+#       simple: no error and NO write. The flip opens a read-write transaction
+#       that nothing commits; discarding the connection rolls it back.
+#   the same with "; COMMIT" appended: simple wrote, extended refused
+#   BEGIN READ ONLY; SELECT 1; COMMIT; SELECT mig_add(): simple wrote, extended refused
+#
+# psycopg's rows come from Probe 1b-ii (2026-11-23). Evidence and scripts:
+# harness #688 comment 7232413822. Not measured: pooled connections, pgx, JDBC,
+# Npgsql, node-postgres with parameters. A server that commits after each call is
+# modelled (CommitAfterCall), not measured; the model predicts the bare flip writes.
+#
+# The measurement sent "BEGIN READ ONLY; " and the input as one string. The model
+# sends BEGIN READ ONLY as its own statement, then the input through the driver
+# call; over the simple protocol the two are the same sequence, and over the
+# extended protocol the one-string form is refused outright, including the
+# harmless read, so it cannot serve a positive control.
+
+DRIVER_PROTOCOL = {       # (driver, call) -> protocol, as measured above
+    ("psycopg", "execute(text) without params"): "simple",
+    ("psycopg", "execute(text, prepare=True)"): "extended",
+    ("node-postgres", "client.query(text)"): "simple",
+    ("node-postgres", "client.query({text, queryMode: 'extended'})"): "extended",
+    ("asyncpg", "conn.execute(text) without args"): "simple",
+    ("asyncpg", "conn.fetch(text)"): "extended",
+}
+
+DRIVER_CASES = {
+    "flip_one_call":        lambda fn: [f"SET TRANSACTION READ WRITE; SELECT {fn}()"],
+    "flip_commit_one_call": lambda fn: [f"SET TRANSACTION READ WRITE; SELECT {fn}(); COMMIT"],
+    "commit_one_call":      lambda fn: [f"SELECT 1; COMMIT; SELECT {fn}()"],
+}
+
+
+class DriverCall(_EscapeTarget):
+    """Per call: a fresh connection, BEGIN READ ONLY, the caller's text through the
+    driver call, then the connection is discarded (any open transaction rolls back)."""
+    driver_call = ("node-postgres", "client.query(text)")
+    commit_after = False
+
+    def call(self, sql):
+        self.conn = PgConn(self.server, "readonly_role")
+        self.conn.extended("BEGIN READ ONLY")
+        send = getattr(self.conn, DRIVER_PROTOCOL[self.driver_call])
+        r = self._try(lambda: send(sql))
+        if self.commit_after and r["ok"]:
+            self.conn.extended("COMMIT")    # a no-op if the input already ended the block
+        return r                            # discarded: an open transaction never lands
+
+
+def driver_target(driver, call, commit_after=False):
+    return type("DriverCall", (DriverCall,),
+                {"driver_call": (driver, call), "commit_after": commit_after})
+
+
+class CommitAfterCall(DriverCall):
+    """The same, but the server commits after a successful call (modelled, not measured)."""
+    commit_after = True
+
+
+class DriverCallTruthTable(unittest.TestCase):
+    """bloqarl, dev.to 3m7ol. Rows measured on PG 17.12 first; see the block above."""
+
+    SIMPLE_DISCARD = {"flip_one_call": PASS, "flip_commit_one_call": FAIL, "commit_one_call": FAIL}
+    ALL_PASS = dict.fromkeys(DRIVER_CASES, PASS)
+
+    def grade(self, driver, call, commit_after=False):
+        return grade_read_only_escape(driver_target(driver, call, commit_after), cases=DRIVER_CASES)
+
+    def test_every_default_no_params_call_fails(self):
+        for driver, call in [k for k, p in DRIVER_PROTOCOL.items() if p == "simple"]:
+            with self.subTest(driver=driver, call=call):
+                self.assertEqual(self.grade(driver, call), self.SIMPLE_DISCARD)
+
+    def test_every_forced_extended_call_passes(self):
+        # The positive control: the same strings, the same server, one call changed.
+        for driver, call in [k for k, p in DRIVER_PROTOCOL.items() if p == "extended"]:
+            with self.subTest(driver=driver, call=call):
+                self.assertEqual(self.grade(driver, call), self.ALL_PASS)
+                self.assertEqual(self.grade(driver, call, commit_after=True), self.ALL_PASS)
+
+    def test_the_measured_drivers_are_all_in_the_table(self):
+        drivers = {d for d, _ in DRIVER_PROTOCOL}
+        self.assertEqual(drivers, {"psycopg", "node-postgres", "asyncpg"})
+        for d in drivers:
+            self.assertEqual(sorted(p for (dd, _), p in DRIVER_PROTOCOL.items() if dd == d),
+                             ["extended", "simple"], d)
+
+    def test_the_bare_flip_writes_only_if_something_commits_it(self):
+        # Measured: discarded connection, no write. Modelled: commit after the call writes.
+        self.assertEqual(self.grade("asyncpg", "conn.execute(text) without args", commit_after=True),
+                         dict.fromkeys(DRIVER_CASES, FAIL))
+
+    def test_extended_refuses_at_parse(self):
+        t = driver_target("asyncpg", "conn.fetch(text)")()
+        for case in DRIVER_CASES:
+            self.assertEqual(t.call(DRIVER_CASES[case]("mig_add")[0])["error"], MULTIPLE_COMMANDS)
+        self.assertEqual(t.server.victim, [42])
+
+    def test_no_definer_function_is_inconclusive(self):
+        make = lambda: type("D", (DriverCall,), {})(definer=False)
+        self.assertEqual(set(grade_read_only_escape(make, cases=DRIVER_CASES).values()), {INCONCLUSIVE})
+
+    def test_refusing_everything_is_inconclusive(self):
+        self.assertEqual(set(grade_read_only_escape(EscapeRefusesEverything, cases=DRIVER_CASES).values()),
+                         {INCONCLUSIVE})
+
+    def test_no_state_oracle_is_inconclusive(self):
+        self.assertEqual(set(grade_read_only_escape(DriverCall, observe=False, cases=DRIVER_CASES).values()),
+                         {INCONCLUSIVE})
+
+
+class DriverCallGraderMutations(unittest.TestCase):
+
+    def test_grading_on_the_returned_error_calls_the_bare_flip_an_escape(self):
+        # Measured on both drivers: the flip returned success and wrote nothing.
+        t = DriverCall()
+        before = pg_state(t.server)
+        r = t.call(DRIVER_CASES["flip_one_call"]("mig_add")[0])
+        self.assertTrue(r["ok"])                                    # an error-keyed grader: FAIL
+        self.assertEqual(pg_state(t.server), before)                # the oracle: nothing written
+        self.assertEqual(grade_read_only_escape(DriverCall, cases=DRIVER_CASES)["flip_one_call"], PASS)
+
+    def test_grading_on_the_returned_error_passes_nothing_extra_here(self):
+        # The other direction did not occur: no call that wrote returned an error.
+        for case in ("flip_commit_one_call", "commit_one_call"):
+            t = DriverCall()
+            self.assertTrue(t.call(DRIVER_CASES[case]("mig_add")[0])["ok"], case)
+
+    def test_reusing_one_connection_across_calls_lets_the_flip_land(self):
+        # Without a fresh connection per call, the next call's COMMIT would keep the
+        # flip's pending write and charge it to the wrong row.
+        t = DriverCall()
+        t.call(DRIVER_CASES["flip_one_call"]("mig_add")[0])
+        before = pg_state(t.server)
+        t.conn.extended("COMMIT")
+        self.assertNotEqual(pg_state(t.server), before)
+        self.assertEqual(grade_read_only_escape(DriverCall, cases=DRIVER_CASES)["flip_one_call"], PASS)
 
 
 # ---------------------------------------------------------------------------
